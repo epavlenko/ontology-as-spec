@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Mockup</title></head>
+<body>
+<!-- Every meaningful element carries data-ont with a glossary ID; the tooltip comes from ontology.js. -->
+<main data-ont="view.thing.page">
+  <h1>Thing</h1>
+  <p>State: <span data-ont="field.state">open</span></p>
+  <button data-ont="action.close">Close</button>
+</main>
+<script src="ontology.js"></script>
+<script src="../../tools/ont-check/ont-tooltips.js"></script>
+<!-- IDs built in script from a template (data-ont="class.${key}") must be declared in a
+     "data-ont dynamic" comment inside a script; see example/mockup/index.html. -->
+</body>
+</html>

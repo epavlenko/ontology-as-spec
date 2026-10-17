@@ -1,0 +1,5 @@
+#!/bin/sh
+# Runs the drift check on the example and the templates when a commit touches them or the tool.
+if git diff --cached --name-only | grep -qE '^(example|templates|tools)/'; then
+  npm run --silent check || exit 1
+fi

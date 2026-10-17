@@ -1,0 +1,19 @@
+{
+  "classes": ["ent", "field", "edge", "rule", "inv", "derived", "concept", "hook", "view", "action"],
+  "ontology": "ontology.md",
+  "headings": {
+    "glossary": "## Glossary",
+    "implementation": "## Implementation status"
+  },
+  "root": ".",
+  "decisions": {
+    "file": "decisions.md",
+    "entry": "^### (D-\\d+) · .+$",
+    "ref": "\\bD-\\d+\\b"
+  },
+  "glossaryOut": "mockup/ontology.js",
+  "mockup": ["mockup/index.html"],
+  "map": { "file": "mockup/ontology-map.md", "idColumn": 2 },
+  "features": { "dir": "features", "cover": ["view", "action", "hook"] },
+  "notYetShown": ["view", "action", "field", "derived", "concept"]
+}

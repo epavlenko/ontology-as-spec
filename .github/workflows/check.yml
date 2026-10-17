@@ -1,0 +1,18 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Drift check on the example and the templates
+        run: npm run check
+      - name: Tests of the check and of the example code
+        run: node --test 'tools/ont-check/test/*.test.mjs' 'example/app/*.test.mjs'

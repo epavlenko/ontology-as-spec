@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lending Library · mockup</title>
+<style>
+  body { font: 14px/1.45 system-ui, sans-serif; margin: 0; color: #1d2330; background: #f6f7f9; }
+  header { display: flex; gap: 4px; padding: 10px 16px; background: #fff; border-bottom: 1px solid #e3e6ea; }
+  header button { border: 0; background: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font: inherit; }
+  header button[aria-pressed="true"] { background: #e8eefc; color: #1f4fd1; }
+  main { max-width: 760px; margin: 24px auto; padding: 0 16px; }
+  .card { background: #fff; border: 1px solid #e3e6ea; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { text-align: left; padding: 6px 4px; border-bottom: 1px solid #f0f1f3; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+  .available { background: #e3f6e8; color: #17703a; }
+  .overdue { background: #fde7e7; color: #a52020; }
+  .muted { color: #6b7280; font-size: 12px; }
+  .note { background: #fff8e1; border: 1px solid #f3e1a0; border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
+  button.act { border: 1px solid #c9cfd8; background: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  button.act[disabled] { color: #9aa1ab; cursor: not-allowed; }
+  input { padding: 5px 8px; border: 1px solid #c9cfd8; border-radius: 6px; }
+</style>
+</head>
+<body>
+<header id="tabs"></header>
+<main id="screen"></main>
+
+<script src="ontology.js"></script>
+<script src="../../tools/ont-check/ont-tooltips.js"></script>
+<script>
+/* data-ont dynamic (for tools/ont-check/ont-check.mjs): 'derived.available','derived.overdue' */
+const data = {
+  titles: [
+    { id: 'dune', name: 'Dune', items: [
+      { id: 'dune-1', condition: 'good', status: 'overdue', note: 'Ana, due 2026-10-22' },
+      { id: 'dune-2', condition: 'worn', status: 'onloan', note: 'Ben, due 2026-10-22' } ],
+      queue: ['Chen', 'Dana'] },
+    { id: 'drill', name: 'Cordless drill', items: [
+      { id: 'drill-1', condition: 'good', status: 'available' } ], queue: [] },
+  ],
+  loans: [
+    { item: 'dune-1', title: 'Dune', due: '2026-10-22', status: 'overdue', renewals: 0, held: true },
+    { item: 'game-4', title: 'Catan', due: '2026-10-30', status: '', renewals: 1, held: false },
+  ],
+};
+const SCREENS = {
+  catalog: ['Catalog', 'view.catalog'],
+  title: ['Title page', 'view.title.page'],
+  loans: ['My loans', 'view.member.loans'],
+  desk: ['Desk', 'view.desk'],
+};
+let current = 'loans';
+const badge = s => s === 'available' || s === 'overdue'
+  ? `<span class="badge ${s}" data-ont="derived.${s}">${s}</span>` : '<span class="muted">on loan</span>';
+
+const views = {
+  catalog: () => `<div class="card" data-ont="view.catalog">
+      <input placeholder="Search titles" aria-label="Search titles">
+      <table>${data.titles.map(t => {
+        const free = t.items.filter(i => i.status === 'available').length;
+        return `<tr><td><a href="#" data-open="${t.id}">${t.name}</a></td>
+          <td>${free ? `${free} available` : `<span data-ont="derived.queue-position">${t.queue.length} in queue</span>`}</td></tr>`;
+      }).join('')}</table></div>`,
+
+  title: () => { const t = data.titles[0]; return `<div class="card" data-ont="view.title.page">
+      <h2>${t.name}</h2>
+      <table><tr><th>Item</th><th data-ont="field.item-condition">Condition</th><th>Status</th></tr>
+      ${t.items.map(i => `<tr><td>${i.id}</td><td>${i.condition}</td><td>${badge(i.status)} <span class="muted">${i.note || ''}</span></td></tr>`).join('')}</table>
+      <h3>Queue</h3>
+      <ol>${t.queue.map(n => `<li data-ont="derived.queue-position">${n}</li>`).join('')}</ol>
+      <p class="muted" data-ont="concept.reservation">When an item comes back it is set aside for the first in the queue for
+        <span data-ont="rule.pickup-window">3 days</span>.</p>
+      <button class="act" data-ont="action.place-hold">Place hold</button>
+      <button class="act" data-ont="action.cancel-hold">Cancel my hold</button></div>`; },
+
+  loans: () => `<div class="card" data-ont="view.member.loans">
+      <h2>Ana · my loans</h2>
+      <div class="note" data-ont="concept.suspension">Borrowing is paused until <b>Dune</b> is back. There is no fine.
+        <span class="muted" data-ont="inv.suspended-cannot-borrow">(why)</span></div>
+      <table><tr><th>Title</th><th data-ont="field.due-date">Due</th><th data-ont="field.renewals">Renewed</th><th></th></tr>
+      ${data.loans.map(l => `<tr><td>${l.title}</td><td>${l.due} ${l.status ? badge(l.status) : ''}</td><td>${l.renewals} of 2</td>
+        <td>${l.held
+          ? `<button class="act" disabled data-ont="action.renew">Renew</button> <span class="muted" data-ont="inv.no-renew-when-held">2 people are waiting</span>`
+          : `<button class="act" data-ont="action.renew">Renew</button>`}</td></tr>`).join('')}</table>
+      <p class="muted" data-ont="hook.due-reminder">You get one reminder two days before a due date.</p></div>`,
+
+  desk: () => `<div class="card" data-ont="view.desk">
+      <h2>Desk</h2>
+      <p><input placeholder="Item" value="drill-1" aria-label="Item"> <input placeholder="Member" value="ana" aria-label="Member">
+        <button class="act" data-ont="action.checkout" id="co">Check out</button>
+        <button class="act" data-ont="action.return">Return</button></p>
+      <div id="refusal"></div>
+      <p class="muted">Loans: <span data-ont="field.borrow-limit">2 of 5</span></p></div>`,
+};
+
+function render() {
+  document.getElementById('tabs').innerHTML = Object.entries(SCREENS).map(([k, [label, id]]) =>
+    `<button data-tab="${k}" data-ont="${id}" aria-pressed="${k === current}">${label}</button>`).join('');
+  document.getElementById('screen').innerHTML = views[current]();
+}
+document.addEventListener('click', e => {
+  const tab = e.target.closest('[data-tab]');
+  if (tab) { current = tab.dataset.tab; render(); }
+  if (e.target.closest('[data-open]')) { e.preventDefault(); current = 'title'; render(); }
+  if (e.target.id === 'co') document.getElementById('refusal').innerHTML =
+    `<div class="note" data-ont="inv.suspended-cannot-borrow">Refused: Ana has an overdue loan (Dune). Checkout resumes when it is back.</div>`;
+});
+render();
+</script>
+</body>
+</html>
