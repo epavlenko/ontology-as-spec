@@ -46,11 +46,18 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: "ontology" is the word the practice used and is memorable; "concept-anchored" places it in the existing vocabulary and says what is anchored. The README explains that the ontology is semi-formal, not OWL or RDF.
 - Rejected: "concept-anchored development" as the name (precise but forgettable); "ontology-driven development" (suggests generation from a formal model).
 
+### D-07 · CC BY 4.0 for the text, MIT for the tool, templates and example
+
+- Date: 2026-10-17 · Status: accepted
+- Decision: `README.md`, `docs/` and `decisions.md` are licensed under CC BY 4.0. `tools/`, `templates/` and `example/` are licensed under MIT. Copyright holder: Jevgenijs Pavlenko.
+- Why: the goal is for the approach to spread while authorship stays with its author. CC BY allows any reuse with attribution. Templates and the example exist to be copied into other repositories, and MIT puts no conditions on the copies beyond keeping the notice.
+- Rejected: CC BY-SA for the text (copyleft on adaptations adds friction for companies and publishers and protects only the wording, since the approach itself can be retold in other words under any license); CC BY-NC (would stop consultants and companies from teaching and using it); Apache 2.0 for the tool (its patent grant is unnecessary for a small script); one license for everything (Creative Commons licenses are not recommended for software, and MIT fits prose poorly).
+
 ## Open questions
 
-- License: documentation under CC BY 4.0 and the tool under MIT, or one license for everything.
 - When to name the source project.
 
 ## History
 
+- 2026-10-17: D-07: licenses.
 - 2026-10-17: D-01…D-06.

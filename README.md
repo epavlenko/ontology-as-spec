@@ -59,3 +59,10 @@ node --test 'tools/ont-check/test/*.test.mjs'                        # the check
 Then open `example/mockup/index.html` and hover over the elements.
 
 To adopt it, copy `templates/` into your repository, write the first ten glossary rows for the concepts you argue about most, and point `ont.config.json` at your files. See [Adopting](docs/lifecycle.md#adopting-the-approach).
+
+## License
+
+Copyright © 2026 Jevgenijs Pavlenko.
+
+- The text in `README.md`, `docs/` and `decisions.md` is licensed under [Creative Commons Attribution 4.0 International](LICENSE-CC-BY-4.0) (CC BY 4.0). You may copy, adapt and use it for any purpose, including commercially, as long as you credit the author and link the source.
+- The tool in `tools/`, the templates in `templates/` and the example in `example/` are licensed under the [MIT License](LICENSE). Copy them into your own repositories freely; keep the copyright notice with the tool.
