@@ -1,64 +1,87 @@
 # Ontology as Specification
 
-Keep a product's meaning in the repository as a semi-formal ontology in which every concept has a permanent ID. Make every other artifact, including the mockup, the decision log, the implementation table, the verification scenarios and the tickets, refer to concepts by those IDs. Run a check that keeps the references whole in both directions.
+A way to specify a product for AI coding agents: one model of the product's concepts that the UI, the decisions and the code all refer to, kept consistent by an automatic check.
 
-This approach is **concept-anchored**. In Birgitta Böckeler's terms ([spec-first, spec-anchored, spec-as-source](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html)) it is spec-anchored, but the unit that stays anchored is a concept rather than a feature. A feature spec describes one change and then ages. A concept has one ID and one definition, and every artifact that touches it points back at it for as long as the product lives.
+## Summary
 
-## The problem it addresses
+When AI agents write most of the code, the description of the product becomes the main input to development. That description is usually scattered, and its parts drift apart. This approach keeps it in one place: a list of the product's concepts, each with a permanent ID and one definition. Everything else points at those IDs, and a script fails the build when the pointers stop matching. Agents then know what each thing is and why it is that way, so they can work longer without a human.
 
-When most of the code is written by coding agents, the expensive failure is not bad code. It is an agent building the wrong thing confidently. The cause is usually lost meaning:
+## The problem
 
-- The same idea has three names in the doc, the mockup and the code, and an agent treats them as three things.
-- A decision was made in a conversation, its reason was never written down, and the next agent reverses it.
-- The design document describes where the product is going. Nobody can tell which parts already exist.
-- A mockup shows a button whose behavior is defined nowhere.
+The description of a product lives in many places: design docs, mockups, tickets, chats and the code itself. Each place names and defines things its own way, and nothing connects them. Over time they drift apart. Agents read only what is in front of them and remember nothing between sessions, so they take whichever version they see. Feature specs help with one change at a time, but nothing keeps the shared concepts consistent across all changes.
 
-Feature-level specs (Spec Kit, Kiro, OpenSpec) help with one change at a time. They do not keep a shared vocabulary consistent across all changes, and they do not tie the interface to that vocabulary.
+An example. You ask an agent to add holds to a library app. The design doc calls them "holds", the mockup says "reservations", and the code has `queueEntry`. The agent builds a fourth thing.
 
-## The idea in six points
+Last month you decided that a loan cannot be renewed while someone is waiting for the book. The reason lives in an old chat. The next agent "fixes" it.
 
-1. **One concept, one ID, one definition.** A glossary table lists every concept as `class.name` (`field.due-date`, `inv.one-loan-per-item`, `view.member.loans`) with a short definition. IDs never change; renaming a term changes only its text.
-2. **Decisions are appended, never edited.** Every product decision has a date, a reason, the rejected alternatives and the concept IDs it touches. A changed mind is a new entry that supersedes the old one.
-3. **Target and reality are kept apart on purpose.** The ontology describes the target model. An implementation table maps IDs to the files that implement them, and a list of known divergences says where the code disagrees.
-4. **The mockup is the UI specification.** Every meaningful element carries `data-ont="<id>"`; its tooltip is generated from the glossary. A map records what each element shows and what it deliberately does not do.
-5. **A check keeps it whole.** One script cross-checks the glossary, the ontology text, the generated tooltips, the mockup, the map, the decision log, the implementation table and the verification scenarios. It runs on commit and in CI.
-6. **Agents start from IDs and finish on commands.** Agent rules say what else to update when something changes. Tickets name the IDs they touch, and their "Done when" is a list of commands.
+## The idea
 
-## What "ontology" means here
+Give every product concept one name, one short definition and a permanent ID:
 
-The ontology is a semi-formal Markdown document of tables and prose, written for people and agents to read. It is not OWL, RDF or a formal logic. It names entities, fields, relations, rules, invariants, derived values, automatic behaviors, views and actions, and it says how they relate. Its job is to be the one place where a concept is defined, so that everything else can point at it.
+```markdown
+| ID                       | Term                 | Definition                                                   |
+| ------------------------ | -------------------- | ------------------------------------------------------------ |
+| `action.renew`           | Renew                | Move the due date by the renewal rule. Refused while someone waits for the title. |
+| `inv.no-renew-when-held` | No renewal when held | A loan cannot be renewed while someone waits for the title.  |
+```
 
-## Where it came from
+This list, with the longer explanations around it, is the "ontology". It is a plain Markdown file written for people and agents to read, not a formal model in OWL or RDF.
 
-The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks that ontology grew to roughly 150 concepts and 40 decisions, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product. The example is fictional.
+Then everything that touches meaning refers to the IDs:
 
-Status: a working practice in one project, with a tool generalized from it. Everything under [Proposed strengthening](docs/limitations.md#proposed-strengthening) is a proposal that has not been tried.
+- **Decisions.** Each decision is logged with its date, its reason, the rejected alternatives and the IDs it affects. Old entries are never edited; a new entry replaces them.
+- **The UI.** Each meaningful element of the interface mockup carries `data-ont="action.renew"`, and its tooltip comes from the definition. A map records what each element shows and what it deliberately does not do.
+- **The code.** A table says which concepts are already implemented and in which files, and a list says where the code still disagrees with the agreed target.
+- **Verification.** A scenario for each implemented feature names the IDs it proves.
+- **Tasks.** A ticket names the IDs it touches and ends with the commands that must pass.
 
-## Repository map
+One script checks all of these against each other, in both directions, on every commit and in CI.
+
+## Who it is for
+
+Teams and solo builders whose code is mostly written by coding agents, and the person who owns what the product means: a founder, a product owner, a tech lead. It pays off when the product has enough concepts that people argue about their names and rules, and when agents run long tasks without supervision.
+
+It is not a tool for generating code from a specification. See [why not spec-as-source](docs/why-not-spec-as-source.md).
+
+## Try it in two minutes
+
+Requires Node 20 or later.
+
+```bash
+node tools/ont-check/ont-check.mjs --config example/ont.config.json   # prints ONT_OK
+node --test 'tools/ont-check/test/*.test.mjs'                        # the check catches each kind of drift
+```
+
+Then open `example/mockup/index.html` in a browser and hover over the elements. Rename a `data-ont` value or delete a row from `example/mockup/ontology-map.md`, run the check again, and read what it reports.
+
+To adopt the approach, start with ten glossary rows for the concepts your team argues about most. See [Adopting the approach](docs/lifecycle.md#adopting-the-approach) and the [templates](templates/README.md).
+
+## What's in this repository
 
 | Path | What it is |
 | ---- | ---------- |
-| [docs/principles.md](docs/principles.md) | the principles behind the approach |
+| [example/](example/README.md) | a fictional lending library described end to end: ontology, decisions, mockup, map, scenarios, a ticket and code |
+| [docs/principles.md](docs/principles.md) | the principles and the failures each one prevents |
 | [docs/parts/](docs/parts/README.md) | the eight parts, one file each: format, rules, what the check catches and what it does not |
-| [docs/lifecycle.md](docs/lifecycle.md) | how a change travels: new concept, rename, removal, superseded decision, implementation |
+| [docs/lifecycle.md](docs/lifecycle.md) | how a change travels: new concept, rename, removal, superseded decision, implementation, adoption |
 | [docs/comparison.md](docs/comparison.md) | spec-driven development tools and older practices, with links to primary sources |
-| [docs/why-not-spec-as-source.md](docs/why-not-spec-as-source.md) | why the ontology does not generate the product, and why that is fine |
-| [docs/limitations.md](docs/limitations.md) | weaknesses, open questions, proposed strengthening |
-| [example/](example/README.md) | a fictional lending library described end to end, with mockup, scenarios and code |
-| [templates/](templates/README.md) | empty starting points for every artifact |
-| [tools/ont-check/](tools/ont-check/README.md) | the check and the glossary generator; Node, no dependencies |
-| [decisions.md](decisions.md) | decisions about this repository and the approach itself |
+| [docs/why-not-spec-as-source.md](docs/why-not-spec-as-source.md) | why the ontology does not generate the product |
+| [docs/limitations.md](docs/limitations.md) | weaknesses, open questions and proposed strengthening |
+| [templates/](templates/README.md) | starting files for every artifact |
+| [tools/ont-check/](tools/ont-check/README.md) | the check and the tooltip generator; Node, no dependencies |
+| [decisions.md](decisions.md) | decisions about this repository |
 
-## Try it
+## How it compares
 
-```bash
-node tools/ont-check/ont-check.mjs --config example/ont.config.json   # ONT_OK
-node --test 'tools/ont-check/test/*.test.mjs'                        # the check fails on each kind of drift
-```
+Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) of spec-driven development: spec-first, spec-anchored and spec-as-source. This approach is spec-anchored, but what stays anchored is a concept rather than a feature. A feature spec describes one change and then ages. A concept keeps its ID for the life of the product. We call this **concept-anchored**. Tools such as Spec Kit, Kiro and OpenSpec work per feature or per change. None of them ties the interface to a shared vocabulary. The full comparison, including older practices such as Domain-Driven Design and decision records, is in [docs/comparison.md](docs/comparison.md).
 
-Then open `example/mockup/index.html` and hover over the elements.
+## Status and origin
 
-To adopt it, copy `templates/` into your repository, write the first ten glossary rows for the concepts you argue about most, and point `ont.config.json` at your files. See [Adopting](docs/lifecycle.md#adopting-the-approach).
+The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks its ontology grew to roughly 150 concepts and 40 decisions, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product. The example is fictional.
+
+The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Everything under [Proposed strengthening](docs/limitations.md#proposed-strengthening) is a proposal that has not been tried.
+
+Questions and suggestions are welcome as GitHub issues. Maintained by Jevgenijs Pavlenko.
 
 ## License
 
