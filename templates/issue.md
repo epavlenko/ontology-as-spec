@@ -4,7 +4,7 @@
 
 What changes for the user, in two or three sentences.
 
-Ontology IDs: `<id>`, `<id>`.
+Ontology IDs: `action.close`, `inv.closed-is-final`.
 
 ## Scope
 
@@ -14,9 +14,17 @@ Ontology IDs: `<id>`, `<id>`.
 
 What a helpful agent would otherwise add.
 
+## Scenarios
+
+Expected behavior, one line each, tagged with the IDs it proves. Each becomes a test whose title starts with the same tag. The check requires at least one, an ID tag and GIVEN … WHEN … THEN on every line, and tags from the `IDs:` line only.
+
+- [action.close] GIVEN an open thing WHEN its owner closes it THEN its state is closed.
+- [inv.closed-is-final] GIVEN a closed thing WHEN anyone tries to reopen it THEN the request is refused with the reason.
+
 ## Done when
 
-- [ ] Observable acceptance criteria.
+- [ ] Every scenario above is a test with the same tag, and the tests pass.
+- [ ] Other observable acceptance criteria.
 - [ ] The ontology, the implementation table and the verification map agree.
 
 ## Proof commands

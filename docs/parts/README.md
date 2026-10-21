@@ -11,7 +11,7 @@ Eight parts. The first three hold meaning, the next three tie artifacts to it, a
 | 5   | [Drift check](drift-check.md)                           | one script that cross-checks all of the above                          |
 | 6   | [Verification map](verification-map.md)                | how to prove each implemented concept works, keyed by ID               |
 | 7   | [Agent rules](agent-rules.md)                           | what else to update when something changes, and what the check cannot see |
-| 8   | [Agent workflow](agent-workflow.md)                     | tasks that start from IDs, finish on commands, and ship in slices      |
+| 8   | [Agent workflow](agent-workflow.md)                     | tasks that start from IDs, state behavior as tagged scenarios, finish on commands, and ship in slices |
 
 Each file follows the same outline: what it is, the format, the rules, what the check enforces, what it cannot enforce, and how it fails in practice. The [example](../../example/README.md) has a working instance of every part.
 

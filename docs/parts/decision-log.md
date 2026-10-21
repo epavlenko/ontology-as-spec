@@ -39,10 +39,22 @@ It descends from [Architecture Decision Records](https://www.cognitect.com/blog/
 - Every `D-nn` referenced in the ontology or the map has an entry.
 - No entry number is used twice.
 
+A second script, `tools/ont-check/guard-decisions.mjs`, enforces the never-edit rule. It takes every entry that was accepted in an earlier commit and fails if its text changed or the entry disappeared. New entries, tentative entries, open questions and history may change freely. It runs in the pre-commit hook against `HEAD` and in CI against the base of the push or pull request:
+
+```text
+$ node tools/ont-check/guard-decisions.mjs --config example/ont.config.json --staged
+ERROR · decisions.md: accepted entries edited since HEAD (1):
+  D-01, first change: - Why: members like one number. Per-title periods made the desk explain the rule on every
+decisions.md: 4 accepted entries in HEAD
+Write a new entry that supersedes the old one instead of editing it.
+DRIFT: 1
+```
+
 ## What it cannot enforce
 
-- That an old entry was not edited. Version control shows it; a review rule or a hook that compares accepted entries against the previous commit would enforce it.
+- That a superseding entry names the entry it supersedes.
 - That a change to the ontology that needed a decision got one.
+- Anything the guard does not see: a commit made with `--no-verify` passes locally and fails in CI; a rewritten history removes the commit the guard compares with.
 
 ## How it fails in practice
 

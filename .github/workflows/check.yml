@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -16,3 +18,12 @@ jobs:
         run: npm run check
       - name: Tests of the check and of the example code
         run: node --test 'tools/ont-check/test/*.test.mjs' 'example/app/*.test.mjs'
+      - name: Accepted decisions are not edited
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "No earlier commit to compare with; nothing to guard."
+            exit 0
+          fi
+          npm run --silent guard -- --base "$BASE"

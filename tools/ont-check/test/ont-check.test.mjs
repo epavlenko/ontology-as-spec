@@ -63,6 +63,18 @@ const cases = [
     (p) => p("mockup/index.html", 'data-ont="derived.${s}"', 'data-ont="derived.overdue"')],
   ["a glossary row nobody refers to", "glossary concepts nobody refers to",
     (p) => p("ontology.md", "\n\n## Implementation status", "\n| `concept.history` | Loan history | Past loans of a member. |\n\n## Implementation status")],
+  ["an implemented invariant no test names", "implemented concepts without a test",
+    (p) => p("app/library.test.mjs", "[inv.one-loan-per-item] ", "")],
+  ["a test tag with an unknown ID", "IDs in tests but not in the glossary",
+    (p) => p("app/library.test.mjs", "[inv.one-loan-per-item]", "[inv.one-loan-per-copy]")],
+  ["a test that proves a concept the table does not list", "IDs in tests but not in the implementation table",
+    (p) => p("app/library.test.mjs", "[action.place-hold]", "[action.place-hold, hook.hold-ready]")],
+  ["a ticket without scenarios", "tickets without scenarios",
+    (p) => p("issues/0003-serve-the-hold-queue.md", "## Scenarios", "## Behavior")],
+  ["a ticket scenario without THEN", "ticket scenarios without an ID tag or GIVEN … WHEN … THEN",
+    (p) => p("issues/0003-serve-the-hold-queue.md", "THEN it is not, although", "and it is not, although")],
+  ["a ticket scenario tag not on the ticket's IDs line", "scenario tags not on the ticket's `IDs:` line",
+    (p) => p("issues/0003-serve-the-hold-queue.md", "- [inv.queue-order]", "- [inv.queue-order, ent.member]")],
 ];
 
 for (const [name, label, edit] of cases)

@@ -29,11 +29,11 @@ This list, with the longer explanations around it, is the "ontology". It is a pl
 
 Then everything that touches meaning refers to the IDs:
 
-- **Decisions.** Each decision is logged with its date, its reason, the rejected alternatives and the IDs it affects. Old entries are never edited; a new entry replaces them.
+- **Decisions.** Each decision is logged with its date, its reason, the rejected alternatives and the IDs it affects. Old entries are never edited; a new entry replaces them, and a guard refuses edits to accepted entries.
 - **The UI.** Each meaningful element of the interface mockup carries `data-ont="action.renew"`, and its tooltip comes from the definition. A map records what each element shows and what it deliberately does not do.
 - **The code.** A table says which concepts are already implemented and in which files, and a list says where the code still disagrees with the agreed target.
-- **Verification.** A scenario for each implemented feature names the IDs it proves.
-- **Tasks.** A ticket names the IDs it touches and ends with the commands that must pass.
+- **Verification.** A scenario for each implemented feature names the IDs it proves, and so does the title of each test: `test("[inv.no-renew-when-held] renewal is refused while someone waits")`.
+- **Tasks.** A ticket names the IDs it touches, states the expected behavior as GIVEN/WHEN/THEN lines tagged with those IDs, and ends with the commands that must pass.
 
 One script checks all of these against each other, in both directions, on every commit and in CI.
 
@@ -77,9 +77,9 @@ Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/ex
 
 ## Status and origin
 
-The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks its ontology grew to roughly 150 concepts and 40 decisions, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product. The example is fictional.
+The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks its ontology grew to roughly 150 concepts, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product. The example is fictional.
 
-The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Everything under [Proposed strengthening](docs/limitations.md#proposed-strengthening) is a proposal that has not been tried.
+The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Tests linked to IDs, scenarios in tickets and the decision guard were added to the tool and the example afterwards and have not been used in a real project. Everything under [Proposed strengthening](docs/limitations.md#proposed-strengthening) is a proposal that has not been tried.
 
 Questions and suggestions are welcome as GitHub issues. Maintained by Jevgenijs Pavlenko.
 

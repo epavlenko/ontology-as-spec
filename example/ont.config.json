@@ -15,5 +15,7 @@
   "mockup": ["mockup/index.html"],
   "map": { "file": "mockup/ontology-map.md", "idColumn": 2 },
   "features": { "dir": "features", "cover": ["view", "action", "hook"] },
+  "tests": { "dir": "app", "match": "\\.test\\.mjs$", "cover": ["inv", "rule", "derived"] },
+  "tickets": { "dir": "issues" },
   "notYetShown": ["view", "action", "field", "derived", "concept"]
 }

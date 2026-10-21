@@ -8,23 +8,19 @@ A run on the example:
 
 ```text
 $ node tools/ont-check/ont-check.mjs --config example/ont.config.json
-glossary 36 · mockup 22 · map 22 · implemented 19 · scenarios 14
+glossary 36 · mockup 22 · map 22 · implemented 19 · scenarios 14 · tested 11 · tickets 1
 ONT_OK
 ```
 
-A run after someone renamed the desk screen's ID in the mockup without touching anything else:
+A run after someone renamed `data-ont="view.desk"` to `view.counter` in the mockup without touching anything else:
 
 ```text
 ERROR · data-ont in the mockup but not in the glossary (1):
   view.counter
-ERROR · IDs in the map but not in the mockup (1):
-  view.desk
 ERROR · data-ont in the mockup but not in the map (1):
   view.counter
-info · glossary concepts with no mockup element yet (1):
-  view.desk
-glossary 36 · mockup 22 · map 22 · implemented 19 · scenarios 14
-DRIFT: 3
+glossary 36 · mockup 23 · map 22 · implemented 19 · scenarios 14 · tested 11 · tickets 1
+DRIFT: 2
 ```
 
 ## What it checks
@@ -43,10 +39,15 @@ DRIFT: 3
 | glossary rows are referenced somewhere | glossary → everything | error |
 | scenario files have an `IDs:` line; their IDs exist | scenarios → glossary | error |
 | implemented concepts of verifiable classes have a scenario | table → scenarios | error |
+| test tags exist and name only implemented concepts | tests → glossary, table | error |
+| implemented concepts of covered classes have a tagged test | table → tests | error |
+| tickets have an `IDs:` line and scenarios; each scenario has a tag from that line and GIVEN … WHEN … THEN | tickets → glossary | error |
 | interface-facing concepts not yet in the mockup | glossary → mockup | info |
 | glossary concepts not explained in the ontology text | glossary → text | info |
 
 The "both directions" part matters. Checking only that references resolve catches typos. Checking also that every concept is referenced, every labelled element is mapped and every implemented concept has a way to be proven catches the slower failure: things that quietly stop being connected.
+
+A separate script, `guard-decisions.mjs`, checks history rather than state: it refuses an edit or removal of an accepted decision entry since an earlier commit ([part 2](decision-log.md#what-the-check-enforces)).
 
 ## Design choices
 
@@ -59,17 +60,18 @@ The "both directions" part matters. Checking only that references resolve catche
 ## What it cannot check
 
 - Meaning. It does not know whether a definition is right, whether two prose descriptions of the same concept agree, or whether an element labelled `action.renew` renews anything.
-- Code behavior. Code does not refer to IDs, so code that contradicts the ontology passes.
-- Whether an accepted decision entry was edited.
+- Code behavior. Product code does not refer to IDs. Tests do, through tags, but the check reads only the tags, so code that contradicts the ontology in a way no test exercises passes.
+- Whether a tagged test proves what its tag says.
 
 These are listed with possible remedies in [limitations](../limitations.md).
 
 ## How it fails in practice
 
 - **The hook covers too few paths.** If code changes do not trigger the check, the implementation table goes stale without a signal. Include the code paths that implement concepts, even though the check does not read code. The point is the reminder.
+- **The hook is bypassed** with `--no-verify`. CI runs the same check and the guard, so the drift reaches the branch but not unnoticed.
 - **Someone adds a rule to silence a finding.** A finding means two artifacts disagree. Fix one of them.
 - **The check grows into a linter of style.** Keep it about references between artifacts.
 
 ## In the example
 
-`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in thirteen different ways and asserts that each break is named.
+`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in nineteen different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.

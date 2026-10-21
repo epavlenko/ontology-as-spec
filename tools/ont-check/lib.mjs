@@ -1,7 +1,7 @@
 // Shared parsing for ont-check and gen-glossary. One parser for both tools: if the generator and
 // the check read the glossary differently, a broken document passes unnoticed.
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 export const read = (path) => readFileSync(path, "utf8");
 
@@ -35,9 +35,36 @@ export function loadConfig(configPath) {
       dir: at(raw.features.dir),
       cover: raw.features.cover ?? [],
     },
+    tests: raw.tests && {
+      dir: at(raw.tests.dir),
+      match: new RegExp(raw.tests.match ?? "\\.test\\.[a-z]+$"),
+      cover: raw.tests.cover ?? [],
+    },
+    tickets: raw.tickets && {
+      dir: at(raw.tickets.dir),
+      match: new RegExp(raw.tickets.match ?? "\\.md$"),
+    },
     notYetShown: raw.notYetShown ?? [],
   };
 }
+
+// Files under dir (recursively) whose relative path matches the pattern, README.md excluded.
+export const listFiles = (dir, match) =>
+  existsSync(dir)
+    ? readdirSync(dir, { recursive: true })
+        .map(String)
+        .filter((f) => match.test(f) && !/(^|\/)README\.md$/.test(f))
+        .sort()
+        .map((f) => join(dir, f))
+    : [];
+
+// Tags in test titles and ticket scenarios: [inv.one-loan-per-item] or [rule.renewal, field.renewals].
+export const tagIds = (text, classes) => {
+  const id = `(?:${classes.join("|")})\\.[a-z0-9-]+(?:\\.[a-z0-9-]+)*`;
+  return [...text.matchAll(new RegExp(`\\[(${id}(?:\\s*,\\s*${id})*)\\]`, "g"))].flatMap((m) =>
+    m[1].split(",").map((x) => x.trim()),
+  );
+};
 
 export const idPattern = (classes) =>
   new RegExp(`^(?:${classes.join("|")})\\.[a-z0-9-]+(?:\\.[a-z0-9-]+)*$`);

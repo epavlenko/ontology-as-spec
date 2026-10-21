@@ -22,7 +22,7 @@ A concept may not appear in the mockup, a ticket or the code before it has a glo
 
 ## 4. Decisions are appended, not edited
 
-A decision records what was chosen, why, what was rejected and which concepts it touches. Once accepted it is never edited. A new entry supersedes or refines it.
+A decision records what was chosen, why, what was rejected and which concepts it touches. Once accepted it is never edited, and a guard refuses such edits on commit and in CI. A new entry supersedes or refines it.
 
 *Prevents:* the next person or agent reversing a decision whose reason they never saw, and reopening an alternative that was already rejected.
 

@@ -24,6 +24,24 @@ The implementation table says "this exists". The scenario says "and this is how 
 
 Scenarios here are recipes, not test code. They can be driven by a person, by an agent with a browser, or turned into automated end-to-end tests. Each scenario pairs an action with an observable result. Where an automated test already covers a step, the scenario cites it.
 
+## Tests that name IDs
+
+Scenarios prove a feature the way a user sees it. Invariants, rules and derived values are proven better by automated tests, and a test says which concepts it proves with a tag at the start of its title:
+
+```js
+test("[inv.one-loan-per-item] an item cannot be on two loans", () => { … });
+test("[rule.renewal, field.renewals] renewal adds 14 days, at most twice", () => { … });
+```
+
+The tag is plain text in the title, so it works with any test runner and shows up in its output. When a ticket's scenario becomes a test, the test carries the scenario's tag (see [part 8](agent-workflow.md#scenarios)).
+
+The check reads the tags from the files configured under `tests` and enforces two directions:
+
+- every implemented concept of a covered class (`tests.cover`; invariants, rules and derived values in the example) is named by at least one test;
+- a test names only concepts the implementation table lists. A tag on something "not implemented" means either the table or the tag is wrong.
+
+This gives the implementation table a mechanical counterpart for the classes that tests can prove. Which classes to cover is a project choice: views and actions are usually proven by scenarios, entities and fields by the tests of the rules that use them.
+
 ## Format
 
 - H1 title, the `IDs:` line, one paragraph on the user-visible behavior.
@@ -45,18 +63,20 @@ Keep implementation details out: user paths, stable handles, required state, obs
 - Every scenario file has an `IDs:` line.
 - Every ID on those lines exists in the glossary.
 - Every implemented `view`, `action` or `hook` (configurable) is covered.
+- Every implemented concept of a class under `tests.cover` is named by a test tag, every tagged ID exists, and every tagged ID is in the implementation table.
 
 ## What it cannot enforce
 
-- That the scenario passes. The check confirms the recipe exists, not that anyone ran it.
-- That the scenario actually exercises the concept it lists.
-- Coverage of fields, entities and invariants. They are usually proven through views and actions, and requiring a scenario per field would produce noise. A project that wants it adds the classes to the configuration.
+- That the scenario passes. The check confirms the recipe exists, not that anyone ran it. Tests are run by the test command, not by the check.
+- That the scenario or the test actually exercises the concept it lists. A tagged test that asserts nothing satisfies the check.
+- Coverage of fields and entities. They are usually proven through views, actions and the tests of rules, and requiring a scenario or a test per field would produce noise. A project that wants it adds the classes to the configuration.
 
 ## How it fails in practice
 
-- **Scenarios rot when the interface changes**, because nothing runs them. The cheapest remedy is to cite an automated test for each step where one exists. The fuller remedy is the proposal to [link tests to IDs](../limitations.md#proposed-strengthening).
+- **Scenarios rot when the interface changes**, because nothing runs them. Cite an automated test for each step where one exists; tagged tests are found by searching for the ID.
+- **Tags added to old tests wholesale** to satisfy the check. A tag is a claim that the test proves the concept. Read the test before tagging it.
 - **One giant scenario file lists every ID** to satisfy the check. Split by feature; one file per thing a user would name.
 
 ## In the example
 
-[`example/features/`](../../example/features/README.md): three scenario files covering the five implemented views and actions, run against the command line front end.
+[`example/features/`](../../example/features/README.md): three scenario files covering the five implemented views and actions, run against the command line front end. [`example/app/library.test.mjs`](../../example/app/library.test.mjs): tests tagged with the invariants, rules and derived values they prove.

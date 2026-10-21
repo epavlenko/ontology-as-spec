@@ -1,5 +1,9 @@
 #!/bin/sh
-# Runs the drift check on the example and the templates when a commit touches them or the tool.
+# Runs the drift check on the example and the templates when a commit touches them or the tool,
+# and refuses a commit that edits or removes an accepted decision entry.
 if git diff --cached --name-only | grep -qE '^(example|templates|tools)/'; then
   npm run --silent check || exit 1
+fi
+if git rev-parse --verify --quiet HEAD >/dev/null; then
+  npm run --silent guard -- --staged || exit 1
 fi

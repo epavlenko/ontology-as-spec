@@ -12,8 +12,8 @@ A library lends books, games and tools. Members borrow items, wait in a queue fo
 | [mockup/ontology-map.md](./mockup/ontology-map.md)     | the UI-to-ontology map                                     |
 | [features/](./features/README.md)                      | the verification map, keyed by `IDs:` lines                |
 | [AGENTS.md](./AGENTS.md)                               | the rules for agents: what else to update, what to run     |
-| [issues/0003-serve-the-hold-queue.md](./issues/0003-serve-the-hold-queue.md) | a ticket that starts from IDs and ends in commands |
-| [app/](./app/)                                         | the code: a small domain module and a command line front end |
+| [issues/0003-serve-the-hold-queue.md](./issues/0003-serve-the-hold-queue.md) | a ticket that starts from IDs, states behavior as tagged GIVEN/WHEN/THEN scenarios and ends in commands |
+| [app/](./app/)                                         | the code: a small domain module, a command line front end, and tests whose titles name the IDs they prove |
 | [ont.config.json](./ont.config.json)                   | the check's configuration for this example                 |
 
 The code deliberately lags the ontology. Holds are placed but nothing serves the queue, and the code still computes fines that a decision abolished. Both are listed under "Known divergences" in the ontology, which is the point: the gap between target and reality is written down, not discovered.
@@ -30,4 +30,4 @@ node --test 'example/app/*.test.mjs'                                    # the co
 
 Open `mockup/index.html` in a browser from the file system or any static server started at the repository root. Hover any labelled element to see its glossary definition.
 
-Try breaking it: rename `data-ont="view.desk"` in the mockup, delete a row from the map, or reference `D-09` in the ontology. The check names the exact drift.
+Try breaking it: rename `data-ont="view.desk"` in the mockup, delete a row from the map, reference `D-09` in the ontology, or remove the `[inv.one-loan-per-item]` tag from a test. The check names the exact drift. Edit an accepted entry in `decisions.md` and run `node tools/ont-check/guard-decisions.mjs --config example/ont.config.json`: the guard names the entry.

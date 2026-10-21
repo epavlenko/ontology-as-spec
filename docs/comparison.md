@@ -26,7 +26,7 @@ She also separates specs from a "memory bank" of always-loaded context: Kiro's s
 
 [Kiro specs](https://kiro.dev/docs/specs/) are three files per feature or bugfix: `requirements.md`, `design.md`, `tasks.md`. [Feature specs](https://kiro.dev/docs/specs/feature-specs/) write requirements in EARS notation ("WHEN [condition/event] THE SYSTEM SHALL [expected behavior]"). [Steering](https://kiro.dev/docs/steering/) "gives Kiro persistent knowledge about your project through markdown files" (`product.md`, `tech.md`, `structure.md`), with inclusion modes and support for `AGENTS.md`. The specs page describes an Analyze Requirements step to "catch inconsistencies, ambiguities, and gaps". It says nothing about keeping specs in step with code after implementation. Böckeler: "It seems to be mostly spec-first".
 
-*Compared with this approach.* Steering is the nearest equivalent of the agent rules ([part 7](parts/agent-rules.md)) and of the ontology's role as standing context, but steering files are free prose without IDs or checks. EARS requirements are more precise than this approach's prose about behavior; they are a good model for the [proposed WHEN/THEN scenarios](limitations.md#proposed-strengthening).
+*Compared with this approach.* Steering is the nearest equivalent of the agent rules ([part 7](parts/agent-rules.md)) and of the ontology's role as standing context, but steering files are free prose without IDs or checks. EARS requirements are more precise than this approach's prose about behavior; this approach puts behavior into [tagged GIVEN/WHEN/THEN scenarios in tickets](parts/agent-workflow.md#scenarios) instead, which then become tagged tests.
 
 ### OpenSpec
 
@@ -65,7 +65,7 @@ Hartwig Grabowski, [The Spec Growth Engine: Spec-Anchored, Code-Coupled, Drift-E
 | OpenSpec | requirement by capability | yes, deltas merged | no | no | no (describes current behavior) | not examined here |
 | Tessl | code file | yes | no | no | no | regeneration |
 | Spec Growth Engine | spec graph node | yes | spec nodes, no glossary | no | no: divergence blocks the merge | spec ↔ code structure, blocking |
-| **This approach** | concept | yes | yes, permanent | yes, both directions | yes, explicitly | concepts ↔ interface, map, decisions, implementation table, scenarios |
+| **This approach** | concept | yes | yes, permanent | yes, both directions | yes, explicitly | concepts ↔ interface, map, decisions, implementation table, scenarios, test tags, tickets |
 
 ## Böckeler's criticisms, applied here
 
@@ -82,14 +82,14 @@ The objection is right about specifications that are frozen. This approach answe
 
 ## Where this approach is stronger
 
-- One concept is referenced by the glossary, the interface, the decisions, the implementation table and the verification scenarios, and a check keeps those references whole in both directions.
+- One concept is referenced by the glossary, the interface, the decisions, the implementation table, the verification scenarios, the tickets and the tests, and a check keeps those references whole in both directions.
 - The boundary between target, implemented and divergent is explicit and maintained.
 - Interface elements are bound to concepts, and the map records what each element deliberately does not do. No tool reviewed here does either.
 
 ## Where it is weaker
 
-- Code does not refer to IDs, so code that contradicts the ontology passes the check. The Spec Growth Engine's drift gate, which reads code, does better here.
-- There are no executable acceptance criteria at the concept level. Kiro's EARS requirements and OpenSpec's scenarios are more precise about behavior.
+- Product code does not refer to IDs, only test titles do, so code that contradicts the ontology where no test looks passes the check. The Spec Growth Engine's drift gate, which reads code, does better here.
+- Acceptance criteria live in tickets and tests, not in the persistent spec. Tests name the concepts they prove and the check requires them for invariants and rules, but it cannot tell whether a test proves its tag. OpenSpec keeps its scenarios in the spec after the change; Kiro's EARS requirements are more precise as statements.
 - The tooling is small and generic only in its first version. The tools above are products.
 - There is no formal per-change process comparable to Spec Kit's clarify and analyze, or OpenSpec's deltas.
 

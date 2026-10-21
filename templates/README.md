@@ -13,9 +13,9 @@ Copy what you need, replace the placeholder concepts (`ent.thing`, `field.state`
 | `ont.config.json`                      | configuration of the check (part 5)                             |
 | `features/README.md`, `features/thing.md` | verification map and one scenario file (part 6)              |
 | `agents-section.md`                    | the section to paste into `AGENTS.md` (part 7)                  |
-| `issue.md`                             | ticket shape (part 8)                                           |
+| `issue.md`                             | ticket shape with tagged GIVEN/WHEN/THEN scenarios (part 8); checked through `tickets` in the config |
 
-Start with `ontology.md`, `decisions.md` and a config that has only those two (remove `mockup`, `map`, `features`, `glossaryOut`, and set `"implementation": null` under `headings` until code exists).
+Start with `ontology.md`, `decisions.md` and a config that has only those two (remove `mockup`, `map`, `features`, `tickets`, `glossaryOut`, and set `"implementation": null` under `headings` until code exists). When code has tests, tag them with the IDs they prove and add `"tests": { "dir": "<tests>", "cover": ["inv", "rule"] }`. Run `tools/ont-check/guard-decisions.mjs` from the start: the decision log is the first file worth guarding.
 
 After editing the glossary, regenerate the tooltips:
 

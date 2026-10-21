@@ -1,5 +1,6 @@
 // Drift check between the ontology, its glossary, the generated tooltips, the mockup, the
-// UI-to-ontology map, the decision log, the implementation table and the verification map.
+// UI-to-ontology map, the decision log, the implementation table, the verification map, the tests
+// and the tickets.
 // Usage: node tools/ont-check/ont-check.mjs [--config path/to/ont.config.json]
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
 import { existsSync, readdirSync } from "node:fs";
@@ -7,11 +8,13 @@ import { join, relative, resolve } from "node:path";
 import {
   backtickIds,
   idPattern,
+  listFiles,
   loadConfig,
   parseGlossary,
   read,
   renderGlossary,
   section,
+  tagIds,
 } from "./lib.mjs";
 
 const arg = process.argv.indexOf("--config");
@@ -118,10 +121,66 @@ if (cfg.decisions) {
   );
 }
 
+// Tests name the concepts they prove in a tag: test("[inv.one-loan-per-item] an item …").
+// A test may only prove what the implementation table claims, and every implemented concept of a
+// covered class needs a test: the table and the test suite have to agree.
+let tested = new Set();
+if (cfg.tests) {
+  const files = listFiles(cfg.tests.dir, cfg.tests.match);
+  report("no test files found", files.length ? [] : [relative(cfg.base, cfg.tests.dir)]);
+  tested = new Set(files.flatMap((f) => tagIds(read(f), classes)));
+  report("IDs in tests but not in the glossary", diff(tested, glossary));
+  report(
+    "IDs in tests but not in the implementation table",
+    diff(tested, implemented).filter((x) => glossary.has(x)),
+  );
+  const cover = new RegExp(`^(?:${cfg.tests.cover.join("|")})\\.`);
+  report(
+    "implemented concepts without a test",
+    cfg.tests.cover.length ? diff(implemented, tested).filter((x) => cover.test(x)) : [],
+  );
+}
+
+// Tickets: an `IDs:` line, and expected behavior as tagged one-line scenarios under "## Scenarios":
+// - [hook.hold-ready] GIVEN … WHEN … THEN …
+// The tag is the one the test will carry once the scenario is implemented.
+let ticketIds = new Set();
+if (cfg.tickets) {
+  const files = listFiles(cfg.tickets.dir, cfg.tickets.match);
+  const name = (f) => relative(cfg.base, f);
+  const noLine = [];
+  const noScenarios = [];
+  const malformed = [];
+  const outside = [];
+  for (const f of files) {
+    const text = read(f);
+    const line = text.match(/^(?:Ontology )?IDs:(.*)$/m);
+    if (!line) noLine.push(name(f));
+    const own = new Set(line ? ids(line[1]) : []);
+    const bullets = /^## Scenarios$/m.test(text)
+      ? section(text, "## Scenarios").split("\n").filter((l) => /^- /.test(l))
+      : [];
+    if (!bullets.length) noScenarios.push(name(f));
+    for (const b of bullets) {
+      const tags = tagIds(b, classes);
+      if (!tags.length || !/\bGIVEN\b.*\bWHEN\b.*\bTHEN\b/.test(b))
+        malformed.push(`${name(f)}: ${b.slice(0, 70)}`);
+      outside.push(...tags.filter((t) => !own.has(t)).map((t) => `${name(f)}: ${t}`));
+      tags.forEach((t) => ticketIds.add(t));
+    }
+    ids(text).forEach((t) => ticketIds.add(t));
+  }
+  report("tickets without an `IDs:` line", noLine);
+  report("tickets without scenarios", noScenarios);
+  report("ticket scenarios without an ID tag or GIVEN … WHEN … THEN", malformed);
+  report("scenario tags not on the ticket's `IDs:` line", outside);
+  report("IDs in tickets but not in the glossary", diff(ticketIds, glossary));
+}
+
 // A concept nobody refers to is a dead glossary row.
 report(
   "glossary concepts nobody refers to",
-  diff(glossary, new Set([...body, ...mapped, ...used, ...implemented])),
+  diff(glossary, new Set([...body, ...mapped, ...used, ...implemented, ...tested, ...ticketIds])),
 );
 
 // Verification map: each scenario file carries an `IDs:` line with the concepts it proves.
@@ -166,7 +225,15 @@ report(
 );
 
 console.log(
-  `glossary ${glossary.size} · mockup ${used.size} · map ${mapped.size} · implemented ${implemented.size} · scenarios ${featureIds.size}`,
+  [
+    `glossary ${glossary.size}`,
+    `mockup ${used.size}`,
+    `map ${mapped.size}`,
+    `implemented ${implemented.size}`,
+    `scenarios ${featureIds.size}`,
+    ...(cfg.tests ? [`tested ${tested.size}`] : []),
+    ...(cfg.tickets ? [`tickets ${listFiles(cfg.tickets.dir, cfg.tickets.match).length}`] : []),
+  ].join(" · "),
 );
 if (errors.length) {
   console.log(`DRIFT: ${errors.length}`);
