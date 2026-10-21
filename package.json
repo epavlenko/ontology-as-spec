@@ -7,7 +7,7 @@
   "scripts": {
     "check": "node tools/ont-check/ont-check.mjs --config example/ont.config.json && node tools/ont-check/ont-check.mjs --config templates/ont.config.json",
     "guard": "node tools/ont-check/guard-decisions.mjs --file decisions.md --config example/ont.config.json --config templates/ont.config.json",
-    "glossary": "node tools/ont-check/gen-glossary.mjs --config example/ont.config.json && node tools/ont-check/gen-glossary.mjs --config templates/ont.config.json",
+    "generate": "for c in example templates; do node tools/ont-check/gen-glossary.mjs --config $c/ont.config.json && node tools/ont-check/gen-contracts.mjs --config $c/ont.config.json || exit 1; done",
     "test": "npm run check && node --test 'tools/ont-check/test/*.test.mjs' 'example/app/*.test.mjs'"
   }
 }

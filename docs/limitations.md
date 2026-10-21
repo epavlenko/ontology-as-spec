@@ -1,12 +1,12 @@
 # Limitations and open questions
 
-What the approach does not do, what has not been tested, and what could make it stronger. Five former proposals are implemented in the tool and the example but have not been used in a real project. The proposals in the last section have not been implemented or tried.
+What the approach does not do, what has not been tested, and what could make it stronger. Six former proposals are implemented in the tool and the example but have not been used in a real project. The proposals in the last section have not been implemented or tried.
 
 ## Weaknesses
 
 ### Code does not refer to IDs
 
-The check reads the ontology, the mockup, the map, the decision log, the implementation table, the scenarios, the tickets and the tags in test titles. It does not read product code, and product code does not mention concept IDs. A tagged test ties a concept to behavior only as far as the test goes. Code that behaves differently from the ontology in a way no test exercises passes. The implementation table and the list of divergences are maintained by hand. In the project where the approach took shape, this is partly a matter of timing: most of the target model had not reached code yet. In general it is a real gap. The [Spec Growth Engine](comparison.md#the-spec-growth-engine) closes a version of it by reading code structure.
+The check reads the ontology, the mockup, the map, the decision log, the implementation table, the scenarios, the tickets and the tags in test titles. It does not read product code, and product code does not mention concept IDs. A tagged test ties a concept to behavior only as far as the test goes. The generated contracts carry IDs, but whether the code follows them is up to the project's own checks. Code that behaves differently from the ontology in a way no test exercises passes. The implementation table and the list of divergences are maintained by hand. In the project where the approach took shape, this is partly a matter of timing: most of the target model had not reached code yet. In general it is a real gap. The [Spec Growth Engine](comparison.md#the-spec-growth-engine) closes a version of it by reading code structure.
 
 ### A tag says what a test proves, not that it proves it
 
@@ -46,16 +46,15 @@ There is no equivalent of Spec Kit's clarify and analyze commands or OpenSpec's 
 
 ## Implemented, not yet tried in a real project
 
-These were proposals until [D-08, D-09 and D-10](../decisions.md). They work on the example and are covered by the check's tests. None has been used in a real project.
+These were proposals until [D-08 to D-11](../decisions.md). They work on the example and are covered by the check's tests. None has been used in a real project.
 
 - **Tests linked to IDs.** A test title starts with the IDs it proves: `test("[inv.one-loan-per-item] an item cannot be on two loans")`. The check requires a tagged test for every implemented concept of the classes listed under `tests.cover` (invariants, rules and derived values in the example), and refuses a tag naming a concept the implementation table does not list. See [part 6](parts/verification-map.md#tests-that-name-ids).
 - **GIVEN/WHEN/THEN scenarios in tickets.** A ticket states its expected behavior as one-line scenarios, each starting with the tag its test will carry: `- [inv.queue-order] GIVEN … WHEN … THEN …`. The check requires at least one scenario per ticket, the three keywords on every line and tags from the ticket's `IDs:` line. See [part 8](parts/agent-workflow.md#scenarios).
 - **One home per definition.** The ontology has one table per entity, and every concept is one row in one of them, grouped by kind in a fixed order. There is no separate glossary table and no per-kind table that explains the concepts again. The check enforces the kind order, the Kind cells and that each field or relation sits with its entity. See [part 1](parts/glossary-and-ids.md).
 - **No concept without feedback.** Formerly "do not expand the ontology ahead of the code". The ontology may run ahead of the code together with the mockup; what it should not do is grow concepts nothing has tried. The check lists, as information, every concept with no mockup element, no ticket and no implementation row. See [lifecycle](lifecycle.md#a-new-concept).
+- **Contracts from fields, independent of the implementation language.** Field and relation rows carry a type in a neutral vocabulary (`text`, `integer 0..2`, `date`, `one of good, worn, damaged`, `ref ent.title`, `optional`). `gen-contracts.mjs` generates a JSON Schema per entity with the concept ID on every property, and the check requires a valid type on every field and relation and a current schema. How the code follows the schema is the project's choice; the example compares its constants with it in a tagged test. See [part 1](parts/glossary-and-ids.md#types-and-contracts).
 - **Guarded decisions.** `tools/ont-check/guard-decisions.mjs` compares every accepted entry with an earlier commit and fails if one changed or disappeared. It runs in the pre-commit hook and in CI. See [part 2](parts/decision-log.md#what-the-check-enforces).
 
 ## Proposed strengthening
 
-Not implemented. It came out of comparing the approach with SDD tools.
-
-- **Contracts from fields, independent of the implementation language.** Field and relation rows get a type in a small neutral vocabulary: text, integer, date, an enumeration of values, a reference to an entity with its cardinality. The tool generates a JSON Schema per entity from them, with the concept ID on every property, and the check confirms that the generated file is current, as it does for the tooltips. Every common language can validate data against JSON Schema or generate types from it; which of these a project uses is its own choice. A project that wants a stricter link adds a check in its own stack that its types match the schema. This is a narrow, deterministic step toward spec-as-source for the part of the ontology that is precise enough, and the first place where code would refer to concept IDs.
+None open. The six proposals of the first version are implemented, in the form listed above (D-08 to D-11), and none of them has been used in a real project yet.

@@ -14,6 +14,7 @@ A library lends books, games and tools. Members borrow items, wait in a queue fo
 | [AGENTS.md](./AGENTS.md)                               | the rules for agents: what else to update, what to run     |
 | [issues/0003-serve-the-hold-queue.md](./issues/0003-serve-the-hold-queue.md) | a ticket that starts from IDs, states behavior as tagged GIVEN/WHEN/THEN scenarios and ends in commands |
 | [app/](./app/)                                         | the code: a small domain module, a command line front end, and tests whose titles name the IDs they prove |
+| [contracts/ontology.schema.json](./contracts/ontology.schema.json) | the contracts: JSON Schema generated from the types of fields and relations |
 | [ont.config.json](./ont.config.json)                   | the check's configuration for this example                 |
 
 The code deliberately lags the ontology. Holds are placed but nothing serves the queue, and the code still computes fines that a decision abolished. Both are listed under "Known divergences" in the ontology, which is the point: the gap between target and reality is written down, not discovered.
@@ -23,7 +24,8 @@ The code deliberately lags the ontology. Holds are placed but nothing serves the
 From the repository root:
 
 ```bash
-node tools/ont-check/gen-glossary.mjs --config example/ont.config.json   # glossary → mockup/ontology.js
+node tools/ont-check/gen-glossary.mjs --config example/ont.config.json   # definition rows → mockup/ontology.js
+node tools/ont-check/gen-contracts.mjs --config example/ont.config.json  # field and relation types → contracts/ontology.schema.json
 node tools/ont-check/ont-check.mjs --config example/ont.config.json      # prints ONT_OK
 node --test 'example/app/*.test.mjs'                                    # the code's own tests
 ```

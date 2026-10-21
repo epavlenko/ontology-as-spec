@@ -8,7 +8,7 @@ What the product is for, in two sentences. This document describes the **target 
 
 ## How to read this
 
-**One section per entity**, then a section for screens. **One row per concept**: kind, permanent ID, term, definition. Together the rows are the glossary; the tooltips are generated from them. Notes under a table add detail and refer to concepts by ID; they never restate a definition.
+**One section per entity**, then a section for screens. **One row per concept**: kind, permanent ID, term, type, definition. Together the rows are the glossary; the tooltips are generated from them. Only fields and relations have a type, in a vocabulary that belongs to no programming language: `text`, `integer` (optionally `integer 0..2`), `number`, `boolean`, `date`, `datetime`, `one of a, b`, `ref` or `refs` an entity, and `optional` after any of them. The contracts (JSON Schema) are generated from these types. Notes under a table add detail and refer to concepts by ID; they never restate a definition.
 
 **Rows are grouped by kind**, in this order: Entity, Field, Relation, Derived, Concept, Rule, Invariant, Hook, Action, View. The kind is written on the first row of its group. A concept that involves several entities sits with the entity it constrains or changes.
 
@@ -16,12 +16,12 @@ What the product is for, in two sentences. This document describes the **target 
 
 ## Thing
 
-| Kind      | ID                    | Term            | Definition                            |
-| --------- | --------------------- | --------------- | ------------------------------------- |
-| Entity    | `ent.thing`           | Thing           | The main object people work with.     |
-| Field     | `field.thing.state`   | State           | Open or closed.                       |
-| Invariant | `inv.closed-is-final` | Closed is final | A closed thing is never reopened.     |
-| Action    | `action.close`        | Close           | Close a thing. It cannot be reopened. |
+| Kind      | ID                    | Term            | Type                    | Definition                            |
+| --------- | --------------------- | --------------- | ----------------------- | ------------------------------------- |
+| Entity    | `ent.thing`           | Thing           |                         | The main object people work with.     |
+| Field     | `field.thing.state`   | State           | one of open, closed     | Open or closed.                       |
+| Invariant | `inv.closed-is-final` | Closed is final |                         | A closed thing is never reopened.     |
+| Action    | `action.close`        | Close           |                         | Close a thing. It cannot be reopened. |
 
 - `field.thing.state` is set by the system; `action.close` is the only way to change it. `inv.closed-is-final` follows from D-01.
 

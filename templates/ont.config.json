@@ -23,6 +23,10 @@
     "ref": "\\bD-\\d+\\b"
   },
   "glossaryOut": "mockup/ontology.js",
+  "contracts": {
+    "out": "contracts/ontology.schema.json",
+    "propertyCase": "camel"
+  },
   "mockup": [
     "mockup/index.html"
   ],

@@ -34,6 +34,11 @@ export function loadConfig(configPath) {
       ref: new RegExp(raw.decisions.ref ?? "\\bD-\\d+\\b", "g"),
     },
     glossaryOut: at(raw.glossaryOut),
+    contracts: raw.contracts && {
+      out: at(raw.contracts.out),
+      classes: raw.contracts.classes ?? ["field", "edge"],
+      propertyCase: raw.contracts.propertyCase ?? "camel",
+    },
     mockup: (raw.mockup ?? []).map(at),
     map: raw.map && { file: at(raw.map.file), idColumn: raw.map.idColumn ?? 2 },
     features: raw.features && {
@@ -93,14 +98,15 @@ export function section(md, heading) {
   return md.slice(start, end ? end.index : undefined);
 }
 
-// A definition row: | Kind | `id` | Term | Definition |. The Kind cell holds no backticks, which
-// keeps implementation rows (| `id` | `path` | note |) and retired rows out.
-const ROW =
-  /^\|([^|`]*)\|\s*`([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)`\s*\|\s*([^|]+?)\s*\|\s*(.+?)\s*\|\s*$/;
+// A definition row: | Kind | `id` | Term | Definition |, or | Kind | `id` | Term | Type | Definition |
+// in tables that carry types. The Kind cell holds no backticks, which keeps implementation rows
+// (| `id` | `path` | note |) and retired rows out.
+const ID_CELL = /^`([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)`$/;
 
 // The glossary is the set of definition rows, wherever they sit in the ontology: one row per
 // concept, in tables grouped by entity. Returns { ONT: { id: { name, def } }, rows } in document
-// order; each row knows its table (a run of consecutive table lines), its Kind cell and its line.
+// order; each row knows its table (a run of consecutive table lines), its Kind and Type cells and
+// its line.
 export function parseGlossary(md) {
   const ONT = {};
   const rows = [];
@@ -110,12 +116,17 @@ export function parseGlossary(md) {
     const pipe = line.startsWith("|");
     if (pipe && !inTable) table += 1;
     inTable = pipe;
-    const m = line.match(ROW);
+    if (!/^\|.*\|\s*$/.test(line)) continue;
+    const cells = line.trim().slice(1, -1).split("|").map((c) => c.trim());
+    if (cells.length < 4 || cells.length > 5 || cells[0].includes("`")) continue;
+    const m = cells[1].match(ID_CELL);
     if (!m) continue;
-    const [, kind, id, name, def] = m;
+    const [kind, , name] = cells;
+    const [type, def] = cells.length === 5 ? [cells[3], cells[4]] : [null, cells[3]];
+    const id = m[1];
     if (ONT[id]) throw new Error(`Duplicate ID in the glossary: ${id}`);
     ONT[id] = { name, def: def.replace(/`/g, "") };
-    rows.push({ table, kind: kind.trim(), id, line });
+    rows.push({ table, kind, id, type: type?.replace(/`/g, "") ?? null, line });
   }
   if (!rows.length) throw new Error("The glossary is empty: no | Kind | `id` | Term | Definition | rows");
   return { ONT, rows };

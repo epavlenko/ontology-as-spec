@@ -1,10 +1,11 @@
 # ont-check
 
-The drift check, the decision guard and the tooltip generator. Node 20 or later, no dependencies. What it checks and why is described in [part 5](../../docs/parts/drift-check.md).
+The drift check, the decision guard, the tooltip generator and the contract generator. Node 20 or later, no dependencies. What it checks and why is described in [part 5](../../docs/parts/drift-check.md).
 
 ```bash
 node tools/ont-check/gen-glossary.mjs --config path/to/ont.config.json   # glossary → generated tooltips
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json   # ONT_OK, or the drift and exit code 1
+node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK
 ```
 
@@ -17,6 +18,8 @@ Without `--config`, all three look for `ont.config.json` in the current director
 | `ont-check.mjs`    | the check                                                                         |
 | `guard-decisions.mjs` | fails if an entry accepted in an earlier commit (`--base`, default `HEAD`) was edited or removed; `--staged` reads the staged log |
 | `gen-glossary.mjs` | writes `window.ONT = {...}` from the definition rows                              |
+| `gen-contracts.mjs` | writes the JSON Schema, one definition per entity, from the Type cells           |
+| `contracts.mjs`    | the type vocabulary and the schema builder, shared by the generator and the check |
 | `lib.mjs`          | the one parser both use, and the config loader                                    |
 | `ont-tooltips.js`  | browser runtime for the mockup: sets `title` from `window.ONT` on `[data-ont]` elements |
 | `test/`            | copies the example, breaks it one way at a time, asserts the check names the break; runs the guard in a throwaway repository |
@@ -37,6 +40,7 @@ Paths are relative to the config file.
 | `decisions.entry` | regex for an entry heading with the number in group 1; default `^### (D-\d+) · .+$` | no |
 | `decisions.ref` | regex for a reference to an entry; default `\bD-\d+\b` | no |
 | `glossaryOut` | the generated tooltip file | no |
+| `contracts.out`, `contracts.classes`, `contracts.propertyCase` | the generated JSON Schema; the classes that carry a type (default `["field", "edge"]`); property names from the ID's last part as `camel` (default), `snake` or `kebab` | no |
 | `mockup` | list of mockup HTML files | no |
 | `map.file`, `map.idColumn` | the UI-to-ontology map and the 1-based column holding IDs; default 2 | no |
 | `features.dir`, `features.cover` | the verification map directory and the classes every implemented ID of which must be covered | no |
@@ -49,6 +53,7 @@ Every optional part can be left out. The checks that depend on it are then skipp
 ## Formats it expects
 
 - **Definition rows:** ``| Kind | `class.name` | Term | Definition |``, anywhere in the ontology. A table is a run of consecutive table lines; the Kind cell holds no backticks. Together the rows are the glossary.
+- **Type cells:** a fifth column, ``| Kind | `id` | Term | Type | Definition |``. Vocabulary: `text`, `number`, `boolean`, `integer` with optional bounds (`integer 0..2`, `integer 1..`), `date`, `datetime`, `one of a, b, c`, ``ref `ent.x` ``, ``refs `ent.x` ``, each optionally followed by `optional`.
 - **Retired IDs:** ``| `old.id` | `new.id` | D-nn |`` under `headings.retired`; a dash instead of the new ID for a removed concept.
 - **IDs in Markdown:** in backticks. Other text is not read as IDs.
 - **Implementation rows:** ``| `class.name` | `path`, `path` | note |`` inside the implementation section.

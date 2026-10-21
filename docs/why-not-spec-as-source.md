@@ -18,7 +18,7 @@ When agents write nearly all the code, no human touches it in any of the three l
 
 ## A narrow step toward spec-as-source
 
-Some parts of the ontology are precise enough to generate from. Fields with types, enumerations of states and the shape of a relation could produce a contract in a language-neutral format such as JSON Schema, which any stack can validate against or generate types from. That would make a thin slice of the product spec-as-source while leaving the rest anchored, and the approach would still not prescribe an implementation language. It is listed under [proposed strengthening](limitations.md#proposed-strengthening) and has not been tried.
+Some parts of the ontology are precise enough to generate from: the type of a field, the values of an enumeration, the target of a relation. Field and relation rows carry a type in a vocabulary that belongs to no programming language, and `tools/ont-check/gen-contracts.mjs` turns them into a JSON Schema with one definition per entity and the concept ID on every property. Any stack can validate data against it or generate its own types from it; the approach does not say which, and the check only confirms that the schema is current. This makes a thin slice of the product, the shape of stored data, spec-as-source, while behavior stays anchored. Derived values, rules and actions are not generated. It has been tried on the example only.
 
 ## What this costs and what it buys
 

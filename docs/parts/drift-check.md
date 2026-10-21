@@ -8,7 +8,7 @@ A run on the example:
 
 ```text
 $ node tools/ont-check/ont-check.mjs --config example/ont.config.json
-glossary 36 · retired 6 · mockup 22 · map 22 · implemented 19 · scenarios 14 · tested 11 · tickets 1
+glossary 39 · retired 6 · mockup 22 · map 22 · implemented 24 · scenarios 14 · tested 11 · tickets 1
 ONT_OK
 ```
 
@@ -19,7 +19,7 @@ ERROR · data-ont in the mockup but not in the glossary (1):
   view.counter
 ERROR · data-ont in the mockup but not in the map (1):
   view.counter
-glossary 36 · retired 6 · mockup 23 · map 22 · implemented 19 · scenarios 14 · tested 11 · tickets 1
+glossary 39 · retired 6 · mockup 23 · map 22 · implemented 24 · scenarios 14 · tested 11 · tickets 1
 DRIFT: 2
 ```
 
@@ -31,6 +31,7 @@ DRIFT: 2
 | glossary IDs use configured classes; no duplicates | glossary | error |
 | rows follow the kind order; Kind cells name the kind on the first row of each group | definition tables | error |
 | a field or relation sits in the table of the entity its ID names; one entity per table | definition tables | error |
+| fields and relations have a valid type; the generated contracts are current | definition tables → contracts | error |
 | retired IDs have no row, their replacement exists, and only the decision log uses them | retired table → everything | error |
 | generated tooltips equal the generator's output | glossary → generated file | error |
 | `data-ont` IDs exist in the glossary | mockup → glossary | error |
@@ -77,4 +78,4 @@ These are listed with possible remedies in [limitations](../limitations.md).
 
 ## In the example
 
-`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in twenty-four different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.
+`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in twenty-nine different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.

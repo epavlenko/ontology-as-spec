@@ -74,12 +74,20 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the owner pointed out that the ontology running ahead of the code together with the mockup is normal: that is how a target is designed before it is built. The real cost is concepts that nothing has tried, which add review load without feedback. A list keeps them visible without blocking design work. Contracts must not tie the approach to an implementation language.
 - Rejected: the freeze as originally proposed (blocks designing ahead in the mockup); an error instead of information (would push people to add placeholder tickets or mockup labels to silence it); dropping the proposal (loses the signal); contracts as TypeScript or another language's types (ties the approach to one stack).
 
+### D-11 · Contracts generated from typed fields, in JSON Schema
+
+- Date: 2026-10-21 · Status: accepted
+- Decision: field and relation rows carry a Type cell in a neutral vocabulary (`text`, `integer` with bounds, `number`, `boolean`, `date`, `datetime`, `one of …`, `ref`/`refs` an entity, `optional`). `gen-contracts.mjs` generates a JSON Schema with one definition per entity and the concept ID on every property. The check requires a valid type on every field and relation, none on other kinds, and a current schema. How code follows the schema is left to each project. This implements the last proposal of D-05, restated in D-10.
+- Why: the shape of stored data is the part of the ontology precise enough to generate from, and it is where agents most often invent names and values. A generated contract puts concept IDs where code can reach them, which narrows the weakness "code does not refer to IDs". JSON Schema keeps the approach independent of the implementation language, which the owner made a condition.
+- Rejected: types of one language, such as TypeScript (ties the approach to a stack); a check that reads the code's own types (one parser per language); types in notes or in the definition text (not parseable without a second convention, and tooltips would show them); a type column on every table including screens (empty cells for kinds that have no shape).
+
 ## Open questions
 
 - When to name the source project.
 
 ## History
 
+- 2026-10-21: D-11: contracts generated from typed fields.
 - 2026-10-21: D-10: no concept without feedback; contracts restated as language-neutral.
 - 2026-10-21: D-09: one definition table per entity; retired IDs.
 - 2026-10-21: D-08: tests linked to IDs, scenarios in tickets, decision guard.

@@ -4,10 +4,10 @@ How each kind of change moves through the artifacts. The [agent rules](parts/age
 
 ## A new concept
 
-1. Add a definition row in the section of the entity it constrains or changes, in its kind's group: kind, ID, term, a definition that says what it is. A field or a relation names the entity in its ID.
+1. Add a definition row in the section of the entity it constrains or changes, in its kind's group: kind, ID, term, type, a definition that says what it is. A field or a relation names the entity in its ID and has a type.
 2. If it needs more than one line, add a note under the table. Refer to related concepts by ID; do not restate the definition.
 3. If the concept exists because of a choice, add a decision entry with the rejected alternatives.
-4. Regenerate the tooltip glossary.
+4. Regenerate the tooltip glossary and, for a field or a relation, the contracts.
 5. If it appears in the interface, add the map row, then the `data-ont` element in the mockup.
 6. Add a revision history line to the ontology.
 7. Run the check.

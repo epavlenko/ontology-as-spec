@@ -17,6 +17,7 @@ import {
   section,
   tagIds,
 } from "./lib.mjs";
+import { buildContracts, renderContracts } from "./contracts.mjs";
 
 const groupBy = (xs, key) =>
   xs.reduce((m, x) => m.set(key(x), [...(m.get(key(x)) ?? []), x]), new Map());
@@ -130,6 +131,20 @@ if (cfg.glossaryOut) {
     "generated glossary differs from the ontology (run gen-glossary.mjs)",
     actual === expected ? [] : [relative(cfg.base, cfg.glossaryOut)],
   );
+}
+
+// Contracts: every field and relation row has a type from the vocabulary, and the generated
+// JSON Schema equals what the generator would write now.
+if (cfg.contracts) {
+  const { problems, schema } = buildContracts(rows, ONT, cfg);
+  report("types that cannot become a contract", problems);
+  if (!problems.length) {
+    const actual = existsSync(cfg.contracts.out) ? read(cfg.contracts.out) : "";
+    report(
+      "generated contracts differ from the ontology (run gen-contracts.mjs)",
+      actual === renderContracts(schema) ? [] : [relative(cfg.base, cfg.contracts.out)],
+    );
+  }
 }
 
 // Mockup: data-ont attributes plus quoted IDs in scripts ('view.catalog').

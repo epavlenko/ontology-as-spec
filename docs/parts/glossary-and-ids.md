@@ -42,6 +42,23 @@ The alternative is a separate glossary table plus per-kind tables (entities, fie
 
 Projects add classes as they need them: `type.*` for kinds of an entity, `trigger.*` for conditions shown to the user, `regime.*` for how a field is maintained, `plan.*` for parts of a composite structure. The class list lives in the check's configuration, with the label of each kind, in the order the rows are grouped. An unknown class is an error rather than silently ignored.
 
+## Types and contracts
+
+Field and relation rows have one more cell, Type, in a vocabulary that belongs to no programming language. The other kinds leave it empty, and a table without fields, such as the screens, may leave the column out.
+
+| Type | Meaning |
+| ---- | ------- |
+| `text`, `number`, `boolean` | a string, a number, true or false |
+| `integer`, `integer 0..2`, `integer 1..` | a whole number, optionally with bounds |
+| `date`, `datetime` | a calendar day, a moment |
+| `one of good, worn, damaged` | one value from a list |
+| ``ref `ent.title` ``, ``refs `ent.title` `` | a reference to one entity, or to many |
+| any of them followed by `optional` | may be absent |
+
+`tools/ont-check/gen-contracts.mjs` turns the types into a JSON Schema with one definition per entity. Each property carries its concept ID (`"x-ont": "field.loan.due-date"`), and references carry their target (`"x-ont-ref": "ent.title"`). Derived values are not in the contract, because they are never stored.
+
+JSON Schema is the neutral part. Any stack can validate data against it or generate types from it, and the approach does not say which. A project decides how its code follows the contract: generated types, validation at the boundary, or a test that compares its constants with the schema, as the example does.
+
 ## Retired IDs
 
 IDs are permanent, but sometimes one has to change: a class is renamed, a field gets its entity, a concept is removed. The old ID then moves to a "Retired IDs" table with its replacement, or a dash for a removed concept, and the decision that retired it. The decision log, whose accepted entries are never edited, keeps resolving the old ID through this table. Everywhere else the check reports the old ID with its replacement.
@@ -62,6 +79,7 @@ IDs are permanent, but sometimes one has to change: a class is renamed, a field 
 - Inside each table, rows follow the configured kind order, and the Kind cell names the kind on the first row of each group and is empty on the others.
 - A field or relation sits in the table of the entity its ID names, and that entity exists; one table holds at most one entity.
 - A retired ID has no definition row, its replacement exists, and it appears nowhere except the decision log.
+- Every field and relation has a type from the vocabulary, a reference points at an entity, no other kind has a type, and the generated contracts equal what the generator would write now.
 - No glossary row is dead: each concept is mentioned in the ontology text, the map, the mockup or the implementation table.
 - The generated tooltip file equals what the generator would produce now. This catches both a forgotten regeneration and a hand edit.
 
@@ -81,4 +99,4 @@ IDs are permanent, but sometimes one has to change: a class is renamed, a field 
 
 ## In the example
 
-[`example/ontology.md`](../../example/ontology.md): five entity sections and a screens section, 36 concepts in ten classes, and six retired IDs from the change that put the entity into field and relation IDs.
+[`example/ontology.md`](../../example/ontology.md): five entity sections and a screens section, 39 concepts in ten classes, typed fields and relations with the generated [`contracts/ontology.schema.json`](../../example/contracts/ontology.schema.json), and six retired IDs from the change that put the entity into field and relation IDs.

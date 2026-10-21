@@ -35,7 +35,7 @@ Then everything that touches meaning refers to the IDs:
 
 - **Decisions.** Each decision is logged with its date, its reason, the rejected alternatives and the IDs it affects. Old entries are never edited; a new entry replaces them, and a guard refuses edits to accepted entries.
 - **The UI.** Each meaningful element of the interface mockup carries `data-ont="action.renew"`, and its tooltip comes from the definition. A map records what each element shows and what it deliberately does not do.
-- **The code.** A table says which concepts are already implemented and in which files, and a list says where the code still disagrees with the agreed target.
+- **The code.** A table says which concepts are already implemented and in which files, and a list says where the code still disagrees with the agreed target. Fields and relations have types in a neutral vocabulary, and a JSON Schema per entity is generated from them, so any language can check its data or generate its types from the same source.
 - **Verification.** A scenario for each implemented feature names the IDs it proves, and so does the title of each test: `test("[inv.no-renew-when-held] renewal is refused while someone waits")`.
 - **Tasks.** A ticket names the IDs it touches, states the expected behavior as GIVEN/WHEN/THEN lines tagged with those IDs, and ends with the commands that must pass.
 
@@ -70,7 +70,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | [docs/lifecycle.md](docs/lifecycle.md) | how a change travels: new concept, rename, removal, superseded decision, implementation, adoption |
 | [docs/comparison.md](docs/comparison.md) | spec-driven development tools and older practices, with links to primary sources |
 | [docs/why-not-spec-as-source.md](docs/why-not-spec-as-source.md) | why the ontology does not generate the product |
-| [docs/limitations.md](docs/limitations.md) | weaknesses, open questions and proposed strengthening |
+| [docs/limitations.md](docs/limitations.md) | weaknesses, open questions, and what was added after the source project and not yet tried there |
 | [templates/](templates/README.md) | starting files for every artifact |
 | [tools/ont-check/](tools/ont-check/README.md) | the check and the tooltip generator; Node, no dependencies |
 | [decisions.md](decisions.md) | decisions about this repository |
@@ -83,7 +83,7 @@ Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/ex
 
 The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks its ontology grew to roughly 150 concepts, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product. The example is fictional.
 
-The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Tests linked to IDs, scenarios in tickets, the decision guard, the ontology grouped by entity and the list of concepts nothing has tried yet were added to the tool and the example afterwards and have not been used in a real project. Everything under [Proposed strengthening](docs/limitations.md#proposed-strengthening) is a proposal that has not been tried.
+The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Tests linked to IDs, scenarios in tickets, the decision guard, the ontology grouped by entity, the list of concepts nothing has tried yet and the generated contracts were added to the tool and the example afterwards and have not been used in a real project. [Limitations](docs/limitations.md) lists what remains weak.
 
 Questions and suggestions are welcome as GitHub issues. Maintained by Jevgenijs Pavlenko.
 

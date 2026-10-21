@@ -1,8 +1,19 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 // Each title starts with the concept IDs it proves. The drift check reads the tags: every implemented
 // invariant, rule and derived value needs a test, and a test may only prove an implemented concept.
-import { checkout, emptyState, memberView, placeHold, Refusal, renew, returnItem } from "./library.mjs";
+import {
+  checkout,
+  DEFAULT_LIMIT,
+  emptyState,
+  MAX_RENEWALS,
+  memberView,
+  placeHold,
+  Refusal,
+  renew,
+  returnItem,
+} from "./library.mjs";
 
 const library = () => {
   const s = emptyState();
@@ -58,4 +69,14 @@ test("[derived.overdue, view.member.loans] the member view marks overdue loans",
   assert.deepEqual(memberView(s, "ana", "2026-10-23").loans[0].overdue, true);
   returnItem(s, { item: "dune-1", today: "2026-10-23" });
   assert.deepEqual(memberView(s, "ana", "2026-10-23").loans, []);
+});
+
+// The contract is generated from the ontology (contracts/ontology.schema.json). How code follows it is
+// this project's choice; here a test compares the code's limits with the contract's.
+const contract = JSON.parse(readFileSync(new URL("../contracts/ontology.schema.json", import.meta.url)));
+
+test("[field.loan.renewals, field.member.borrow-limit] the code's limits fit the contract", () => {
+  const { loan, member } = contract.$defs;
+  assert.equal(MAX_RENEWALS, loan.properties.renewals.maximum);
+  assert.ok(DEFAULT_LIMIT >= member.properties.borrowLimit.minimum);
 });

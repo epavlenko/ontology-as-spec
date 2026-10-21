@@ -8,7 +8,7 @@ Start every task from the ontology IDs it touches. If a concept you need has no 
 
 | You changed                                         | Also update                                                                                      | Verify                         |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------ |
-| A concept, rule, invariant or view in the ontology  | regenerate `mockup/ontology.js`; a revision history line; a decision entry when the reason is new | `ont-check.mjs`                |
+| A concept, rule, invariant or view in the ontology  | regenerate `mockup/ontology.js` and, for a field or relation, `contracts/ontology.schema.json`; a revision history line; a decision entry when the reason is new | `ont-check.mjs`                |
 | The mockup                                          | `data-ont` on every new meaningful element and its row in `mockup/ontology-map.md`               | `ont-check.mjs`, open the page |
 | Behavior in `app/`                                  | the implementation table and "Known divergences" in the ontology; a test whose title starts with the tag of the IDs it proves, for every implemented `inv.*`, `rule.*` and `derived.*` | `ont-check.mjs`, `node --test` |
 | Your mind about an earlier decision                 | a new dated entry that supersedes the old one; the old entry is never edited                     | `ont-check.mjs`, `guard-decisions.mjs` |

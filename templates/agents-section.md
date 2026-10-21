@@ -6,7 +6,7 @@ Start every task from the ontology IDs it touches. If a concept you need has no 
 
 | You changed                                         | Also update                                                                               | Verify               |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------- |
-| A concept, rule, invariant or view in the ontology  | regenerate the tooltips; a revision history line; a decision entry when the reason is new | the check            |
+| A concept, rule, invariant or view in the ontology  | regenerate the tooltips and, for a field or relation, the contracts; a revision history line; a decision entry when the reason is new | the check            |
 | The mockup                                          | `data-ont` on every new meaningful element and its map row                                | the check            |
 | Behavior in code                                    | the implementation table and known divergences; a test titled with the tag of the IDs it proves | the check, the tests |
 | Your mind about an earlier decision                 | a new dated entry that supersedes the old one; never edit the old one                     | the check, the guard |

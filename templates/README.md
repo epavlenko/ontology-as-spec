@@ -10,6 +10,7 @@ Copy what you need, replace the placeholder concepts (`ent.thing`, `field.state`
 | `decisions.md`                         | decision log (part 2)                                           |
 | `mockup/index.html`                    | wiring for `data-ont` and generated tooltips (part 4)            |
 | `mockup/ontology-map.md`               | UI-to-ontology map (part 4)                                     |
+| `contracts/ontology.schema.json`       | contracts generated from the field types (part 1)               |
 | `ont.config.json`                      | configuration of the check (part 5)                             |
 | `features/README.md`, `features/thing.md` | verification map and one scenario file (part 6)              |
 | `agents-section.md`                    | the section to paste into `AGENTS.md` (part 7)                  |
@@ -17,8 +18,9 @@ Copy what you need, replace the placeholder concepts (`ent.thing`, `field.state`
 
 Start with `ontology.md`, `decisions.md` and a config that has only those two (remove `mockup`, `map`, `features`, `tickets`, `glossaryOut`, and set `"implementation": null` under `headings` until code exists). When code has tests, tag them with the IDs they prove and add `"tests": { "dir": "<tests>", "cover": ["inv", "rule"] }`. Run `tools/ont-check/guard-decisions.mjs` from the start: the decision log is the first file worth guarding.
 
-After editing a definition row, regenerate the tooltips:
+After editing a definition row, regenerate the tooltips and the contracts:
 
 ```bash
 node tools/ont-check/gen-glossary.mjs --config ont.config.json
+node tools/ont-check/gen-contracts.mjs --config ont.config.json
 ```

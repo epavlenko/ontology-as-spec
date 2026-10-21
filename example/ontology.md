@@ -10,65 +10,69 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 
 **One section per entity**, in the order a loan happens: Member, Title, Item, Loan, Hold. Screens come after them, because each screen shows several entities.
 
-**One row per concept.** Each section is one table, and every concept of the product is a row in exactly one of them: kind, permanent ID, term, definition. Together the rows are the glossary. The mockup tooltips are generated from them (`mockup/ontology.js`, by `tools/ont-check/gen-glossary.mjs`). The notes under a table add detail and refer to concepts by ID. They never restate a definition.
+**One row per concept.** Each section is one table, and every concept of the product is a row in exactly one of them: kind, permanent ID, term, type, definition. Only fields and relations have a type; the contracts in `contracts/ontology.schema.json` are generated from these types (`tools/ont-check/gen-contracts.mjs`). Together the rows are the glossary. The mockup tooltips are generated from them (`mockup/ontology.js`, by `tools/ont-check/gen-glossary.mjs`). The notes under a table add detail and refer to concepts by ID. They never restate a definition.
 
 **Rows are grouped by kind**, always in this order: Entity, Field, Relation, Derived, Concept, Rule, Invariant, Hook, Action, View. The kind is written on the first row of its group. A concept that involves several entities sits with the entity it constrains or changes. Derived values are computed, never stored and never typed in. Hooks are what the system does on its own, without a person pressing a button.
 
 **Identifiers.** Every concept has a permanent ID of the form `class.name`. Fields and relations also name their entity: `field.loan.due-date`, `edge.item.copy-of`. The ID never changes when the term is renamed; only the row's text changes. The mockup, the map, the decision log, the verification scenarios, the tickets, the tests and the implementation table refer to concepts by ID. When an ID has to change, the old one moves to "Retired IDs", so that the decision log, which is never edited, still resolves.
 
-`tools/ont-check/ont-check.mjs` checks the kind order, the Kind cells and that every field and relation sits in its entity's table.
+**Types** are written in a vocabulary that belongs to no programming language: `text`, `integer` with an optional range such as `integer 0..2`, `number`, `boolean`, `date`, `datetime`, `one of` a list of values, `ref` or `refs` an entity, and `optional` after any of them. Derived values have no type in the contract, because they are never stored.
+
+`tools/ont-check/ont-check.mjs` checks the kind order, the Kind cells, that every field and relation sits in its entity's table and has a valid type, and that the generated contracts are current.
 
 ## Member
 
-| Kind      | ID                            | Term                    | Definition                                                                                           |
-| --------- | ----------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.member`                  | Member                  | A person registered with the library who can borrow.                                                 |
-| Field     | `field.member.borrow-limit`   | Borrow limit            | Maximum number of open loans for a member. Set by staff; default 5.                                  |
-| Concept   | `concept.suspension`          | Suspension              | A member with an overdue loan. Not stored and not timed: ends when the last overdue item comes back. |
-| Invariant | `inv.within-limit`            | Within the limit        | Open loans never exceed the member's borrow limit.                                                   |
-|           | `inv.suspended-cannot-borrow` | Suspended cannot borrow | A member with an overdue loan cannot check out or place holds until it is back.                      |
+| Kind      | ID                            | Term                    | Type        | Definition                                                                                           |
+| --------- | ----------------------------- | ----------------------- | ----------- | ---------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.member`                  | Member                  |             | A person registered with the library who can borrow.                                                 |
+| Field     | `field.member.borrow-limit`   | Borrow limit            | integer 1.. | Maximum number of open loans for a member. Set by staff; default 5.                                  |
+| Concept   | `concept.suspension`          | Suspension              |             | A member with an overdue loan. Not stored and not timed: ends when the last overdue item comes back. |
+| Invariant | `inv.within-limit`            | Within the limit        |             | Open loans never exceed the member's borrow limit.                                                   |
+|           | `inv.suspended-cannot-borrow` | Suspended cannot borrow |             | A member with an overdue loan cannot check out or place holds until it is back.                      |
 
 - `concept.suspension` starts the moment one of the member's loans becomes `derived.overdue`. It replaces money fines, which do not exist (D-03).
 - `inv.suspended-cannot-borrow` blocks `action.checkout` and `action.place-hold`. Nobody can override it at the desk.
 
 ## Title
 
-| Kind   | ID          | Term  | Definition                                                                        |
-| ------ | ----------- | ----- | --------------------------------------------------------------------------------- |
-| Entity | `ent.title` | Title | A work in the catalog: a book, a board game, a tool model. Has one or more items. |
+| Kind   | ID          | Term  | Type | Definition                                                                        |
+| ------ | ----------- | ----- | ---- | --------------------------------------------------------------------------------- |
+| Entity | `ent.title` | Title |      | A work in the catalog: a book, a board game, a tool model. Has one or more items. |
 
 - A member borrows items, not titles, but waits for titles, not items: whichever copy comes back first serves the queue (D-02). Items belong to a title through `edge.item.copy-of`; holds through `edge.hold.waits-for`.
 
 ## Item
 
-| Kind      | ID                      | Term              | Definition                                                                            |
-| --------- | ----------------------- | ----------------- | ------------------------------------------------------------------------------------- |
-| Entity    | `ent.item`              | Item              | One physical copy of a title; the thing that is actually lent.                        |
-| Field     | `field.item.condition`  | Condition         | Good, worn or damaged, recorded at return. A damaged item is not lent until repaired. |
-| Relation  | `edge.item.copy-of`     | copy-of           | The item is a physical copy of the title.                                             |
-| Derived   | `derived.available`     | Available         | The item is not on loan, not reserved and not damaged.                                |
-| Invariant | `inv.one-loan-per-item` | One loan per item | An item is on at most one open loan.                                                  |
+| Kind      | ID                      | Term              | Type                       | Definition                                                                            |
+| --------- | ----------------------- | ----------------- | -------------------------- | ------------------------------------------------------------------------------------- |
+| Entity    | `ent.item`              | Item              |                            | One physical copy of a title; the thing that is actually lent.                        |
+| Field     | `field.item.condition`  | Condition         | one of good, worn, damaged | Good, worn or damaged, recorded at return. A damaged item is not lent until repaired. |
+| Relation  | `edge.item.copy-of`     | copy-of           | ref `ent.title`            | The item is a physical copy of the title.                                             |
+| Derived   | `derived.available`     | Available         |                            | The item is not on loan, not reserved and not damaged.                                |
+| Invariant | `inv.one-loan-per-item` | One loan per item |                            | An item is on at most one open loan.                                                  |
 
 - `field.item.condition` is set by staff during `action.return`.
 - An item is reserved through `concept.reservation`, described under Hold.
 
 ## Loan
 
-| Kind      | ID                       | Term                 | Definition                                                                         |
-| --------- | ------------------------ | -------------------- | ---------------------------------------------------------------------------------- |
-| Entity    | `ent.loan`               | Loan                 | An item lent to a member, from checkout until return.                              |
-| Field     | `field.loan.due-date`    | Due date             | When the item must be back: checkout plus the loan period, moved by renewals.      |
-|           | `field.loan.renewals`    | Renewals             | How many times the loan was renewed. A fact the system counts.                     |
-| Derived   | `derived.overdue`        | Overdue              | The loan is open and the due date has passed.                                      |
-| Rule      | `rule.loan-period`       | Loan period          | 21 days from checkout.                                                             |
-|           | `rule.renewal`           | Renewal rule         | Up to 2 renewals per loan, each adds 14 days to the current due date.              |
-| Invariant | `inv.no-renew-when-held` | No renewal when held | A loan cannot be renewed while someone waits for the title.                        |
-| Hook      | `hook.due-reminder`      | Due reminder         | Two days before the due date the member is notified once, with renew if allowed.   |
-| Action    | `action.checkout`        | Check out            | Open a loan for an item and a member. Refused with a reason if a rule would break. |
-|           | `action.return`          | Return               | Close the loan and record the item's condition.                                    |
-|           | `action.renew`           | Renew                | Move the due date by the renewal rule. Refused while someone waits for the title.  |
+| Kind      | ID                       | Term                 | Type             | Definition                                                                         |
+| --------- | ------------------------ | -------------------- | ---------------- | ---------------------------------------------------------------------------------- |
+| Entity    | `ent.loan`               | Loan                 |                  | An item lent to a member, from checkout until return.                              |
+| Field     | `field.loan.due-date`    | Due date             | date             | When the item must be back: checkout plus the loan period, moved by renewals.      |
+|           | `field.loan.renewals`    | Renewals             | integer 0..2     | How many times the loan was renewed. A fact the system counts.                     |
+| Relation  | `edge.loan.item`         | Lent item            | ref `ent.item`   | The item this loan lends.                                                          |
+|           | `edge.loan.member`       | Borrower             | ref `ent.member` | The member who borrowed the item.                                                  |
+| Derived   | `derived.overdue`        | Overdue              |                  | The loan is open and the due date has passed.                                      |
+| Rule      | `rule.loan-period`       | Loan period          |                  | 21 days from checkout.                                                             |
+|           | `rule.renewal`           | Renewal rule         |                  | Up to 2 renewals per loan, each adds 14 days to the current due date.              |
+| Invariant | `inv.no-renew-when-held` | No renewal when held |                  | A loan cannot be renewed while someone waits for the title.                        |
+| Hook      | `hook.due-reminder`      | Due reminder         |                  | Two days before the due date the member is notified once, with renew if allowed.   |
+| Action    | `action.checkout`        | Check out            |                  | Open a loan for an item and a member. Refused with a reason if a rule would break. |
+|           | `action.return`          | Return               |                  | Close the loan and record the item's condition.                                    |
+|           | `action.renew`           | Renew                |                  | Move the due date by the renewal rule. Refused while someone waits for the title.  |
 
-- A loan links one `ent.member` and one `ent.item`. Both fields are set by the system at `action.checkout` and `action.renew`; nobody types them in.
+- `field.loan.due-date` and `field.loan.renewals` are set by the system at `action.checkout` and `action.renew`; nobody types them in.
 - `rule.loan-period` is the same for every title (D-01).
 - `action.checkout` and `action.return` are done by staff, `action.renew` by the member. Checkout is refused when it would break `inv.one-loan-per-item`, `inv.within-limit` or `inv.suspended-cannot-borrow`.
 - `action.return` triggers `hook.hold-ready` when someone waits for the title.
@@ -76,18 +80,19 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 
 ## Hold
 
-| Kind      | ID                       | Term           | Definition                                                                            |
-| --------- | ------------------------ | -------------- | ------------------------------------------------------------------------------------- |
-| Entity    | `ent.hold`               | Hold           | A member's place in the queue for a title whose items are all out.                    |
-| Relation  | `edge.hold.waits-for`    | waits-for      | The hold is a place in this title's queue.                                            |
-| Derived   | `derived.queue-position` | Queue position | The hold's place in the title's queue, by placement time.                             |
-| Concept   | `concept.reservation`    | Reservation    | A returned item set aside for the head of the queue for the pickup window.            |
-| Rule      | `rule.pickup-window`     | Pickup window  | A reserved item waits 3 days for the member at the head of the queue.                 |
-| Invariant | `inv.queue-order`        | Queue order    | Holds are served in the order they were placed. Nobody reorders the queue.            |
-| Hook      | `hook.hold-ready`        | Hold ready     | On return of a held title the item is reserved and the head of the queue is notified. |
-|           | `hook.hold-expire`       | Hold expired   | After the pickup window the reservation passes to the next hold.                      |
-| Action    | `action.place-hold`      | Place hold     | Join the title's queue. Only when no item is available.                               |
-|           | `action.cancel-hold`     | Cancel hold    | Leave the queue. Staff cancelling for a member give a reason.                         |
+| Kind      | ID                       | Term           | Type             | Definition                                                                            |
+| --------- | ------------------------ | -------------- | ---------------- | ------------------------------------------------------------------------------------- |
+| Entity    | `ent.hold`               | Hold           |                  | A member's place in the queue for a title whose items are all out.                    |
+| Relation  | `edge.hold.waits-for`    | waits-for      | ref `ent.title`  | The hold is a place in this title's queue.                                            |
+|           | `edge.hold.member`       | Holder         | ref `ent.member` | The member waiting in the queue.                                                      |
+| Derived   | `derived.queue-position` | Queue position |                  | The hold's place in the title's queue, by placement time.                             |
+| Concept   | `concept.reservation`    | Reservation    |                  | A returned item set aside for the head of the queue for the pickup window.            |
+| Rule      | `rule.pickup-window`     | Pickup window  |                  | A reserved item waits 3 days for the member at the head of the queue.                 |
+| Invariant | `inv.queue-order`        | Queue order    |                  | Holds are served in the order they were placed. Nobody reorders the queue.            |
+| Hook      | `hook.hold-ready`        | Hold ready     |                  | On return of a held title the item is reserved and the head of the queue is notified. |
+|           | `hook.hold-expire`       | Hold expired   |                  | After the pickup window the reservation passes to the next hold.                      |
+| Action    | `action.place-hold`      | Place hold     |                  | Join the title's queue. Only when no item is available.                               |
+|           | `action.cancel-hold`     | Cancel hold    |                  | Leave the queue. Staff cancelling for a member give a reason.                         |
 
 - A reserved item is not `derived.available` to anyone but the member it waits for.
 - `rule.pickup-window` is tentative (D-05).
@@ -142,6 +147,8 @@ The table answers "is this already in the code or is it the target". Everything 
 | ID                       | Implemented in    | Note                   |
 | ------------------------ | ----------------- | ---------------------- |
 | `ent.loan`               | `app/library.mjs` |                        |
+| `edge.loan.item`         | `app/library.mjs` |                        |
+| `edge.loan.member`       | `app/library.mjs` |                        |
 | `field.loan.due-date`    | `app/library.mjs` |                        |
 | `field.loan.renewals`    | `app/library.mjs` |                        |
 | `derived.overdue`        | `app/library.mjs` |                        |
@@ -158,6 +165,7 @@ The table answers "is this already in the code or is it the target". Everything 
 | --------------------- | ----------------- | -------------------------------------------- |
 | `ent.hold`            | `app/library.mjs` | placement only; nothing serves the queue yet |
 | `edge.hold.waits-for` | `app/library.mjs` |                                              |
+| `edge.hold.member`    | `app/library.mjs` |                                              |
 | `action.place-hold`   | `app/cli.mjs`     |                                              |
 
 ### Screens
@@ -191,5 +199,6 @@ IDs that had to change. The decision log keeps using them, because its entries a
 
 ## Revision history
 
+- 2026-10-21: types for fields and relations, contracts generated from them; relations `edge.loan.item`, `edge.loan.member` and `edge.hold.member`, which the code already had.
 - 2026-10-21: one section per entity with one definition row per concept, grouped by kind; the separate glossary table and the per-kind tables merged into them. Fields and relations name their entity (D-06); the old IDs retired.
 - 2026-10-17: first version: entities, fields, rules, invariants, derived values, hooks, views, actions; fines replaced by suspension (D-03).

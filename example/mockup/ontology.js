@@ -56,6 +56,14 @@ window.ONT = {
   "name": "Renewals",
   "def": "How many times the loan was renewed. A fact the system counts."
  },
+ "edge.loan.item": {
+  "name": "Lent item",
+  "def": "The item this loan lends."
+ },
+ "edge.loan.member": {
+  "name": "Borrower",
+  "def": "The member who borrowed the item."
+ },
  "derived.overdue": {
   "name": "Overdue",
   "def": "The loan is open and the due date has passed."
@@ -95,6 +103,10 @@ window.ONT = {
  "edge.hold.waits-for": {
   "name": "waits-for",
   "def": "The hold is a place in this title's queue."
+ },
+ "edge.hold.member": {
+  "name": "Holder",
+  "def": "The member waiting in the queue."
  },
  "derived.queue-position": {
   "name": "Queue position",
