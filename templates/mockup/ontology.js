@@ -4,7 +4,7 @@ window.ONT = {
   "name": "Thing",
   "def": "The main object people work with."
  },
- "field.state": {
+ "field.thing.state": {
   "name": "State",
   "def": "Open or closed."
  },
@@ -12,12 +12,12 @@ window.ONT = {
   "name": "Closed is final",
   "def": "A closed thing is never reopened."
  },
- "view.thing.page": {
-  "name": "Thing page",
-  "def": "One thing with its state."
- },
  "action.close": {
   "name": "Close",
   "def": "Close a thing. It cannot be reopened."
+ },
+ "view.thing.page": {
+  "name": "Thing page",
+  "def": "One thing with its state."
  }
 };

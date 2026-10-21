@@ -11,11 +11,15 @@ import {
   listFiles,
   loadConfig,
   parseGlossary,
+  parseRetired,
   read,
   renderGlossary,
   section,
   tagIds,
 } from "./lib.mjs";
+
+const groupBy = (xs, key) =>
+  xs.reduce((m, x) => m.set(key(x), [...(m.get(key(x)) ?? []), x]), new Map());
 
 const arg = process.argv.indexOf("--config");
 const cfg = loadConfig(arg > 0 ? process.argv[arg + 1] : "ont.config.json");
@@ -30,18 +34,79 @@ const report = (label, items, fatal = true) => {
 };
 
 const md = read(cfg.ontology);
-const glossarySection = section(md, cfg.headings.glossary);
-const ONT = parseGlossary(md, cfg.headings.glossary);
+const { ONT, rows } = parseGlossary(md);
 const glossary = new Set(Object.keys(ONT));
-const body = new Set(ids(md.replace(glossarySection, "")));
+const retired = parseRetired(md, cfg.headings.retired);
+const retiredSection = retired.size ? section(md, cfg.headings.retired) : "";
+// The ontology text: everything except the ID cell of each definition row and the retired table.
+const body = new Set(
+  ids(
+    rows.reduce(
+      (text, r) => text.replace(r.line, r.line.replace(`\`${r.id}\``, "")),
+      md.replace(retiredSection, ""),
+    ),
+  ),
+);
 
 // The glossary is the only source of IDs: everything that refers to a concept must find it there.
+// A retired ID resolves in the decision log, which is never edited; anywhere else it is drift.
+const retiredUse = [];
+const unknown = (label, where, set, allowRetired = false) => {
+  const missing = diff(set, glossary);
+  const old = missing.filter((x) => retired.has(x));
+  if (!allowRetired)
+    retiredUse.push(...old.map((x) => `${x} in ${where}, now ${retired.get(x) ?? "removed"}`));
+  report(label, missing.filter((x) => !retired.has(x)));
+};
 const isId = idPattern(classes);
 report(
   "glossary IDs of a class not listed in the config",
   [...glossary].filter((x) => !isId.test(x)),
 );
-report("IDs in the ontology text but not in the glossary", diff(body, glossary));
+unknown("IDs in the ontology text but not in the glossary", "the ontology text", body);
+report(
+  "retired IDs still defined in the glossary",
+  [...retired.keys()].filter((x) => glossary.has(x)),
+);
+report(
+  "retired IDs replaced by an ID not in the glossary",
+  [...retired].filter(([, now]) => now && !glossary.has(now)).map(([x, now]) => `${x} → ${now}`),
+);
+
+// Definition tables: kinds in the configured order, the kind named on the first row of each group,
+// and a field or relation in the table of the entity its ID names (field.loan.due-date → ent.loan).
+const cls = (id) => id.split(".")[0];
+const tables = groupBy(rows, (r) => r.table);
+const outOfOrder = [];
+const badKind = [];
+const misplaced = [];
+const twoEntities = [];
+for (const t of tables.values()) {
+  const ents = t.filter((r) => cls(r.id) === "ent");
+  if (ents.length > 1) twoEntities.push(ents.map((r) => r.id).join(", "));
+  const entity = ents[0]?.id.split(".")[1];
+  t.forEach((r, i) => {
+    const prev = t[i - 1];
+    if (prev && classes.indexOf(cls(r.id)) < classes.indexOf(cls(prev.id)))
+      outOfOrder.push(`${r.id} after ${prev.id}`);
+    if (cfg.kinds) {
+      const want = !prev || cls(prev.id) !== cls(r.id) ? cfg.kinds[cls(r.id)] : "";
+      if (r.kind !== want)
+        badKind.push(`${r.id}: "${r.kind}", expected ${want ? `"${want}"` : "an empty cell inside its group"}`);
+    }
+    if (cfg.scoped.includes(cls(r.id))) {
+      const [c, owner, ...name] = r.id.split(".");
+      if (!name.length) misplaced.push(`${r.id}: expected ${c}.<entity>.<name>`);
+      else if (!glossary.has(`ent.${owner}`)) misplaced.push(`${r.id}: no entity ent.${owner}`);
+      else if (owner !== entity)
+        misplaced.push(`${r.id}: belongs in the table of ent.${owner}${entity ? `, not ent.${entity}` : ""}`);
+    }
+  });
+}
+report("definition rows out of kind order", outOfOrder);
+report("Kind cells that do not match the row's class", badKind);
+report("fields or relations outside their entity's table", misplaced);
+report("definition tables with more than one entity", twoEntities);
 
 // Implementation status: | `id` | `path`, `path` | note |. Files must exist; completeness is a human call.
 // Set "implementation": null under headings until there is code.
@@ -51,7 +116,7 @@ const implemented = new Set(implRows.map((r) => r[1]));
 const implFiles = [
   ...new Set(implRows.flatMap((r) => [...r[2].matchAll(/`([^`]+)`/g)].map((x) => x[1]))),
 ];
-report("IDs in the implementation table but not in the glossary", diff(implemented, glossary));
+unknown("IDs in the implementation table but not in the glossary", "the implementation table", implemented);
 report(
   "files from the implementation table not found",
   implFiles.filter((f) => !existsSync(resolve(cfg.root, f))),
@@ -75,7 +140,7 @@ const used = new Set([
   ...[...html.matchAll(new RegExp(`'((?:${classAlt})\\.[a-z0-9.-]+)'`, "g"))].map((m) => m[1]),
 ]);
 if (cfg.mockup.length) {
-  report("data-ont in the mockup but not in the glossary", diff(used, glossary));
+  unknown("data-ont in the mockup but not in the glossary", "the mockup", used);
   // IDs built from a template (data-ont="derived.${key}") are declared in a comment so the check
   // sees them. The comment proves nothing, so every declared class needs a live template.
   const declared = [
@@ -102,7 +167,7 @@ if (cfg.map) {
       .filter((l) => l.startsWith("|"))
       .flatMap((l) => ids(l.split("|")[col] ?? "")),
   );
-  report("IDs in the map but not in the glossary", diff(mapped, glossary));
+  unknown("IDs in the map but not in the glossary", "the map", mapped);
   report("IDs in the map but not in the mockup", diff(mapped, used));
   report("data-ont in the mockup but not in the map", diff(used, mapped));
 }
@@ -110,7 +175,7 @@ if (cfg.map) {
 // Decision log: IDs exist, references point at real entries, entries are not duplicated.
 if (cfg.decisions) {
   const dec = read(cfg.decisions.file);
-  report("IDs in the decision log but not in the glossary", diff(new Set(ids(dec)), glossary));
+  unknown("IDs in the decision log but not in the glossary", "the decision log", new Set(ids(dec)), true);
   const entries = [...dec.matchAll(cfg.decisions.entry)].map((m) => m[1]);
   const refSources = [md, cfg.map ? read(cfg.map.file) : ""].join("\n");
   const refs = new Set([...refSources.matchAll(cfg.decisions.ref)].map((m) => m[0]));
@@ -129,7 +194,7 @@ if (cfg.tests) {
   const files = listFiles(cfg.tests.dir, cfg.tests.match);
   report("no test files found", files.length ? [] : [relative(cfg.base, cfg.tests.dir)]);
   tested = new Set(files.flatMap((f) => tagIds(read(f), classes)));
-  report("IDs in tests but not in the glossary", diff(tested, glossary));
+  unknown("IDs in tests but not in the glossary", "tests", tested);
   report(
     "IDs in tests but not in the implementation table",
     diff(tested, implemented).filter((x) => glossary.has(x)),
@@ -174,7 +239,7 @@ if (cfg.tickets) {
   report("tickets without scenarios", noScenarios);
   report("ticket scenarios without an ID tag or GIVEN … WHEN … THEN", malformed);
   report("scenario tags not on the ticket's `IDs:` line", outside);
-  report("IDs in tickets but not in the glossary", diff(ticketIds, glossary));
+  unknown("IDs in tickets but not in the glossary", "tickets", ticketIds);
 }
 
 // A concept nobody refers to is a dead glossary row.
@@ -201,7 +266,7 @@ if (cfg.features) {
       return line ? ids(line[1]) : [];
     }),
   );
-  report("IDs in the verification map but not in the glossary", diff(featureIds, glossary));
+  unknown("IDs in the verification map but not in the glossary", "the verification map", featureIds);
   const cover = new RegExp(`^(?:${cfg.features.cover.join("|")})\\.`);
   report(
     "implemented concepts without a verification scenario",
@@ -218,15 +283,12 @@ if (cfg.mockup.length && cfg.notYetShown.length) {
     false,
   );
 }
-report(
-  "glossary concepts not mentioned in the ontology text",
-  diff(glossary, body).filter((x) => !/^(?:view|action)\./.test(x)),
-  false,
-);
+report("retired IDs still in use outside the decision log", retiredUse);
 
 console.log(
   [
     `glossary ${glossary.size}`,
+    ...(retired.size ? [`retired ${retired.size}`] : []),
     `mockup ${used.size}`,
     `map ${mapped.size}`,
     `implemented ${implemented.size}`,

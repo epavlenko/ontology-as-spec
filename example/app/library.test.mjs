@@ -12,7 +12,7 @@ const library = () => {
   return s;
 };
 
-test("[rule.loan-period, field.due-date] a loan is due 21 days after checkout", () => {
+test("[rule.loan-period, field.loan.due-date] a loan is due 21 days after checkout", () => {
   const loan = checkout(library(), { item: "dune-1", member: "ana", today: "2026-10-01" });
   assert.equal(loan.due, "2026-10-22");
 });
@@ -23,13 +23,13 @@ test("[inv.one-loan-per-item] an item cannot be on two loans", () => {
   assert.throws(() => checkout(s, { item: "dune-1", member: "ben", today: "2026-10-01" }), Refusal);
 });
 
-test("[inv.within-limit, field.borrow-limit] a member cannot exceed the borrow limit", () => {
+test("[inv.within-limit, field.member.borrow-limit] a member cannot exceed the borrow limit", () => {
   const s = library();
   checkout(s, { item: "dune-1", member: "ben", today: "2026-10-01" });
   assert.throws(() => checkout(s, { item: "dune-2", member: "ben", today: "2026-10-01" }), /1 of 1/);
 });
 
-test("[rule.renewal, field.renewals] renewal adds 14 days, at most twice", () => {
+test("[rule.renewal, field.loan.renewals] renewal adds 14 days, at most twice", () => {
   const s = library();
   checkout(s, { item: "dune-1", member: "ana", today: "2026-10-01" });
   assert.equal(renew(s, { item: "dune-1", today: "2026-10-20" }).due, "2026-11-05");

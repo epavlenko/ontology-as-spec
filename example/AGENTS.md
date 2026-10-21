@@ -2,9 +2,9 @@
 
 > Example of the agent rules section (part 7 in `docs/parts/agent-rules.md`). In a real project this lives in the repository's `AGENTS.md`.
 
-Product meaning lives in `ontology.md` (entities, fields, rules, invariants, views, and the glossary that is the single source of concept definitions) and `decisions.md` (every product decision with its reason). The mockup, the UI-to-ontology map, the verification map, the tickets and the test titles refer to concepts by permanent ID. `tools/ont-check/ont-check.mjs --config example/ont.config.json` cross-checks all of them, and `tools/ont-check/guard-decisions.mjs` refuses edits to accepted decisions; both run on commit and in CI.
+Product meaning lives in `ontology.md` (one table per entity, then screens; every concept is one definition row, grouped by kind, and those rows are the only definitions) and `decisions.md` (every product decision with its reason). The mockup, the UI-to-ontology map, the verification map, the tickets and the test titles refer to concepts by permanent ID. `tools/ont-check/ont-check.mjs --config example/ont.config.json` cross-checks all of them, and `tools/ont-check/guard-decisions.mjs` refuses edits to accepted decisions; both run on commit and in CI.
 
-Start every task from the ontology IDs it touches. If a concept you need has no ID, the ontology is incomplete: propose the glossary row before writing code or markup.
+Start every task from the ontology IDs it touches. If a concept you need has no ID, the ontology is incomplete: propose its definition row, in its entity's table, before writing code or markup.
 
 | You changed                                         | Also update                                                                                      | Verify                         |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------ |
@@ -17,10 +17,10 @@ Start every task from the ontology IDs it touches. If a concept you need has no 
 
 Rules the check cannot enforce:
 
-- IDs are permanent. Renaming a term changes its glossary text, never its ID.
+- IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it.
 - Never hand-edit `mockup/ontology.js`; it is generated.
 - The mockup may not show a concept that has no glossary row. Write the row first.
-- Removing a concept removes it from the glossary, the map and the mockup in one commit, with a decision entry saying why.
+- Removing a concept removes its definition row, its map rows and its mockup elements in one commit, with a decision entry saying why; the ID goes under "Retired IDs".
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side.
 - A ticket's scenarios and proof commands are written before work starts.
 - A tag on a test is a claim that the test proves the concept. Do not tag a test that does not.

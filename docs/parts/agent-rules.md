@@ -14,10 +14,10 @@ A section in the repository's agent instructions (`AGENTS.md` or its equivalent)
 
 Rules the check cannot enforce:
 
-- IDs are permanent. Renaming a term changes its glossary text, never its ID.
+- IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it.
 - Never hand-edit the generated glossary.
 - The mockup may not show a concept that has no glossary row.
-- Removing a concept removes it from the glossary, the map and the mockup in one change, with a decision entry.
+- Removing a concept removes its definition row, its map rows and its mockup elements in one change, with a decision entry; the ID goes under "Retired IDs".
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side.
 
 ## Why a table

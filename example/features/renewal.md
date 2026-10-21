@@ -1,6 +1,6 @@
 # Renewal
 
-IDs: `action.renew`, `rule.renewal`, `inv.no-renew-when-held`, `field.renewals`
+IDs: `action.renew`, `rule.renewal`, `inv.no-renew-when-held`, `field.loan.renewals`
 
 A member renews a loan to keep the item longer. Each renewal adds 14 days, at most twice, and never while someone waits for the title.
 

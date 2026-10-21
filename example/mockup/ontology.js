@@ -4,69 +4,13 @@ window.ONT = {
   "name": "Member",
   "def": "A person registered with the library who can borrow."
  },
- "ent.title": {
-  "name": "Title",
-  "def": "A work in the catalog: a book, a board game, a tool model. Has one or more items."
- },
- "ent.item": {
-  "name": "Item",
-  "def": "One physical copy of a title; the thing that is actually lent."
- },
- "ent.loan": {
-  "name": "Loan",
-  "def": "An item lent to a member, from checkout until return."
- },
- "ent.hold": {
-  "name": "Hold",
-  "def": "A member's place in the queue for a title whose items are all out."
- },
- "field.due-date": {
-  "name": "Due date",
-  "def": "When the item must be back: checkout plus the loan period, moved by renewals."
- },
- "field.renewals": {
-  "name": "Renewals",
-  "def": "How many times the loan was renewed. A fact the system counts."
- },
- "field.borrow-limit": {
+ "field.member.borrow-limit": {
   "name": "Borrow limit",
   "def": "Maximum number of open loans for a member. Set by staff; default 5."
  },
- "field.item-condition": {
-  "name": "Condition",
-  "def": "Good, worn or damaged, recorded at return. A damaged item is not lent until repaired."
- },
- "edge.copy-of": {
-  "name": "copy-of",
-  "def": "The item is a physical copy of the title."
- },
- "edge.waits-for": {
-  "name": "waits-for",
-  "def": "The hold is a place in this title's queue."
- },
- "rule.loan-period": {
-  "name": "Loan period",
-  "def": "21 days from checkout."
- },
- "rule.renewal": {
-  "name": "Renewal rule",
-  "def": "Up to 2 renewals per loan, each adds 14 days to the current due date."
- },
- "rule.pickup-window": {
-  "name": "Pickup window",
-  "def": "A reserved item waits 3 days for the member at the head of the queue."
- },
- "inv.one-loan-per-item": {
-  "name": "One loan per item",
-  "def": "An item is on at most one open loan."
- },
- "inv.queue-order": {
-  "name": "Queue order",
-  "def": "Holds are served in the order they were placed. Nobody reorders the queue."
- },
- "inv.no-renew-when-held": {
-  "name": "No renewal when held",
-  "def": "A loan cannot be renewed while someone waits for the title."
+ "concept.suspension": {
+  "name": "Suspension",
+  "def": "A member with an overdue loan. Not stored and not timed: ends when the last overdue item comes back."
  },
  "inv.within-limit": {
   "name": "Within the limit",
@@ -76,29 +20,97 @@ window.ONT = {
   "name": "Suspended cannot borrow",
   "def": "A member with an overdue loan cannot check out or place holds until it is back."
  },
- "derived.overdue": {
-  "name": "Overdue",
-  "def": "The loan is open and the due date has passed."
+ "ent.title": {
+  "name": "Title",
+  "def": "A work in the catalog: a book, a board game, a tool model. Has one or more items."
+ },
+ "ent.item": {
+  "name": "Item",
+  "def": "One physical copy of a title; the thing that is actually lent."
+ },
+ "field.item.condition": {
+  "name": "Condition",
+  "def": "Good, worn or damaged, recorded at return. A damaged item is not lent until repaired."
+ },
+ "edge.item.copy-of": {
+  "name": "copy-of",
+  "def": "The item is a physical copy of the title."
  },
  "derived.available": {
   "name": "Available",
   "def": "The item is not on loan, not reserved and not damaged."
  },
+ "inv.one-loan-per-item": {
+  "name": "One loan per item",
+  "def": "An item is on at most one open loan."
+ },
+ "ent.loan": {
+  "name": "Loan",
+  "def": "An item lent to a member, from checkout until return."
+ },
+ "field.loan.due-date": {
+  "name": "Due date",
+  "def": "When the item must be back: checkout plus the loan period, moved by renewals."
+ },
+ "field.loan.renewals": {
+  "name": "Renewals",
+  "def": "How many times the loan was renewed. A fact the system counts."
+ },
+ "derived.overdue": {
+  "name": "Overdue",
+  "def": "The loan is open and the due date has passed."
+ },
+ "rule.loan-period": {
+  "name": "Loan period",
+  "def": "21 days from checkout."
+ },
+ "rule.renewal": {
+  "name": "Renewal rule",
+  "def": "Up to 2 renewals per loan, each adds 14 days to the current due date."
+ },
+ "inv.no-renew-when-held": {
+  "name": "No renewal when held",
+  "def": "A loan cannot be renewed while someone waits for the title."
+ },
+ "hook.due-reminder": {
+  "name": "Due reminder",
+  "def": "Two days before the due date the member is notified once, with renew if allowed."
+ },
+ "action.checkout": {
+  "name": "Check out",
+  "def": "Open a loan for an item and a member. Refused with a reason if a rule would break."
+ },
+ "action.return": {
+  "name": "Return",
+  "def": "Close the loan and record the item's condition."
+ },
+ "action.renew": {
+  "name": "Renew",
+  "def": "Move the due date by the renewal rule. Refused while someone waits for the title."
+ },
+ "ent.hold": {
+  "name": "Hold",
+  "def": "A member's place in the queue for a title whose items are all out."
+ },
+ "edge.hold.waits-for": {
+  "name": "waits-for",
+  "def": "The hold is a place in this title's queue."
+ },
  "derived.queue-position": {
   "name": "Queue position",
   "def": "The hold's place in the title's queue, by placement time."
- },
- "concept.suspension": {
-  "name": "Suspension",
-  "def": "A member with an overdue loan. Not stored and not timed: ends when the last overdue item comes back."
  },
  "concept.reservation": {
   "name": "Reservation",
   "def": "A returned item set aside for the head of the queue for the pickup window."
  },
- "hook.due-reminder": {
-  "name": "Due reminder",
-  "def": "Two days before the due date the member is notified once, with renew if allowed."
+ "rule.pickup-window": {
+  "name": "Pickup window",
+  "def": "A reserved item waits 3 days for the member at the head of the queue."
+ },
+ "inv.queue-order": {
+  "name": "Queue order",
+  "def": "Holds are served in the order they were placed. Nobody reorders the queue."
  },
  "hook.hold-ready": {
   "name": "Hold ready",
@@ -107,6 +119,14 @@ window.ONT = {
  "hook.hold-expire": {
   "name": "Hold expired",
   "def": "After the pickup window the reservation passes to the next hold."
+ },
+ "action.place-hold": {
+  "name": "Place hold",
+  "def": "Join the title's queue. Only when no item is available."
+ },
+ "action.cancel-hold": {
+  "name": "Cancel hold",
+  "def": "Leave the queue. Staff cancelling for a member give a reason."
  },
  "view.catalog": {
   "name": "Catalog",
@@ -123,25 +143,5 @@ window.ONT = {
  "view.desk": {
   "name": "Desk",
   "def": "Staff screen for checkout and return, with the reason when a checkout is refused."
- },
- "action.checkout": {
-  "name": "Check out",
-  "def": "Open a loan for an item and a member. Refused with a reason if a rule would break."
- },
- "action.return": {
-  "name": "Return",
-  "def": "Close the loan and record the item's condition."
- },
- "action.renew": {
-  "name": "Renew",
-  "def": "Move the due date by the renewal rule. Refused while someone waits for the title."
- },
- "action.place-hold": {
-  "name": "Place hold",
-  "def": "Join the title's queue. Only when no item is available."
- },
- "action.cancel-hold": {
-  "name": "Cancel hold",
-  "def": "Leave the queue; staff give a reason."
  }
 };

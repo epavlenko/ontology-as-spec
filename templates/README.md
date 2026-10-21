@@ -6,7 +6,7 @@ Copy what you need, replace the placeholder concepts (`ent.thing`, `field.state`
 
 | File                                   | Part                                                            |
 | -------------------------------------- | --------------------------------------------------------------- |
-| `ontology.md`                          | glossary, ontology body, implementation status, divergences (parts 1 and 3) |
+| `ontology.md`                          | one definition table per entity, screens, implementation status, divergences, retired IDs (parts 1 and 3) |
 | `decisions.md`                         | decision log (part 2)                                           |
 | `mockup/index.html`                    | wiring for `data-ont` and generated tooltips (part 4)            |
 | `mockup/ontology-map.md`               | UI-to-ontology map (part 4)                                     |
@@ -17,7 +17,7 @@ Copy what you need, replace the placeholder concepts (`ent.thing`, `field.state`
 
 Start with `ontology.md`, `decisions.md` and a config that has only those two (remove `mockup`, `map`, `features`, `tickets`, `glossaryOut`, and set `"implementation": null` under `headings` until code exists). When code has tests, tag them with the IDs they prove and add `"tests": { "dir": "<tests>", "cover": ["inv", "rule"] }`. Run `tools/ont-check/guard-decisions.mjs` from the start: the decision log is the first file worth guarding.
 
-After editing the glossary, regenerate the tooltips:
+After editing a definition row, regenerate the tooltips:
 
 ```bash
 node tools/ont-check/gen-glossary.mjs --config ont.config.json

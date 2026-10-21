@@ -1,6 +1,6 @@
 # Thing
 
-IDs: `view.thing.page`, `action.close`, `field.state`
+IDs: `view.thing.page`, `action.close`, `field.thing.state`
 
 One paragraph: what the user sees and does.
 

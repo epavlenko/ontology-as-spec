@@ -8,7 +8,7 @@ A run on the example:
 
 ```text
 $ node tools/ont-check/ont-check.mjs --config example/ont.config.json
-glossary 36 · mockup 22 · map 22 · implemented 19 · scenarios 14 · tested 11 · tickets 1
+glossary 36 · retired 6 · mockup 22 · map 22 · implemented 19 · scenarios 14 · tested 11 · tickets 1
 ONT_OK
 ```
 
@@ -19,7 +19,7 @@ ERROR · data-ont in the mockup but not in the glossary (1):
   view.counter
 ERROR · data-ont in the mockup but not in the map (1):
   view.counter
-glossary 36 · mockup 23 · map 22 · implemented 19 · scenarios 14 · tested 11 · tickets 1
+glossary 36 · retired 6 · mockup 23 · map 22 · implemented 19 · scenarios 14 · tested 11 · tickets 1
 DRIFT: 2
 ```
 
@@ -29,11 +29,14 @@ DRIFT: 2
 | ----- | --------- | -------- |
 | IDs in the ontology text exist in the glossary | text → glossary | error |
 | glossary IDs use configured classes; no duplicates | glossary | error |
+| rows follow the kind order; Kind cells name the kind on the first row of each group | definition tables | error |
+| a field or relation sits in the table of the entity its ID names; one entity per table | definition tables | error |
+| retired IDs have no row, their replacement exists, and only the decision log uses them | retired table → everything | error |
 | generated tooltips equal the generator's output | glossary → generated file | error |
 | `data-ont` IDs exist in the glossary | mockup → glossary | error |
 | map and mockup have the same IDs | mockup ↔ map | error |
 | dynamic classes have a live template | mockup | error |
-| IDs in the map and the decision log exist in the glossary | map, log → glossary | error |
+| IDs in the map and the decision log exist in the glossary (the log may also use retired IDs) | map, log → glossary | error |
 | `D-nn` references have entries; entries are unique | ontology, map → log | error |
 | implementation table IDs exist; files exist | table → glossary, files | error |
 | glossary rows are referenced somewhere | glossary → everything | error |
@@ -43,7 +46,6 @@ DRIFT: 2
 | implemented concepts of covered classes have a tagged test | table → tests | error |
 | tickets have an `IDs:` line and scenarios; each scenario has a tag from that line and GIVEN … WHEN … THEN | tickets → glossary | error |
 | interface-facing concepts not yet in the mockup | glossary → mockup | info |
-| glossary concepts not explained in the ontology text | glossary → text | info |
 
 The "both directions" part matters. Checking only that references resolve catches typos. Checking also that every concept is referenced, every labelled element is mapped and every implemented concept has a way to be proven catches the slower failure: things that quietly stop being connected.
 
@@ -74,4 +76,4 @@ These are listed with possible remedies in [limitations](../limitations.md).
 
 ## In the example
 
-`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in nineteen different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.
+`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in twenty-four different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.

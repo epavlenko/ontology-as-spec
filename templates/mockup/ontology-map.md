@@ -4,8 +4,8 @@ Each meaningful element of the mockup, the concept behind it, what it shows and 
 
 ## Thing page
 
-| Element        | ID                | What it shows        | What it does not do                 |
-| -------------- | ----------------- | -------------------- | ----------------------------------- |
-| Page           | `view.thing.page` | one thing            |                                     |
-| "State"        | `field.state`     | open or closed       | not editable by hand                |
-| "Close"        | `action.close`    | closes the thing     | no "Reopen" anywhere (D-01)         |
+| Element | ID                  | What it shows    | What it does not do         |
+| ------- | ------------------- | ---------------- | --------------------------- |
+| Page    | `view.thing.page`   | one thing        |                             |
+| "State" | `field.thing.state` | open or closed   | not editable by hand        |
+| "Close" | `action.close`      | closes the thing | no "Reopen" anywhere (D-01) |

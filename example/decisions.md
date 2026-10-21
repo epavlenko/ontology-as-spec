@@ -10,7 +10,7 @@ Log rules:
 
 - An entry is never edited after it is accepted. A new entry refers to the old one and supersedes or refines it.
 - "Tentative" means a chosen course that may still change without a separate entry. Removing the flag is an entry.
-- `tools/ont-check/ont-check.mjs` checks the IDs mentioned here against the glossary and every `D-nn` reference in the ontology and the map against this log.
+- `tools/ont-check/ont-check.mjs` checks the IDs mentioned here against the glossary and the retired IDs, and every `D-nn` reference in the ontology and the map against this log.
 
 ## Accepted
 
@@ -46,6 +46,14 @@ Log rules:
 - Rejected: hide the button (looks broken); allow renewal and shorten it (a rule nobody can predict).
 - Concepts: `action.renew`, `inv.no-renew-when-held`, `view.member.loans`.
 
+### D-06 · Fields and relations name their entity in the ID
+
+- Date: 2026-10-21 · Status: accepted
+- Decision: the ID of a field or a relation includes its entity: `field.loan.due-date`, `edge.item.copy-of`. The six earlier IDs are retired and listed under "Retired IDs" in the ontology, so the entries above that use them still resolve. Other classes keep names without an entity.
+- Why: the ontology is organised by entity, and two entities will soon have fields with the same name, such as the status of a loan and of an item. A global status field ID would be ambiguous, and renaming later touches more artifacts.
+- Rejected: the entity in every ID (rules, invariants and actions often involve several entities, and their owner would be arbitrary); keeping global field names and renaming on the first collision (the rename then happens in a larger ontology).
+- Concepts: `field.loan.due-date`, `field.loan.renewals`, `field.member.borrow-limit`, `field.item.condition`, `edge.item.copy-of`, `edge.hold.waits-for`.
+
 ## Tentative
 
 ### D-05 · A reserved item waits three days
@@ -57,8 +65,9 @@ Log rules:
 
 ## Open questions
 
-- Should staff be able to extend a borrow limit for a single loan, or only change `field.borrow-limit`?
+- Should staff be able to extend a borrow limit for a single loan, or only change `field.member.borrow-limit`?
 
 ## History
 
+- 2026-10-21: D-06: fields and relations name their entity.
 - 2026-10-17: log created with D-01…D-05.

@@ -6,7 +6,7 @@ A library lends books, games and tools. Members borrow items, wait in a queue fo
 
 | File                                                   | Part of the approach                                       |
 | ------------------------------------------------------ | ---------------------------------------------------------- |
-| [ontology.md](./ontology.md)                           | the ontology, the glossary, the implementation table and known divergences |
+| [ontology.md](./ontology.md)                           | the ontology: one definition table per entity and one for screens, the implementation table, known divergences and retired IDs |
 | [decisions.md](./decisions.md)                         | the decision log                                           |
 | [mockup/index.html](./mockup/index.html)               | the mockup with `data-ont`; tooltips come from `mockup/ontology.js` |
 | [mockup/ontology-map.md](./mockup/ontology-map.md)     | the UI-to-ontology map                                     |

@@ -16,16 +16,20 @@ Last month you decided that a loan cannot be renewed while someone is waiting fo
 
 ## The idea
 
-Give every product concept one name, one short definition and a permanent ID:
+Give every product concept one name, one short definition and a permanent ID, in a table for the entity it belongs to, grouped by kind:
 
 ```markdown
-| ID                       | Term                 | Definition                                                   |
-| ------------------------ | -------------------- | ------------------------------------------------------------ |
-| `action.renew`           | Renew                | Move the due date by the renewal rule. Refused while someone waits for the title. |
-| `inv.no-renew-when-held` | No renewal when held | A loan cannot be renewed while someone waits for the title.  |
+## Loan
+
+| Kind      | ID                       | Term                 | Definition                                                  |
+| --------- | ------------------------ | -------------------- | ----------------------------------------------------------- |
+| Entity    | `ent.loan`               | Loan                 | An item lent to a member, from checkout until return.       |
+| Field     | `field.loan.due-date`    | Due date             | When the item must be back: checkout plus the loan period.  |
+| Invariant | `inv.no-renew-when-held` | No renewal when held | A loan cannot be renewed while someone waits for the title. |
+| Action    | `action.renew`           | Renew                | Move the due date by the renewal rule.                      |
 ```
 
-This list, with the longer explanations around it, is the "ontology". It is a plain Markdown file written for people and agents to read, not a formal model in OWL or RDF.
+These tables, one per entity with short notes under each, are the "ontology". It is a plain Markdown file written for people and agents to read, not a formal model in OWL or RDF. Each concept is defined once, and a reader who wants everything about loans opens one section.
 
 Then everything that touches meaning refers to the IDs:
 
@@ -35,7 +39,7 @@ Then everything that touches meaning refers to the IDs:
 - **Verification.** A scenario for each implemented feature names the IDs it proves, and so does the title of each test: `test("[inv.no-renew-when-held] renewal is refused while someone waits")`.
 - **Tasks.** A ticket names the IDs it touches, states the expected behavior as GIVEN/WHEN/THEN lines tagged with those IDs, and ends with the commands that must pass.
 
-One script checks all of these against each other, in both directions, on every commit and in CI.
+One script checks all of these against each other, in both directions, on every commit and in CI. It also checks the shape of the ontology: kinds in order, every field in its entity's table.
 
 ## Who it is for
 
@@ -54,7 +58,7 @@ node --test 'tools/ont-check/test/*.test.mjs'                        # the check
 
 Then open `example/mockup/index.html` in a browser and hover over the elements. Rename a `data-ont` value or delete a row from `example/mockup/ontology-map.md`, run the check again, and read what it reports.
 
-To adopt the approach, start with ten glossary rows for the concepts your team argues about most. See [Adopting the approach](docs/lifecycle.md#adopting-the-approach) and the [templates](templates/README.md).
+To adopt the approach, start with ten definition rows for the concepts your team argues about most. See [Adopting the approach](docs/lifecycle.md#adopting-the-approach) and the [templates](templates/README.md).
 
 ## What's in this repository
 

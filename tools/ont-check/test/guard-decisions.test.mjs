@@ -42,7 +42,7 @@ const run = (edit) => {
 };
 
 const allowed = [
-  ["a new accepted entry", (t) => t.replace("## Tentative", "### D-06 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative")],
+  ["a new accepted entry", (t) => t.replace("## Tentative", "### D-07 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative")],
   ["an edit of a tentative entry", (t) => t.replace("a week may be needed", "two weeks may be needed")],
   ["a new open question", (t) => t.replace("## Open questions\n", "## Open questions\n\n- Another question?\n")],
 ];

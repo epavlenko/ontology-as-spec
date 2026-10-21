@@ -6,49 +6,40 @@ Source of truth: this file. Decisions and their reasons live in [decisions.md](.
 
 What the product is for, in two sentences. This document describes the **target model**. What the code already does is listed in "Implementation status"; everything else is target.
 
-**Identifiers.** Every concept has a permanent ID of the form `class.name`. The ID never changes when the term is renamed. The mockup, the map, the decision log, the scenarios and the tickets refer to concepts by ID. The full list is the "Glossary" section.
+## How to read this
 
-## Entities
+**One section per entity**, then a section for screens. **One row per concept**: kind, permanent ID, term, definition. Together the rows are the glossary; the tooltips are generated from them. Notes under a table add detail and refer to concepts by ID; they never restate a definition.
 
-| ID          | Entity | What it is                         |
-| ----------- | ------ | ---------------------------------- |
-| `ent.thing` | Thing  | the main object people work with   |
+**Rows are grouped by kind**, in this order: Entity, Field, Relation, Derived, Concept, Rule, Invariant, Hook, Action, View. The kind is written on the first row of its group. A concept that involves several entities sits with the entity it constrains or changes.
 
-## Fields
+**Identifiers.** `class.name`, permanent: renaming a term changes the row's text, never its ID. Fields and relations name their entity: `field.thing.state`. When an ID has to change, the old one moves to "Retired IDs".
 
-| ID            | Field | Of    | Who sets it | Notes                       |
-| ------------- | ----- | ----- | ----------- | --------------------------- |
-| `field.state` | state | thing | the system  | open or closed (`action.close`) |
+## Thing
 
-## Invariants
+| Kind      | ID                    | Term            | Definition                            |
+| --------- | --------------------- | --------------- | ------------------------------------- |
+| Entity    | `ent.thing`           | Thing           | The main object people work with.     |
+| Field     | `field.thing.state`   | State           | Open or closed.                       |
+| Invariant | `inv.closed-is-final` | Closed is final | A closed thing is never reopened.     |
+| Action    | `action.close`        | Close           | Close a thing. It cannot be reopened. |
 
-1. `inv.closed-is-final` A closed thing is never reopened (D-01).
+- `field.thing.state` is set by the system; `action.close` is the only way to change it. `inv.closed-is-final` follows from D-01.
 
-## Views
+## Screens
 
-| ID                | View       | What it shows                  |
-| ----------------- | ---------- | ------------------------------ |
-| `view.thing.page` | Thing page | one thing with its state       |
+| Kind | ID                | Term       | Definition                |
+| ---- | ----------------- | ---------- | ------------------------- |
+| View | `view.thing.page` | Thing page | One thing with its state. |
 
-### Deliberately out of scope
+- `view.thing.page` shows one `ent.thing` with `field.thing.state` and offers `action.close`.
+
+## Deliberately out of scope
 
 What a helpful contributor would otherwise add, and why it is absent.
 
-## Glossary
-
-The single source of short definitions. Tooltips are generated from this table. Rule: a new concept gets a row here first.
-
-| ID                    | Term             | Definition                                         |
-| --------------------- | ---------------- | -------------------------------------------------- |
-| `ent.thing`           | Thing            | The main object people work with.                  |
-| `field.state`         | State            | Open or closed.                                    |
-| `inv.closed-is-final` | Closed is final  | A closed thing is never reopened.                  |
-| `view.thing.page`     | Thing page       | One thing with its state.                          |
-| `action.close`        | Close            | Close a thing. It cannot be reopened.              |
-
 ## Implementation status
 
-Is this already in the code, or is it the target? Everything absent from the table is target. The check verifies that IDs exist and the listed files exist; completeness is a human judgment, recorded in the note. A row looks like `| ent.thing | src/thing.ts | note |` with the ID and paths in backticks.
+Is this already in the code, or is it the target? Everything absent from the table is target. The check verifies that IDs exist and the listed files exist; completeness is a human judgment, recorded in the note. A row looks like `| ent.thing | src/thing.ts | note |` with the ID and paths in backticks. Group the rows under the same entity headings as above when the table grows.
 
 | ID  | Implemented in | Note |
 | --- | -------------- | ---- |
@@ -56,6 +47,13 @@ Is this already in the code, or is it the target? Everything absent from the tab
 ### Known divergences between code and ontology
 
 A divergence is not an error in the ontology. Each line names the IDs involved and becomes a ticket, or a new decision if the target changed.
+
+## Retired IDs
+
+IDs that had to change. The decision log keeps using them; everywhere else the check requires the new ID. A row looks like `| old.id | new.id | D-nn |` with both IDs in backticks; write — for a removed concept.
+
+| Retired ID | Replaced by | Decision |
+| ---------- | ----------- | -------- |
 
 ## Revision history
 

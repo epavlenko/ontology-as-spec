@@ -12,15 +12,20 @@ export function loadConfig(configPath) {
   const raw = JSON.parse(read(file));
   const at = (p) => (p ? resolve(base, p) : null);
   const headings = {
-    glossary: "## Glossary",
     implementation: "## Implementation status",
+    retired: "## Retired IDs",
     ...raw.headings,
   };
+  // classes: an array of class names, or an object { class: "Kind label" }. The order is the order
+  // of kinds inside every definition table; labels, when given, are checked in the Kind column.
+  const classes = Array.isArray(raw.classes) ? raw.classes : Object.keys(raw.classes);
   return {
     file,
     base,
     root: at(raw.root ?? "."),
-    classes: raw.classes,
+    classes,
+    kinds: Array.isArray(raw.classes) ? null : raw.classes,
+    scoped: raw.scoped ?? [],
     headings,
     ontology: at(raw.ontology),
     decisions: raw.decisions && {
@@ -88,20 +93,44 @@ export function section(md, heading) {
   return md.slice(start, end ? end.index : undefined);
 }
 
-const ROW = /^\|\s*`([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)`\s*\|\s*([^|]+?)\s*\|\s*(.+?)\s*\|\s*$/;
+// A definition row: | Kind | `id` | Term | Definition |. The Kind cell holds no backticks, which
+// keeps implementation rows (| `id` | `path` | note |) and retired rows out.
+const ROW =
+  /^\|([^|`]*)\|\s*`([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)`\s*\|\s*([^|]+?)\s*\|\s*(.+?)\s*\|\s*$/;
 
-// Glossary rows: | `id` | Term | Definition |. Returns { id: { name, def } } in document order.
-export function parseGlossary(md, heading) {
+// The glossary is the set of definition rows, wherever they sit in the ontology: one row per
+// concept, in tables grouped by entity. Returns { ONT: { id: { name, def } }, rows } in document
+// order; each row knows its table (a run of consecutive table lines), its Kind cell and its line.
+export function parseGlossary(md) {
   const ONT = {};
-  for (const line of section(md, heading).split("\n")) {
+  const rows = [];
+  let table = 0;
+  let inTable = false;
+  for (const line of md.split("\n")) {
+    const pipe = line.startsWith("|");
+    if (pipe && !inTable) table += 1;
+    inTable = pipe;
     const m = line.match(ROW);
     if (!m) continue;
-    const [, id, name, def] = m;
+    const [, kind, id, name, def] = m;
     if (ONT[id]) throw new Error(`Duplicate ID in the glossary: ${id}`);
     ONT[id] = { name, def: def.replace(/`/g, "") };
+    rows.push({ table, kind: kind.trim(), id, line });
   }
-  if (!Object.keys(ONT).length) throw new Error("The glossary is empty: the table format is broken");
-  return ONT;
+  if (!rows.length) throw new Error("The glossary is empty: no | Kind | `id` | Term | Definition | rows");
+  return { ONT, rows };
+}
+
+// Retired IDs: | `old.id` | `new.id` or — | D-nn |. An ID that had to change stays resolvable here,
+// so append-only records such as the decision log never need editing.
+export function parseRetired(md, heading) {
+  if (!heading || !md.includes(heading)) return new Map();
+  return new Map(
+    [...section(md, heading).matchAll(/^\|\s*`([a-z][a-z0-9.-]+)`\s*\|([^|]*)\|/gm)].map((m) => [
+      m[1],
+      (m[2].match(/`([^`]+)`/) ?? [])[1] ?? null,
+    ]),
+  );
 }
 
 export const renderGlossary = (ONT, sourceName) =>

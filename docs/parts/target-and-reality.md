@@ -4,19 +4,21 @@
 
 The ontology describes the **target model**: the product as agreed, not as built. Two sections at the end of the ontology say how far the code has come:
 
-- **Implementation status**, a table from ID to the files that implement it, with a note on what is partial.
+- **Implementation status**, a table from ID to the files that implement it, with a note on what is partial. It follows the entity sections of the ontology, one subheading per entity, so the status of a concept is found where its definition is.
 - **Known divergences**, a list of places where the code disagrees with the target. Each line names the IDs involved and points at the ticket that closes it, or says that a decision is pending.
 
 ```markdown
-| ID                | Implemented in    | Note                                 |
-| ----------------- | ----------------- | ------------------------------------ |
-| `ent.hold`        | `app/library.mjs` | placement only; nothing serves the queue yet |
-| `action.return`   | `app/cli.mjs`     | condition not recorded               |
+### Hold
+
+| ID                  | Implemented in    | Note                                         |
+| ------------------- | ----------------- | -------------------------------------------- |
+| `ent.hold`          | `app/library.mjs` | placement only; nothing serves the queue yet |
+| `action.place-hold` | `app/cli.mjs`     |                                              |
 
 ### Known divergences
 
-- The code still stores `fineCents` … D-03 replaced fines with `concept.suspension`; the field is not removed.
-- Nothing serves the queue: `hook.hold-ready`, `hook.hold-expire` … Ticket: #3 Serve the hold queue: reservation on return and the pickup window.
+- **Member.** The code still stores `fineCents` … D-03 replaced fines with `concept.suspension`; the field is not removed.
+- **Hold.** Nothing serves the queue: `hook.hold-ready`, `hook.hold-expire` … Ticket: #3 Serve the hold queue: reservation on return and the pickup window.
 ```
 
 Anything not in the implementation table is target.

@@ -4,27 +4,27 @@ How each kind of change moves through the artifacts. The [agent rules](parts/age
 
 ## A new concept
 
-1. Add a glossary row: ID, term, a definition that says what it is.
-2. Explain it in the ontology where it belongs, such as the entity table, the rules or the views. Refer to related concepts by ID.
+1. Add a definition row in the section of the entity it constrains or changes, in its kind's group: kind, ID, term, a definition that says what it is. A field or a relation names the entity in its ID.
+2. If it needs more than one line, add a note under the table. Refer to related concepts by ID; do not restate the definition.
 3. If the concept exists because of a choice, add a decision entry with the rejected alternatives.
 4. Regenerate the tooltip glossary.
 5. If it appears in the interface, add the map row, then the `data-ont` element in the mockup.
 6. Add a revision history line to the ontology.
 7. Run the check.
 
-Order matters. The glossary row comes first, so that nothing else can mention a concept that is not defined.
+Order matters. The definition row comes first, so that nothing else can mention a concept that is not defined.
 
 ## Renaming a term
 
-Change the term and, if needed, the definition in the glossary row. Leave the ID. Update the prose where the term appears. Regenerate the tooltips. If the rename reflects a change of meaning rather than wording, it is a decision.
+Change the term and, if needed, the definition in its row. Leave the ID. Update the prose where the term appears. Regenerate the tooltips. If the rename reflects a change of meaning rather than wording, it is a decision.
 
-## Renaming a class of IDs
+## Changing IDs
 
-Rare. It is justified when the class name itself misleads, for example when it collides with a term in a neighbouring product. It needs a decision entry that says why the permanence rule is broken. All IDs of the class change in one commit across every artifact, and the check confirms nothing was missed.
+Rare. It is justified when an ID itself misleads: a class name collides with a term in a neighbouring product, or fields need their entity in the ID because two entities now share a field name. It needs a decision entry that says why the permanence rule is broken. The new IDs replace the old ones in one commit across every artifact except the decision log, and each old ID gets a row under "Retired IDs" with its replacement and the decision. The check confirms nothing was missed: an old ID anywhere but the decision log is reported with its replacement.
 
 ## Removing a concept
 
-Remove it from the glossary, the map and the mockup in one commit, with a decision entry. The check fails if any reference remains. Decision entries that mention the concept keep their text but should no longer use its ID. Write the old term in plain words with a pointer to the decision that removed it.
+Remove its definition row, its map rows and its mockup elements in one commit, with a decision entry, and list the ID under "Retired IDs" with a dash for the replacement. The check fails if any reference remains outside the decision log. Decision entries that mention the concept stay as they are; the retired table is what keeps their IDs resolvable.
 
 ## Changing your mind
 
@@ -47,7 +47,7 @@ Code disagrees with the ontology. Do not change either side silently. Add a line
 
 Start small. The approach pays off before every part is in place.
 
-1. **Glossary of ten.** Write the ten concepts people argue about most, with IDs and one-line definitions. Put them in an `ontology.md`.
+1. **Ten concepts.** Write the ten concepts people argue about most, with IDs and one-line definitions, in an `ontology.md` with one table per entity.
 2. **Decision log.** Record the last five decisions that someone would otherwise reverse.
 3. **Check.** Copy `tools/ont-check`, write `ont.config.json` with only the ontology and the decisions, and run it and `guard-decisions.mjs` in CI. The config may omit the mockup, map and scenarios until they exist.
 4. **Agent rules.** Add the "what else to update" table to your agent instructions.

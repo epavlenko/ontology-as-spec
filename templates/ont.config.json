@@ -1,20 +1,56 @@
 {
-  "classes": ["ent", "field", "edge", "rule", "inv", "derived", "concept", "hook", "view", "action"],
+  "classes": {
+    "ent": "Entity",
+    "field": "Field",
+    "edge": "Relation",
+    "derived": "Derived",
+    "concept": "Concept",
+    "rule": "Rule",
+    "inv": "Invariant",
+    "hook": "Hook",
+    "action": "Action",
+    "view": "View"
+  },
   "ontology": "ontology.md",
   "headings": {
-    "glossary": "## Glossary",
-    "implementation": "## Implementation status"
+    "implementation": "## Implementation status",
+    "retired": "## Retired IDs"
   },
   "root": ".",
   "decisions": {
     "file": "decisions.md",
-    "entry": "^### (D-\\d+) · .+$",
+    "entry": "^### (D-\\d+) \u00b7 .+$",
     "ref": "\\bD-\\d+\\b"
   },
   "glossaryOut": "mockup/ontology.js",
-  "mockup": ["mockup/index.html"],
-  "map": { "file": "mockup/ontology-map.md", "idColumn": 2 },
-  "features": { "dir": "features", "cover": ["view", "action", "hook"] },
-  "tickets": { "dir": ".", "match": "^issue\\.md$" },
-  "notYetShown": ["view", "action", "field", "derived", "concept"]
+  "mockup": [
+    "mockup/index.html"
+  ],
+  "map": {
+    "file": "mockup/ontology-map.md",
+    "idColumn": 2
+  },
+  "features": {
+    "dir": "features",
+    "cover": [
+      "view",
+      "action",
+      "hook"
+    ]
+  },
+  "tickets": {
+    "dir": ".",
+    "match": "^issue\\.md$"
+  },
+  "notYetShown": [
+    "view",
+    "action",
+    "field",
+    "derived",
+    "concept"
+  ],
+  "scoped": [
+    "field",
+    "edge"
+  ]
 }

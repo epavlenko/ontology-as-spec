@@ -65,7 +65,7 @@ const views = {
 
   title: () => { const t = data.titles[0]; return `<div class="card" data-ont="view.title.page">
       <h2>${t.name}</h2>
-      <table><tr><th>Item</th><th data-ont="field.item-condition">Condition</th><th>Status</th></tr>
+      <table><tr><th>Item</th><th data-ont="field.item.condition">Condition</th><th>Status</th></tr>
       ${t.items.map(i => `<tr><td>${i.id}</td><td>${i.condition}</td><td>${badge(i.status)} <span class="muted">${i.note || ''}</span></td></tr>`).join('')}</table>
       <h3>Queue</h3>
       <ol>${t.queue.map(n => `<li data-ont="derived.queue-position">${n}</li>`).join('')}</ol>
@@ -78,7 +78,7 @@ const views = {
       <h2>Ana · my loans</h2>
       <div class="note" data-ont="concept.suspension">Borrowing is paused until <b>Dune</b> is back. There is no fine.
         <span class="muted" data-ont="inv.suspended-cannot-borrow">(why)</span></div>
-      <table><tr><th>Title</th><th data-ont="field.due-date">Due</th><th data-ont="field.renewals">Renewed</th><th></th></tr>
+      <table><tr><th>Title</th><th data-ont="field.loan.due-date">Due</th><th data-ont="field.loan.renewals">Renewed</th><th></th></tr>
       ${data.loans.map(l => `<tr><td>${l.title}</td><td>${l.due} ${l.status ? badge(l.status) : ''}</td><td>${l.renewals} of 2</td>
         <td>${l.held
           ? `<button class="act" disabled data-ont="action.renew">Renew</button> <span class="muted" data-ont="inv.no-renew-when-held">2 people are waiting</span>`
@@ -91,7 +91,7 @@ const views = {
         <button class="act" data-ont="action.checkout" id="co">Check out</button>
         <button class="act" data-ont="action.return">Return</button></p>
       <div id="refusal"></div>
-      <p class="muted">Loans: <span data-ont="field.borrow-limit">2 of 5</span></p></div>`,
+      <p class="muted">Loans: <span data-ont="field.member.borrow-limit">2 of 5</span></p></div>`,
 };
 
 function render() {

@@ -60,12 +60,20 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the three are mechanical and small, and each closes a gap the limitations name: "implemented" without proof, acceptance criteria in prose, and a never-edit rule enforced by review only. The example is where they can be tried and broken before a real project. The documentation says they have not been used in a real project, so practice and proposal stay distinguishable.
 - Rejected: Gherkin feature files (a second format and a runner for what fits in one tagged line); EARS sentences (they state requirements, while a scenario with data is what becomes a test); a separate file mapping tests to IDs (drifts from the tests it describes); guarding decisions in CI only (the pre-commit hook stops the edit before it is committed); implementing all six (the other three are open questions, not mechanics).
 
+### D-09 · One definition table per entity, grouped by kind; changed IDs are retired, not deleted
+
+- Date: 2026-10-21 · Status: accepted
+- Decision: the ontology has one section per entity and one for screens. Each section is one table in which every concept is a row: kind, ID, term, definition. Rows are grouped by kind in the order of the configured classes, and the kind is written on the first row of each group. There is no separate glossary table; the definition rows are the glossary. Fields and relations name their entity in the ID (`field.loan.due-date`) and sit in its table. An ID that has to change moves to a "Retired IDs" table with its replacement, so the decision log resolves it without being edited. This implements "one home per definition", and D-05 no longer applies to it.
+- Why: in the earlier layout a concept was defined in the glossary and explained again in a per-kind table, and the two drifted. Per-kind tables also scattered one entity over many sections, which is hard to read once there are many entities with many fields. The guard (D-08) made a rename impossible without a retired table: an accepted entry that uses an old ID cannot be edited, and the check would otherwise fail on it.
+- Rejected: keeping the glossary and checking that explanatory rows agree with it (compares text, which the check cannot do reliably); per-kind tables sorted by entity (still two places for one entity's rules and fields); a subheading per kind inside each entity (many tiny tables); the entity in every ID (rules, invariants and actions often involve several entities); deleting old IDs and editing old decisions (breaks the never-edit rule the guard enforces).
+
 ## Open questions
 
 - When to name the source project.
 
 ## History
 
+- 2026-10-21: D-09: one definition table per entity; retired IDs.
 - 2026-10-21: D-08: tests linked to IDs, scenarios in tickets, decision guard.
 - 2026-10-17: D-07: licenses.
 - 2026-10-17: D-01…D-06.

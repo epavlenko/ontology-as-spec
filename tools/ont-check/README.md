@@ -16,7 +16,7 @@ Without `--config`, all three look for `ont.config.json` in the current director
 | ------------------ | --------------------------------------------------------------------------------- |
 | `ont-check.mjs`    | the check                                                                         |
 | `guard-decisions.mjs` | fails if an entry accepted in an earlier commit (`--base`, default `HEAD`) was edited or removed; `--staged` reads the staged log |
-| `gen-glossary.mjs` | writes `window.ONT = {...}` from the glossary table                               |
+| `gen-glossary.mjs` | writes `window.ONT = {...}` from the definition rows                              |
 | `lib.mjs`          | the one parser both use, and the config loader                                    |
 | `ont-tooltips.js`  | browser runtime for the mockup: sets `title` from `window.ONT` on `[data-ont]` elements |
 | `test/`            | copies the example, breaks it one way at a time, asserts the check names the break; runs the guard in a throwaway repository |
@@ -27,9 +27,10 @@ Paths are relative to the config file.
 
 | Key | Meaning | Required |
 | --- | ------- | -------- |
-| `classes` | allowed ID classes, such as `["ent", "field", "view"]` | yes |
+| `classes` | allowed ID classes in the order rows are grouped, either a list (`["ent", "field", "view"]`) or an object of class and Kind label (`{"ent": "Entity", "field": "Field"}`); with labels the Kind cells are checked | yes |
+| `scoped` | classes whose IDs name their entity (`["field", "edge"]`): `field.loan.due-date` must sit in the table of `ent.loan` | no |
 | `ontology` | the ontology Markdown file | yes |
-| `headings.glossary` | heading of the glossary section; default `## Glossary` | no |
+| `headings.retired` | heading of the retired IDs table; default `## Retired IDs`; the section may be absent | no |
 | `headings.implementation` | heading of the implementation table; default `## Implementation status`; `null` until code exists | no |
 | `root` | base directory for paths in the implementation table; default the config's directory | no |
 | `decisions.file` | the decision log | no |
@@ -47,7 +48,8 @@ Every optional part can be left out. The checks that depend on it are then skipp
 
 ## Formats it expects
 
-- **Glossary rows:** ``| `class.name` | Term | Definition |``, one per line, inside the glossary section.
+- **Definition rows:** ``| Kind | `class.name` | Term | Definition |``, anywhere in the ontology. A table is a run of consecutive table lines; the Kind cell holds no backticks. Together the rows are the glossary.
+- **Retired IDs:** ``| `old.id` | `new.id` | D-nn |`` under `headings.retired`; a dash instead of the new ID for a removed concept.
 - **IDs in Markdown:** in backticks. Other text is not read as IDs.
 - **Implementation rows:** ``| `class.name` | `path`, `path` | note |`` inside the implementation section.
 - **Mockup:** `data-ont="class.name"` attributes, and IDs in single quotes inside scripts (`'view.catalog'`). IDs built from templates are declared in a comment `/* data-ont dynamic: 'class.a','class.b' */`, and the markup must contain `data-ont="class.${`.

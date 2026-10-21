@@ -1,6 +1,6 @@
 # Limitations and open questions
 
-What the approach does not do, what has not been tested, and what could make it stronger. Three former proposals are implemented in the tool and the example but have not been used in a real project. The proposals in the last section have not been implemented or tried.
+What the approach does not do, what has not been tested, and what could make it stronger. Four former proposals are implemented in the tool and the example but have not been used in a real project. The proposals in the last section have not been implemented or tried.
 
 ## Weaknesses
 
@@ -12,9 +12,9 @@ The check reads the ontology, the mockup, the map, the decision log, the impleme
 
 An invariant such as "an item is on at most one open loan" is written in prose. A test names it in a tag, and the check requires such a test for every implemented invariant, rule and derived value. The check cannot see whether the test actually exercises the rule: a test tagged `[inv.one-loan-per-item]` that asserts nothing passes. Tickets state expected behavior as tagged GIVEN/WHEN/THEN scenarios, but the check does not match a scenario to the test that implements it. Verification scenarios in `features/` remain recipes, not automated checks.
 
-### Definitions can drift inside the ontology
+### Notes can still restate a definition
 
-The glossary is the single source of short definitions, but the rest of the ontology explains the same concepts at length, often in tables of its own. The check compares IDs, not text. A list of five items in an explanatory table and four in the glossary row passes. This has happened in practice.
+Each concept has one definition row, in the table of its entity, and no second table explains it again. The notes under a table may still describe a concept in words of their own, and the check compares IDs, not text. In the project where the approach took shape, an explanatory table listed five items where the glossary row listed four; the layout removes the second table, not the temptation.
 
 ### The mockup cannot show time
 
@@ -46,16 +46,16 @@ There is no equivalent of Spec Kit's clarify and analyze commands or OpenSpec's 
 
 ## Implemented, not yet tried in a real project
 
-These were proposals until [D-08](../decisions.md). They work on the example and are covered by the check's tests. None has been used in a real project.
+These were proposals until [D-08 and D-09](../decisions.md). They work on the example and are covered by the check's tests. None has been used in a real project.
 
 - **Tests linked to IDs.** A test title starts with the IDs it proves: `test("[inv.one-loan-per-item] an item cannot be on two loans")`. The check requires a tagged test for every implemented concept of the classes listed under `tests.cover` (invariants, rules and derived values in the example), and refuses a tag naming a concept the implementation table does not list. See [part 6](parts/verification-map.md#tests-that-name-ids).
 - **GIVEN/WHEN/THEN scenarios in tickets.** A ticket states its expected behavior as one-line scenarios, each starting with the tag its test will carry: `- [inv.queue-order] GIVEN … WHEN … THEN …`. The check requires at least one scenario per ticket, the three keywords on every line and tags from the ticket's `IDs:` line. See [part 8](parts/agent-workflow.md#scenarios).
+- **One home per definition.** The ontology has one table per entity, and every concept is one row in one of them, grouped by kind in a fixed order. There is no separate glossary table and no per-kind table that explains the concepts again. The check enforces the kind order, the Kind cells and that each field or relation sits with its entity. See [part 1](parts/glossary-and-ids.md).
 - **Guarded decisions.** `tools/ont-check/guard-decisions.mjs` compares every accepted entry with an earlier commit and fails if one changed or disappeared. It runs in the pre-commit hook and in CI. See [part 2](parts/decision-log.md#what-the-check-enforces).
 
 ## Proposed strengthening
 
-None of these is implemented. The first two came out of comparing the approach with SDD tools. The last came out of reading the check's blind spots.
+Neither is implemented. Both came out of comparing the approach with SDD tools.
 
 1. **Do not expand the ontology ahead of the code.** When the target model is far ahead of the implementation, new concepts add review cost without feedback. Freeze expansion until delivery stages have reached code, and let what implementation teaches drive the next additions.
-2. **Generate contracts from fields.** Generate schemas or typed contracts from the field, enumeration and relation tables of the ontology. It is a narrow, deterministic step toward spec-as-source for the part of the ontology that is precise enough.
-3. **One home per definition.** Either forbid restating definitions in the explanatory tables, which would then only add detail, or check that every table row describing an ID is consistent with its glossary row.
+2. **Generate contracts from fields.** Generate schemas or typed contracts from the field and relation rows of each entity table. It is a narrow, deterministic step toward spec-as-source for the part of the ontology that is precise enough.
