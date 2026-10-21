@@ -39,6 +39,7 @@ Paths are relative to the config file.
 | `decisions.file` | the decision log | no |
 | `decisions.entry` | regex for an entry heading with the number in group 1; default `^### (D-\d+) · .+$` | no |
 | `decisions.ref` | regex for a reference to an entry; default `\bD-\d+\b` | no |
+| `decisions.accepted` | regex for the line that marks an entry accepted, for the guard; default `^- Date:.*Status:\s*accepted\b`, case-insensitive; set it for a log in another language | no |
 | `glossaryOut` | the generated tooltip file | no |
 | `contracts.out`, `contracts.classes`, `contracts.propertyCase` | the generated JSON Schema; the classes that carry a type (default `["field", "edge"]`); property names from the ID's last part as `camel` (default), `snake` or `kebab` | no |
 | `mockup` | list of mockup HTML files | no |
@@ -62,7 +63,7 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Scenario files:** an `IDs:` line at the start of a line.
 - **Test tags:** IDs in square brackets anywhere in a test file, normally at the start of a test title: `test("[inv.one-loan-per-item] …")`, `test("[rule.renewal, field.renewals] …")`. Only configured classes are read, so `[0]` or `[x.y]` is not a tag.
 - **Tickets:** an `IDs:` or `Ontology IDs:` line, and a `## Scenarios` section whose bullets read `- [id, id] GIVEN … WHEN … THEN …`.
-- **Decision status (guard):** an entry is accepted when its `- Date:` line contains `Status: accepted`.
+- **Decision status (guard):** an entry is accepted when one of its lines matches `decisions.accepted`, by default a `- Date:` line containing `Status: accepted`.
 
 ## Hooks
 

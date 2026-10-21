@@ -5,6 +5,10 @@ import { dirname, join, resolve } from "node:path";
 
 export const read = (path) => readFileSync(path, "utf8");
 
+// An entry is accepted when one of its lines matches this pattern. A log in another language sets
+// decisions.accepted in the config.
+export const DEFAULT_ACCEPTED = "^- Date:.*Status:\\s*accepted\\b";
+
 // Loads ont.config.json and resolves every path against the config file's directory.
 export function loadConfig(configPath) {
   const file = resolve(configPath);
@@ -32,6 +36,7 @@ export function loadConfig(configPath) {
       file: at(raw.decisions.file),
       entry: new RegExp(raw.decisions.entry ?? "^### (D-\\d+) · .+$", "gm"),
       ref: new RegExp(raw.decisions.ref ?? "\\bD-\\d+\\b", "g"),
+      accepted: new RegExp(raw.decisions.accepted ?? DEFAULT_ACCEPTED, "im"),
     },
     glossaryOut: at(raw.glossaryOut),
     contracts: raw.contracts && {

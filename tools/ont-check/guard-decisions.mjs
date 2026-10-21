@@ -9,7 +9,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
-import { loadConfig, read } from "./lib.mjs";
+import { DEFAULT_ACCEPTED, loadConfig, read } from "./lib.mjs";
 
 const argv = process.argv.slice(2);
 const values = (flag) => argv.flatMap((a, i) => (argv[i - 1] === flag ? [a] : []));
@@ -24,9 +24,14 @@ const targets = [
   ...configs.map((c) => {
     const cfg = loadConfig(c);
     if (!cfg.decisions) throw new Error(`${c}: no decisions file in the config`);
-    return { file: cfg.decisions.file, entry: cfg.decisions.entry.source };
+    const { file, entry, accepted } = cfg.decisions;
+    return { file, entry: entry.source, accepted };
   }),
-  ...files.map((f) => ({ file: resolve(f), entry: DEFAULT_ENTRY })),
+  ...files.map((f) => ({
+    file: resolve(f),
+    entry: DEFAULT_ENTRY,
+    accepted: new RegExp(DEFAULT_ACCEPTED, "im"),
+  })),
 ];
 
 const git = (cwd, ...args) => spawnSync("git", args, { cwd, encoding: "utf8" });
@@ -44,10 +49,9 @@ const entries = (text, entry) => {
     }),
   );
 };
-const accepted = (body) => /^- Date:.*Status:\s*accepted\b/im.test(body);
 
 const errors = [];
-for (const { file, entry } of targets) {
+for (const { file, entry, accepted } of targets) {
   const cwd = dirname(file);
   const path = `./${basename(file)}`;
   const name = relative(process.cwd(), file);
@@ -67,7 +71,7 @@ for (const { file, entry } of targets) {
   const changed = [];
   const removed = [];
   for (const [id, body] of old) {
-    if (!accepted(body)) continue;
+    if (!accepted.test(body)) continue;
     if (!cur.has(id)) removed.push(id);
     else if (cur.get(id) !== body) {
       const a = body.split("\n");
@@ -84,7 +88,7 @@ for (const { file, entry } of targets) {
       console.log(`ERROR · ${name}: ${label} (${items.length}):\n  ${items.join("\n  ")}`);
       errors.push(label);
     }
-  console.log(`${name}: ${[...old.values()].filter(accepted).length} accepted entries in ${base}`);
+  console.log(`${name}: ${[...old.values()].filter((b) => accepted.test(b)).length} accepted entries in ${base}`);
 }
 
 if (errors.length) {

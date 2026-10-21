@@ -10,8 +10,9 @@ const GUARD = fileURLToPath(new URL("../guard-decisions.mjs", import.meta.url));
 const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
 
 // Each case commits the example to a throwaway repository, changes the decision log one way and
-// runs the guard against that commit, on the working tree and on the staged version.
-const run = (edit) => {
+// runs the guard against that commit, on the working tree and on the staged version. prepare(dir)
+// may change the copy before the base commit.
+const run = (edit, prepare = () => {}) => {
   const dir = mkdtempSync(join(tmpdir(), "guard-"));
   const git = (...args) => {
     const r = spawnSync("git", args, { cwd: dir, encoding: "utf8" });
@@ -19,6 +20,7 @@ const run = (edit) => {
   };
   try {
     cpSync(EXAMPLE, dir, { recursive: true });
+    prepare(dir);
     git("init", "-q");
     git("add", ".");
     git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base");
@@ -65,3 +67,22 @@ for (const [name, label, edit] of refused)
       assert.ok(r.out.includes(label), `expected "${label}" in:\n${r.out}`);
     }
   });
+
+// A log in another language: the same edit is refused only once decisions.accepted matches its
+// status line.
+const localized = (setting) => (dir) => {
+  const log = join(dir, "decisions.md");
+  writeFileSync(log, readFileSync(log, "utf8").replaceAll("Status: accepted", "Статус: принято"));
+  const config = join(dir, "ont.config.json");
+  const cfg = JSON.parse(readFileSync(config, "utf8"));
+  if (setting) cfg.decisions.accepted = setting;
+  writeFileSync(config, JSON.stringify(cfg));
+};
+const edit = (t) => t.replace("members remember one number", "members like one number");
+test("reads the accepted status from decisions.accepted", () => {
+  for (const r of run(edit, localized(null))) assert.equal(r.code, 0, r.out);
+  for (const r of run(edit, localized("^- Date:.*Статус:\\s*принято"))) {
+    assert.equal(r.code, 1, r.out);
+    assert.ok(r.out.includes("accepted entries edited"), r.out);
+  }
+});

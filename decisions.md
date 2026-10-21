@@ -81,12 +81,20 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the shape of stored data is the part of the ontology precise enough to generate from, and it is where agents most often invent names and values. A generated contract puts concept IDs where code can reach them, which narrows the weakness "code does not refer to IDs". JSON Schema keeps the approach independent of the implementation language, which the owner made a condition.
 - Rejected: types of one language, such as TypeScript (ties the approach to a stack); a check that reads the code's own types (one parser per language); types in notes or in the definition text (not parseable without a second convention, and tooltips would show them); a type column on every table including screens (empty cells for kinds that have no shape).
 
+### D-12 · The accepted status is configurable, for logs in other languages
+
+- Date: 2026-10-21 · Status: accepted
+- Decision: the guard reads the line that marks an entry accepted from `decisions.accepted` in the config, a regex; the default stays `^- Date:.*Status:\s*accepted\b`. Nothing else about the log format changes.
+- Why: the first project to adopt the approach keeps its decision log in another language, and the guard counted none of its entries as accepted, so it guarded nothing and said GUARD_OK. The entry heading and the reference were already configurable; the status was the one hardcoded English word.
+- Rejected: a list of known translations in the tool (grows without end); requiring English status lines in every log (the log is written for the team, in its language).
+
 ## Open questions
 
 - When to name the source project.
 
 ## History
 
+- 2026-10-21: D-12: configurable accepted status.
 - 2026-10-21: D-11: contracts generated from typed fields.
 - 2026-10-21: D-10: no concept without feedback; contracts restated as language-neutral.
 - 2026-10-21: D-09: one definition table per entity; retired IDs.
