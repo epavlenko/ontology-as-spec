@@ -36,6 +36,12 @@ test("the example is consistent", () => {
   assert.match(r.out, /ONT_OK/);
 });
 
+test("lists a concept with no mockup element, ticket or code as information", () => {
+  const r = run((p) => p("ontology.md", "| `edge.item.copy-of`     | `app/library.mjs` |                  |\n", ""));
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /info · concepts with no mockup element, ticket or implementation yet \(1\):\n  edge\.item\.copy-of/);
+});
+
 const cases = [
   ["an ID in the ontology text missing from the glossary", "IDs in the ontology text but not in the glossary",
     (p) => p("ontology.md", "- `concept.suspension` starts", "- `concept.suspended` starts")],

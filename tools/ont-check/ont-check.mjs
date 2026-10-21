@@ -274,7 +274,15 @@ if (cfg.features) {
   );
 }
 
-// Informational: what the mockup has not shown yet, what the prose has not explained yet.
+// Informational: concepts nothing has tried yet. A concept arrives with feedback: a mockup element,
+// a ticket or code. One that has none of them is a review item, not an error.
+report(
+  "concepts with no mockup element, ticket or implementation yet",
+  diff(glossary, new Set([...used, ...ticketIds, ...implemented])),
+  false,
+);
+
+// Informational: what the mockup has not shown yet.
 if (cfg.mockup.length && cfg.notYetShown.length) {
   const ui = new RegExp(`^(?:${cfg.notYetShown.join("|")})\\.`);
   report(

@@ -67,12 +67,20 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: in the earlier layout a concept was defined in the glossary and explained again in a per-kind table, and the two drifted. Per-kind tables also scattered one entity over many sections, which is hard to read once there are many entities with many fields. The guard (D-08) made a rename impossible without a retired table: an accepted entry that uses an old ID cannot be edited, and the check would otherwise fail on it.
 - Rejected: keeping the glossary and checking that explanatory rows agree with it (compares text, which the check cannot do reliably); per-kind tables sorted by entity (still two places for one entity's rules and fields); a subheading per kind inside each entity (many tiny tables); the entity in every ID (rules, invariants and actions often involve several entities); deleting old IDs and editing old decisions (breaks the never-edit rule the guard enforces).
 
+### D-10 · "No concept without feedback" replaces "do not expand the ontology ahead of the code"
+
+- Date: 2026-10-21 · Status: accepted
+- Decision: the proposal to freeze the ontology until code catches up is replaced by a weaker rule: a concept arrives with something that will try it, a mockup element, a ticket or code. The check lists concepts with none of these as information, not as an error. The proposal to generate contracts from fields is restated as language-neutral (JSON Schema generated from typed field and relation rows) and stays a proposal under D-05.
+- Why: the owner pointed out that the ontology running ahead of the code together with the mockup is normal: that is how a target is designed before it is built. The real cost is concepts that nothing has tried, which add review load without feedback. A list keeps them visible without blocking design work. Contracts must not tie the approach to an implementation language.
+- Rejected: the freeze as originally proposed (blocks designing ahead in the mockup); an error instead of information (would push people to add placeholder tickets or mockup labels to silence it); dropping the proposal (loses the signal); contracts as TypeScript or another language's types (ties the approach to one stack).
+
 ## Open questions
 
 - When to name the source project.
 
 ## History
 
+- 2026-10-21: D-10: no concept without feedback; contracts restated as language-neutral.
 - 2026-10-21: D-09: one definition table per entity; retired IDs.
 - 2026-10-21: D-08: tests linked to IDs, scenarios in tickets, decision guard.
 - 2026-10-17: D-07: licenses.

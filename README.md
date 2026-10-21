@@ -83,7 +83,7 @@ Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/ex
 
 The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks its ontology grew to roughly 150 concepts, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product. The example is fictional.
 
-The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Tests linked to IDs, scenarios in tickets and the decision guard were added to the tool and the example afterwards and have not been used in a real project. Everything under [Proposed strengthening](docs/limitations.md#proposed-strengthening) is a proposal that has not been tried.
+The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Tests linked to IDs, scenarios in tickets, the decision guard, the ontology grouped by entity and the list of concepts nothing has tried yet were added to the tool and the example afterwards and have not been used in a real project. Everything under [Proposed strengthening](docs/limitations.md#proposed-strengthening) is a proposal that has not been tried.
 
 Questions and suggestions are welcome as GitHub issues. Maintained by Jevgenijs Pavlenko.
 

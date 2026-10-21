@@ -45,6 +45,7 @@ DRIFT: 2
 | test tags exist and name only implemented concepts | tests → glossary, table | error |
 | implemented concepts of covered classes have a tagged test | table → tests | error |
 | tickets have an `IDs:` line and scenarios; each scenario has a tag from that line and GIVEN … WHEN … THEN | tickets → glossary | error |
+| concepts with no mockup element, ticket or implementation | glossary → mockup, tickets, table | info |
 | interface-facing concepts not yet in the mockup | glossary → mockup | info |
 
 The "both directions" part matters. Checking only that references resolve catches typos. Checking also that every concept is referenced, every labelled element is mapped and every implemented concept has a way to be proven catches the slower failure: things that quietly stop being connected.

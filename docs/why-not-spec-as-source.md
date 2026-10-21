@@ -18,7 +18,7 @@ When agents write nearly all the code, no human touches it in any of the three l
 
 ## A narrow step toward spec-as-source
 
-Some parts of the ontology are precise enough to generate from. Fields with types, enumerations of states and the shape of a relation could produce schemas or contracts directly. That would make a thin slice of the product spec-as-source while leaving the rest anchored. It is listed under [proposed strengthening](limitations.md#proposed-strengthening) and has not been tried.
+Some parts of the ontology are precise enough to generate from. Fields with types, enumerations of states and the shape of a relation could produce a contract in a language-neutral format such as JSON Schema, which any stack can validate against or generate types from. That would make a thin slice of the product spec-as-source while leaving the rest anchored, and the approach would still not prescribe an implementation language. It is listed under [proposed strengthening](limitations.md#proposed-strengthening) and has not been tried.
 
 ## What this costs and what it buys
 

@@ -14,6 +14,8 @@ How each kind of change moves through the artifacts. The [agent rules](parts/age
 
 Order matters. The definition row comes first, so that nothing else can mention a concept that is not defined.
 
+A concept arrives with something that will try it: a mockup element, a ticket or code. The ontology may run ahead of the code, together with the mockup; that is how a target is designed. What it should not do is grow concepts that nothing has tried. The check lists them as information, "concepts with no mockup element, ticket or implementation yet". Each one is a question for review: show it, plan it, or drop it.
+
 ## Renaming a term
 
 Change the term and, if needed, the definition in its row. Leave the ID. Update the prose where the term appears. Regenerate the tooltips. If the rename reflects a change of meaning rather than wording, it is a decision.

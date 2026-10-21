@@ -1,6 +1,6 @@
 # Limitations and open questions
 
-What the approach does not do, what has not been tested, and what could make it stronger. Four former proposals are implemented in the tool and the example but have not been used in a real project. The proposals in the last section have not been implemented or tried.
+What the approach does not do, what has not been tested, and what could make it stronger. Five former proposals are implemented in the tool and the example but have not been used in a real project. The proposals in the last section have not been implemented or tried.
 
 ## Weaknesses
 
@@ -46,16 +46,16 @@ There is no equivalent of Spec Kit's clarify and analyze commands or OpenSpec's 
 
 ## Implemented, not yet tried in a real project
 
-These were proposals until [D-08 and D-09](../decisions.md). They work on the example and are covered by the check's tests. None has been used in a real project.
+These were proposals until [D-08, D-09 and D-10](../decisions.md). They work on the example and are covered by the check's tests. None has been used in a real project.
 
 - **Tests linked to IDs.** A test title starts with the IDs it proves: `test("[inv.one-loan-per-item] an item cannot be on two loans")`. The check requires a tagged test for every implemented concept of the classes listed under `tests.cover` (invariants, rules and derived values in the example), and refuses a tag naming a concept the implementation table does not list. See [part 6](parts/verification-map.md#tests-that-name-ids).
 - **GIVEN/WHEN/THEN scenarios in tickets.** A ticket states its expected behavior as one-line scenarios, each starting with the tag its test will carry: `- [inv.queue-order] GIVEN … WHEN … THEN …`. The check requires at least one scenario per ticket, the three keywords on every line and tags from the ticket's `IDs:` line. See [part 8](parts/agent-workflow.md#scenarios).
 - **One home per definition.** The ontology has one table per entity, and every concept is one row in one of them, grouped by kind in a fixed order. There is no separate glossary table and no per-kind table that explains the concepts again. The check enforces the kind order, the Kind cells and that each field or relation sits with its entity. See [part 1](parts/glossary-and-ids.md).
+- **No concept without feedback.** Formerly "do not expand the ontology ahead of the code". The ontology may run ahead of the code together with the mockup; what it should not do is grow concepts nothing has tried. The check lists, as information, every concept with no mockup element, no ticket and no implementation row. See [lifecycle](lifecycle.md#a-new-concept).
 - **Guarded decisions.** `tools/ont-check/guard-decisions.mjs` compares every accepted entry with an earlier commit and fails if one changed or disappeared. It runs in the pre-commit hook and in CI. See [part 2](parts/decision-log.md#what-the-check-enforces).
 
 ## Proposed strengthening
 
-Neither is implemented. Both came out of comparing the approach with SDD tools.
+Not implemented. It came out of comparing the approach with SDD tools.
 
-1. **Do not expand the ontology ahead of the code.** When the target model is far ahead of the implementation, new concepts add review cost without feedback. Freeze expansion until delivery stages have reached code, and let what implementation teaches drive the next additions.
-2. **Generate contracts from fields.** Generate schemas or typed contracts from the field and relation rows of each entity table. It is a narrow, deterministic step toward spec-as-source for the part of the ontology that is precise enough.
+- **Contracts from fields, independent of the implementation language.** Field and relation rows get a type in a small neutral vocabulary: text, integer, date, an enumeration of values, a reference to an entity with its cardinality. The tool generates a JSON Schema per entity from them, with the concept ID on every property, and the check confirms that the generated file is current, as it does for the tooltips. Every common language can validate data against JSON Schema or generate types from it; which of these a project uses is its own choice. A project that wants a stricter link adds a check in its own stack that its types match the schema. This is a narrow, deterministic step toward spec-as-source for the part of the ontology that is precise enough, and the first place where code would refer to concept IDs.

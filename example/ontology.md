@@ -134,6 +134,7 @@ The table answers "is this already in the code or is it the target". Everything 
 | ID                      | Implemented in    | Note             |
 | ----------------------- | ----------------- | ---------------- |
 | `ent.item`              | `app/library.mjs` | no condition yet |
+| `edge.item.copy-of`     | `app/library.mjs` |                  |
 | `inv.one-loan-per-item` | `app/library.mjs` |                  |
 
 ### Loan
@@ -153,10 +154,11 @@ The table answers "is this already in the code or is it the target". Everything 
 
 ### Hold
 
-| ID                  | Implemented in    | Note                                         |
-| ------------------- | ----------------- | -------------------------------------------- |
-| `ent.hold`          | `app/library.mjs` | placement only; nothing serves the queue yet |
-| `action.place-hold` | `app/cli.mjs`     |                                              |
+| ID                    | Implemented in    | Note                                         |
+| --------------------- | ----------------- | -------------------------------------------- |
+| `ent.hold`            | `app/library.mjs` | placement only; nothing serves the queue yet |
+| `edge.hold.waits-for` | `app/library.mjs` |                                              |
+| `action.place-hold`   | `app/cli.mjs`     |                                              |
 
 ### Screens
 
