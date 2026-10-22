@@ -26,11 +26,11 @@ Documentation describes the same product as the ontology, in the words of its re
 
 Generating the prose itself is rejected for the same reason the approach does not generate code: the result is not deterministic, and meaning is kept by references, not by generation. An agent may draft a page from the ontology; the draft is then anchored and checked like any other page.
 
-<!-- ont: ent.doc-set@1bdb9f, inv.anchors-resolve@974479, inv.doc-set-covers@c1b7c5, inv.reference-current@fcb818 -->
+<!-- ont: ent.doc-set@1bdb9f, inv.anchors-resolve@974479, inv.doc-set-covers@c1b7c5, inv.reference-current@fcb818, inv.doc-set-names-unique@4e4245 -->
 ## How it is written
 
 - **Anchors.** `<!-- ont: id, id -->` directly above the section it describes. IDs are concepts or checks. A stamp after `@` is a short hash of the definition the section was last reread against; `stamp-docs.mjs` writes it.
-- **Doc sets.** The configuration lists them: a name, a directory, and the classes whose concepts the set must explain, either the implemented ones (help for users describes what exists) or all of them (a design guide describes the target).
+- **Doc sets.** The configuration lists them: a name, unique among the sets, a directory, and the classes whose concepts the set must explain, either the implemented ones (help for users describes what exists) or all of them (a design guide describes the target).
 
 ```json
 "docSets": [

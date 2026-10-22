@@ -222,13 +222,14 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Doc set
 
-| Kind      | ID                    | Term                 | Type                    | Definition                                                                               |
-| --------- | --------------------- | -------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
-| Entity    | `ent.doc-set`         | Doc set              |                         | A set of pages for one audience, and the classes it must explain.                        |
-| Field     | `field.doc-set.name`  | Name                 | text                    | Unique among the sets.                                                                   |
-|           | `field.doc-set.cover` | Covers               | text                    | The classes whose concepts the set must explain.                                         |
-|           | `field.doc-set.scope` | Scope                | one of implemented, all | Whether the set explains what is built or the whole target.                              |
-| Invariant | `inv.doc-set-covers`  | Explains its classes |                         | Every concept of a covered class, within the scope, is explained by an anchored section. |
+| Kind      | ID                         | Term                 | Type                    | Definition                                                                               |
+| --------- | -------------------------- | -------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
+| Entity    | `ent.doc-set`              | Doc set              |                         | A set of pages for one audience, and the classes it must explain.                        |
+| Field     | `field.doc-set.name`       | Name                 | text                    | Unique among the sets.                                                                   |
+|           | `field.doc-set.cover`      | Covers               | text                    | The classes whose concepts the set must explain.                                         |
+|           | `field.doc-set.scope`      | Scope                | one of implemented, all | Whether the set explains what is built or the whole target.                              |
+| Invariant | `inv.doc-set-covers`       | Explains its classes |                         | Every concept of a covered class, within the scope, is explained by an anchored section. |
+|           | `inv.doc-set-names-unique` | Unique names         |                         | No two doc sets share a name.                                                            |
 
 ## Reference page
 
@@ -451,13 +452,14 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Doc set
 
-| ID                    | Implemented in                                             | Note |
-| --------------------- | ---------------------------------------------------------- | ---- |
-| `ent.doc-set`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
-| `field.doc-set.name`  | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
-| `field.doc-set.cover` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
-| `field.doc-set.scope` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
-| `inv.doc-set-covers`  | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| ID                         | Implemented in                                             | Note |
+| -------------------------- | ---------------------------------------------------------- | ---- |
+| `ent.doc-set`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `field.doc-set.name`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `field.doc-set.cover`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `field.doc-set.scope`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `inv.doc-set-covers`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `inv.doc-set-names-unique` | `tools/ont-check/ont-check.mjs`                            |      |
 
 ### Reference page
 
@@ -472,6 +474,7 @@ None known.
 
 ## Revision history
 
+- 2026-10-22: `inv.doc-set-names-unique`, enforced by the check (D-22).
 - 2026-10-22: the kind of a concept is one of the configured classes, not a fixed list, as part 1 and the tool already had it.
 - 2026-10-22: the rules of the parts that lived only in `docs/` added, with manual checks for those the tool cannot enforce (D-20).
 - 2026-10-22: first version, written from `docs/parts/` and the tool (D-19).

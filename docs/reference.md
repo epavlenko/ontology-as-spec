@@ -323,17 +323,19 @@ Every concept of the approach, its type and definition, and the checks that hold
 
 ## Doc set
 
-| Kind      | Term                 | ID                    | Type                    | Definition                                                                               |
-| --------- | -------------------- | --------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
-| Entity    | Doc set              | `ent.doc-set`         |                         | A set of pages for one audience, and the classes it must explain.                        |
-| Field     | Name                 | `field.doc-set.name`  | text                    | Unique among the sets.                                                                   |
-| Field     | Covers               | `field.doc-set.cover` | text                    | The classes whose concepts the set must explain.                                         |
-| Field     | Scope                | `field.doc-set.scope` | one of implemented, all | Whether the set explains what is built or the whole target.                              |
-| Invariant | Explains its classes | `inv.doc-set-covers`  |                         | Every concept of a covered class, within the scope, is explained by an anchored section. |
+| Kind      | Term                 | ID                         | Type                    | Definition                                                                               |
+| --------- | -------------------- | -------------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
+| Entity    | Doc set              | `ent.doc-set`              |                         | A set of pages for one audience, and the classes it must explain.                        |
+| Field     | Name                 | `field.doc-set.name`       | text                    | Unique among the sets.                                                                   |
+| Field     | Covers               | `field.doc-set.cover`      | text                    | The classes whose concepts the set must explain.                                         |
+| Field     | Scope                | `field.doc-set.scope`      | one of implemented, all | Whether the set explains what is built or the whole target.                              |
+| Invariant | Explains its classes | `inv.doc-set-covers`       |                         | Every concept of a covered class, within the scope, is explained by an anchored section. |
+| Invariant | Unique names         | `inv.doc-set-names-unique` |                         | No two doc sets share a name.                                                            |
 
-| Check                       | Concepts             | GIVEN                                      | WHEN           | THEN                                           | Proof |
-| --------------------------- | -------------------- | ------------------------------------------ | -------------- | ---------------------------------------------- | ----- |
-| `check.doc-set.unexplained` | `inv.doc-set-covers` | an implemented action no help page anchors | the check runs | it names the action and the doc set, and fails | auto  |
+| Check                          | Concepts                   | GIVEN                                      | WHEN           | THEN                                           | Proof |
+| ------------------------------ | -------------------------- | ------------------------------------------ | -------------- | ---------------------------------------------- | ----- |
+| `check.doc-set.unexplained`    | `inv.doc-set-covers`       | an implemented action no help page anchors | the check runs | it names the action and the doc set, and fails | auto  |
+| `check.doc-set.duplicate-name` | `inv.doc-set-names-unique` | two doc sets are both named help           | the check runs | it names the doc set and fails                 | auto  |
 
 ## Reference page
 

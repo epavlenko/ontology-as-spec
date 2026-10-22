@@ -371,6 +371,8 @@ if (cfg.tickets) {
 // older than the definition marks a section to reread. Reference pages are generated and compared.
 const anchored = new Set();
 const bySet = new Map();
+const setDupes = cfg.docSets.map((d) => d.name).filter((n, i, a) => a.indexOf(n) !== i);
+report("doc sets with the same name", [...new Set(setDupes)].map((n) => n || "(unnamed)"));
 const generatedPages = new Set(cfg.references.map((r) => r.out));
 for (const d of cfg.docSets) {
   const label = d.name ? `${d.name} docs` : "docs";

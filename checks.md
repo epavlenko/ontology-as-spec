@@ -145,9 +145,10 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 
 ## Doc set
 
-| Check                       | Concepts             | GIVEN                                      | WHEN           | THEN                                           | Proof |
-| --------------------------- | -------------------- | ------------------------------------------ | -------------- | ---------------------------------------------- | ----- |
-| `check.doc-set.unexplained` | `inv.doc-set-covers` | an implemented action no help page anchors | the check runs | it names the action and the doc set, and fails | auto  |
+| Check                          | Concepts                   | GIVEN                                      | WHEN           | THEN                                           | Proof |
+| ------------------------------ | -------------------------- | ------------------------------------------ | -------------- | ---------------------------------------------- | ----- |
+| `check.doc-set.unexplained`    | `inv.doc-set-covers`       | an implemented action no help page anchors | the check runs | it names the action and the doc set, and fails | auto  |
+| `check.doc-set.duplicate-name` | `inv.doc-set-names-unique` | two doc sets are both named help           | the check runs | it names the doc set and fails                 | auto  |
 
 ## Reference page
 

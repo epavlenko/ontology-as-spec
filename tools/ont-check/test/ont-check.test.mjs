@@ -229,6 +229,8 @@ const cases = [
     (p) => p("ontology.md", "| `field.loan.due-date`       | D-06", "| `field.loan.due-on`         | D-06")],
   ["[check.ticket.no-ids] a ticket without an IDs line", "tickets without an `IDs:` line",
     (p) => p("issues/0003-serve-the-hold-queue.md", "IDs: `hook.hold-ready`", "Concepts: `hook.hold-ready`")],
+  ["[check.doc-set.duplicate-name] two doc sets with the same name", "doc sets with the same name",
+    (p) => p("ont.config.json", '"docSets": [', '"docSets": [\n    { "name": "help", "dir": "help", "cover": [] },')],
 ];
 
 // Each case name starts with the check from the approach's catalogue (checks.md) that it implements.

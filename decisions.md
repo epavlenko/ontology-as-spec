@@ -151,6 +151,13 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: D-07 named the text, the tool, the templates and the example, and the repository has since gained files it does not cover. Text that people read and adapt fits CC BY; configuration and machine-readable data are used like code, and Creative Commons licenses are not recommended for software.
 - Rejected: CC BY for the contract (it is consumed by tools, not read); leaving the contract in `docs/` under MIT (a file in `docs/` licensed against D-07, which would be a partial supersession); one license for everything (rejected in D-07 for the same reasons).
 
+### D-22 · Doc set names are unique, and the check says so
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: the check reports two doc sets with the same name, as it already does for test suites. The approach's ontology gets the invariant and its check.
+- Why: the definition of a doc set already said its name is unique, but nothing enforced it, and two sets with one name merge their anchors in every report. Test suites had the rule and the check from the start; doc sets should not differ.
+- Rejected: leaving it to review (the definition claimed a rule nothing held); deriving the name from the directory (two sets may share a directory with different file patterns).
+
 ## Tentative
 
 None.
@@ -161,6 +168,7 @@ None.
 
 ## History
 
+- 2026-10-22: D-22: unique doc set names.
 - 2026-10-22: D-21: licenses of the approach's own files.
 - 2026-10-22: D-20: docs/ as a doc set of the approach's ontology.
 - 2026-10-22: D-19: the approach's own ontology.
