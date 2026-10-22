@@ -416,7 +416,7 @@
       "type": "object",
       "properties": {
         "stamp": {
-          "description": "A short hash of each definition as it was when the section was last reread.",
+          "description": "A short hash of what the section relies on for each concept it explains, the term, type, definition and the notes that name it, as it was when the section was last reread.",
           "x-ont": "field.doc-section.stamp",
           "type": "string"
         },

@@ -208,17 +208,17 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Doc section
 
-| Kind      | ID                          | Term                   | Type               | Definition                                                                                              |
-| --------- | --------------------------- | ---------------------- | ------------------ | ------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.doc-section`           | Doc section            |                    | A hand-written section of a page for people, anchored to what it explains.                              |
-| Field     | `field.doc-section.stamp`   | Stamp                  | text optional      | A short hash of each definition as it was when the section was last reread.                             |
-| Relation  | `edge.doc-section.explains` | Explains               | refs `ent.concept` | The concepts and checks the section explains.                                                           |
-|           | `edge.doc-section.set`      | In set                 | ref `ent.doc-set`  | The doc set the page belongs to.                                                                        |
-| Derived   | `derived.to-reread`         | To reread              |                    | A section anchored to a definition that changed after its stamp.                                        |
-| Rule      | `rule.anchor-every-section` | Every section anchored |                    | Every section that explains a concept has an anchor; unanchored sections are not checked.               |
-|           | `rule.reread-then-stamp`    | Reread, then stamp     |                    | A section listed as anchored to a changed definition is reread, fixed if needed, and only then stamped. |
-|           | `rule.readers-words`        | Readers' words         |                    | Pages explain in the readers' words; they do not copy definitions, which reference pages restate.       |
-| Invariant | `inv.anchors-resolve`       | Anchors resolve        |                    | Every anchor names IDs of concepts or checks that exist.                                                |
+| Kind      | ID                          | Term                   | Type               | Definition                                                                                                                                                                  |
+| --------- | --------------------------- | ---------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.doc-section`           | Doc section            |                    | A hand-written section of a page for people, anchored to what it explains.                                                                                                  |
+| Field     | `field.doc-section.stamp`   | Stamp                  | text optional      | A short hash of what the section relies on for each concept it explains, the term, type, definition and the notes that name it, as it was when the section was last reread. |
+| Relation  | `edge.doc-section.explains` | Explains               | refs `ent.concept` | The concepts and checks the section explains.                                                                                                                               |
+|           | `edge.doc-section.set`      | In set                 | ref `ent.doc-set`  | The doc set the page belongs to.                                                                                                                                            |
+| Derived   | `derived.to-reread`         | To reread              |                    | A section anchored to a concept whose definition, type or notes changed after its stamp.                                                                                    |
+| Rule      | `rule.anchor-every-section` | Every section anchored |                    | Every section that explains a concept has an anchor; unanchored sections are not checked.                                                                                   |
+|           | `rule.reread-then-stamp`    | Reread, then stamp     |                    | A section listed as anchored to a changed definition is reread, fixed if needed, and only then stamped.                                                                     |
+|           | `rule.readers-words`        | Readers' words         |                    | Pages explain in the readers' words; they do not copy definitions, which reference pages restate.                                                                           |
+| Invariant | `inv.anchors-resolve`       | Anchors resolve        |                    | Every anchor names IDs of concepts or checks that exist.                                                                                                                    |
 
 ## Doc set
 
@@ -474,6 +474,7 @@ None known.
 
 ## Revision history
 
+- 2026-10-22: a stamp covers the notes that name a concept, not only its row (D-23).
 - 2026-10-22: `inv.doc-set-names-unique`, enforced by the check (D-22).
 - 2026-10-22: the kind of a concept is one of the configured classes, not a fixed list, as part 1 and the tool already had it.
 - 2026-10-22: the rules of the parts that lived only in `docs/` added, with manual checks for those the tool cannot enforce (D-20).

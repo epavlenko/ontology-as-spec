@@ -1,6 +1,6 @@
 # Renewing a loan
 
-<!-- ont: action.renew@3a0bfa, rule.renewal@ee5883, field.loan.renewals@d73680 -->
+<!-- ont: action.renew@1709a8, rule.renewal@ee5883, field.loan.renewals@040473 -->
 ## How renewal works
 
 If you need an item longer, renew it. Each renewal adds 14 days to the current due date, and the app tells you the new due date and how many of your two renewals you have used.

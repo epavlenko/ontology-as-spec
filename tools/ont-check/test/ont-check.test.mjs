@@ -129,6 +129,14 @@ test("anchors inside code are examples, not anchors", () => {
   assert.equal(r.code, 0, r.out);
 });
 
+test("[check.doc-section.reread-after-note-change] a changed note marks the sections that rely on it", () => {
+  const r = run((p) =>
+    p("ontology.md", "- `action.return` triggers `hook.hold-ready` when someone waits for the title.", "- `action.return` triggers `hook.hold-ready` when someone waits for the title, and prints who it is for."),
+  );
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /help docs sections anchored to a definition changed since review[^\n]*\n {2}help\/borrowing\.md: action\.return/);
+});
+
 const cases = [
   ["[check.concept.unknown-id] an ID in the ontology text missing from the glossary", "IDs in the ontology text but not in the glossary",
     (p) => p("ontology.md", "- `concept.suspension` starts", "- `concept.suspended` starts")],

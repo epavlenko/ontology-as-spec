@@ -130,12 +130,14 @@ export function section(md, heading) {
 const ID_CELL = /^`([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)`$/;
 
 // The glossary is the set of definition rows, wherever they sit in the ontology: one row per
-// concept, in tables grouped by entity. Returns { ONT: { id: { name, def } }, rows } in document
-// order; each row knows its table (a run of consecutive table lines), its Kind and Type cells and
-// its line.
+// concept, in tables grouped by entity. Returns { ONT: { id: { name, def } }, rows, notes } in
+// document order; each row knows its table (a run of consecutive table lines), its section heading,
+// its Kind and Type cells and its line. notes maps each section heading to the lines of text outside
+// its tables: the notes that add detail to its concepts.
 export function parseGlossary(md) {
   const ONT = {};
   const rows = [];
+  const notes = new Map();
   let table = 0;
   let inTable = false;
   let heading = "";
@@ -144,6 +146,7 @@ export function parseGlossary(md) {
     const pipe = line.startsWith("|");
     if (pipe && !inTable) table += 1;
     inTable = pipe;
+    if (!pipe && line.trim() && !/^#/.test(line)) notes.set(heading, [...(notes.get(heading) ?? []), line.trim()]);
     if (!/^\|.*\|\s*$/.test(line)) continue;
     const cells = line.trim().slice(1, -1).split("|").map((c) => c.trim());
     if (cells.length < 4 || cells.length > 5 || cells[0].includes("`")) continue;
@@ -157,7 +160,7 @@ export function parseGlossary(md) {
     rows.push({ table, heading, kind, id, type: type?.replace(/`/g, "") ?? null, line });
   }
   if (!rows.length) throw new Error("The glossary is empty: no | Kind | `id` | Term | Definition | rows");
-  return { ONT, rows };
+  return { ONT, rows, notes };
 }
 
 // The check catalogue: | `check.section.name` | `id`, `id` | GIVEN | WHEN | THEN | auto or manual |,

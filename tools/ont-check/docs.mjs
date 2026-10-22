@@ -38,12 +38,14 @@ export const parseAnchors = (text) =>
 
 const hash = (text) => createHash("sha256").update(text).digest("hex").slice(0, 6);
 
-// The stamp of a concept covers what a reader sees of it: term, type and definition. The stamp of a
-// check covers its case: concepts, GIVEN, WHEN, THEN and proof.
-export const stampOf = (id, ONT, rows, checkById) => {
+// The stamp of a concept covers what a section explaining it relies on: its term, type and
+// definition, and the notes of its section that name it. The stamp of a check covers its case:
+// concepts, GIVEN, WHEN, THEN and proof.
+export const stampOf = (id, ONT, rows, checkById, notes = new Map()) => {
   if (ONT[id]) {
     const row = rows.find((r) => r.id === id);
-    return hash([ONT[id].name, row?.type ?? "", ONT[id].def].join("|"));
+    const said = (notes.get(row?.heading) ?? []).filter((l) => l.includes(`\`${id}\``));
+    return hash([ONT[id].name, row?.type ?? "", ONT[id].def, ...said].join("|"));
   }
   const c = checkById.get(id);
   return c ? hash([c.concepts.join(","), c.given, c.when, c.then, c.proof].join("|")) : null;

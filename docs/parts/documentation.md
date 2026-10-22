@@ -14,7 +14,7 @@ Documentation for people, written by people or agents, with the ontology as its 
 A section names the concepts it explains in an HTML comment that readers do not see:
 
 ```markdown
-<!-- ont: action.renew@3a0bfa, rule.renewal@ee5883, field.loan.renewals@d73680 -->
+<!-- ont: action.renew@1709a8, rule.renewal@ee5883, field.loan.renewals@040473 -->
 ## How renewal works
 
 If you need an item longer, renew it from "My loans". Each renewal adds 14 days …
@@ -29,7 +29,7 @@ Generating the prose itself is rejected for the same reason the approach does no
 <!-- ont: ent.doc-set@1bdb9f, inv.anchors-resolve@974479, inv.doc-set-covers@c1b7c5, inv.reference-current@fcb818, inv.doc-set-names-unique@4e4245 -->
 ## How it is written
 
-- **Anchors.** `<!-- ont: id, id -->` directly above the section it describes. IDs are concepts or checks. A stamp after `@` is a short hash of the definition the section was last reread against; `stamp-docs.mjs` writes it.
+- **Anchors.** `<!-- ont: id, id -->` directly above the section it describes. IDs are concepts or checks. A stamp after `@` is a short hash of what the section relied on when it was last reread: the concept's term, type and definition, and the notes of its section that name it. `stamp-docs.mjs` writes it.
 - **Doc sets.** The configuration lists them: a name, unique among the sets, a directory, and the classes whose concepts the set must explain, either the implemented ones (help for users describes what exists) or all of them (a design guide describes the target).
 
 ```json

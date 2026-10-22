@@ -43,7 +43,7 @@ const report = (label, items, fatal = true) => {
 };
 
 const md = read(cfg.ontology);
-const { ONT, rows } = parseGlossary(md);
+const { ONT, rows, notes } = parseGlossary(md);
 const glossary = new Set(Object.keys(ONT));
 const retired = parseRetired(md, cfg.headings.retired);
 const retiredSection = retired.size ? section(md, cfg.headings.retired) : "";
@@ -389,7 +389,7 @@ for (const d of cfg.docSets) {
           continue;
         }
         ids.add(id);
-        const now = stampOf(id, ONT, rows, checkById);
+        const now = stampOf(id, ONT, rows, checkById, notes);
         if (stamp && now && stamp !== now) stale.push(`${relative(cfg.base, f)}: ${id}`);
       }
   }

@@ -158,6 +158,13 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the definition of a doc set already said its name is unique, but nothing enforced it, and two sets with one name merge their anchors in every report. Test suites had the rule and the check from the start; doc sets should not differ.
 - Rejected: leaving it to review (the definition claimed a rule nothing held); deriving the name from the directory (two sets may share a directory with different file patterns).
 
+### D-23 · A stamp covers the notes that name a concept, not only its row
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: the stamp of a concept in a doc anchor is a hash of its term, type and definition and of the lines of notes in its section that name it in backticks. A changed note therefore lists the sections anchored to that concept as sections to reread, like a changed definition. Stamps written before this change are rewritten once with `stamp-docs.mjs` after the sections are reread.
+- Why: notes carry detail a page relies on, such as who performs an action or which decision explains a rule. With only the row in the stamp, a changed note left a help page stale without any signal.
+- Rejected: the whole section's notes in every stamp of the section (a note about one concept would list sections about all the others); notes as rows of their own with IDs (notes are detail, not concepts, and IDs for them would undo one home per definition).
+
 ## Tentative
 
 None.
@@ -168,6 +175,7 @@ None.
 
 ## History
 
+- 2026-10-22: D-23: stamps cover notes.
 - 2026-10-22: D-22: unique doc set names.
 - 2026-10-22: D-21: licenses of the approach's own files.
 - 2026-10-22: D-20: docs/ as a doc set of the approach's ontology.
