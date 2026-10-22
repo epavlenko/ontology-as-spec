@@ -1,6 +1,6 @@
 # Decisions about this repository
 
-The approach applied to itself: decisions about how the approach is described and packaged, in the same format as a product decision log. Entries are never edited; new entries supersede old ones whole. One entry records one choice that can be reversed on its own (D-17).
+The approach applied to itself: decisions about how the approach is described and packaged, in the same format as a product decision log. Entries are never edited. One entry answers one question; a later entry adds to an earlier one or supersedes it whole (D-26).
 
 ## Accepted
 
@@ -180,6 +180,14 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: supersession was written in prose, so the tool could not show which entries still hold, and the hint knew one phrase and missed the piecemeal replacement of D-05. The approach's ontology already had the relation, `edge.decision.supersedes`; it now has a place in the text that a tool can read.
 - Rejected: a "superseded" status written into the old entry (accepted entries are never edited); inferring supersession from prose alone (phrasings vary; the line is the record, the hint only information); a generated page of decisions in force (a report on demand is enough while logs are small).
 
+### D-26 · One entry answers one question; a later entry adds to it or supersedes it whole
+
+- Date: 2026-10-22 · Status: accepted
+- Supersedes: D-17
+- Decision: a decision log entry answers one question, and the parts of one answer stay together: what was chosen, how it works and its direct consequences. A later entry may add to an earlier one without changing anything in it; both stay in force. A later entry that contradicts any part of an earlier one supersedes it whole, names it on its `Supersedes:` line and restates what of it still holds. Older entries that answer several questions are split when they are next superseded. What still holds of D-17: the rule is written into part 2, the principles and the headers of every log, and the check reports, as information, entries replaced only in part, as D-25 extended it.
+- Why: D-17's test, a choice that can be reversed on its own, splits almost any decision about a mechanism into pieces. Read literally, it called for ten new entries that would restate D-18, D-19 and D-25 without adding a reason. The failure D-17 was written against is narrower: an entry changed in part, so that a reader cannot tell what of it still holds.
+- Rejected: keeping D-17's test (it makes reviews pedantic and the log longer without making it clearer); allowing a later entry to change part of an earlier one with a pointer to that part (the reader still has to merge two texts to know what holds).
+
 ## Tentative
 
 None.
@@ -190,6 +198,7 @@ None.
 
 ## History
 
+- 2026-10-22: D-26: one question per entry; D-17 superseded.
 - 2026-10-22: D-25: supersession on a line of its own.
 - 2026-10-22: D-24: D-05 superseded whole.
 - 2026-10-22: D-23: stamps cover notes.

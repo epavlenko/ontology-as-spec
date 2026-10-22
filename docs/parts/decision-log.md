@@ -1,6 +1,6 @@
 # 2. Decision log
 
-<!-- ont: ent.decision@4607b2, rule.one-choice@886b23, inv.superseded-whole@e39f3c -->
+<!-- ont: ent.decision@4607b2, rule.one-choice@c773d8, inv.superseded-whole@768dfb -->
 ## What it is
 
 A dated, append-only list of product decisions. Each entry records the decision, the reason, the rejected alternatives and the concepts it touches, by ID. It is the ontology's memory: the ontology says what the product is, and the log says why.
@@ -40,7 +40,7 @@ A log has four sections: Accepted, Tentative, Open questions and History. The fi
 
 Two of those rules carry the log's purpose. An entry always says why, so that the next reader knows whether there was a deeper reason. It lists the rejected alternatives, because they are what stops an agent from proposing the same alternative again. Both are manual checks: the tool sees that an entry exists, not that its reason is a reason.
 
-One entry records one choice. The test: if someone could one day want to replace half of it, it is two entries. An entry is then superseded whole, because "supersedes the … part of D-nn" leaves every later reader to work out what of D-nn still applies. An entry that replaces older ones names them on a line of its own, `- Supersedes: D-05`; the check confirms that every entry named there exists and is older, and `ont-check.mjs --decisions` lists every entry as in force, tentative or superseded by what. The tool also lists, as information, entries replaced only in part in prose ("supersedes the … part of", "no longer applies") until some entry supersedes them whole. It cannot judge whether a new entry bundles two choices.
+One entry answers one question, and the parts of one answer stay together: what was chosen, how it works, its direct consequences. A later entry may add to an earlier one without changing anything in it, and both stay in force. If it contradicts any part, it supersedes the earlier entry whole: it names it on a line of its own, `- Supersedes: D-05`, and restates what still holds, because "supersedes the … part of D-nn" leaves every later reader to work out what of D-nn still applies. The check confirms that every entry named there exists and is older, and `ont-check.mjs --decisions` lists every entry as in force, tentative or superseded by what. The tool also lists, as information, entries replaced only in part in prose ("supersedes the … part of", "no longer applies") until some entry supersedes them whole. Whether an entry answers one question or two, and whether a later entry adds or contradicts, is a reviewer's call.
 
 ## How it fails in practice
 

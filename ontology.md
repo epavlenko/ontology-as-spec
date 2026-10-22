@@ -56,32 +56,32 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Decision
 
-| Kind      | ID                                | Term                       | Type                         | Definition                                                                                                     |
-| --------- | --------------------------------- | -------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.decision`                    | Decision                   |                              | One choice about the product, with its reason and the alternatives rejected.                                   |
-| Field     | `field.decision.number`           | Number                     | text                         | `D-nn`, unique in the log.                                                                                     |
-|           | `field.decision.status`           | Status                     | one of accepted, tentative   | Accepted entries are final; a tentative one may change without a new entry, and removing the flag is an entry. |
-|           | `field.decision.date`             | Date                       | date                         | When the choice was made.                                                                                      |
-|           | `field.decision.choice`           | Decision                   | text                         | What was chosen, precisely enough to implement.                                                                |
-|           | `field.decision.why`              | Why                        | text                         | The reason, including what went wrong before.                                                                  |
-|           | `field.decision.rejected`         | Rejected                   | text optional                | Each alternative with its reason in brackets.                                                                  |
-|           | `field.decision.title`            | Title                      | text                         | One line that states the decision, not the topic: "No money fines", not "Fines".                               |
-| Relation  | `edge.decision.concepts`          | Concepts                   | refs `ent.concept`           | The concepts the choice touches.                                                                               |
-|           | `edge.decision.supersedes`        | Supersedes                 | refs `ent.decision` optional | Earlier entries this one replaces, each whole, named on a `Supersedes:` line.                                  |
-| Derived   | `derived.in-force`                | In force                   |                              | An entry that no `Supersedes:` line names.                                                                     |
-| Rule      | `rule.one-choice`                 | One choice                 |                              | An entry records one choice that can be reversed on its own.                                                   |
-|           | `rule.cite-decisions`             | Cite by number             |                              | The ontology refers to a decision by number where a rule would otherwise look arbitrary.                       |
-|           | `rule.product-decisions-only`     | Product decisions only     |                              | The log holds what someone working on the product needs; personal and strategic decisions live elsewhere.      |
-| Invariant | `inv.accepted-never-edited`       | Never edited               |                              | An accepted entry is never edited or removed.                                                                  |
-|           | `inv.decision-numbers-unique`     | Unique numbers             |                              | No entry number is used twice.                                                                                 |
-|           | `inv.decision-references-resolve` | References resolve         |                              | Every `D-nn` the ontology or the map refers to has an entry.                                                   |
-|           | `inv.superseded-whole`            | Superseded whole           |                              | A new entry replaces an older one completely, never a part of it.                                              |
-|           | `inv.decision-has-reason`         | Has a reason               |                              | Every entry says why; if there was no deeper reason, it says that.                                             |
-|           | `inv.rejected-recorded`           | Rejected recorded          |                              | Every entry lists the alternatives that were rejected, with their reasons, when there were any.                |
-|           | `inv.supersession-named`          | Names what it replaces     |                              | A superseding entry names every entry it supersedes on its `Supersedes:` line.                                 |
-|           | `inv.supersedes-older`            | Supersedes what exists     |                              | Every entry on a `Supersedes:` line exists and is older than the entry that names it.                          |
-|           | `inv.meaning-change-decided`      | Changes of meaning decided |                              | A change to meaning that rests on a choice has a decision entry.                                               |
-| Action    | `action.supersede-decision`       | Supersede a decision       |                              | Write a new entry that replaces the old one whole and says why.                                                |
+| Kind      | ID                                | Term                       | Type                         | Definition                                                                                                                                                |
+| --------- | --------------------------------- | -------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.decision`                    | Decision                   |                              | One choice about the product, with its reason and the alternatives rejected.                                                                              |
+| Field     | `field.decision.number`           | Number                     | text                         | `D-nn`, unique in the log.                                                                                                                                |
+|           | `field.decision.status`           | Status                     | one of accepted, tentative   | Accepted entries are final; a tentative one may change without a new entry, and removing the flag is an entry.                                            |
+|           | `field.decision.date`             | Date                       | date                         | When the choice was made.                                                                                                                                 |
+|           | `field.decision.choice`           | Decision                   | text                         | What was chosen, precisely enough to implement.                                                                                                           |
+|           | `field.decision.why`              | Why                        | text                         | The reason, including what went wrong before.                                                                                                             |
+|           | `field.decision.rejected`         | Rejected                   | text optional                | Each alternative with its reason in brackets.                                                                                                             |
+|           | `field.decision.title`            | Title                      | text                         | One line that states the decision, not the topic: "No money fines", not "Fines".                                                                          |
+| Relation  | `edge.decision.concepts`          | Concepts                   | refs `ent.concept`           | The concepts the choice touches.                                                                                                                          |
+|           | `edge.decision.supersedes`        | Supersedes                 | refs `ent.decision` optional | Earlier entries this one replaces, each whole, named on a `Supersedes:` line.                                                                             |
+| Derived   | `derived.in-force`                | In force                   |                              | An entry that no `Supersedes:` line names.                                                                                                                |
+| Rule      | `rule.one-choice`                 | One question               |                              | An entry answers one question; the parts of one answer, its mechanism and its direct consequences, stay together.                                         |
+|           | `rule.cite-decisions`             | Cite by number             |                              | The ontology refers to a decision by number where a rule would otherwise look arbitrary.                                                                  |
+|           | `rule.product-decisions-only`     | Product decisions only     |                              | The log holds what someone working on the product needs; personal and strategic decisions live elsewhere.                                                 |
+| Invariant | `inv.accepted-never-edited`       | Never edited               |                              | An accepted entry is never edited or removed.                                                                                                             |
+|           | `inv.decision-numbers-unique`     | Unique numbers             |                              | No entry number is used twice.                                                                                                                            |
+|           | `inv.decision-references-resolve` | References resolve         |                              | Every `D-nn` the ontology or the map refers to has an entry.                                                                                              |
+|           | `inv.superseded-whole`            | Superseded whole           |                              | A later entry that contradicts any part of an earlier one supersedes it whole and restates what still holds; one that only adds to it leaves it in force. |
+|           | `inv.decision-has-reason`         | Has a reason               |                              | Every entry says why; if there was no deeper reason, it says that.                                                                                        |
+|           | `inv.rejected-recorded`           | Rejected recorded          |                              | Every entry lists the alternatives that were rejected, with their reasons, when there were any.                                                           |
+|           | `inv.supersession-named`          | Names what it replaces     |                              | A superseding entry names every entry it supersedes on its `Supersedes:` line.                                                                            |
+|           | `inv.supersedes-older`            | Supersedes what exists     |                              | Every entry on a `Supersedes:` line exists and is older than the entry that names it.                                                                     |
+|           | `inv.meaning-change-decided`      | Changes of meaning decided |                              | A change to meaning that rests on a choice has a decision entry.                                                                                          |
+| Action    | `action.supersede-decision`       | Supersede a decision       |                              | Write a new entry that replaces the old one whole and says why.                                                                                           |
 
 ## Implementation row
 
@@ -478,6 +478,7 @@ None known.
 
 ## Revision history
 
+- 2026-10-22: one question per entry; a later entry adds to an earlier one or supersedes it whole (D-26).
 - 2026-10-22: supersession on a `Supersedes:` line, `derived.in-force` and `inv.supersedes-older` (D-25).
 - 2026-10-22: a stamp covers the notes that name a concept, not only its row (D-23).
 - 2026-10-22: `inv.doc-set-names-unique`, enforced by the check (D-22).

@@ -22,10 +22,10 @@ A concept may not appear in the mockup, a ticket or the code before it has a glo
 
 *Prevents:* meaning that is born in markup or code and is never written down.
 
-<!-- ont: inv.accepted-never-edited@a7c76a, rule.one-choice@886b23 -->
+<!-- ont: inv.accepted-never-edited@a7c76a, rule.one-choice@c773d8 -->
 ## 4. Decisions are appended, not edited
 
-A decision records one choice: what was chosen, why, what was rejected and which concepts it touches. Once accepted it is never edited, and a guard refuses such edits on commit and in CI. A new entry supersedes it whole; an entry that would need to be replaced in part was two decisions.
+A decision answers one question: what was chosen, why, what was rejected and which concepts it touches. Once accepted it is never edited, and a guard refuses such edits on commit and in CI. A later entry may add to it; one that contradicts any part of it supersedes it whole.
 
 *Prevents:* the next person or agent reversing a decision whose reason they never saw, and reopening an alternative that was already rejected.
 
