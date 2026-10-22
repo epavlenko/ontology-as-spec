@@ -88,6 +88,18 @@ test("still reads the older verification map", () => {
   assert.match(r.out, /scenario files without an `IDs:` line/);
 });
 
+test("lists an entry that supersedes only part of another as information", () => {
+  const r = run((p) =>
+    p(
+      "decisions.md",
+      "## Tentative",
+      "### D-07 · Renewal shown with its count\n\n- Date: 2026-10-22 · Status: accepted\n- Decision: supersedes the button part of D-04.\n\n## Tentative",
+    ),
+  );
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /info · entries that supersede only part of another[^\n]*\n {2}D-07 → D-04/);
+});
+
 const cases = [
   ["an ID in the ontology text missing from the glossary", "IDs in the ontology text but not in the glossary",
     (p) => p("ontology.md", "- `concept.suspension` starts", "- `concept.suspended` starts")],

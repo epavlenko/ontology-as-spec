@@ -1,6 +1,6 @@
 # Decisions about this repository
 
-The approach applied to itself: decisions about how the approach is described and packaged, in the same format as a product decision log. Entries are never edited; new entries supersede old ones.
+The approach applied to itself: decisions about how the approach is described and packaged, in the same format as a product decision log. Entries are never edited; new entries supersede old ones whole. One entry records one choice that can be reversed on its own (D-17).
 
 ## Accepted
 
@@ -116,12 +116,20 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: with a target ontology and a check catalogue, a ticket that restates scope and behavior is a third copy of the same meaning. What only a ticket holds is process: which part now, in which order, within which limits, and, with an external contractor, what is delivered and accepted.
 - Rejected: no tickets at all (loses the limits, the order, the unit of review and the permissions); tickets with their own scenarios (D-14 moved them to the catalogue); priority in the ontology (process, not meaning, as with test suites in D-13).
 
+### D-17 · One decision is one choice, superseded whole
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: a decision log entry records one choice that can be reversed on its own. Parts with different rejected alternatives, or with reasons that do not depend on each other, are separate entries. An entry is superseded whole; when only part of an older entry has to change, the new entries split it, and each supersedes it completely. The rule is written into part 2, the principles and the headers of every log, and the check reports, as information, an entry that supersedes only part of another. Entries accepted before this rule stay as they are, because they cannot be edited; they are split when they are next superseded.
+- Why: this log already shows the cost. D-08 bundled three mechanisms, so D-14 had to supersede "the scenario part of D-08", and a reader now has to work out what of D-08 still holds. D-09 and D-10 also each record two choices. Separate entries keep every choice traceable to its own reason and its own replacement.
+- Rejected: one entry per ticket or per change (groups choices by when they were made, not by what can be reversed); no rule, review only (the log above shows it does not hold); an error instead of information for partial supersession (the older entry cannot be fixed, so the error could never be cleared).
+
 ## Open questions
 
 - When to name the source project.
 
 ## History
 
+- 2026-10-22: D-17: one decision, one choice.
 - 2026-10-22: D-14: check catalogue. D-15: computed gap. D-16: tickets as slices.
 - 2026-10-22: D-13: test suites per kind of concept.
 - 2026-10-21: D-12: configurable accepted status.

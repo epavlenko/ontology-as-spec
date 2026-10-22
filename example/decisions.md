@@ -9,6 +9,7 @@ Log of product decisions about the ontology and the interface. Each entry has a 
 Log rules:
 
 - An entry is never edited after it is accepted. A new entry refers to the old one and supersedes or refines it.
+- One entry is one choice that can be reversed on its own. An entry is superseded whole; if only part of it must change, the new entries split it.
 - "Tentative" means a chosen course that may still change without a separate entry. Removing the flag is an entry.
 - `tools/ont-check/ont-check.mjs` checks the IDs mentioned here against the glossary and the retired IDs, and every `D-nn` reference in the ontology and the map against this log.
 

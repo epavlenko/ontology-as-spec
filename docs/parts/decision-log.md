@@ -28,6 +28,8 @@ It descends from [Architecture Decision Records](https://www.cognitect.com/blog/
 ## Rules
 
 - **Never edit an accepted entry.** Write a new one that says "supersedes D-nn" and why. The old entry stays, so the reasoning trail stays.
+- **One decision is one choice.** A choice that can be reversed on its own is its own entry. Two parts with different rejected alternatives, or with reasons that do not depend on each other, are two entries. Test: if someone could one day want to replace half of it, split it now.
+- **An entry is superseded whole.** When only part of an old entry has to change, the old entry bundled several choices. The new entries split it: one restates what still holds, one records the change, and both supersede the old entry completely. "Supersedes the … part of D-nn" leaves the reader to work out what of D-nn still applies.
 - **A decision without a reason is incomplete.** If the reason is "we felt like it", write that. The next reader deserves to know there was no deeper reason.
 - **Rejected alternatives are mandatory when there were any.** They are what stops an agent from proposing the same alternative again.
 - **The ontology refers to decisions by number** where a rule would otherwise look arbitrary: "There are no money fines (D-03)."
@@ -38,6 +40,7 @@ It descends from [Architecture Decision Records](https://www.cognitect.com/blog/
 - Every ID mentioned in the log exists in the glossary.
 - Every `D-nn` referenced in the ontology or the map has an entry.
 - No entry number is used twice.
+- As information: an entry that supersedes only part of another, a sign that the older entry bundled several choices.
 
 A second script, `tools/ont-check/guard-decisions.mjs`, enforces the never-edit rule. It takes every entry that was accepted in an earlier commit and fails if its text changed or the entry disappeared. New entries, tentative entries, open questions and history may change freely. It runs in the pre-commit hook against `HEAD` and in CI against the base of the push or pull request:
 

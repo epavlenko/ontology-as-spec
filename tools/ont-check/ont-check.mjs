@@ -205,6 +205,19 @@ if (cfg.decisions) {
     "duplicate entries in the decision log",
     entries.filter((x, i) => entries.indexOf(x) !== i),
   );
+  // One entry, one choice: an entry that supersedes only part of another shows the older one bundled
+  // several choices. Information, because the older entry can no longer be edited.
+  const heads = [...dec.matchAll(cfg.decisions.entry)];
+  report(
+    "entries that supersede only part of another (the older entry bundled several choices)",
+    heads.flatMap((m, i) => {
+      const body = dec.slice(m.index, heads[i + 1]?.index);
+      return [...body.matchAll(/\b(?:supersedes|replaces)\s+(?:the\s+)?[\w\s,-]*?\bpart\s+of\s+(D-\d+)/gi)].map(
+        (x) => `${m[1]} → ${x[1]}`,
+      );
+    }),
+    false,
+  );
 }
 
 // Check catalogue: what must hold, in product terms, for any implementation. One row per check,
