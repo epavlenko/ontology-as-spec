@@ -9,9 +9,21 @@ import { slug } from "./lib.mjs";
 
 const ANCHOR = /<!--\s*ont:\s*([^>]*?)\s*-->/g;
 
-// Every anchor in a text: [{ index, raw, refs: [{ id, stamp }] }].
+// Fenced code blocks show anchors as examples; they are not anchors of the page.
+const FENCE = /^```[\s\S]*?^```/gm;
+const outsideFences = (text, f) => {
+  let out = "";
+  let last = 0;
+  for (const m of text.matchAll(FENCE)) {
+    out += f(text.slice(last, m.index)) + m[0];
+    last = m.index + m[0].length;
+  }
+  return out + f(text.slice(last));
+};
+
+// Every anchor in a text, outside code blocks and inline code: [{ index, raw, refs: [{ id, stamp }] }].
 export const parseAnchors = (text) =>
-  [...text.matchAll(ANCHOR)].map((m) => ({
+  [...text.replace(FENCE, "").replace(/`[^`\n]*`/g, "").matchAll(ANCHOR)].map((m) => ({
     index: m.index,
     raw: m[0],
     refs: m[1]
@@ -39,14 +51,14 @@ export const stampOf = (id, ONT, rows, checkById) => {
 
 // Rewrites every anchor with the current stamps: what a person runs after rereading the sections.
 export const stampAnchors = (text, stamp) =>
-  text.replace(ANCHOR, (_, inner) => {
+  outsideFences(text, (part) => part.replace(ANCHOR, (_, inner) => {
     const refs = inner
       .split(",")
       .map((x) => x.trim().split("@")[0])
       .filter(Boolean)
       .map((id) => (stamp(id) ? `${id}@${stamp(id)}` : id));
     return `<!-- ont: ${refs.join(", ")} -->`;
-  });
+  }));
 
 const cell = (s) => String(s ?? "").replace(/\|/g, "\\|");
 const table = (head, body) => {

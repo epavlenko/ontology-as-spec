@@ -14,6 +14,6 @@ Nine parts. The first three hold meaning, the next three tie artifacts to it, th
 | 8   | [Agent workflow](agent-workflow.md)                | the gap computed, tickets as slices of it, a derived finish condition     |
 | 9   | [Documentation](documentation.md)                  | pages for people anchored to concepts; reference pages generated          |
 
-Each file follows the same outline: what it is, the format, the rules, what the check enforces, what it cannot enforce, and how it fails in practice. The [example](../../example/README.md) has a working instance of every part.
+Each file explains one part: what it is, why, how it works, and how it fails in practice. Its Reference section points to the generated [reference](../reference.md), which holds the part's concepts, their fields and rules, and the checks that hold them: automatic ones the tool enforces, manual ones a reviewer does. The [example](../../example/README.md) has a working instance of every part.
 
 A smaller adoption works. Parts 1, 2 and 5 alone already pay off. Add part 3 when code exists, part 4 when there is a mockup, part 6 as soon as there are invariants and rules to check, and part 9 when there is documentation for people.

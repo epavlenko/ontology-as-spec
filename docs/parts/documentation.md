@@ -1,5 +1,6 @@
 # 9. Documentation anchored to the ontology
 
+<!-- ont: ent.doc-section@496f3f, ent.reference-page@b1ec8f -->
 ## What it is
 
 Documentation for people, written by people or agents, with the ontology as its source. It is treated the way the interface and the code are: the explanations are written by hand and anchored to concept IDs, and only what restates the ontology is generated.
@@ -25,7 +26,8 @@ Documentation describes the same product as the ontology, in the words of its re
 
 Generating the prose itself is rejected for the same reason the approach does not generate code: the result is not deterministic, and meaning is kept by references, not by generation. An agent may draft a page from the ontology; the draft is then anchored and checked like any other page.
 
-## Format
+<!-- ont: ent.doc-set@1bdb9f, inv.anchors-resolve@974479, inv.doc-set-covers@c1b7c5, inv.reference-current@fcb818 -->
+## How it is written
 
 - **Anchors.** `<!-- ont: id, id -->` directly above the section it describes. IDs are concepts or checks. A stamp after `@` is a short hash of the definition the section was last reread against; `stamp-docs.mjs` writes it.
 - **Doc sets.** The configuration lists them: a name, a directory, and the classes whose concepts the set must explain, either the implemented ones (help for users describes what exists) or all of them (a design guide describes the target).
@@ -47,24 +49,10 @@ Which sets of documentation a team keeps, for whom and where, is process, like t
 
 Help that is part of the product is different. A help screen in the app, or a chat bot's answer to "how does it work", is something a user can open or ask for. Those are concepts of the product, rows in the ontology like any other view or action, and their content is anchored and checked like any page. The test is simple: if a user can open it or ask for it, it is product; if it is a file for the team, it is process.
 
-## Rules
+<!-- ont: rule.anchor-every-section@e93938, rule.reread-then-stamp@3d0dd6, rule.readers-words@3dbebd -->
+## Reference
 
-- **Every section that explains a concept has an anchor.** A section without one is not checked.
-- **Reread, then stamp.** When the check lists a section as anchored to a changed definition, a person or an agent rereads it, fixes it if needed, and only then runs `stamp-docs.mjs`. Stamping without reading silences the signal.
-- **Never edit a generated reference page.** Change the ontology or the catalogue and regenerate.
-- **Write in the readers' words.** The page explains; the ontology defines. A page that copies definitions is a reference page written by hand: generate it instead.
-
-## What the check enforces
-
-- Every ID in an anchor exists in the glossary or the check catalogue; a retired ID is reported with its replacement.
-- Every concept of a covered class, implemented or all according to the set's scope, is explained by some anchored section of the set.
-- Every generated reference page equals what the generator would write now.
-- As information: sections whose stamp is older than the current definition.
-
-## What it cannot enforce
-
-- That the section says what the definition says. The stamp says that someone reread it, not that they got it right.
-- That a page without anchors is not documentation. Unanchored pages are simply not checked.
+The fields of a doc section, a doc set and a reference page, their rules and checks are in the reference: [Doc section](../reference.md#doc-section), [Doc set](../reference.md#doc-set) and [Reference page](../reference.md#reference-page). Every section that explains a concept carries an anchor; a section without one is not checked. A stamp says that someone reread the section, not that they got it right, so stamping without reading silences the signal. Pages explain in the readers' words; a page that copies definitions is a reference page written by hand, and should be generated instead.
 
 ## How it fails in practice
 

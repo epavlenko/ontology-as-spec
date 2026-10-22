@@ -2,6 +2,7 @@
 
 How each kind of change moves through the artifacts. The [agent rules](parts/agent-rules.md) table is the short form of this page.
 
+<!-- ont: action.add-concept@3509fd -->
 ## A new concept
 
 1. Add a definition row in the section of the entity it constrains or changes, in its kind's group: kind, ID, term, type, a definition that says what it is. A field or a relation names the entity in its ID and has a type.
@@ -17,22 +18,27 @@ Order matters. The definition row comes first, so that nothing else can mention 
 
 A concept arrives with something that will try it: a mockup element, a ticket or code. The ontology may run ahead of the code, together with the mockup; that is how a target is designed. What it should not do is grow concepts that nothing has tried. The check lists them as information, "concepts with no mockup element, ticket or implementation yet". Each one is a question for review: show it, plan it, or drop it.
 
+<!-- ont: action.rename-term@677881 -->
 ## Renaming a term
 
 Change the term and, if needed, the definition in its row. Leave the ID. Update the prose where the term appears. Regenerate the tooltips and the reference pages; reread the doc sections the check lists as anchored to a changed definition, then stamp them. If the rename reflects a change of meaning rather than wording, it is a decision.
 
+<!-- ont: action.change-id@7b44e1 -->
 ## Changing IDs
 
 Rare. It is justified when an ID itself misleads: a class name collides with a term in a neighbouring product, or fields need their entity in the ID because two entities now share a field name. It needs a decision entry that says why the permanence rule is broken. The new IDs replace the old ones in one commit across every artifact except the decision log, and each old ID gets a row under "Retired IDs" with its replacement and the decision. The check confirms nothing was missed: an old ID anywhere but the decision log is reported with its replacement.
 
+<!-- ont: action.remove-concept@7f8c20 -->
 ## Removing a concept
 
 Remove its definition row, its map rows and its mockup elements in one commit, with a decision entry, and list the ID under "Retired IDs" with a dash for the replacement. The check fails if any reference remains outside the decision log. Decision entries that mention the concept stay as they are; the retired table is what keeps their IDs resolvable.
 
+<!-- ont: action.supersede-decision@0d21ae -->
 ## Changing your mind
 
 Write a new decision entry that supersedes the old one and says why. Never edit the old entry. Then change the ontology, the map and the mockup to match, and mention the new decision where the change would otherwise look arbitrary.
 
+<!-- ont: action.cut-slice@2b0910 -->
 ## Implementing a concept
 
 1. The concept has its checks in the catalogue. If one is missing, it is written first.

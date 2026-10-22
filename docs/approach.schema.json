@@ -93,7 +93,7 @@
           "type": "string"
         },
         "status": {
-          "description": "Accepted entries are final; a tentative one may change without a new entry.",
+          "description": "Accepted entries are final; a tentative one may change without a new entry, and removing the flag is an entry.",
           "x-ont": "field.decision.status",
           "enum": [
             "accepted",
@@ -121,6 +121,11 @@
           "x-ont": "field.decision.rejected",
           "type": "string"
         },
+        "title": {
+          "description": "One line that states the decision, not the topic: \"No money fines\", not \"Fines\".",
+          "x-ont": "field.decision.title",
+          "type": "string"
+        },
         "concepts": {
           "description": "The concepts the choice touches.",
           "x-ont": "edge.decision.concepts",
@@ -146,6 +151,7 @@
         "date",
         "choice",
         "why",
+        "title",
         "concepts"
       ]
     },
@@ -397,6 +403,14 @@
         "whyNow",
         "concepts"
       ]
+    },
+    "agent-rules": {
+      "title": "Agent rules",
+      "description": "The section of the agents' instructions that says what else to update when something changes, and what to run.",
+      "x-ont": "ent.agent-rules",
+      "type": "object",
+      "properties": {},
+      "required": []
     },
     "contract": {
       "title": "Contract",

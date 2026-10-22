@@ -8,18 +8,20 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 
 ## Concept
 
-| Check                            | Concepts                                     | GIVEN                                                                                   | WHEN                        | THEN                                                            | Proof  |
-| -------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------- | --------------------------- | --------------------------------------------------------------- | ------ |
-| `check.concept.unknown-id`       | `inv.references-defined`                     | an artifact uses an ID that has no definition row                                       | the check runs              | it names the ID and the artifact, and fails                     | auto   |
-| `check.concept.duplicate-row`    | `inv.one-definition-row`                     | two definition rows share an ID                                                         | the check runs              | it stops and names the ID                                       | auto   |
-| `check.concept.unknown-class`    | `inv.known-classes`                          | a definition row has an ID of a class the configuration does not list                   | the check runs              | it names the ID and fails                                       | auto   |
-| `check.concept.out-of-order`     | `rule.kind-order`                            | a rule row sits below an invariant row in one table                                     | the check runs              | it names the row out of order and fails                         | auto   |
-| `check.concept.wrong-kind-label` | `inv.kind-named-once`                        | the first row of a group says "Rules" instead of "Rule"                                 | the check runs              | it names the row and the expected label, and fails              | auto   |
-| `check.concept.field-elsewhere`  | `inv.field-in-its-entity`, `rule.scoped-ids` | `field.loan.borrow-limit` sits in the table of `ent.member`                             | the check runs              | it says the field belongs in the table of `ent.loan`, and fails | auto   |
-| `check.concept.dead-row`         | `inv.concept-referenced`                     | a concept nothing refers to                                                             | the check runs              | it names the concept and fails                                  | auto   |
-| `check.concept.untried`          | `inv.concept-tried`                          | an implemented concept loses its implementation row and has no mockup element or ticket | the check runs              | it lists the concept as information and passes                  | auto   |
-| `check.concept.rename-keeps-id`  | `inv.ids-permanent`                          | a term is renamed                                                                       | a reviewer reads the change | the ID is the same and only the row's text changed              | manual |
-| `check.concept.notes-add-detail` | `inv.no-restated-definition`                 | a note under a definition table                                                         | a reviewer reads it         | it adds detail and does not restate the definition              | manual |
+| Check                                | Concepts                                     | GIVEN                                                                                   | WHEN                         | THEN                                                                 | Proof  |
+| ------------------------------------ | -------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------- | ------ |
+| `check.concept.unknown-id`           | `inv.references-defined`                     | an artifact uses an ID that has no definition row                                       | the check runs               | it names the ID and the artifact, and fails                          | auto   |
+| `check.concept.duplicate-row`        | `inv.one-definition-row`                     | two definition rows share an ID                                                         | the check runs               | it stops and names the ID                                            | auto   |
+| `check.concept.unknown-class`        | `inv.known-classes`                          | a definition row has an ID of a class the configuration does not list                   | the check runs               | it names the ID and fails                                            | auto   |
+| `check.concept.out-of-order`         | `rule.kind-order`                            | a rule row sits below an invariant row in one table                                     | the check runs               | it names the row out of order and fails                              | auto   |
+| `check.concept.wrong-kind-label`     | `inv.kind-named-once`                        | the first row of a group says "Rules" instead of "Rule"                                 | the check runs               | it names the row and the expected label, and fails                   | auto   |
+| `check.concept.field-elsewhere`      | `inv.field-in-its-entity`, `rule.scoped-ids` | `field.loan.borrow-limit` sits in the table of `ent.member`                             | the check runs               | it says the field belongs in the table of `ent.loan`, and fails      | auto   |
+| `check.concept.dead-row`             | `inv.concept-referenced`                     | a concept nothing refers to                                                             | the check runs               | it names the concept and fails                                       | auto   |
+| `check.concept.untried`              | `inv.concept-tried`                          | an implemented concept loses its implementation row and has no mockup element or ticket | the check runs               | it lists the concept as information and passes                       | auto   |
+| `check.concept.rename-keeps-id`      | `inv.ids-permanent`                          | a term is renamed                                                                       | a reviewer reads the change  | the ID is the same and only the row's text changed                   | manual |
+| `check.concept.notes-add-detail`     | `inv.no-restated-definition`                 | a note under a definition table                                                         | a reviewer reads it          | it adds detail and does not restate the definition                   | manual |
+| `check.concept.definition-says-what` | `rule.definition-says-what`                  | a new definition row                                                                    | a reviewer reads it          | it says what the thing is in a sentence or two, not how it is stored | manual |
+| `check.concept.with-its-entity`      | `rule.concept-with-its-entity`               | a rule, invariant or action that involves several entities                              | a reviewer reads its section | it sits with the entity it constrains or changes                     | manual |
 
 ## Retired ID
 
@@ -31,44 +33,63 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 
 ## Decision
 
-| Check                                 | Concepts                          | GIVEN                                                          | WHEN                | THEN                                                     | Proof  |
-| ------------------------------------- | --------------------------------- | -------------------------------------------------------------- | ------------------- | -------------------------------------------------------- | ------ |
-| `check.decision.accepted-edited`      | `inv.accepted-never-edited`       | an accepted entry was changed or removed since the base commit | the guard runs      | it names the entry and the first changed line, and fails | auto   |
-| `check.decision.free-sections`        | `inv.accepted-never-edited`       | a new entry, an edited tentative entry or a new open question  | the guard runs      | it passes                                                | auto   |
-| `check.decision.duplicate-number`     | `inv.decision-numbers-unique`     | two entries share a number                                     | the check runs      | it names the number and fails                            | auto   |
-| `check.decision.unknown-reference`    | `inv.decision-references-resolve` | the ontology refers to `D-09`, which has no entry              | the check runs      | it names `D-09` and fails                                | auto   |
-| `check.decision.partial-supersession` | `inv.superseded-whole`            | an entry supersedes "the button part of" an older entry        | the check runs      | it lists the pair as information                         | auto   |
-| `check.decision.one-choice`           | `rule.one-choice`                 | a new entry                                                    | a reviewer reads it | it records one choice that could be reversed on its own  | manual |
+| Check                                   | Concepts                                           | GIVEN                                                          | WHEN                        | THEN                                                                | Proof  |
+| --------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------- | ------ |
+| `check.decision.accepted-edited`        | `inv.accepted-never-edited`                        | an accepted entry was changed or removed since the base commit | the guard runs              | it names the entry and the first changed line, and fails            | auto   |
+| `check.decision.free-sections`          | `inv.accepted-never-edited`                        | a new entry, an edited tentative entry or a new open question  | the guard runs              | it passes                                                           | auto   |
+| `check.decision.duplicate-number`       | `inv.decision-numbers-unique`                      | two entries share a number                                     | the check runs              | it names the number and fails                                       | auto   |
+| `check.decision.unknown-reference`      | `inv.decision-references-resolve`                  | the ontology refers to `D-09`, which has no entry              | the check runs              | it names `D-09` and fails                                           | auto   |
+| `check.decision.partial-supersession`   | `inv.superseded-whole`                             | an entry supersedes "the button part of" an older entry        | the check runs              | it lists the pair as information                                    | auto   |
+| `check.decision.one-choice`             | `rule.one-choice`                                  | a new entry                                                    | a reviewer reads it         | it records one choice that could be reversed on its own             | manual |
+| `check.decision.cited-where-arbitrary`  | `rule.cite-decisions`                              | a rule in the ontology that looks arbitrary without its reason | a reviewer reads it         | it names the decision by number                                     | manual |
+| `check.decision.product-only`           | `rule.product-decisions-only`                      | a new entry                                                    | a reviewer reads it         | it is a choice someone working on the product needs to know         | manual |
+| `check.decision.has-reason`             | `inv.decision-has-reason`, `inv.rejected-recorded` | a new entry                                                    | a reviewer reads it         | it says why, and lists the rejected alternatives with their reasons | manual |
+| `check.decision.names-superseded`       | `inv.supersession-named`                           | an entry that replaces an earlier one                          | a reviewer reads it         | it names the entries it supersedes                                  | manual |
+| `check.decision.meaning-change-decided` | `inv.meaning-change-decided`                       | a change to the ontology that rests on a choice                | a reviewer reads the change | a decision entry records the choice                                 | manual |
 
 ## Implementation row
 
-| Check                                   | Concepts                         | GIVEN                                  | WHEN           | THEN                        | Proof |
-| --------------------------------------- | -------------------------------- | -------------------------------------- | -------------- | --------------------------- | ----- |
-| `check.implementation-row.missing-file` | `inv.implementation-files-exist` | a row names a file that does not exist | the check runs | it names the file and fails | auto  |
+| Check                                        | Concepts                                     | GIVEN                                  | WHEN                                | THEN                                                                                 | Proof  |
+| -------------------------------------------- | -------------------------------------------- | -------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------ | ------ |
+| `check.implementation-row.missing-file`      | `inv.implementation-files-exist`             | a row names a file that does not exist | the check runs                      | it names the file and fails                                                          | auto   |
+| `check.implementation-row.updated-with-code` | `rule.table-with-code`, `rule.partial-noted` | a change to behavior                   | a reviewer reads it                 | the implementation table changed in the same change, with a note on anything partial | manual |
+| `check.implementation-row.true`              | `inv.implementation-true`                    | a row of the implementation table      | a reviewer opens the files it names | they realise the concept                                                             | manual |
 
 ## Divergence
 
-| Check                                  | Concepts                      | GIVEN                              | WHEN                | THEN                                                                     | Proof  |
-| -------------------------------------- | ----------------------------- | ---------------------------------- | ------------------- | ------------------------------------------------------------------------ | ------ |
-| `check.divergence.only-contradictions` | `rule.divergence-contradicts` | a new line under known divergences | a reviewer reads it | it describes behavior that contradicts the target, not something missing | manual |
+| Check                                  | Concepts                                                 | GIVEN                              | WHEN                      | THEN                                                                                | Proof  |
+| -------------------------------------- | -------------------------------------------------------- | ---------------------------------- | ------------------------- | ----------------------------------------------------------------------------------- | ------ |
+| `check.divergence.only-contradictions` | `rule.divergence-contradicts`                            | a new line under known divergences | a reviewer reads it       | it describes behavior that contradicts the target, not something missing            | manual |
+| `check.divergence.becomes-work`        | `rule.divergence-becomes-work`, `rule.second-vocabulary` | a known divergence                 | a reviewer reads the list | it points at a ticket or a pending decision, and neither side was edited to hide it | manual |
 
 ## Mockup element
 
-| Check                                           | Concepts                   | GIVEN                                                                  | WHEN           | THEN                                                       | Proof |
-| ----------------------------------------------- | -------------------------- | ---------------------------------------------------------------------- | -------------- | ---------------------------------------------------------- | ----- |
-| `check.mockup-element.map-and-mockup-differ`    | `inv.mockup-matches-map`   | an element is labelled but has no map row, or a map row has no element | the check runs | it names the ID on the side where it is missing, and fails | auto  |
-| `check.mockup-element.tooltips-stale`           | `inv.tooltips-generated`   | the tooltip file was edited by hand                                    | the check runs | it names the file and fails                                | auto  |
-| `check.mockup-element.dynamic-without-template` | `inv.dynamic-ids-declared` | a class is declared dynamic but no `data-ont` template builds it       | the check runs | it names the class and fails                               | auto  |
+| Check                                           | Concepts                                      | GIVEN                                                                  | WHEN                                     | THEN                                                                                  | Proof  |
+| ----------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------- | ------ |
+| `check.mockup-element.map-and-mockup-differ`    | `inv.mockup-matches-map`                      | an element is labelled but has no map row, or a map row has no element | the check runs                           | it names the ID on the side where it is missing, and fails                            | auto   |
+| `check.mockup-element.tooltips-stale`           | `inv.tooltips-generated`                      | the tooltip file was edited by hand                                    | the check runs                           | it names the file and fails                                                           | auto   |
+| `check.mockup-element.dynamic-without-template` | `inv.dynamic-ids-declared`                    | a class is declared dynamic but no `data-ont` template builds it       | the check runs                           | it names the class and fails                                                          | auto   |
+| `check.mockup-element.one-plain-mockup`         | `rule.one-mockup`, `rule.mockup-shows-target` | the mockup                                                             | a reviewer opens it from the file system | there is one mockup for the product, it runs without a build, and it shows the target | manual |
+| `check.mockup-element.fictional-data`           | `rule.mockup-data-fictional`                  | a mockup shared outside the team                                       | a reviewer reads its data                | it holds no real names or records                                                     | manual |
+| `check.mockup-element.label-is-true`            | `inv.label-is-true`                           | an element labelled with an action                                     | a person uses it in the mockup           | it does what the action's definition says                                             | manual |
+
+## Map row
+
+| Check                     | Concepts             | GIVEN   | WHEN                | THEN                                             | Proof  |
+| ------------------------- | -------------------- | ------- | ------------------- | ------------------------------------------------ | ------ |
+| `check.map-row.by-screen` | `rule.map-by-screen` | the map | a reviewer reads it | it is grouped by screen with one row per element | manual |
 
 ## Check
 
-| Check                          | Concepts                        | GIVEN                                                  | WHEN           | THEN                                          | Proof |
-| ------------------------------ | ------------------------------- | ------------------------------------------------------ | -------------- | --------------------------------------------- | ----- |
-| `check.check.duplicate`        | `inv.check-ids-unique`          | two catalogue rows share a check ID                    | the check runs | it names the ID and fails                     | auto  |
-| `check.check.wrong-section`    | `inv.check-in-its-section`      | `check.loan.cancel` sits under Hold                    | the check runs | it names the check and its section, and fails | auto  |
-| `check.check.malformed`        | `inv.check-well-formed`         | a check's proof says "maybe"                           | the check runs | it names the check and fails                  | auto  |
-| `check.check.required-missing` | `inv.required-concepts-checked` | an invariant has no check                              | the check runs | it names the invariant and fails              | auto  |
-| `check.check.untested`         | `inv.auto-check-tested`         | an automatic check of implemented concepts has no test | the check runs | it names the check and fails                  | auto  |
+| Check                              | Concepts                                                 | GIVEN                                                  | WHEN                | THEN                                                                                    | Proof  |
+| ---------------------------------- | -------------------------------------------------------- | ------------------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------- | ------ |
+| `check.check.duplicate`            | `inv.check-ids-unique`                                   | two catalogue rows share a check ID                    | the check runs      | it names the ID and fails                                                               | auto   |
+| `check.check.wrong-section`        | `inv.check-in-its-section`                               | `check.loan.cancel` sits under Hold                    | the check runs      | it names the check and its section, and fails                                           | auto   |
+| `check.check.malformed`            | `inv.check-well-formed`                                  | a check's proof says "maybe"                           | the check runs      | it names the check and fails                                                            | auto   |
+| `check.check.required-missing`     | `inv.required-concepts-checked`                          | an invariant has no check                              | the check runs      | it names the invariant and fails                                                        | auto   |
+| `check.check.untested`             | `inv.auto-check-tested`                                  | an automatic check of implemented concepts has no test | the check runs      | it names the check and fails                                                            | auto   |
+| `check.check.product-terms`        | `rule.check-in-product-terms`                            | a new check                                            | a reviewer reads it | it names members, items and dates from the sample, and no function, command or selector | manual |
+| `check.check.unreachable-reported` | `rule.unreachable-reported`, `rule.manual-evidence-kept` | a manual check that could not be run                   | the run is reported | it says not run, and the evidence of the checks that ran is kept by check and date      | manual |
 
 ## Test
 
@@ -89,13 +110,21 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 
 ## Ticket
 
-| Check                          | Concepts                            | GIVEN                                                         | WHEN                         | THEN                                                             | Proof |
-| ------------------------------ | ----------------------------------- | ------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- | ----- |
-| `check.ticket.no-ids`          | `inv.ticket-has-ids`                | a ticket has no `IDs:` line                                   | the check runs               | it names the ticket and fails                                    | auto  |
-| `check.ticket.unknown-check`   | `inv.ticket-checks-related`         | a ticket lists a check the catalogue does not have            | the check runs               | it names the ticket and the check, and fails                     | auto  |
-| `check.ticket.unrelated-check` | `inv.ticket-checks-related`         | a ticket lists a check that names none of its concepts        | the check runs               | it names the ticket and the check, and fails                     | auto  |
-| `check.ticket.slice-open`      | `derived.slice-done`, `derived.gap` | a ticket whose concepts are not built                         | `--gap` runs with the ticket | it lists them with their checks, prints `SLICE_OPEN` and exits 1 | auto  |
-| `check.ticket.slice-done`      | `derived.slice-done`                | a ticket whose concepts are built and whose checks are tested | `--gap` runs with the ticket | it prints `SLICE_DONE` and exits 0                               | auto  |
+| Check                          | Concepts                            | GIVEN                                                         | WHEN                         | THEN                                                                            | Proof  |
+| ------------------------------ | ----------------------------------- | ------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------- | ------ |
+| `check.ticket.no-ids`          | `inv.ticket-has-ids`                | a ticket has no `IDs:` line                                   | the check runs               | it names the ticket and fails                                                   | auto   |
+| `check.ticket.unknown-check`   | `inv.ticket-checks-related`         | a ticket lists a check the catalogue does not have            | the check runs               | it names the ticket and the check, and fails                                    | auto   |
+| `check.ticket.unrelated-check` | `inv.ticket-checks-related`         | a ticket lists a check that names none of its concepts        | the check runs               | it names the ticket and the check, and fails                                    | auto   |
+| `check.ticket.slice-open`      | `derived.slice-done`, `derived.gap` | a ticket whose concepts are not built                         | `--gap` runs with the ticket | it lists them with their checks, prints `SLICE_OPEN` and exits 1                | auto   |
+| `check.ticket.slice-done`      | `derived.slice-done`                | a ticket whose concepts are built and whose checks are tested | `--gap` runs with the ticket | it prints `SLICE_DONE` and exits 0                                              | auto   |
+| `check.ticket.no-behavior`     | `rule.ticket-without-behavior`      | a ticket                                                      | a reviewer reads it          | it lists concepts and checks; any behavior it needs is already in the catalogue | manual |
+
+## Agent rules
+
+| Check                                  | Concepts                                                    | GIVEN                   | WHEN                | THEN                                                          | Proof  |
+| -------------------------------------- | ----------------------------------------------------------- | ----------------------- | ------------------- | ------------------------------------------------------------- | ------ |
+| `check.agent-rules.short-and-concrete` | `rule.agent-rules-short`, `rule.agent-rules-point-at-files` | the agent rules section | a reviewer reads it | it fits on one screen and every row names a path or a command | manual |
+| `check.agent-rules.start-from-ids`     | `rule.start-from-ids`                                       | a task for an agent     | the agent starts    | it names the IDs the task touches before writing code         | manual |
 
 ## Contract
 
@@ -107,10 +136,12 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 
 ## Doc section
 
-| Check                                   | Concepts              | GIVEN                                                           | WHEN                                                                    | THEN                                                                | Proof |
-| --------------------------------------- | --------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ----- |
-| `check.doc-section.not-an-id`           | `inv.anchors-resolve` | an anchor says `Place hold` instead of an ID                    | the check runs                                                          | it names the page and the text, and fails                           | auto  |
-| `check.doc-section.reread-after-change` | `derived.to-reread`   | a definition changed after a section anchored to it was stamped | the check runs, the section is reread and stamped, the check runs again | the first run lists the section as information; the second does not | auto  |
+| Check                                   | Concepts                                          | GIVEN                                                           | WHEN                                                                    | THEN                                                                              | Proof  |
+| --------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------ |
+| `check.doc-section.not-an-id`           | `inv.anchors-resolve`                             | an anchor says `Place hold` instead of an ID                    | the check runs                                                          | it names the page and the text, and fails                                         | auto   |
+| `check.doc-section.reread-after-change` | `derived.to-reread`                               | a definition changed after a section anchored to it was stamped | the check runs, the section is reread and stamped, the check runs again | the first run lists the section as information; the second does not               | auto   |
+| `check.doc-section.anchored`            | `rule.anchor-every-section`, `rule.readers-words` | a page of a doc set                                             | a reviewer reads it                                                     | every section that explains a concept has an anchor, and none copies a definition | manual |
+| `check.doc-section.reread-before-stamp` | `rule.reread-then-stamp`                          | sections listed to reread                                       | someone stamps them                                                     | they reread each section first and fixed what changed                             | manual |
 
 ## Doc set
 

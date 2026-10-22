@@ -52,5 +52,29 @@
       "ontology": "templates/ontology.md",
       "checks": "templates/checks.md"
     }
+  ],
+  "docSets": [
+    {
+      "name": "approach",
+      "dir": "docs",
+      "cover": [
+        "ent",
+        "rule",
+        "inv",
+        "action"
+      ],
+      "scope": "all"
+    }
+  ],
+  "references": [
+    {
+      "out": "docs/reference.md",
+      "title": "Reference",
+      "intro": "Every concept of the approach, its type and definition, and the checks that hold it, generated from [ontology.md](../ontology.md) and [checks.md](../checks.md). Automatic checks are enforced by the tool; manual checks are what a reviewer does, because the tool cannot. The pages of this directory explain the parts; this page is what they refer to.",
+      "ids": true,
+      "kinds": true,
+      "types": true,
+      "checks": true
+    }
   ]
 }

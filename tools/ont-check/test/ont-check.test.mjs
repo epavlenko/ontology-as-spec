@@ -122,6 +122,13 @@ test("[check.doc-section.reread-after-change] a changed definition marks the sec
   }
 });
 
+test("anchors inside code are examples, not anchors", () => {
+  const r = run((p) =>
+    p("help/holds.md", "# Waiting for a title\n", "# Waiting for a title\n\n```markdown\n<!-- ont: action.unknown -->\n```\n\nAn inline `<!-- ont: action.unknown -->` too.\n"),
+  );
+  assert.equal(r.code, 0, r.out);
+});
+
 const cases = [
   ["[check.concept.unknown-id] an ID in the ontology text missing from the glossary", "IDs in the ontology text but not in the glossary",
     (p) => p("ontology.md", "- `concept.suspension` starts", "- `concept.suspended` starts")],

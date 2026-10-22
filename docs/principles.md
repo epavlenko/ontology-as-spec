@@ -2,12 +2,14 @@
 
 Each principle names the failure it prevents. The [parts](parts/README.md) say how each one is carried out.
 
+<!-- ont: inv.one-definition-row@002e65 -->
 ## 1. A concept has one ID and one definition
 
 Every concept that people argue about gets an ID of the form `class.name` and a one-line definition in the glossary. Everything else that mentions the concept uses the ID.
 
 *Prevents:* three names for one idea, or one name for three ideas. Agents are literal readers. If "hold", "reservation" and "queue entry" appear in different files, an agent will build three things.
 
+<!-- ont: inv.ids-permanent@33ab31 -->
 ## 2. IDs are permanent
 
 Renaming a term changes the glossary text. The ID stays. A rename of a whole class of IDs is possible, but it is a decision with a reason, recorded like any other.
@@ -20,18 +22,21 @@ A concept may not appear in the mockup, a ticket or the code before it has a glo
 
 *Prevents:* meaning that is born in markup or code and is never written down.
 
+<!-- ont: inv.accepted-never-edited@a7c76a, rule.one-choice@886b23 -->
 ## 4. Decisions are appended, not edited
 
 A decision records one choice: what was chosen, why, what was rejected and which concepts it touches. Once accepted it is never edited, and a guard refuses such edits on commit and in CI. A new entry supersedes it whole; an entry that would need to be replaced in part was two decisions.
 
 *Prevents:* the next person or agent reversing a decision whose reason they never saw, and reopening an alternative that was already rejected.
 
+<!-- ont: ent.implementation-row@3e847f, ent.divergence@c86a47 -->
 ## 5. The target and the reality are separate and both are written down
 
 The ontology describes the agreed target. An implementation table says which concepts the code already has, and a list of divergences says where the code disagrees with the target. A divergence is not an error in the ontology. It becomes a ticket, or a new decision if the target changed.
 
 *Prevents:* the design document silently drifting toward the code, and the code being "fixed" toward a design that was abandoned.
 
+<!-- ont: ent.mockup-element@54a519 -->
 ## 6. The mockup is a specification
 
 The mockup shows the target interface, and every meaningful element is labelled with the concept it shows. A map records, for each element, what it shows and what it deliberately does not do.

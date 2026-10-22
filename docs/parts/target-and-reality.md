@@ -1,5 +1,6 @@
 # 3. Target and reality
 
+<!-- ont: ent.implementation-row@3e847f, ent.divergence@c86a47, rule.divergence-contradicts@792674 -->
 ## What it is
 
 The ontology describes the **target model**: the product as agreed, not as built. Two sections at the end of the ontology say how far the code has come:
@@ -29,25 +30,12 @@ A design document that is edited to match the code stops being a design. A desig
 
 It also gives agents a precise instruction. An agent implementing a ticket builds toward the ontology. When it finds the code disagreeing, it does not quietly "fix" the ontology to match. It records a divergence.
 
-## Rules
-
-- **A divergence is not an error in the ontology.** Each line either becomes a ticket or, if the target itself changed, a new decision.
-- **Behavior changes in code update the table** in the same change.
-- **Partial implementations say what is missing** in the note column. "Implemented" with no note means complete as far as the author knows.
-- **A second vocabulary is allowed for what shipped.** A project may keep a separate glossary of terms as they exist in code and user documentation. When the two disagree, the disagreement is a known divergence, never a silent edit of either.
-
-## What the check enforces
-
-- Every ID in the implementation table exists in the glossary.
-- Every file named in the table exists.
-- Every automatic check of implemented concepts has a test, and every concept a test suite covers is proven by it (see [part 6](checks-and-tests.md)).
+<!-- ont: inv.implementation-files-exist@07da6e, inv.implementation-true@182ebf, rule.table-with-code@a2eb21, rule.partial-noted@dc25d4, rule.divergence-becomes-work@5253b4, rule.second-vocabulary@82a1d4 -->
+## Reference
 
 `ont-check.mjs --gap` reads the table the other way round: every concept not in it is target, and together with untested checks and the known divergences that is the work left. Divergences therefore list only code that contradicts the target; what is simply not built yet comes from the table.
 
-## What it cannot enforce
-
-- That the named file actually implements the concept. The table can point at a file that has nothing to do with it. Completeness is a human judgment, and the ontology should say so in plain words next to the table.
-- That code which behaves differently from the ontology is listed as a divergence. Code does not refer to IDs, so the check cannot see behavior. See [limitations](../limitations.md#code-does-not-refer-to-ids).
+The fields of an implementation row and of a divergence, their rules and their checks are in the reference: [Implementation row](../reference.md#implementation-row) and [Divergence](../reference.md#divergence). The tool confirms that the files a row names exist, not that they realise the concept; that, and keeping the table current with the code, are manual checks.
 
 ## How it fails in practice
 

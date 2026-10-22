@@ -137,12 +137,20 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the rules of the approach lived in prose across `docs/`, the principles, the agent rules and the code of the check, and they had already drifted once (the lifecycle page told readers to edit old decisions after the guard forbade it). Described as an ontology, every rule has one row, the tool's tests say which rules they prove, and the manual checks list what nothing enforces. It is also the second project the approach runs on, which the limitations named as missing.
 - Rejected: a separate repository for the approach's ontology (it would drift from the tool it describes); describing only what the tool enforces (hides the rules people must follow, which matter as much); no `external` key and renaming example IDs in quoted text (the decision log quotes example IDs in accepted entries that cannot be edited).
 
+### D-20 · docs/ is a doc set of the approach's ontology; its reference is generated
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: the rules, formats and the "what the check enforces" and "what it cannot enforce" lists of the parts are removed from `docs/`. Each of their rules became a row of the approach's ontology with a check; those the tool cannot enforce have manual checks, twenty-one of them added for this. `docs/` is a doc set of that ontology covering every entity, rule, invariant and action, its sections carry anchors, and `docs/reference.md` is generated from the ontology and the catalogue. Each part keeps what it is, why, how it works and how it fails, and ends with a Reference section that points to its entities in the reference. Anchors inside code, fenced or inline, are examples and are not read.
+- Why: each rule of the approach was written in up to six places (a part, the principles, the agent rules, the lifecycle, a template, the code of the check), and they had drifted. The lists of what the check enforces were hand-kept copies of the code. Now a rule has one row, the reference is regenerated, the parts are checked against it, and the manual checks are the honest list of what nothing enforces.
+- Rejected: generating the parts themselves (the explanations are why the parts exist); keeping the Rules sections next to the ontology (two homes again, the failure D-09 removed from product ontologies); moving only what the tool enforces (would drop the rules people follow, which the old sections held).
+
 ## Open questions
 
 - When to name the source project.
 
 ## History
 
+- 2026-10-22: D-20: docs/ as a doc set of the approach's ontology.
 - 2026-10-22: D-19: the approach's own ontology.
 - 2026-10-22: D-18: documentation anchored to the ontology.
 - 2026-10-22: D-17: one decision, one choice.

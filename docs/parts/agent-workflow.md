@@ -9,6 +9,7 @@ How implementation work is framed for agents so that it stays inside the ontolog
 3. **Finish on commands.** The finish condition is derived: `--gap` with the ticket prints `SLICE_DONE`, and the tests pass. That block is the finish condition, for the agent and for any loop that runs the agent until done.
 4. **Deliver in slices, each closed by a test.** Slices are ordered by dependency, and each ends with a control test that shows it works before the next one builds on it.
 
+<!-- ont: ent.ticket@030195, rule.ticket-without-behavior@6b6048, action.cut-slice@2b0910 -->
 ## Tickets are slices of the gap
 
 The target ontology already says what to build, and the check catalogue says how to know it works. A ticket adds what neither of them holds, because it is process, not meaning: which part of the gap now, in which order, within which limits.
@@ -60,14 +61,10 @@ This is how the approach meets the objection that full specifications ignore wha
 - Long unattended runs keep a decision trail (one line per decision, with a pointer to the evidence) outside the repository, attached to the ticket when the work is handed back.
 - A paused task leaves a resume note on the ticket: branch, what is done and verified, what is open, the first action on resume.
 
-## What the check enforces
+<!-- ont: inv.ticket-has-ids@679ecd, inv.ticket-checks-related@4a64b7 -->
+## Reference
 
-When tickets are files in the repository (`tickets` in the configuration), the check requires of each one:
-
-- an `IDs:` line (or `Ontology IDs:`), with IDs that exist in the glossary;
-- every check it lists exists in the catalogue and names at least one of the ticket's IDs.
-
-Tickets from before the catalogue may still carry one-line GIVEN/WHEN/THEN scenarios under `## Scenarios`; the check validates their tags and keywords as before. Tickets kept in a tracker are not checked; `--gap` still computes the gap, and a project can add a bot that compares a tracker ticket with it.
+The fields of a ticket, its rules and checks are in the reference: [Ticket](../reference.md#ticket). When tickets are files in the repository, the tool checks them; tickets kept in a tracker are not checked, though `--gap` still computes the gap they are cut from. Tickets written before the check catalogue may still carry one-line GIVEN/WHEN/THEN scenarios, which the tool validates as before.
 
 ## How it fails in practice
 

@@ -66,8 +66,9 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | Path | What it is |
 | ---- | ---------- |
 | [example/](example/README.md) | a fictional lending library described end to end: ontology, decisions, mockup, map, checks, a ticket, code and tests |
+| [docs/reference.md](docs/reference.md) | every concept, rule and check of the approach, generated from its ontology |
 | [docs/principles.md](docs/principles.md) | the principles and the failures each one prevents |
-| [docs/parts/](docs/parts/README.md) | the nine parts, one file each: format, rules, what the check catches and what it does not |
+| [docs/parts/](docs/parts/README.md) | the nine parts, one file each: what it is, why, how it works, how it fails |
 | [docs/lifecycle.md](docs/lifecycle.md) | how a change travels: new concept, rename, removal, superseded decision, implementation, adoption |
 | [docs/comparison.md](docs/comparison.md) | spec-driven development tools and older practices, with links to primary sources |
 | [docs/why-not-spec-as-source.md](docs/why-not-spec-as-source.md) | why the ontology does not generate the product |

@@ -1,5 +1,6 @@
 # 6. Checks and tests
 
+<!-- ont: ent.check@d0dcbc, inv.required-concepts-checked@4f9fa8 -->
 ## What it is
 
 A catalogue of checks: what must hold, stated in the product's own terms, so that it applies to any implementation. The ontology says what a concept is; a check gives the case with data that proves it. Tests implement checks, and a test carries the ID of the check it implements at the start of its title.
@@ -24,17 +25,12 @@ The ontology states an invariant in a sentence. A test proves it in the terms of
 
 The catalogue is that missing layer. It is the same split behavior-driven development makes between scenarios in the language of the product and the step definitions that bind them to code. A check is written before the code, from the ontology; a test is written by whoever implements the check, a person or an agent, the way code is written from the ontology.
 
-## Format
-
-- One row per check: ID, the concepts it proves, GIVEN, WHEN, THEN, and the proof.
-- IDs have the form `check.<section>.<name>`, where the section is the catalogue heading in lowercase: `check.loan.renew-while-held` under "## Loan", `check.screens.*` under "## Screens".
-- GIVEN, WHEN and THEN use concrete data from a fixed sample (members, items, dates) and the product's terms. No function names, commands or selectors.
-- Proof is `auto` when a test implements the check, `manual` when only a person or an agent using the product can: time passing on the calendar, whether a message is understandable, an external channel no test can reach.
-
+<!-- ont: ent.test@af89b6, inv.test-names-known-checks@1384c7, inv.test-only-implemented@059c2e, inv.no-manual-tested@46671b -->
 ## Tests that name checks
 
 A test starts its title with the IDs of the checks it implements, in square brackets. The tag is plain text in the title, so it works with any test runner and shows up in its output. A test may also name a concept directly, `[field.loan.renewals]`, for something that is not a product check, such as comparing the code's constants with the generated contract.
 
+<!-- ont: ent.test-suite@6bf22e, inv.suite-covers-classes@39e870, inv.suite-names-unique@f69f85, inv.suite-not-empty@2cd076 -->
 ## Test suites
 
 Different kinds of concepts need different kinds of proof. A rule is proven by a fast test of the code that applies it. An action is proven only when it works the way a person uses it, through the interface. A hook is proven only by a test that controls time. The configuration says which suite must prove which kind of concept:
@@ -61,27 +57,12 @@ The suites themselves, how to run them and what they cost, belong to the team's 
 | `edge.loan.item`         |              |      |            |
 ```
 
-## Rules
+<!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@b6ec22, inv.check-well-formed@b9d2a2, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515 -->
+## Reference
 
-- **Checks come before code.** Every invariant, rule, hook and action (configurable) has a check, including those not built yet.
-- **A test implements a check of implemented concepts only.** A test for a check whose concepts are still target means the implementation table or the test is wrong.
-- **Every automatic check of implemented concepts has a test.** A manual check has none; it is run by a person or an agent, and its evidence goes to an ignored directory, named by check and date.
-- **Report an unreachable path as unreachable.** A manual check that could not be run is not verified through a different path.
+The fields of a check, a test and a test suite, their rules and the checks that hold them are in the reference: [Check](../reference.md#check), [Test](../reference.md#test) and [Test suite](../reference.md#test-suite). A check's ID has the form `check.<section>.<name>`, where the section is the catalogue heading in lowercase. Its cases use concrete data from a fixed sample and the product's words, never a function, a command or a selector.
 
-## What the check enforces
-
-- Check IDs are unique and sit in their section; every row has six cells, at least one concept, GIVEN, WHEN, THEN and `auto` or `manual`.
-- Every concept a check names exists in the glossary; a retired ID is reported with its replacement.
-- Every concept of a required class has a check.
-- Every automatic check whose concepts are all implemented is named by a test; no test names a manual check, an unknown check or a check of concepts not built.
-- Every implemented concept of a class a test suite covers is proven by that suite. Suite names are unique, and every suite has test files.
-
-## What it cannot enforce
-
-- That the tests pass. The check reads tags; the test command runs the tests.
-- That a test does what its check says. A tagged test that asserts nothing satisfies the check.
-- That anyone ran a manual check.
-- That the checks are the right ones. A check that restates the rule ("GIVEN a held title WHEN renewing THEN refused") is correct and proves nothing new; a good check names the member, the item and the dates.
+The tool reads tags; the test command runs the tests. So the tool cannot tell whether the tests pass, whether a tagged test does what its check says, or whether anyone ran a manual check. A manual check that could not be run is reported as not run, and the evidence of those that ran is kept outside the repository, named by check and date.
 
 ## How it fails in practice
 

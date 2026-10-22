@@ -1,5 +1,6 @@
 # 7. Agent rules
 
+<!-- ont: ent.agent-rules@99af23 -->
 ## What it is
 
 A section in the repository's agent instructions (`AGENTS.md` or its equivalent) that tells any agent how to keep meaning current. It has two parts: a table of what else to update when something changes, and a short list of rules the check cannot enforce.
@@ -27,15 +28,10 @@ Agents follow explicit procedures well and infer side effects badly. "Remember t
 
 The second list exists because some rules have no mechanical check yet. Writing them down is the fallback. When a rule keeps being broken, it should move from the list into the check. Encoding a lesson in structure beats repeating it in prose.
 
-## Rules for the rules
+<!-- ont: rule.agent-rules-short@66c9df, rule.agent-rules-point-at-files@13a4c3, rule.start-from-ids@8804d9 -->
+## Reference
 
-- **Keep it short.** The section is read at the start of every session. Long sections are skimmed.
-- **Point at files, not at ideas.** Every row names a path or a command.
-- **Start every task from IDs.** The instruction "name the ontology IDs this task touches before writing code" belongs here or in the workflow ([part 8](agent-workflow.md)). If an agent cannot name them, either the task is not about product meaning or the ontology is incomplete.
-
-## What the check enforces
-
-Nothing directly. The check enforces the consequences: if an agent skipped a row of the table, the check usually fails.
+The rules for the section itself are in the reference: [Agent rules](../reference.md#agent-rules). Keep it short, because it is read at the start of every session and long sections are skimmed. Let every row name a path or a command. Let every task start by naming the IDs it touches: if an agent cannot name them, the task is not about meaning, or the ontology is incomplete. The tool enforces none of this directly; it enforces the consequences, because a skipped row usually fails the check.
 
 ## How it fails in practice
 

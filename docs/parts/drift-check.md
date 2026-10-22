@@ -23,38 +23,18 @@ glossary 39 · retired 6 · mockup 23 · map 22 · implemented 25 · checks 20 �
 DRIFT: 2
 ```
 
-## What it checks
+<!-- ont: inv.references-defined@060f13, inv.concept-referenced@b457ed, inv.concept-tried@739910 -->
+## Reference
 
-| Check | Direction | Severity |
-| ----- | --------- | -------- |
-| IDs in the ontology text exist in the glossary | text → glossary | error |
-| glossary IDs use configured classes; no duplicates | glossary | error |
-| rows follow the kind order; Kind cells name the kind on the first row of each group | definition tables | error |
-| a field or relation sits in the table of the entity its ID names; one entity per table | definition tables | error |
-| fields and relations have a valid type; the generated contracts are current | definition tables → contracts | error |
-| retired IDs have no row, their replacement exists, and only the decision log uses them | retired table → everything | error |
-| generated tooltips equal the generator's output | glossary → generated file | error |
-| `data-ont` IDs exist in the glossary | mockup → glossary | error |
-| map and mockup have the same IDs | mockup ↔ map | error |
-| dynamic classes have a live template | mockup | error |
-| IDs in the map and the decision log exist in the glossary (the log may also use retired IDs) | map, log → glossary | error |
-| `D-nn` references have entries; entries are unique | ontology, map → log | error |
-| implementation table IDs exist; files exist | table → glossary, files | error |
-| glossary rows are referenced somewhere | glossary → everything | error |
-| checks are unique, in their section, complete; their concepts exist | catalogue → glossary | error |
-| every concept of a required class has a check | glossary → catalogue | error |
-| automatic checks of implemented concepts have a test; tests name only known, automatic checks of implemented concepts | catalogue ↔ tests | error |
-| concept tags in tests exist and name only implemented concepts | tests → glossary, table | error |
-| implemented concepts of the classes a test suite covers are proven by that suite | table → test suites | error |
-| tickets have an `IDs:` line; the checks they list exist and name the ticket's IDs | tickets → glossary, catalogue | error |
-| concepts with no mockup element, ticket or implementation | glossary → mockup, tickets, table | info |
-| interface-facing concepts not yet in the mockup | glossary → mockup | info |
+Every automatic check in the [reference](../reference.md) is something this script, or the guard, verifies; each one is implemented by a test in `tools/ont-check/test/` that carries its ID. Every manual check is something it cannot verify, and a reviewer does instead. The checks that run across artifacts are under [Concept](../reference.md#concept): every ID used anywhere is defined, every concept is referred to, and, as information, every concept has been tried by a mockup element, a ticket or code.
 
 Two flags print reports on top of the check. `--coverage` shows, for each implemented concept, how many checks name it and which suites prove it. `--gap` lists the work left by entity: target concepts with their checks, automatic checks without a test and the known divergences; given a ticket, it narrows to the ticket's slice and exits 1 until the slice is done.
 
 The "both directions" part matters. Checking only that references resolve catches typos. Checking also that every concept is referenced, every labelled element is mapped and every implemented concept has a way to be proven catches the slower failure: things that quietly stop being connected.
 
-A separate script, `guard-decisions.mjs`, checks history rather than state: it refuses an edit or removal of an accepted decision entry since an earlier commit ([part 2](decision-log.md#what-the-check-enforces)).
+A separate script, `guard-decisions.mjs`, checks history rather than state: it refuses an edit or removal of an accepted decision entry since an earlier commit ([part 2](decision-log.md#the-guard)).
+
+What the script cannot see, beyond the manual checks, is meaning and code behavior. It does not know whether a definition is right, and code that contradicts the ontology where no test looks passes. [Limitations](../limitations.md) lists these with possible remedies.
 
 ## Design choices
 
@@ -63,14 +43,6 @@ A separate script, `guard-decisions.mjs`, checks history rather than state: it r
 - **Errors and information are separate.** "Not yet in the mockup" is a backlog, not a failure. Failing on it would push people to add meaningless labels.
 - **Plain text output, one line per finding.** Agents read it and fix the exact line.
 - **No dependencies.** It runs wherever Node runs, in a hook, in CI, in an agent's sandbox.
-
-## What it cannot check
-
-- Meaning. It does not know whether a definition is right, whether two prose descriptions of the same concept agree, or whether an element labelled `action.renew` renews anything.
-- Code behavior. Product code does not refer to IDs. Tests do, through tags, but the check reads only the tags, so code that contradicts the ontology in a way no test exercises passes.
-- Whether a tagged test proves what its tag says.
-
-These are listed with possible remedies in [limitations](../limitations.md).
 
 ## How it fails in practice
 
