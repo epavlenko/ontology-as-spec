@@ -165,6 +165,14 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: notes carry detail a page relies on, such as who performs an action or which decision explains a rule. With only the row in the stamp, a changed note left a help page stale without any signal.
 - Rejected: the whole section's notes in every stamp of the section (a note about one concept would list sections about all the others); notes as rows of their own with IDs (notes are detail, not concepts, and IDs for them would undo one home per definition).
 
+### D-24 · No proposals are held back; D-05 is superseded
+
+- Date: 2026-10-22 · Status: accepted
+- Supersedes: D-05
+- Decision: D-05 no longer holds. The six proposals it kept back are implemented (D-08 to D-11), and none is open. A new mechanism is recorded as a decision before it is implemented and listed in `docs/limitations.md` as not yet tried in a real project.
+- Why: D-05 was replaced piece by piece, by D-08, D-09 and D-11, so the log still showed it as an accepted decision whose text is no longer true, and a reader had to assemble four later entries to learn that nothing of it remains. D-17 asks that an entry be superseded whole, by one entry.
+- Rejected: leaving D-05 as it is (it reads as a rule in force); editing D-05 (accepted entries are never edited).
+
 ## Tentative
 
 None.
@@ -175,6 +183,7 @@ None.
 
 ## History
 
+- 2026-10-22: D-24: D-05 superseded whole.
 - 2026-10-22: D-23: stamps cover notes.
 - 2026-10-22: D-22: unique doc set names.
 - 2026-10-22: D-21: licenses of the approach's own files.
