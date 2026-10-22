@@ -57,5 +57,33 @@
   "scoped": [
     "field",
     "edge"
+  ],
+  "docSets": [
+    {
+      "name": "help",
+      "dir": "help",
+      "cover": [
+        "action",
+        "view"
+      ],
+      "scope": "all"
+    }
+  ],
+  "references": [
+    {
+      "out": "help/terms.md",
+      "title": "Terms",
+      "intro": "Every word the product uses, with its meaning.",
+      "classes": [
+        "ent",
+        "field",
+        "derived",
+        "concept",
+        "rule",
+        "inv",
+        "action",
+        "view"
+      ]
+    }
   ]
 }

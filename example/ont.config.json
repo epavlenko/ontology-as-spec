@@ -77,5 +77,35 @@
   "scoped": [
     "field",
     "edge"
+  ],
+  "docSets": [
+    {
+      "name": "help",
+      "dir": "help",
+      "cover": [
+        "action",
+        "view",
+        "rule"
+      ],
+      "scope": "implemented"
+    }
+  ],
+  "references": [
+    {
+      "out": "help/terms.md",
+      "title": "Terms",
+      "intro": "Every word the library app uses, with its meaning. Only what the app does today is listed.",
+      "classes": [
+        "ent",
+        "field",
+        "derived",
+        "concept",
+        "rule",
+        "inv",
+        "action",
+        "view"
+      ],
+      "implementedOnly": true
+    }
   ]
 }

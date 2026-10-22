@@ -8,7 +8,7 @@
 //   with a ticket, only its slice, and the exit code is 1 until the slice is done.
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
 import { existsSync, readdirSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import {
   backtickIds,
   idPattern,
@@ -16,6 +16,7 @@ import {
   loadConfig,
   parseChecks,
   parseGlossary,
+  parseImplemented,
   parseRetired,
   read,
   slug,
@@ -24,6 +25,7 @@ import {
   tagIds,
 } from "./lib.mjs";
 import { buildContracts, renderContracts } from "./contracts.mjs";
+import { parseAnchors, renderReference, stampOf } from "./docs.mjs";
 
 const groupBy = (xs, key) =>
   xs.reduce((m, x) => m.set(key(x), [...(m.get(key(x)) ?? []), x]), new Map());
@@ -117,12 +119,9 @@ report("definition tables with more than one entity", twoEntities);
 
 // Implementation status: | `id` | `path`, `path` | note |. Files must exist; completeness is a human call.
 // Set "implementation": null under headings until there is code.
-const implSection = cfg.headings.implementation ? section(md, cfg.headings.implementation) : "";
-const implRows = [...implSection.matchAll(/^\|\s*`([a-z][a-z0-9.-]+)`\s*\|([^|]*)\|/gm)];
-const implemented = new Set(implRows.map((r) => r[1]));
-const implFiles = [
-  ...new Set(implRows.flatMap((r) => [...r[2].matchAll(/`([^`]+)`/g)].map((x) => x[1]))),
-];
+const implRows = parseImplemented(md, cfg.headings.implementation);
+const implemented = new Set(implRows.map(([id]) => id));
+const implFiles = [...new Set(implRows.flatMap(([, files]) => files))];
 unknown("IDs in the implementation table but not in the glossary", "the implementation table", implemented);
 report(
   "files from the implementation table not found",
@@ -356,12 +355,83 @@ if (cfg.tickets) {
   unknown("IDs in tickets but not in the glossary", "tickets", ticketIds);
 }
 
+// Documentation: hand-written pages carry anchors naming the concepts and checks they explain. Each
+// doc set must explain every concept of its classes (the implemented ones, or all of them); a stamp
+// older than the definition marks a section to reread. Reference pages are generated and compared.
+const anchored = new Set();
+const bySet = new Map();
+const generatedPages = new Set(cfg.references.map((r) => r.out));
+for (const d of cfg.docSets) {
+  const label = d.name ? `${d.name} docs` : "docs";
+  const files = listFiles(d.dir, d.match).filter((f) => !generatedPages.has(f));
+  report(`no ${label} pages found`, files.length ? [] : [relative(cfg.base, d.dir) || "."]);
+  const ids = new Set();
+  const stale = [];
+  const notIds = [];
+  for (const f of files) {
+    for (const a of parseAnchors(read(f)))
+      for (const { id, stamp } of a.refs) {
+        if (!isId.test(id) && !/^check\.[a-z0-9.-]+$/.test(id)) {
+          notIds.push(`${relative(cfg.base, f)}: ${id}`);
+          continue;
+        }
+        ids.add(id);
+        const now = stampOf(id, ONT, rows, checkById);
+        if (stamp && now && stamp !== now) stale.push(`${relative(cfg.base, f)}: ${id}`);
+      }
+  }
+  bySet.set(d.name, ids);
+  ids.forEach((x) => anchored.add(x));
+  report(`anchors in ${label} that are not IDs`, notIds);
+  const concepts = new Set([...ids].filter((x) => !x.startsWith("check.")));
+  unknown(`IDs in ${label} anchors but not in the glossary`, label, concepts);
+  report(
+    `checks in ${label} anchors but not in the catalogue`,
+    [...ids].filter((x) => x.startsWith("check.") && !checkById.has(x)).sort(),
+  );
+  const cover = new RegExp(`^(?:${d.cover.join("|")})\\.`);
+  const scope = d.scope === "all" ? glossary : implemented;
+  report(
+    `${d.scope === "all" ? "concepts" : "implemented concepts"} the ${label} do not explain`,
+    d.cover.length ? diff(scope, concepts).filter((x) => cover.test(x)) : [],
+  );
+  report(
+    `${label} sections anchored to a definition changed since review (reread, then run stamp-docs.mjs)`,
+    stale,
+    false,
+  );
+}
+for (const ref of cfg.references) {
+  const expected = renderReference(ref, {
+    ONT,
+    rows,
+    checks,
+    implemented,
+    kinds: cfg.kinds,
+    sourceName: relative(dirname(ref.out), cfg.ontology),
+  });
+  const actual = existsSync(ref.out) ? read(ref.out) : "";
+  report(
+    "generated reference differs from the ontology (run gen-reference.mjs)",
+    actual === expected ? [] : [relative(cfg.base, ref.out)],
+  );
+}
+
 // A concept nobody refers to is a dead glossary row.
 report(
   "glossary concepts nobody refers to",
   diff(
     glossary,
-    new Set([...body, ...mapped, ...used, ...implemented, ...tested, ...ticketIds, ...checkConcepts]),
+    new Set([
+      ...body,
+      ...mapped,
+      ...used,
+      ...implemented,
+      ...tested,
+      ...ticketIds,
+      ...checkConcepts,
+      ...anchored,
+    ]),
   ),
 );
 
@@ -487,6 +557,7 @@ console.log(
     ...(cfg.features ? [`scenarios ${featureIds.size}`] : []),
     ...cfg.testSuites.map((t) => `${t.name || "tested"} ${bySuite.get(t.name).size}`),
     ...(cfg.tickets ? [`tickets ${tickets.length}`] : []),
+    ...cfg.docSets.map((d) => `${d.name || "docs"} ${bySet.get(d.name).size}`),
   ].join(" · "),
 );
 if (errors.length) {

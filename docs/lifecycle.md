@@ -9,8 +9,9 @@ How each kind of change moves through the artifacts. The [agent rules](parts/age
 3. If the concept exists because of a choice, add a decision entry with the rejected alternatives.
 4. Regenerate the tooltip glossary and, for a field or a relation, the contracts.
 5. If it appears in the interface, add the map row, then the `data-ont` element in the mockup.
-6. Add a revision history line to the ontology.
-7. Run the check.
+6. If a doc set covers its class, explain it on a page with an anchor; regenerate the reference pages.
+7. Add a revision history line to the ontology.
+8. Run the check.
 
 Order matters. The definition row comes first, so that nothing else can mention a concept that is not defined.
 
@@ -18,7 +19,7 @@ A concept arrives with something that will try it: a mockup element, a ticket or
 
 ## Renaming a term
 
-Change the term and, if needed, the definition in its row. Leave the ID. Update the prose where the term appears. Regenerate the tooltips. If the rename reflects a change of meaning rather than wording, it is a decision.
+Change the term and, if needed, the definition in its row. Leave the ID. Update the prose where the term appears. Regenerate the tooltips and the reference pages; reread the doc sections the check lists as anchored to a changed definition, then stamp them. If the rename reflects a change of meaning rather than wording, it is a decision.
 
 ## Changing IDs
 

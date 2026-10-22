@@ -1,6 +1,6 @@
 # ont-check
 
-The drift check, the decision guard, the tooltip generator and the contract generator. Node 20 or later, no dependencies. What it checks and why is described in [part 5](../../docs/parts/drift-check.md).
+The drift check, the decision guard, and the generators of tooltips, contracts and reference pages. Node 20 or later, no dependencies. What it checks and why is described in [part 5](../../docs/parts/drift-check.md).
 
 ```bash
 node tools/ont-check/gen-glossary.mjs --config path/to/ont.config.json   # glossary → generated tooltips
@@ -8,6 +8,8 @@ node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json   # ONT_O
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --coverage   # also: what proves each implemented concept
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --gap [ticket.md]   # also: the work left, or one ticket's slice (exit 1 until done)
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
+node tools/ont-check/gen-reference.mjs --config path/to/ont.config.json   # reference pages from the ontology and the checks
+node tools/ont-check/stamp-docs.mjs  --config path/to/ont.config.json [page.md …]   # after rereading: stamp the anchors
 node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK
 ```
 
@@ -21,6 +23,9 @@ Without `--config`, all three look for `ont.config.json` in the current director
 | `guard-decisions.mjs` | fails if an entry accepted in an earlier commit (`--base`, default `HEAD`) was edited or removed; `--staged` reads the staged log |
 | `gen-glossary.mjs` | writes `window.ONT = {...}` from the definition rows                              |
 | `gen-contracts.mjs` | writes the JSON Schema, one definition per entity, from the Type cells           |
+| `docs.mjs`         | anchors in documentation, stamps, and the reference page renderer                 |
+| `gen-reference.mjs` | writes the reference pages listed under `references`                            |
+| `stamp-docs.mjs`   | rewrites anchors with the current stamps                                          |
 | `contracts.mjs`    | the type vocabulary and the schema builder, shared by the generator and the check |
 | `lib.mjs`          | the one parser both use, and the config loader                                    |
 | `ont-tooltips.js`  | browser runtime for the mockup: sets `title` from `window.ONT` on `[data-ont]` elements |
@@ -51,6 +56,8 @@ Paths are relative to the config file.
 | `testSuites` | a list of suites, each `{ "name", "dir", "match", "cover" }`: a unique name such as `unit` or `end-to-end`, where its tests are, a regex for test file paths (default `\.test\.[a-z]+$`), and the classes every implemented ID of which must be named by a test in this suite | no |
 | `tests` | the older form: one suite without a name, with the same `dir`, `match` and `cover` | no |
 | `tickets.dir`, `tickets.match` | where ticket files are, and a regex for their paths (default `\.md$`; `README.md` is skipped) | no |
+| `docSets` | a list of documentation sets, each `{ "name", "dir", "match", "cover", "scope" }`: the classes the set must explain, `implemented` (default) or `all` of their concepts | no |
+| `references` | a list of generated pages, each `{ "out", "title", "intro", "classes", "implementedOnly", "ids", "kinds", "types", "checks" }` | no |
 | `notYetShown` | classes reported (as information) when a concept has no mockup element yet | no |
 
 Every optional part can be left out. The checks that depend on it are then skipped.
@@ -68,6 +75,7 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Scenario files (older):** an `IDs:` line at the start of a line.
 - **Test tags:** IDs in square brackets anywhere in a test file, normally at the start of a test title: `test("[check.loan.renew-while-held] …")`, or a concept for what is not a product check, `test("[field.loan.renewals] …")`. Only `check` and configured classes are read, so `[0]` or `[x.y]` is not a tag.
 - **Tickets:** an `IDs:` or `Ontology IDs:` line; the checks they list, in backticks. Older tickets may have a `## Scenarios` section whose bullets read `- [id, id] GIVEN … WHEN … THEN …`.
+- **Doc anchors:** `<!-- ont: id, id@stamp -->` in pages of a doc set; IDs are concepts or checks, stamps are optional and written by `stamp-docs.mjs`.
 - **Decision status (guard):** an entry is accepted when one of its lines matches `decisions.accepted`, by default a `- Date:` line containing `Status: accepted`.
 
 ## Hooks

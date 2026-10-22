@@ -12,6 +12,7 @@ Start every task from the ontology IDs it touches. If a concept you need has no 
 | Your mind about an earlier decision                | a new dated entry that supersedes the old one; never edit the old one                                                                 | the check, the guard |
 | A ticket                                           | an `IDs:` line and the checks of the slice; new behavior goes into the catalogue first                                                | the check            |
 | A concept becomes implemented                      | tests that implement its automatic checks, titled with the check IDs                                                                  | the check, the tests |
+| A definition row that a help page explains         | reread the sections the check lists, then `stamp-docs.mjs`; regenerate the reference pages                                            | the check            |
 
 Rules the check cannot enforce:
 

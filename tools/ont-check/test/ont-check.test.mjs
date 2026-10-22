@@ -100,6 +100,28 @@ test("lists an entry that supersedes only part of another as information", () =>
   assert.match(r.out, /info · entries that supersede only part of another[^\n]*\n {2}D-07 → D-04/);
 });
 
+test("a changed definition marks the sections to reread, and stamping clears it", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ont-docs-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    const cfg = join(dir, "ont.config.json");
+    const node = (script, ...args) =>
+      spawnSync("node", [join(TOOLS, script), "--config", cfg, ...args], { encoding: "utf8" });
+    const onto = join(dir, "ontology.md");
+    writeFileSync(onto, readFileSync(onto, "utf8").replace("Close the loan and record the item's condition.", "Close the loan, record the item's condition and serve the queue."));
+    for (const g of ["gen-glossary.mjs", "gen-reference.mjs", "gen-contracts.mjs"]) node(g);
+    const before = node("ont-check.mjs");
+    assert.equal(before.status, 0, before.stdout);
+    assert.match(before.stdout, /help docs sections anchored to a definition changed since review[^\n]*\n {2}help\/borrowing\.md: action\.return/);
+    node("stamp-docs.mjs");
+    const after = node("ont-check.mjs");
+    assert.equal(after.status, 0, after.stdout);
+    assert.doesNotMatch(after.stdout, /changed since review/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 const cases = [
   ["an ID in the ontology text missing from the glossary", "IDs in the ontology text but not in the glossary",
     (p) => p("ontology.md", "- `concept.suspension` starts", "- `concept.suspended` starts")],
@@ -182,6 +204,16 @@ const cases = [
     (p) => p("issues/0003-serve-the-hold-queue.md", "`check.hold.served-in-order`", "`check.loan.renew-twice`")],
   ["an older ticket scenario without THEN", "ticket scenarios without an ID tag or GIVEN … WHEN … THEN",
     (p) => p("issues/0003-serve-the-hold-queue.md", "## Out of scope", "## Scenarios\n\n- [inv.queue-order] GIVEN two holds WHEN a copy comes back\n\n## Out of scope")],
+  ["a doc anchor naming an unknown concept", "IDs in help docs anchors but not in the glossary",
+    (p) => p("help/holds.md", "<!-- ont: action.place-hold@", "<!-- ont: action.place-holds, action.place-hold@")],
+  ["a doc anchor that is not an ID", "anchors in help docs that are not IDs",
+    (p) => p("help/holds.md", "<!-- ont: action.place-hold@", "<!-- ont: Place hold, action.place-hold@")],
+  ["an implemented action the help does not explain", "implemented concepts the help docs do not explain",
+    (p) => p("help/borrowing.md", "<!-- ont: action.return@", "<!-- ont: ent.loan@")],
+  ["a retired ID in a doc anchor", "retired IDs still in use outside the decision log",
+    (p) => p("help/borrowing.md", "field.loan.due-date@", "field.due-date@")],
+  ["a hand edit of a generated reference page", "generated reference differs",
+    (p) => p("help/terms.md", "Every word the library app uses", "Every term the library app uses")],
 ];
 
 for (const [name, label, edit] of cases)

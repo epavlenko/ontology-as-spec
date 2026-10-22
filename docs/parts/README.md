@@ -1,6 +1,6 @@
 # The parts
 
-Eight parts. The first three hold meaning, the next three tie artifacts to it, and the last two make agents work inside it.
+Nine parts. The first three hold meaning, the next three tie artifacts to it, the next two make agents work inside it, and the last ties documentation to it.
 
 | #   | Part                                               | Holds or ties                                                             |
 | --- | -------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -12,7 +12,8 @@ Eight parts. The first three hold meaning, the next three tie artifacts to it, a
 | 6   | [Checks and tests](checks-and-tests.md)            | what must hold for any implementation, and the tests that implement it    |
 | 7   | [Agent rules](agent-rules.md)                      | what else to update when something changes, and what the check cannot see |
 | 8   | [Agent workflow](agent-workflow.md)                | the gap computed, tickets as slices of it, a derived finish condition     |
+| 9   | [Documentation](documentation.md)                  | pages for people anchored to concepts; reference pages generated          |
 
 Each file follows the same outline: what it is, the format, the rules, what the check enforces, what it cannot enforce, and how it fails in practice. The [example](../../example/README.md) has a working instance of every part.
 
-A smaller adoption works. Parts 1, 2 and 5 alone already pay off. Add part 3 when code exists, part 4 when there is a mockup, and part 6 as soon as there are invariants and rules to check.
+A smaller adoption works. Parts 1, 2 and 5 alone already pay off. Add part 3 when code exists, part 4 when there is a mockup, part 6 as soon as there are invariants and rules to check, and part 9 when there is documentation for people.

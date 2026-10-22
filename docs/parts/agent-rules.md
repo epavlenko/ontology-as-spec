@@ -4,13 +4,14 @@
 
 A section in the repository's agent instructions (`AGENTS.md` or its equivalent) that tells any agent how to keep meaning current. It has two parts: a table of what else to update when something changes, and a short list of rules the check cannot enforce.
 
-| You changed                                        | Also update                                                                               | Verify                          |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------- |
-| A concept, rule, invariant or view in the ontology | regenerate the tooltips; a revision history line; a decision entry when the reason is new | the check                       |
-| The mockup                                         | `data-ont` on every new meaningful element and its map row                                | the check, a browser smoke test |
-| Behavior in code                                   | the implementation table and known divergences                                            | the check, the tests            |
-| Your mind about an earlier decision                | a new dated entry that supersedes the old one                                             | the check                       |
-| A concept becomes implemented                      | tests that implement its automatic checks, titled with the check IDs                      | the check, the tests            |
+| You changed                                        | Also update                                                                                | Verify                          |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------- |
+| A concept, rule, invariant or view in the ontology | regenerate the tooltips; a revision history line; a decision entry when the reason is new  | the check                       |
+| The mockup                                         | `data-ont` on every new meaningful element and its map row                                 | the check, a browser smoke test |
+| Behavior in code                                   | the implementation table and known divergences                                             | the check, the tests            |
+| Your mind about an earlier decision                | a new dated entry that supersedes the old one                                              | the check                       |
+| A concept becomes implemented                      | tests that implement its automatic checks, titled with the check IDs                       | the check, the tests            |
+| A definition row that a help page explains         | reread the sections the check lists, then `stamp-docs.mjs`; regenerate the reference pages | the check                       |
 
 Rules the check cannot enforce:
 

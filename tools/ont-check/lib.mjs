@@ -68,6 +68,15 @@ export function loadConfig(configPath) {
       dir: at(raw.tickets.dir),
       match: new RegExp(raw.tickets.match ?? "\\.md$"),
     },
+    // Documentation: sets of hand-written pages anchored to concepts, and generated reference pages.
+    docSets: (raw.docSets ?? []).map((d) => ({
+      name: d.name ?? "",
+      dir: at(d.dir),
+      match: new RegExp(d.match ?? "\\.md$"),
+      cover: d.cover ?? [],
+      scope: d.scope ?? "implemented",
+    })),
+    references: (raw.references ?? []).map((r) => ({ ...r, out: at(r.out) })),
     notYetShown: raw.notYetShown ?? [],
   };
 }
@@ -174,6 +183,16 @@ export function parseChecks(md) {
     });
   }
   return checks;
+}
+
+// Implementation status: | `id` | `path`, `path` | note | under the implementation heading.
+// Returns the rows as [id, files] pairs; an empty list when the heading is unset or absent.
+export function parseImplemented(md, heading) {
+  if (!heading || !md.includes(heading)) return [];
+  return [...section(md, heading).matchAll(/^\|\s*`([a-z][a-z0-9.-]+)`\s*\|([^|]*)\|/gm)].map((r) => [
+    r[1],
+    [...r[2].matchAll(/`([^`]+)`/g)].map((x) => x[1]),
+  ]);
 }
 
 // Retired IDs: | `old.id` | `new.id` or — | D-nn |. An ID that had to change stays resolvable here,

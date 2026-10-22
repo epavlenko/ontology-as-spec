@@ -37,6 +37,7 @@ Then everything that touches meaning refers to the IDs:
 - **The UI.** Each meaningful element of the interface mockup carries `data-ont="action.renew"`, and its tooltip comes from the definition. A map records what each element shows and what it deliberately does not do.
 - **The code.** A table says which concepts are already implemented and in which files, and a list says where the code still disagrees with the agreed target. Fields and relations have types in a neutral vocabulary, and a JSON Schema per entity is generated from them, so any language can check its data or generate its types from the same source.
 - **Checks and tests.** A catalogue of checks says what must hold, as GIVEN/WHEN/THEN cases in the product's terms, for any implementation. Each test names the check it implements: `test("[check.loan.renew-while-held] renewal is refused while someone waits")`. The configuration says which test suite must prove which kind of concept: rules by unit tests, actions by end-to-end tests.
+- **Documentation.** Pages for people are written by hand, and each section names the concepts it explains in an anchor readers do not see. The check says which concepts no page explains and which sections to reread after a definition changed. Reference pages, such as a list of terms, are generated.
 - **Tasks.** The work left is computed: concepts not yet built, checks without a test, known divergences. A ticket is a slice of that gap with its limits and permissions, and it is done when the check says so.
 
 One script checks all of these against each other, in both directions, on every commit and in CI. It also checks the shape of the ontology: kinds in order, every field in its entity's table.
@@ -66,7 +67,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | ---- | ---------- |
 | [example/](example/README.md) | a fictional lending library described end to end: ontology, decisions, mockup, map, checks, a ticket, code and tests |
 | [docs/principles.md](docs/principles.md) | the principles and the failures each one prevents |
-| [docs/parts/](docs/parts/README.md) | the eight parts, one file each: format, rules, what the check catches and what it does not |
+| [docs/parts/](docs/parts/README.md) | the nine parts, one file each: format, rules, what the check catches and what it does not |
 | [docs/lifecycle.md](docs/lifecycle.md) | how a change travels: new concept, rename, removal, superseded decision, implementation, adoption |
 | [docs/comparison.md](docs/comparison.md) | spec-driven development tools and older practices, with links to primary sources |
 | [docs/why-not-spec-as-source.md](docs/why-not-spec-as-source.md) | why the ontology does not generate the product |
@@ -83,7 +84,7 @@ Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/ex
 
 The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks its ontology grew to roughly 150 concepts, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product. The example is fictional.
 
-The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Tests linked to IDs, the check catalogue, the computed gap and tickets as slices of it, the decision guard, the ontology grouped by entity, the list of concepts nothing has tried yet, the generated contracts and test suites per kind of concept were added to the tool and the example afterwards and have not been used in a real project. [Limitations](docs/limitations.md) lists what remains weak.
+The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Tests linked to IDs, the check catalogue, the computed gap and tickets as slices of it, the decision guard, the ontology grouped by entity, the list of concepts nothing has tried yet, the generated contracts, test suites per kind of concept and documentation anchored to the ontology were added to the tool and the example afterwards and have not been used in a real project. [Limitations](docs/limitations.md) lists what remains weak.
 
 Questions and suggestions are welcome as GitHub issues. Maintained by Jevgenijs Pavlenko.
 
