@@ -86,7 +86,7 @@ Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/ex
 
 The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks its ontology grew to roughly 150 concepts, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product. The example is fictional.
 
-The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Tests linked to IDs, the check catalogue, the computed gap and tickets as slices of it, the decision guard, the ontology grouped by entity, the list of concepts nothing has tried yet, the generated contracts, test suites per kind of concept and documentation anchored to the ontology were added to the tool and the example afterwards and have not been used in a real project. [Limitations](docs/limitations.md) lists what remains weak.
+The generic check in `tools/ont-check` is its first version and has not yet been used in a second real project. The code in the source project does not yet refer to concept IDs, so the check cannot see when code behavior contradicts the ontology. Everything listed under [Implemented, not yet tried in a real project](docs/limitations.md#implemented-not-yet-tried-in-a-real-project) was added to the tool and the example afterwards and has not been used in a real project. [Limitations](docs/limitations.md) also lists what remains weak.
 
 Questions and suggestions are welcome as GitHub issues. Maintained by Jevgenijs Pavlenko.
 

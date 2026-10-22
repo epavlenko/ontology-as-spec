@@ -1,9 +1,10 @@
 // Documentation anchored to the ontology. People write the explanations; a section names the concepts
 // it explains in an anchor that readers do not see:
 //   <!-- ont: action.renew, inv.no-renew-when-held@3f2a91 -->
-// The optional @stamp is a short hash of the definition the section was last reviewed against, so the
-// check can say which sections to reread after a definition changed. Reference pages, which only
-// restate the ontology and the check catalogue, are generated.
+// The optional @stamp is a short hash of what the section relied on when it was last reread: for a
+// concept its term, type, definition and the notes that name it, for a check its case. The check can
+// then say which sections to reread after one of them changed. Reference pages, which only restate
+// the ontology and the check catalogue, are generated.
 import { createHash } from "node:crypto";
 import { slug } from "./lib.mjs";
 

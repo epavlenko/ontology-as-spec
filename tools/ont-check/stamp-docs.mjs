@@ -1,5 +1,5 @@
-// Stamps the anchors of hand-written documentation with the current definitions: run it after rereading
-// the sections the check listed as anchored to a changed definition.
+// Stamps the anchors of hand-written documentation with the current stamps of the concepts and checks
+// they name: run it after rereading the sections the check listed as anchored to something changed.
 // Usage: node tools/ont-check/stamp-docs.mjs [--config path/to/ont.config.json] [file.md ...]
 // Without files, stamps every page of every doc set.
 import { readFileSync, writeFileSync } from "node:fs";
