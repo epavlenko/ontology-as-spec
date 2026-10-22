@@ -130,12 +130,20 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: documentation describes the same product as the ontology and drifts from it like any other artifact. The interface and the code are already handled this way: written by hand, anchored to IDs, the mechanical part generated. The owner asked for documentation with the ontology as its source on the same footing.
 - Rejected: generating the prose from the ontology (not deterministic; the approach keeps meaning by reference, not generation); IDs visible in the text (hurts the readers the pages are for); doc sets as concepts in the ontology (process, as with test suites in D-13); an error for a changed definition (a reread is a judgment the check cannot make, so it can only list what to reread).
 
+### D-19 · The approach has its own ontology and check catalogue
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: `ontology.md` and `checks.md` at the root describe the approach with itself: one section per entity of the approach (concept, retired ID, decision, implementation row, divergence, mockup element, map row, check, test, test suite, ticket, contract, doc section, doc set, reference page), with fields, relations, rules and invariants, and a check for every rule and invariant. A concept counts as implemented when it is realised: by the tool for what the tool enforces, by a page of `docs/` for rules people follow and procedures they carry out. Rules the tool cannot enforce have manual checks. The tests of the tool implement the automatic checks and carry their IDs. A root `ont.config.json` runs the check on it in the hook and in CI. The configuration gains `external`: ontologies and catalogues whose IDs may appear as examples, here the example and the templates, known but not this ontology's.
+- Why: the rules of the approach lived in prose across `docs/`, the principles, the agent rules and the code of the check, and they had already drifted once (the lifecycle page told readers to edit old decisions after the guard forbade it). Described as an ontology, every rule has one row, the tool's tests say which rules they prove, and the manual checks list what nothing enforces. It is also the second project the approach runs on, which the limitations named as missing.
+- Rejected: a separate repository for the approach's ontology (it would drift from the tool it describes); describing only what the tool enforces (hides the rules people must follow, which matter as much); no `external` key and renaming example IDs in quoted text (the decision log quotes example IDs in accepted entries that cannot be edited).
+
 ## Open questions
 
 - When to name the source project.
 
 ## History
 
+- 2026-10-22: D-19: the approach's own ontology.
 - 2026-10-22: D-18: documentation anchored to the ontology.
 - 2026-10-22: D-17: one decision, one choice.
 - 2026-10-22: D-14: check catalogue. D-15: computed gap. D-16: tickets as slices.

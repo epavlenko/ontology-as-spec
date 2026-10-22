@@ -57,11 +57,22 @@ const body = new Set(
   ),
 );
 
+// IDs of external ontologies (examples quoted in the text of a method, fixtures in its tests) are
+// known but not this ontology's: they are skipped wherever IDs are resolved.
+const external = new Set(
+  cfg.external.flatMap((e) => [
+    ...(e.ontology ? Object.keys(parseGlossary(read(e.ontology)).ONT) : []),
+    ...(e.ontology ? [...parseRetired(read(e.ontology), cfg.headings.retired).keys()] : []),
+    ...(e.checks ? parseChecks(read(e.checks)).map((c) => c.id) : []),
+  ]),
+);
+const ours = (set) => new Set([...set].filter((x) => glossary.has(x) || !external.has(x)));
+
 // The glossary is the only source of IDs: everything that refers to a concept must find it there.
 // A retired ID resolves in the decision log, which is never edited; anywhere else it is drift.
 const retiredUse = [];
 const unknown = (label, where, set, allowRetired = false) => {
-  const missing = diff(set, glossary);
+  const missing = diff(ours(set), glossary);
   const old = missing.filter((x) => retired.has(x));
   if (!allowRetired)
     retiredUse.push(...old.map((x) => `${x} in ${where}, now ${retired.get(x) ?? "removed"}`));
@@ -273,7 +284,7 @@ for (const t of cfg.testSuites) {
     `no ${suiteName(t)}test files found`,
     files.length ? [] : [relative(cfg.base, t.dir) || "."],
   );
-  const tags = files.flatMap((f) => tagIds(read(f), [...classes, "check"]));
+  const tags = [...ours(files.flatMap((f) => tagIds(read(f), [...classes, "check"])))];
   const ids = new Set(tags.filter((x) => !x.startsWith("check.")));
   const own = new Set(tags.filter((x) => x.startsWith("check.")));
   own.forEach((x) => checksTested.add(x));
@@ -550,8 +561,8 @@ console.log(
   [
     `glossary ${glossary.size}`,
     ...(retired.size ? [`retired ${retired.size}`] : []),
-    `mockup ${used.size}`,
-    `map ${mapped.size}`,
+    ...(cfg.mockup.length ? [`mockup ${used.size}`] : []),
+    ...(cfg.map ? [`map ${mapped.size}`] : []),
     `implemented ${implemented.size}`,
     ...(cfg.checks ? [`checks ${checks.length}`] : []),
     ...(cfg.features ? [`scenarios ${featureIds.size}`] : []),

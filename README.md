@@ -74,6 +74,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | [docs/limitations.md](docs/limitations.md) | weaknesses, open questions, and what was added after the source project and not yet tried there |
 | [templates/](templates/README.md) | starting files for every artifact |
 | [tools/ont-check/](tools/ont-check/README.md) | the check and the tooltip generator; Node, no dependencies |
+| [ontology.md](ontology.md), [checks.md](checks.md) | the approach described with itself: its concepts, rules and checks, checked like any product |
 | [decisions.md](decisions.md) | decisions about this repository |
 
 ## How it compares

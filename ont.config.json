@@ -1,0 +1,56 @@
+{
+  "classes": {
+    "ent": "Entity",
+    "field": "Field",
+    "edge": "Relation",
+    "derived": "Derived",
+    "concept": "Concept",
+    "rule": "Rule",
+    "inv": "Invariant",
+    "hook": "Hook",
+    "action": "Action",
+    "view": "View"
+  },
+  "scoped": [
+    "field",
+    "edge"
+  ],
+  "ontology": "ontology.md",
+  "headings": {
+    "implementation": "## Implementation status",
+    "retired": "## Retired IDs"
+  },
+  "root": ".",
+  "decisions": {
+    "file": "decisions.md"
+  },
+  "contracts": {
+    "out": "docs/approach.schema.json",
+    "propertyCase": "camel"
+  },
+  "checks": {
+    "file": "checks.md",
+    "require": [
+      "inv",
+      "rule"
+    ]
+  },
+  "testSuites": [
+    {
+      "name": "tool",
+      "dir": "tools/ont-check/test",
+      "match": "\\.test\\.mjs$",
+      "cover": []
+    }
+  ],
+  "external": [
+    {
+      "ontology": "example/ontology.md",
+      "checks": "example/checks.md"
+    },
+    {
+      "ontology": "templates/ontology.md",
+      "checks": "templates/checks.md"
+    }
+  ]
+}

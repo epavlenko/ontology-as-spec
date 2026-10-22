@@ -44,12 +44,12 @@ const run = (edit, prepare = () => {}) => {
 };
 
 const allowed = [
-  ["a new accepted entry", (t) => t.replace("## Tentative", "### D-07 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative")],
-  ["an edit of a tentative entry", (t) => t.replace("a week may be needed", "two weeks may be needed")],
-  ["a new open question", (t) => t.replace("## Open questions\n", "## Open questions\n\n- Another question?\n")],
+  ["[check.decision.free-sections] a new accepted entry", (t) => t.replace("## Tentative", "### D-07 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative")],
+  ["[check.decision.free-sections] an edit of a tentative entry", (t) => t.replace("a week may be needed", "two weeks may be needed")],
+  ["[check.decision.free-sections] a new open question", (t) => t.replace("## Open questions\n", "## Open questions\n\n- Another question?\n")],
 ];
 for (const [name, edit] of allowed)
-  test(`allows ${name}`, () => {
+  test(name.replace(/^(\[[^\]]+\]) /, "$1 allows "), () => {
     for (const r of run(edit)) {
       assert.equal(r.code, 0, r.out);
       assert.match(r.out, /GUARD_OK/);
@@ -57,11 +57,11 @@ for (const [name, edit] of allowed)
   });
 
 const refused = [
-  ["an edit of an accepted entry", "accepted entries edited", (t) => t.replace("members remember one number", "members like one number")],
-  ["a removed accepted entry", "accepted entries removed", (t) => t.replace(/### D-04 ·[\s\S]*?(?=## Tentative)/, "")],
+  ["[check.decision.accepted-edited] an edit of an accepted entry", "accepted entries edited", (t) => t.replace("members remember one number", "members like one number")],
+  ["[check.decision.accepted-edited] a removed accepted entry", "accepted entries removed", (t) => t.replace(/### D-04 ·[\s\S]*?(?=## Tentative)/, "")],
 ];
 for (const [name, label, edit] of refused)
-  test(`refuses ${name}`, () => {
+  test(name.replace(/^(\[[^\]]+\]) /, "$1 refuses "), () => {
     for (const r of run(edit)) {
       assert.equal(r.code, 1, r.out);
       assert.ok(r.out.includes(label), `expected "${label}" in:\n${r.out}`);

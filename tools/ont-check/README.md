@@ -58,6 +58,7 @@ Paths are relative to the config file.
 | `tickets.dir`, `tickets.match` | where ticket files are, and a regex for their paths (default `\.md$`; `README.md` is skipped) | no |
 | `docSets` | a list of documentation sets, each `{ "name", "dir", "match", "cover", "scope" }`: the classes the set must explain, `implemented` (default) or `all` of their concepts | no |
 | `references` | a list of generated pages, each `{ "out", "title", "intro", "classes", "implementedOnly", "ids", "kinds", "types", "checks" }` | no |
+| `external` | other ontologies whose IDs may appear as examples, each `{ "ontology", "checks" }`: their IDs and checks are known but not this ontology's | no |
 | `notYetShown` | classes reported (as information) when a concept has no mockup element yet | no |
 
 Every optional part can be left out. The checks that depend on it are then skipped.

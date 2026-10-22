@@ -77,6 +77,9 @@ export function loadConfig(configPath) {
       scope: d.scope ?? "implemented",
     })),
     references: (raw.references ?? []).map((r) => ({ ...r, out: at(r.out) })),
+    // Other ontologies whose IDs may appear here as examples, such as a worked example inside the
+    // repository of a method: their IDs and checks are known, but they are not this ontology's.
+    external: (raw.external ?? []).map((e) => ({ ontology: at(e.ontology), checks: at(e.checks) })),
     notYetShown: raw.notYetShown ?? [],
   };
 }

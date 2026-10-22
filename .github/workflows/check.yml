@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Drift check on the example and the templates
+      - name: Drift check on the approach, the example and the templates
         run: npm run check
       - name: Tests of the check and of the example code
         run: node --test 'tools/ont-check/test/*.test.mjs' 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'
