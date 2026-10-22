@@ -28,7 +28,7 @@ DRIFT: 2
 
 Every automatic check in the [reference](../reference.md) is something this script, or the guard, verifies; each one is implemented by a test in `tools/ont-check/test/` that carries its ID. Every manual check is something it cannot verify, and a reviewer does instead. The checks that run across artifacts are under [Concept](../reference.md#concept): every ID used anywhere is defined, every concept is referred to, and, as information, every concept has been tried by a mockup element, a ticket or code.
 
-Two flags print reports on top of the check. `--coverage` shows, for each implemented concept, how many checks name it and which suites prove it. `--gap` lists the work left by entity: target concepts with their checks, automatic checks without a test and the known divergences; given a ticket, it narrows to the ticket's slice and exits 1 until the slice is done.
+Three flags print reports on top of the check. `--coverage` shows, for each implemented concept, how many checks name it and which suites prove it. `--decisions` lists every entry of the decision log as in force, tentative or superseded by what. `--gap` lists the work left by entity: target concepts with their checks, automatic checks without a test and the known divergences; given a ticket, it narrows to the ticket's slice and exits 1 until the slice is done.
 
 The "both directions" part matters. Checking only that references resolve catches typos. Checking also that every concept is referenced, every labelled element is mapped and every implemented concept has a way to be proven catches the slower failure: things that quietly stop being connected.
 
@@ -53,4 +53,4 @@ What the script cannot see, beyond the manual checks, is meaning and code behavi
 
 ## In the example
 
-`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in forty-nine different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.
+`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in fifty-one different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.

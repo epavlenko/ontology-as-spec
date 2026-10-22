@@ -33,14 +33,14 @@ DRIFT: 1
 
 The guard cannot see a commit made with `--no-verify`, which then fails in CI, or a rewritten history, which removes the commit it compares with.
 
-<!-- ont: inv.decision-has-reason@03ecfb, inv.rejected-recorded@b6fb01, rule.cite-decisions@b77959, rule.product-decisions-only@4f3292, inv.supersession-named@c45c0b, inv.meaning-change-decided@641c3e, inv.decision-numbers-unique@ba43af, inv.decision-references-resolve@abba7d -->
+<!-- ont: inv.decision-has-reason@03ecfb, inv.rejected-recorded@b6fb01, rule.cite-decisions@b77959, rule.product-decisions-only@4f3292, inv.supersession-named@bc24b3, inv.meaning-change-decided@641c3e, inv.decision-numbers-unique@ba43af, inv.decision-references-resolve@abba7d, inv.supersedes-older@e84800 -->
 ## Reference
 
 A log has four sections: Accepted, Tentative, Open questions and History. The fields of an entry, the rules a log follows and the checks that hold them are in the reference: [Decision](../reference.md#decision).
 
 Two of those rules carry the log's purpose. An entry always says why, so that the next reader knows whether there was a deeper reason. It lists the rejected alternatives, because they are what stops an agent from proposing the same alternative again. Both are manual checks: the tool sees that an entry exists, not that its reason is a reason.
 
-One entry records one choice. The test: if someone could one day want to replace half of it, it is two entries. An entry is then superseded whole, because "supersedes the … part of D-nn" leaves every later reader to work out what of D-nn still applies. The tool lists such partial supersessions as information; it cannot judge whether a new entry bundles two choices.
+One entry records one choice. The test: if someone could one day want to replace half of it, it is two entries. An entry is then superseded whole, because "supersedes the … part of D-nn" leaves every later reader to work out what of D-nn still applies. An entry that replaces older ones names them on a line of its own, `- Supersedes: D-05`; the check confirms that every entry named there exists and is older, and `ont-check.mjs --decisions` lists every entry as in force, tentative or superseded by what. The tool also lists, as information, entries replaced only in part in prose ("supersedes the … part of", "no longer applies") until some entry supersedes them whole. It cannot judge whether a new entry bundles two choices.
 
 ## How it fails in practice
 

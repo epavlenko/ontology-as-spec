@@ -37,7 +37,7 @@ Remove its definition row, its checks, its map rows, its mockup elements, its im
 <!-- ont: action.supersede-decision@0d21ae -->
 ## Changing your mind
 
-Write a new decision entry that supersedes the old one and says why. Never edit the old entry. Then change the ontology, the checks, the map and the mockup to match, reread the doc sections the check lists as anchored to a changed definition, and mention the new decision where the change would otherwise look arbitrary.
+Write a new decision entry that supersedes the old one whole, names it on a `- Supersedes:` line, and says why. Never edit the old entry. Then change the ontology, the checks, the map and the mockup to match, reread the doc sections the check lists as anchored to a changed definition, and mention the new decision where the change would otherwise look arbitrary.
 
 <!-- ont: action.cut-slice@2b0910 -->
 ## Implementing a concept

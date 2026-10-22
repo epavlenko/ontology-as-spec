@@ -8,6 +8,8 @@ export const read = (path) => readFileSync(path, "utf8");
 // An entry is accepted when one of its lines matches this pattern. A log in another language sets
 // decisions.accepted in the config.
 export const DEFAULT_ACCEPTED = "^- Date:.*Status:\\s*accepted\\b";
+// An entry that replaces older ones names them on a line of its own; group 1 holds the list.
+export const DEFAULT_SUPERSEDES = "^- Supersedes:\\s*(.+)$";
 
 // Loads ont.config.json and resolves every path against the config file's directory.
 export function loadConfig(configPath) {
@@ -37,6 +39,7 @@ export function loadConfig(configPath) {
       entry: new RegExp(raw.decisions.entry ?? "^### (D-\\d+) · .+$", "gm"),
       ref: new RegExp(raw.decisions.ref ?? "\\bD-\\d+\\b", "g"),
       accepted: new RegExp(raw.decisions.accepted ?? DEFAULT_ACCEPTED, "im"),
+      supersedes: new RegExp(raw.decisions.supersedes ?? DEFAULT_SUPERSEDES, "im"),
     },
     glossaryOut: at(raw.glossaryOut),
     contracts: raw.contracts && {

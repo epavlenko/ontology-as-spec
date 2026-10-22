@@ -7,6 +7,7 @@ node tools/ont-check/gen-glossary.mjs --config path/to/ont.config.json   # gloss
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json   # ONT_OK, or the drift and exit code 1
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --coverage   # also: what proves each implemented concept
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --gap [ticket.md]   # also: the work left, or one ticket's slice (exit 1 until done)
+node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --decisions   # also: every decision entry, in force, tentative or superseded
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/gen-reference.mjs --config path/to/ont.config.json   # reference pages from the ontology and the checks
 node tools/ont-check/stamp-docs.mjs  --config path/to/ont.config.json [page.md …]   # after rereading: stamp the anchors
@@ -46,6 +47,7 @@ Paths are relative to the config file.
 | `decisions.file` | the decision log | no |
 | `decisions.entry` | regex for an entry heading with the number in group 1; default `^### (D-\d+) · .+$` | no |
 | `decisions.ref` | regex for a reference to an entry; default `\bD-\d+\b` | no |
+| `decisions.supersedes` | regex for the line that names the entries an entry supersedes, with the list in group 1; default `^- Supersedes:\s*(.+)$`, case-insensitive | no |
 | `decisions.accepted` | regex for the line that marks an entry accepted, for the guard; default `^- Date:.*Status:\s*accepted\b`, case-insensitive; set it for a log in another language | no |
 | `glossaryOut` | the generated tooltip file | no |
 | `contracts.out`, `contracts.classes`, `contracts.propertyCase` | the generated JSON Schema; the classes that carry a type (default `["field", "edge"]`); property names from the ID's last part as `camel` (default), `snake` or `kebab` | no |
@@ -78,6 +80,7 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Test tags:** IDs in square brackets anywhere in a test file, normally at the start of a test title: `test("[check.loan.renew-while-held] …")`, or a concept for what is not a product check, `test("[field.loan.renewals] …")`. Only `check` and configured classes are read, so `[0]` or `[x.y]` is not a tag.
 - **Tickets:** an `IDs:` or `Ontology IDs:` line; the checks they list, in backticks. Older tickets may have a `## Scenarios` section whose bullets read `- [id, id] GIVEN … WHEN … THEN …`.
 - **Doc anchors:** `<!-- ont: id, id@stamp -->` in pages of a doc set; IDs are concepts or checks, stamps are optional and written by `stamp-docs.mjs`.
+- **Supersession:** an entry that replaces older ones names them on a line matched by `decisions.supersedes`, by default `- Supersedes: D-05, D-07`.
 - **Decision status (guard):** an entry is accepted when one of its lines matches `decisions.accepted`, by default a `- Date:` line containing `Status: accepted`.
 
 ## Hooks

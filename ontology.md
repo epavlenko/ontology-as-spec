@@ -67,7 +67,8 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 |           | `field.decision.rejected`         | Rejected                   | text optional                | Each alternative with its reason in brackets.                                                                  |
 |           | `field.decision.title`            | Title                      | text                         | One line that states the decision, not the topic: "No money fines", not "Fines".                               |
 | Relation  | `edge.decision.concepts`          | Concepts                   | refs `ent.concept`           | The concepts the choice touches.                                                                               |
-|           | `edge.decision.supersedes`        | Supersedes                 | refs `ent.decision` optional | Earlier entries this one replaces, each whole.                                                                 |
+|           | `edge.decision.supersedes`        | Supersedes                 | refs `ent.decision` optional | Earlier entries this one replaces, each whole, named on a `Supersedes:` line.                                  |
+| Derived   | `derived.in-force`                | In force                   |                              | An entry that no `Supersedes:` line names.                                                                     |
 | Rule      | `rule.one-choice`                 | One choice                 |                              | An entry records one choice that can be reversed on its own.                                                   |
 |           | `rule.cite-decisions`             | Cite by number             |                              | The ontology refers to a decision by number where a rule would otherwise look arbitrary.                       |
 |           | `rule.product-decisions-only`     | Product decisions only     |                              | The log holds what someone working on the product needs; personal and strategic decisions live elsewhere.      |
@@ -77,7 +78,8 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 |           | `inv.superseded-whole`            | Superseded whole           |                              | A new entry replaces an older one completely, never a part of it.                                              |
 |           | `inv.decision-has-reason`         | Has a reason               |                              | Every entry says why; if there was no deeper reason, it says that.                                             |
 |           | `inv.rejected-recorded`           | Rejected recorded          |                              | Every entry lists the alternatives that were rejected, with their reasons, when there were any.                |
-|           | `inv.supersession-named`          | Names what it replaces     |                              | A superseding entry names the entries it supersedes.                                                           |
+|           | `inv.supersession-named`          | Names what it replaces     |                              | A superseding entry names every entry it supersedes on its `Supersedes:` line.                                 |
+|           | `inv.supersedes-older`            | Supersedes what exists     |                              | Every entry on a `Supersedes:` line exists and is older than the entry that names it.                          |
 |           | `inv.meaning-change-decided`      | Changes of meaning decided |                              | A change to meaning that rests on a choice has a decision entry.                                               |
 | Action    | `action.supersede-decision`       | Supersede a decision       |                              | Write a new entry that replaces the old one whole and says why.                                                |
 
@@ -298,6 +300,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `field.decision.title`            | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                   |
 | `edge.decision.concepts`          | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                   |
 | `edge.decision.supersedes`        | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                   |
+| `derived.in-force`                | `tools/ont-check/ont-check.mjs`                                        |                                                   |
 | `rule.one-choice`                 | `docs/parts/decision-log.md`                                           | reviewed; the check reports partial supersessions |
 | `rule.cite-decisions`             | `docs/parts/decision-log.md`                                           | reviewed, not checked                             |
 | `rule.product-decisions-only`     | `docs/parts/decision-log.md`                                           | reviewed, not checked                             |
@@ -308,6 +311,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `inv.decision-has-reason`         | `docs/parts/decision-log.md`                                           | reviewed, not checked                             |
 | `inv.rejected-recorded`           | `docs/parts/decision-log.md`                                           | reviewed, not checked                             |
 | `inv.supersession-named`          | `docs/parts/decision-log.md`                                           | reviewed, not checked                             |
+| `inv.supersedes-older`            | `tools/ont-check/ont-check.mjs`                                        |                                                   |
 | `inv.meaning-change-decided`      | `docs/parts/decision-log.md`                                           | reviewed, not checked                             |
 | `action.supersede-decision`       | `docs/lifecycle.md`                                                    | a procedure                                       |
 
@@ -474,6 +478,7 @@ None known.
 
 ## Revision history
 
+- 2026-10-22: supersession on a `Supersedes:` line, `derived.in-force` and `inv.supersedes-older` (D-25).
 - 2026-10-22: a stamp covers the notes that name a concept, not only its row (D-23).
 - 2026-10-22: `inv.doc-set-names-unique`, enforced by the check (D-22).
 - 2026-10-22: the kind of a concept is one of the configured classes, not a fixed list, as part 1 and the tool already had it.

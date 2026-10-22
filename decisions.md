@@ -173,6 +173,13 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: D-05 was replaced piece by piece, by D-08, D-09 and D-11, so the log still showed it as an accepted decision whose text is no longer true, and a reader had to assemble four later entries to learn that nothing of it remains. D-17 asks that an entry be superseded whole, by one entry.
 - Rejected: leaving D-05 as it is (it reads as a rule in force); editing D-05 (accepted entries are never edited).
 
+### D-25 · Supersession is written on a line of its own, and the check reads it
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: an entry that replaces older ones names them on a line `- Supersedes: D-nn, D-nn`, each whole. The check requires that every entry named there exists and is older than the entry naming it. `ont-check.mjs --decisions` lists every entry of the log as in force, tentative or superseded, and by what. The hint about partial replacement now also reads "D-nn no longer applies", and it leaves out older entries that some entry supersedes whole, so it lists only bundled entries still waiting to be split. The line's pattern is configurable, like the accepted status (D-12).
+- Why: supersession was written in prose, so the tool could not show which entries still hold, and the hint knew one phrase and missed the piecemeal replacement of D-05. The approach's ontology already had the relation, `edge.decision.supersedes`; it now has a place in the text that a tool can read.
+- Rejected: a "superseded" status written into the old entry (accepted entries are never edited); inferring supersession from prose alone (phrasings vary; the line is the record, the hint only information); a generated page of decisions in force (a report on demand is enough while logs are small).
+
 ## Tentative
 
 None.
@@ -183,6 +190,7 @@ None.
 
 ## History
 
+- 2026-10-22: D-25: supersession on a line of its own.
 - 2026-10-22: D-24: D-05 superseded whole.
 - 2026-10-22: D-23: stamps cover notes.
 - 2026-10-22: D-22: unique doc set names.

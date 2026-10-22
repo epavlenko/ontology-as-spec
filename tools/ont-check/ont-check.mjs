@@ -2,10 +2,11 @@
 // contracts and reference pages, the mockup and its map, the decision log, the implementation table,
 // the check catalogue, the tests, the tickets, the documentation, and the older verification map.
 // Usage: node tools/ont-check/ont-check.mjs [--config path/to/ont.config.json] [--coverage]
-//          [--gap [path/to/ticket.md]]
+//          [--gap [path/to/ticket.md]] [--decisions]
 // --coverage also prints which checks and test suites prove each implemented concept.
 // --gap also prints the work left: target concepts with their checks, untested checks, divergences;
 //   with a ticket, only its slice, and the exit code is 1 until the slice is done.
+// --decisions also prints every entry of the decision log: in force, tentative or superseded by what.
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -204,6 +205,7 @@ if (cfg.map) {
 }
 
 // Decision log: IDs exist, references point at real entries, entries are not duplicated.
+const decisionLog = [];
 if (cfg.decisions) {
   const dec = read(cfg.decisions.file);
   unknown("IDs in the decision log but not in the glossary", "the decision log", new Set(ids(dec)), true);
@@ -215,18 +217,54 @@ if (cfg.decisions) {
     "duplicate entries in the decision log",
     entries.filter((x, i) => entries.indexOf(x) !== i),
   );
-  // One entry, one choice: an entry that supersedes only part of another shows the older one bundled
-  // several choices. Information, because the older entry can no longer be edited.
+  // Supersession is written on a line of its own: "- Supersedes: D-05". Every entry named there exists
+  // and is older than the entry naming it; an entry no such line names is in force.
   const heads = [...dec.matchAll(cfg.decisions.entry)];
+  const log = heads.map((m, i) => ({
+    id: m[1],
+    title: m[0].replace(/^#+\s*/, "").replace(m[1], "").replace(/^\s*[·:—-]?\s*/, ""),
+    body: dec.slice(m.index, heads[i + 1]?.index),
+  }));
+  const number = (id) => (/\d/.test(id) ? Number(id.replace(/\D+/g, "")) : null);
+  const refIn = (text) => [...text.matchAll(new RegExp(cfg.decisions.ref.source, "g"))].map((m) => m[0]);
+  const supersededBy = new Map();
+  const badSupersedes = [];
+  for (const e of log) {
+    const line = e.body.match(cfg.decisions.supersedes);
+    for (const old of line ? refIn(line[1]) : []) {
+      if (!entries.includes(old)) badSupersedes.push(`${e.id} names ${old}, which has no entry`);
+      else if (number(old) !== null && number(e.id) !== null && number(old) >= number(e.id))
+        badSupersedes.push(`${e.id} names ${old}, which is not older`);
+      else supersededBy.set(old, [...(supersededBy.get(old) ?? []), e.id]);
+    }
+  }
+  report("Supersedes lines that name no older entry", badSupersedes);
+  // One entry, one choice: an entry that replaces only part of another, in prose, shows the older one
+  // bundled several choices. Information, because the older entry can no longer be edited; it leaves
+  // the list once some entry supersedes the older one whole.
+  const ref = cfg.decisions.ref.source;
+  const partly = [
+    new RegExp(`\\b(?:supersedes|replaces)\\s+(?:the\\s+)?[\\w\\s,-]*?\\bpart\\s+of\\s+(${ref})`, "gi"),
+    new RegExp(`(${ref})\\s+no\\s+longer\\s+applies\\b`, "gi"),
+  ];
   report(
-    "entries that supersede only part of another (the older entry bundled several choices)",
-    heads.flatMap((m, i) => {
-      const body = dec.slice(m.index, heads[i + 1]?.index);
-      return [...body.matchAll(/\b(?:supersedes|replaces)\s+(?:the\s+)?[\w\s,-]*?\bpart\s+of\s+(D-\d+)/gi)].map(
-        (x) => `${m[1]} → ${x[1]}`,
-      );
-    }),
+    "entries replaced only in part and not yet superseded whole (split them when they are next replaced)",
+    log.flatMap((e) =>
+      [...new Set(partly.flatMap((re) => [...e.body.matchAll(re)].map((x) => x[1])))]
+        .filter((old) => old !== e.id && !supersededBy.has(old))
+        .map((old) => `${e.id} → ${old}`),
+    ),
     false,
+  );
+  decisionLog.push(
+    ...log.map((e) => ({
+      ...e,
+      state: supersededBy.has(e.id)
+        ? `superseded by ${supersededBy.get(e.id).join(", ")}`
+        : cfg.decisions.accepted.test(e.body)
+          ? "in force"
+          : "tentative",
+    })),
   );
 }
 
@@ -516,6 +554,22 @@ if (flag("--coverage") > 0) {
   const width = head.map((h, i) => Math.max(h.length, 3, ...body.map((r) => r[i].length)));
   const line = (r) => `| ${r.map((c, i) => c.padEnd(width[i])).join(" | ")} |`;
   console.log([line(head), line(width.map((w) => "-".repeat(w))), ...body.map(line)].join("\n"));
+}
+
+// --decisions: every entry of the log and whether it is in force, tentative or superseded.
+if (flag("--decisions") > 0) {
+  const width = (k, h) => Math.max(h.length, 3, ...decisionLog.map((e) => e[k].length));
+  const w = [width("id", "Entry"), width("title", "Title"), width("state", "State")];
+  const line = (r) => `| ${r.map((c, i) => c.padEnd(w[i])).join(" | ")} |`;
+  console.log(
+    [
+      line(["Entry", "Title", "State"]),
+      line(w.map((x) => "-".repeat(x))),
+      ...[...decisionLog]
+        .sort((a, b) => (Number(a.id.replace(/\D+/g, "")) || 0) - (Number(b.id.replace(/\D+/g, "")) || 0))
+        .map((e) => line([e.id, e.title, e.state])),
+    ].join("\n"),
+  );
 }
 
 // --gap: the work left, computed rather than listed by hand. Target concepts by section with their

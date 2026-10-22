@@ -88,16 +88,32 @@ test("still reads the older verification map", () => {
   assert.match(r.out, /scenario files without an `IDs:` line/);
 });
 
-test("[check.decision.partial-supersession] lists an entry that supersedes only part of another as information", () => {
+// A new accepted entry for the example's log, inserted before its Tentative section.
+const entry = (n, lines) =>
+  `### D-${n} · Entry ${n}\n\n- Date: 2026-10-22 · Status: accepted\n${lines.map((l) => `- ${l}\n`).join("")}\n## Tentative`;
+
+test("[check.decision.partial-supersession] lists an entry that replaces only part of another as information", () => {
   const r = run((p) =>
-    p(
-      "decisions.md",
-      "## Tentative",
-      "### D-07 · Renewal shown with its count\n\n- Date: 2026-10-22 · Status: accepted\n- Decision: supersedes the button part of D-04.\n\n## Tentative",
-    ),
+    p("decisions.md", "## Tentative", `${entry("07", ["Decision: supersedes the button part of D-04."])}\n\n${entry("08", ["Decision: D-02 no longer applies to holds on items."]).replace("\n\n## Tentative", "")}`),
   );
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /info · entries that supersede only part of another[^\n]*\n {2}D-07 → D-04/);
+  assert.match(r.out, /info · entries replaced only in part and not yet superseded whole[^\n]*\n {2}D-07 → D-04\n {2}D-08 → D-02/);
+});
+
+test("[check.decision.partial-supersession] an entry superseded whole leaves the list of partial replacements", () => {
+  const r = run((p) =>
+    p("decisions.md", "## Tentative", `${entry("07", ["Decision: supersedes the button part of D-04."])}\n\n${entry("08", ["Supersedes: D-04", "Decision: renewal is shown differently."]).replace("\n\n## Tentative", "")}`),
+  );
+  assert.equal(r.code, 0, r.out);
+  assert.doesNotMatch(r.out, /entries replaced only in part/);
+});
+
+test("[check.decision.in-force-report] --decisions lists each entry as in force, tentative or superseded", () => {
+  const r = run((p) => p("decisions.md", "## Tentative", entry("07", ["Supersedes: D-04", "Decision: renewal is shown differently."])), "--decisions");
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| superseded by D-07 +\|/);
+  assert.match(r.out, /\| D-05 +\| A reserved item waits three days +\| tentative +\|/);
+  assert.match(r.out, /\| D-07 +\| Entry 07 +\| in force +\|/);
 });
 
 test("[check.doc-section.reread-after-change] a changed definition marks the sections to reread, and stamping clears it", () => {
@@ -239,6 +255,10 @@ const cases = [
     (p) => p("issues/0003-serve-the-hold-queue.md", "IDs: `hook.hold-ready`", "Concepts: `hook.hold-ready`")],
   ["[check.doc-set.duplicate-name] two doc sets with the same name", "doc sets with the same name",
     (p) => p("ont.config.json", '"docSets": [', '"docSets": [\n    { "name": "help", "dir": "help", "cover": [] },')],
+  ["[check.decision.supersedes-older] a Supersedes line naming no entry", "Supersedes lines that name no older entry",
+    (p) => p("decisions.md", "## Tentative", entry("07", ["Supersedes: D-09", "Decision: x."]))],
+  ["[check.decision.supersedes-older] a Supersedes line naming a newer entry", "Supersedes lines that name no older entry",
+    (p) => p("decisions.md", "- Date: 2026-10-17 · Status: accepted\n- Decision: a hold is placed on a title", "- Date: 2026-10-17 · Status: accepted\n- Supersedes: D-04\n- Decision: a hold is placed on a title")],
 ];
 
 // Each case name starts with the check from the approach's catalogue (checks.md) that it implements.
