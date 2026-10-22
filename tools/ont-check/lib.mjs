@@ -50,11 +50,16 @@ export function loadConfig(configPath) {
       dir: at(raw.features.dir),
       cover: raw.features.cover ?? [],
     },
-    tests: raw.tests && {
-      dir: at(raw.tests.dir),
-      match: new RegExp(raw.tests.match ?? "\\.test\\.[a-z]+$"),
-      cover: raw.tests.cover ?? [],
-    },
+    // Test suites: each names the classes whose implemented concepts it must prove. The older
+    // single "tests" key is a suite without a name.
+    testSuites: [...(raw.tests ? [{ name: "", ...raw.tests }] : []), ...(raw.testSuites ?? [])].map(
+      (t) => ({
+        name: t.name ?? "",
+        dir: at(t.dir),
+        match: new RegExp(t.match ?? "\\.test\\.[a-z]+$"),
+        cover: t.cover ?? [],
+      }),
+    ),
     tickets: raw.tickets && {
       dir: at(raw.tickets.dir),
       match: new RegExp(raw.tickets.match ?? "\\.md$"),

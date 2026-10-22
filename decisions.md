@@ -88,12 +88,20 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the first project to adopt the approach keeps its decision log in another language, and the guard counted none of its entries as accepted, so it guarded nothing and said GUARD_OK. The entry heading and the reference were already configurable; the status was the one hardcoded English word.
 - Rejected: a list of known translations in the tool (grows without end); requiring English status lines in every log (the log is written for the team, in its language).
 
+### D-13 · Test suites per kind of concept, in the configuration, not in the ontology
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: the check's configuration lists test suites under `testSuites`, each with a name, a directory, a file pattern and the classes whose implemented concepts it must prove. The check requires the tag in that suite and names the suite in what it reports. `--coverage` prints what proves each implemented concept, one column per suite and one for the scenarios. The older single `tests` key keeps working as one unnamed suite. The example has a unit suite for invariants, rules and derived values and an end-to-end suite, which runs the command line front end, for actions and views.
+- Why: one test set could not say that an action proven only by a unit test was never tried the way a person uses it, or that a hook needs a test that controls time. Kinds of tests are the team's process, not the product's meaning: a different team could test the same product differently while the ontology stays the same. So the policy lives next to the check, and the ontology gains no test concepts.
+- Rejected: test suites as concepts in the ontology (mixes process into meaning and would sit in the entity tables); a suite named per tag, such as `[e2e:action.renew]` (a second tag format, and the directory already says it); the key name "suites" (too generic in a configuration that also has scenarios); conversational test dialogs as the example's second suite (specific to chat products; end-to-end tests through the interface are the common case).
+
 ## Open questions
 
 - When to name the source project.
 
 ## History
 
+- 2026-10-22: D-13: test suites per kind of concept.
 - 2026-10-21: D-12: configurable accepted status.
 - 2026-10-21: D-11: contracts generated from typed fields.
 - 2026-10-21: D-10: no concept without feedback; contracts restated as language-neutral.

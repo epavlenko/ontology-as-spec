@@ -53,7 +53,7 @@ Start small. The approach pays off before every part is in place.
 2. **Decision log.** Record the last five decisions that someone would otherwise reverse.
 3. **Check.** Copy `tools/ont-check`, write `ont.config.json` with only the ontology and the decisions, and run it and `guard-decisions.mjs` in CI. The config may omit the mockup, map and scenarios until they exist.
 4. **Agent rules.** Add the "what else to update" table to your agent instructions.
-5. **Target and reality.** When code exists, add the implementation table and the divergences. Tag the tests that prove invariants and rules, and add `tests` to the config.
+5. **Target and reality.** When code exists, add the implementation table and the divergences. Tag the tests that prove invariants and rules, and add `testSuites` to the config: which suite must prove which kind of concept.
 6. **Mockup.** When there is a mockup, label it and add the map.
 7. **Verification map.** When implemented features need proving, add scenario files.
 

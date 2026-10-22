@@ -5,6 +5,7 @@ The drift check, the decision guard, the tooltip generator and the contract gene
 ```bash
 node tools/ont-check/gen-glossary.mjs --config path/to/ont.config.json   # glossary → generated tooltips
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json   # ONT_OK, or the drift and exit code 1
+node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --coverage   # also: what proves each implemented concept
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK
 ```
@@ -45,7 +46,8 @@ Paths are relative to the config file.
 | `mockup` | list of mockup HTML files | no |
 | `map.file`, `map.idColumn` | the UI-to-ontology map and the 1-based column holding IDs; default 2 | no |
 | `features.dir`, `features.cover` | the verification map directory and the classes every implemented ID of which must be covered | no |
-| `tests.dir`, `tests.match`, `tests.cover` | where the tests are, a regex for test file paths (default `\.test\.[a-z]+$`), and the classes every implemented ID of which must be named by a test | no |
+| `testSuites` | a list of suites, each `{ "name", "dir", "match", "cover" }`: a unique name such as `unit` or `end-to-end`, where its tests are, a regex for test file paths (default `\.test\.[a-z]+$`), and the classes every implemented ID of which must be named by a test in this suite | no |
+| `tests` | the older form: one suite without a name, with the same `dir`, `match` and `cover` | no |
 | `tickets.dir`, `tickets.match` | where ticket files are, and a regex for their paths (default `\.md$`; `README.md` is skipped) | no |
 | `notYetShown` | classes reported (as information) when a concept has no mockup element yet | no |
 

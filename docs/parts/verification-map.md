@@ -30,17 +30,45 @@ Scenarios prove a feature the way a user sees it. Invariants, rules and derived 
 
 ```js
 test("[inv.one-loan-per-item] an item cannot be on two loans", () => { … });
-test("[rule.renewal, field.renewals] renewal adds 14 days, at most twice", () => { … });
+test("[rule.renewal, field.loan.renewals] renewal adds 14 days, at most twice", () => { … });
 ```
 
 The tag is plain text in the title, so it works with any test runner and shows up in its output. When a ticket's scenario becomes a test, the test carries the scenario's tag (see [part 8](agent-workflow.md#scenarios)).
 
-The check reads the tags from the files configured under `tests` and enforces two directions:
+The check reads the tags from the test suites in the configuration and enforces two directions:
 
-- every implemented concept of a covered class (`tests.cover`; invariants, rules and derived values in the example) is named by at least one test;
+- every implemented concept of a class a suite covers is named by at least one test in that suite;
 - a test names only concepts the implementation table lists. A tag on something "not implemented" means either the table or the tag is wrong.
 
-This gives the implementation table a mechanical counterpart for the classes that tests can prove. Which classes to cover is a project choice: views and actions are usually proven by scenarios, entities and fields by the tests of the rules that use them.
+This gives the implementation table a mechanical counterpart for the classes that tests can prove.
+
+## Test suites
+
+Different kinds of concepts need different kinds of proof. A rule is proven by a fast test of the code that applies it. An action is proven only when it works the way a person uses it, through the interface. A hook is proven only by a test that controls time. The configuration says which suite must prove which kind of concept:
+
+```json
+"testSuites": [
+  { "name": "unit",        "dir": "test/unit",        "cover": ["inv", "rule", "derived"] },
+  { "name": "integration", "dir": "test/integration", "cover": ["hook"] },
+  { "name": "end-to-end",  "dir": "test/e2e",         "cover": ["action", "view"] }
+]
+```
+
+The names and the split are the project's; these three are common. Unit tests run the code in isolation. Integration tests run it with its real database and services, here with a clock the test controls. End-to-end tests drive the product from the outside, through its interface. The check names the suite in what it reports: "implemented concepts without a test in the end-to-end suite: `action.renew`".
+
+The suites themselves, how to run them and what they cost, belong to the team's process and its agent instructions, not to the ontology. The ontology describes the product. A different team could test the same product with different suites, and the ontology would not change.
+
+`ont-check.mjs --coverage` prints what proves each implemented concept, one column per suite and one for the scenarios:
+
+```text
+| concept                  | unit | end-to-end | scenarios |
+| ------------------------ | ---- | ---------- | --------- |
+| `inv.no-renew-when-held` | yes  |            | yes       |
+| `action.renew`           |      | yes        | yes       |
+| `edge.loan.item`         |      |            |           |
+```
+
+An empty row is not an error when no suite covers the class. It shows where the proof is thinnest.
 
 ## Format
 
@@ -63,7 +91,7 @@ Keep implementation details out: user paths, stable handles, required state, obs
 - Every scenario file has an `IDs:` line.
 - Every ID on those lines exists in the glossary.
 - Every implemented `view`, `action` or `hook` (configurable) is covered.
-- Every implemented concept of a class under `tests.cover` is named by a test tag, every tagged ID exists, and every tagged ID is in the implementation table.
+- Every implemented concept of a class a test suite covers is named by a test tag in that suite, every tagged ID exists, and every tagged ID is in the implementation table. Suite names are unique, and every suite has test files.
 
 ## What it cannot enforce
 
@@ -79,4 +107,4 @@ Keep implementation details out: user paths, stable handles, required state, obs
 
 ## In the example
 
-[`example/features/`](../../example/features/README.md): three scenario files covering the five implemented views and actions, run against the command line front end. [`example/app/library.test.mjs`](../../example/app/library.test.mjs): tests tagged with the invariants, rules and derived values they prove.
+[`example/features/`](../../example/features/README.md): three scenario files covering the five implemented views and actions, run against the command line front end. Two test suites: unit tests in [`example/app/library.test.mjs`](../../example/app/library.test.mjs), tagged with the invariants, rules and derived values they prove, and end-to-end tests in [`example/e2e/cli.test.mjs`](../../example/e2e/cli.test.mjs), which run the command line front end as a separate process and prove the actions and the view.

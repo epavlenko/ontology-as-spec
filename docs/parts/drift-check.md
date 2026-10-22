@@ -8,7 +8,7 @@ A run on the example:
 
 ```text
 $ node tools/ont-check/ont-check.mjs --config example/ont.config.json
-glossary 39 · retired 6 · mockup 22 · map 22 · implemented 24 · scenarios 14 · tested 11 · tickets 1
+glossary 39 · retired 6 · mockup 22 · map 22 · implemented 24 · scenarios 14 · unit 11 · end-to-end 5 · tickets 1
 ONT_OK
 ```
 
@@ -19,7 +19,7 @@ ERROR · data-ont in the mockup but not in the glossary (1):
   view.counter
 ERROR · data-ont in the mockup but not in the map (1):
   view.counter
-glossary 39 · retired 6 · mockup 23 · map 22 · implemented 24 · scenarios 14 · tested 11 · tickets 1
+glossary 39 · retired 6 · mockup 23 · map 22 · implemented 24 · scenarios 14 · unit 11 · end-to-end 5 · tickets 1
 DRIFT: 2
 ```
 
@@ -44,7 +44,7 @@ DRIFT: 2
 | scenario files have an `IDs:` line; their IDs exist | scenarios → glossary | error |
 | implemented concepts of verifiable classes have a scenario | table → scenarios | error |
 | test tags exist and name only implemented concepts | tests → glossary, table | error |
-| implemented concepts of covered classes have a tagged test | table → tests | error |
+| implemented concepts of the classes a test suite covers have a tagged test in that suite | table → test suites | error |
 | tickets have an `IDs:` line and scenarios; each scenario has a tag from that line and GIVEN … WHEN … THEN | tickets → glossary | error |
 | concepts with no mockup element, ticket or implementation | glossary → mockup, tickets, table | info |
 | interface-facing concepts not yet in the mockup | glossary → mockup | info |
@@ -78,4 +78,4 @@ These are listed with possible remedies in [limitations](../limitations.md).
 
 ## In the example
 
-`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in twenty-nine different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.
+`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in thirty-two different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.

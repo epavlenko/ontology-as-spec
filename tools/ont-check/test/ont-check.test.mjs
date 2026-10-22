@@ -42,6 +42,18 @@ test("lists a concept with no mockup element, ticket or code as information", ()
   assert.match(r.out, /info · concepts with no mockup element, ticket or implementation yet \(1\):\n  edge\.item\.copy-of/);
 });
 
+test("accepts the older single tests key as one unnamed suite", () => {
+  const r = run((p) =>
+    p(
+      "ont.config.json",
+      /"testSuites": \[[\s\S]*?\n  \],/.exec(readFileSync(join(EXAMPLE, "ont.config.json"), "utf8"))[0],
+      '"tests": { "dir": ".", "match": "\\\\.test\\\\.mjs$", "cover": ["inv", "rule", "derived", "action"] },',
+    ),
+  );
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, / tested 14 /);
+});
+
 const cases = [
   ["an ID in the ontology text missing from the glossary", "IDs in the ontology text but not in the glossary",
     (p) => p("ontology.md", "- `concept.suspension` starts", "- `concept.suspended` starts")],
@@ -89,12 +101,18 @@ const cases = [
     (p) => p("mockup/index.html", 'data-ont="field.loan.due-date"', 'data-ont="field.due-date"')],
   ["a retired ID that is still defined", "retired IDs still defined in the glossary",
     (p) => p("ontology.md", "| `edge.copy-of`         |", "| `edge.item.copy-of`    |")],
-  ["an implemented invariant no test names", "implemented concepts without a test",
+  ["an implemented invariant no test names", "implemented concepts without a test in the unit suite",
     (p) => p("app/library.test.mjs", "[inv.one-loan-per-item] ", "")],
-  ["a test tag with an unknown ID", "IDs in tests but not in the glossary",
+  ["a test tag with an unknown ID", "IDs in unit tests but not in the glossary",
     (p) => p("app/library.test.mjs", "[inv.one-loan-per-item]", "[inv.one-loan-per-copy]")],
-  ["a test that proves a concept the table does not list", "IDs in tests but not in the implementation table",
+  ["a test that proves a concept the table does not list", "IDs in unit tests but not in the implementation table",
     (p) => p("app/library.test.mjs", "[action.place-hold]", "[action.place-hold, hook.hold-ready]")],
+  ["an implemented action with no end-to-end test", "implemented concepts without a test in the end-to-end suite",
+    (p) => p("e2e/cli.test.mjs", "[action.renew] ", "")],
+  ["two test suites with the same name", "test suites with the same name",
+    (p) => p("ont.config.json", '"name": "end-to-end"', '"name": "unit"')],
+  ["a test suite whose directory has no tests", "no end-to-end test files found",
+    (p) => p("ont.config.json", '"dir": "e2e"', '"dir": "e2e-missing"')],
   ["a ticket without scenarios", "tickets without scenarios",
     (p) => p("issues/0003-serve-the-hold-queue.md", "## Scenarios", "## Behavior")],
   ["a ticket scenario without THEN", "ticket scenarios without an ID tag or GIVEN … WHEN … THEN",

@@ -42,15 +42,27 @@
       "hook"
     ]
   },
-  "tests": {
-    "dir": "app",
-    "match": "\\.test\\.mjs$",
-    "cover": [
-      "inv",
-      "rule",
-      "derived"
-    ]
-  },
+  "testSuites": [
+    {
+      "name": "unit",
+      "dir": "app",
+      "match": "\\.test\\.mjs$",
+      "cover": [
+        "inv",
+        "rule",
+        "derived"
+      ]
+    },
+    {
+      "name": "end-to-end",
+      "dir": "e2e",
+      "match": "\\.test\\.mjs$",
+      "cover": [
+        "action",
+        "view"
+      ]
+    }
+  ],
   "tickets": {
     "dir": "issues"
   },

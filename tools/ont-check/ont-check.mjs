@@ -1,7 +1,8 @@
 // Drift check between the ontology, its glossary, the generated tooltips, the mockup, the
 // UI-to-ontology map, the decision log, the implementation table, the verification map, the tests
 // and the tickets.
-// Usage: node tools/ont-check/ont-check.mjs [--config path/to/ont.config.json]
+// Usage: node tools/ont-check/ont-check.mjs [--config path/to/ont.config.json] [--coverage]
+// --coverage also prints which test suites and scenarios prove each implemented concept.
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
 import { existsSync, readdirSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -202,22 +203,31 @@ if (cfg.decisions) {
 }
 
 // Tests name the concepts they prove in a tag: test("[inv.one-loan-per-item] an item …").
-// A test may only prove what the implementation table claims, and every implemented concept of a
-// covered class needs a test: the table and the test suite have to agree.
+// A test may only prove what the implementation table claims. Each suite (unit, end-to-end, …) names
+// the classes it must cover: every implemented concept of those classes needs a test in that suite.
 let tested = new Set();
-if (cfg.tests) {
-  const files = listFiles(cfg.tests.dir, cfg.tests.match);
-  report("no test files found", files.length ? [] : [relative(cfg.base, cfg.tests.dir)]);
-  tested = new Set(files.flatMap((f) => tagIds(read(f), classes)));
-  unknown("IDs in tests but not in the glossary", "tests", tested);
+const bySuite = new Map();
+const suiteName = (t) => (t.name ? `${t.name} ` : "");
+const dupes = cfg.testSuites.map((t) => t.name).filter((n, i, a) => a.indexOf(n) !== i);
+report("test suites with the same name", [...new Set(dupes)].map((n) => n || "(unnamed)"));
+for (const t of cfg.testSuites) {
+  const files = listFiles(t.dir, t.match);
   report(
-    "IDs in tests but not in the implementation table",
-    diff(tested, implemented).filter((x) => glossary.has(x)),
+    `no ${suiteName(t)}test files found`,
+    files.length ? [] : [relative(cfg.base, t.dir) || "."],
   );
-  const cover = new RegExp(`^(?:${cfg.tests.cover.join("|")})\\.`);
+  const ids = new Set(files.flatMap((f) => tagIds(read(f), classes)));
+  bySuite.set(t.name, ids);
+  ids.forEach((x) => tested.add(x));
+  unknown(`IDs in ${suiteName(t)}tests but not in the glossary`, `${suiteName(t)}tests`, ids);
   report(
-    "implemented concepts without a test",
-    cfg.tests.cover.length ? diff(implemented, tested).filter((x) => cover.test(x)) : [],
+    `IDs in ${suiteName(t)}tests but not in the implementation table`,
+    diff(ids, implemented).filter((x) => glossary.has(x)),
+  );
+  const cover = new RegExp(`^(?:${t.cover.join("|")})\\.`);
+  report(
+    t.name ? `implemented concepts without a test in the ${t.name} suite` : "implemented concepts without a test",
+    t.cover.length ? diff(implemented, ids).filter((x) => cover.test(x)) : [],
   );
 }
 
@@ -308,6 +318,21 @@ if (cfg.mockup.length && cfg.notYetShown.length) {
 }
 report("retired IDs still in use outside the decision log", retiredUse);
 
+// --coverage: what proves each implemented concept, one column per test suite and the scenarios.
+if (process.argv.includes("--coverage")) {
+  const cols = [
+    ...cfg.testSuites.map((t) => [t.name || "tests", bySuite.get(t.name)]),
+    ...(cfg.features ? [["scenarios", featureIds]] : []),
+  ];
+  const head = ["concept", ...cols.map(([n]) => n)];
+  const body = Object.keys(ONT)
+    .filter((x) => implemented.has(x))
+    .map((x) => [`\`${x}\``, ...cols.map(([, set]) => (set.has(x) ? "yes" : ""))]);
+  const width = head.map((h, i) => Math.max(h.length, 3, ...body.map((r) => r[i].length)));
+  const line = (r) => `| ${r.map((c, i) => c.padEnd(width[i])).join(" | ")} |`;
+  console.log([line(head), line(width.map((w) => "-".repeat(w))), ...body.map(line)].join("\n"));
+}
+
 console.log(
   [
     `glossary ${glossary.size}`,
@@ -316,7 +341,7 @@ console.log(
     `map ${mapped.size}`,
     `implemented ${implemented.size}`,
     `scenarios ${featureIds.size}`,
-    ...(cfg.tests ? [`tested ${tested.size}`] : []),
+    ...cfg.testSuites.map((t) => `${t.name || "tested"} ${bySuite.get(t.name).size}`),
     ...(cfg.tickets ? [`tickets ${listFiles(cfg.tickets.dir, cfg.tickets.match).length}`] : []),
   ].join(" · "),
 );
