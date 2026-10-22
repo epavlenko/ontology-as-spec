@@ -26,7 +26,7 @@ A second script, `tools/ont-check/guard-decisions.mjs`, enforces the never-edit 
 $ node tools/ont-check/guard-decisions.mjs --config example/ont.config.json --staged
 ERROR · decisions.md: accepted entries edited since HEAD (1):
   D-01, first change: - Why: members like one number. Per-title periods made the desk explain the rule on every
-decisions.md: 4 accepted entries in HEAD
+decisions.md: 5 accepted entries in HEAD
 Write a new entry that supersedes the old one instead of editing it.
 DRIFT: 1
 ```

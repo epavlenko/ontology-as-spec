@@ -18,10 +18,11 @@ Rules:
 
 ## Member
 
-| Check                                  | Concepts                                                               | GIVEN                                     | WHEN                                     | THEN                                                                          | Proof |
-| -------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------- | ----- |
-| `check.member.borrow-limit`            | `inv.within-limit`, `field.member.borrow-limit`                        | ben's borrow limit is 1 and he has a loan | the desk checks out a second item to ben | refused: ben already has 1 of 1 loans                                         | auto  |
-| `check.member.suspended-cannot-borrow` | `inv.suspended-cannot-borrow`, `concept.suspension`, `action.checkout` | ana has an overdue loan                   | the desk checks out another item to ana  | refused, with the overdue item named; after she returns it, checkout succeeds | auto  |
+| Check                                  | Concepts                                                               | GIVEN                                                 | WHEN                                     | THEN                                                                          | Proof |
+| -------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------- | ----- |
+| `check.member.borrow-limit`            | `inv.within-limit`, `field.member.borrow-limit`                        | ben's borrow limit is 1 and he has a loan             | the desk checks out a second item to ben | refused: ben already has 1 of 1 loans                                         | auto  |
+| `check.member.suspended-cannot-hold`   | `inv.suspended-cannot-borrow`, `action.place-hold`                     | ana has an overdue loan and every copy of Dune is out | ana places a hold on Dune                | refused, with the overdue item named                                          | auto  |
+| `check.member.suspended-cannot-borrow` | `inv.suspended-cannot-borrow`, `concept.suspension`, `action.checkout` | ana has an overdue loan                               | the desk checks out another item to ana  | refused, with the overdue item named; after she returns it, checkout succeeds | auto  |
 
 ## Item
 
@@ -63,4 +64,5 @@ Rules:
 
 ## History
 
+- 2026-10-22: `check.member.suspended-cannot-hold`, so that ticket #4 Suspend borrowing instead of fines covers both halves of the invariant.
 - 2026-10-22: catalogue created from the scenario files and ticket #3 Serve the hold queue: reservation on return and the pickup window (D-14 of the approach).

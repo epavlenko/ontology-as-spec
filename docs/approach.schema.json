@@ -14,20 +14,9 @@
           "type": "string"
         },
         "kind": {
-          "description": "What sort of concept it is. Rows are grouped by kind.",
+          "description": "One of the classes the configuration lists, in the order rows are grouped; by default entity, field, relation, derived, concept, rule, invariant, hook, action, view.",
           "x-ont": "field.concept.kind",
-          "enum": [
-            "entity",
-            "field",
-            "relation",
-            "derived",
-            "concept",
-            "rule",
-            "invariant",
-            "hook",
-            "action",
-            "view"
-          ]
+          "type": "string"
         },
         "term": {
           "description": "The name people use. It may change; the ID does not.",

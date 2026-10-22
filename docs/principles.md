@@ -5,14 +5,14 @@ Each principle names the failure it prevents. The [parts](parts/README.md) say h
 <!-- ont: inv.one-definition-row@002e65 -->
 ## 1. A concept has one ID and one definition
 
-Every concept that people argue about gets an ID of the form `class.name` and a one-line definition in the glossary. Everything else that mentions the concept uses the ID.
+Every concept that people argue about gets an ID of the form `class.name` and a short definition: one row in the table of its entity. Everything else that mentions the concept uses the ID.
 
 *Prevents:* three names for one idea, or one name for three ideas. Agents are literal readers. If "hold", "reservation" and "queue entry" appear in different files, an agent will build three things.
 
 <!-- ont: inv.ids-permanent@33ab31 -->
 ## 2. IDs are permanent
 
-Renaming a term changes the glossary text. The ID stays. A rename of a whole class of IDs is possible, but it is a decision with a reason, recorded like any other.
+Renaming a term changes the text of its row. The ID stays. Changing an ID is possible, but it is a decision with a reason, and the old ID is retired rather than deleted, so that the decision log, which is never edited, still resolves.
 
 *Prevents:* broken references after every rename, and the temptation to avoid renaming a bad term because it is expensive.
 

@@ -10,7 +10,7 @@ The test for spec-as-source is that the product can be reproduced from the speci
 
 ## Code and mockup are edited directly
 
-Agents and people edit the mockup and the code by hand. Nothing is generated except the tooltip glossary. What keeps meaning intact is not generation but reference: everything points at the same IDs, and a check notices when the pointers break.
+Agents and people edit the mockup and the code by hand. Nothing that carries behavior is generated: only the tooltips, the contracts and the reference pages, which restate the ontology. What keeps meaning intact is not generation but reference: everything points at the same IDs, and a check notices when the pointers break.
 
 ## "The human never touches the code" no longer distinguishes anything
 
@@ -18,7 +18,7 @@ When agents write nearly all the code, no human touches it in any of the three l
 
 ## A narrow step toward spec-as-source
 
-Some parts of the ontology are precise enough to generate from: the type of a field, the values of an enumeration, the target of a relation. Field and relation rows carry a type in a vocabulary that belongs to no programming language, and `tools/ont-check/gen-contracts.mjs` turns them into a JSON Schema with one definition per entity and the concept ID on every property. Any stack can validate data against it or generate its own types from it; the approach does not say which, and the check only confirms that the schema is current. This makes a thin slice of the product, the shape of stored data, spec-as-source, while behavior stays anchored. Derived values, rules and actions are not generated. It has been tried on the example only.
+Some parts of the ontology are precise enough to generate from: the type of a field, the values of an enumeration, the target of a relation. Field and relation rows carry a type in a vocabulary that belongs to no programming language, and `tools/ont-check/gen-contracts.mjs` turns them into a JSON Schema with one definition per entity and the concept ID on every property. Any stack can validate data against it or generate its own types from it; the approach does not say which, and the check only confirms that the schema is current. This makes a thin slice of the product, the shape of stored data, spec-as-source, while behavior stays anchored. Derived values, rules and actions are not generated. It has been tried on the example and on the approach's own ontology.
 
 ## What this costs and what it buys
 

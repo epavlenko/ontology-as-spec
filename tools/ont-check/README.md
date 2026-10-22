@@ -13,7 +13,7 @@ node tools/ont-check/stamp-docs.mjs  --config path/to/ont.config.json [page.md â
 node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK
 ```
 
-Without `--config`, all three look for `ont.config.json` in the current directory. The guard also takes `--file path/to/decisions.md` for a log without a config, and several `--config` and `--file` arguments at once.
+Without `--config`, every script looks for `ont.config.json` in the current directory. A ticket path after `--gap` is relative to the current directory. The guard also takes `--file path/to/decisions.md` for a log without a config, and several `--config` and `--file` arguments at once.
 
 ## Files
 
@@ -27,7 +27,7 @@ Without `--config`, all three look for `ont.config.json` in the current director
 | `gen-reference.mjs` | writes the reference pages listed under `references`                            |
 | `stamp-docs.mjs`   | rewrites anchors with the current stamps                                          |
 | `contracts.mjs`    | the type vocabulary and the schema builder, shared by the generator and the check |
-| `lib.mjs`          | the one parser both use, and the config loader                                    |
+| `lib.mjs`          | the one parser every script uses, and the config loader                            |
 | `ont-tooltips.js`  | browser runtime for the mockup: sets `title` from `window.ONT` on `[data-ont]` elements |
 | `test/`            | copies the example, breaks it one way at a time, asserts the check names the break; runs the guard in a throwaway repository |
 
@@ -68,8 +68,9 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Definition rows:** ``| Kind | `class.name` | Term | Definition |``, anywhere in the ontology. A table is a run of consecutive table lines; the Kind cell holds no backticks. Together the rows are the glossary.
 - **Type cells:** a fifth column, ``| Kind | `id` | Term | Type | Definition |``. Vocabulary: `text`, `number`, `boolean`, `integer` with optional bounds (`integer 0..2`, `integer 1..`), `date`, `datetime`, `one of a, b, c`, ``ref `ent.x` ``, ``refs `ent.x` ``, each optionally followed by `optional`.
 - **Retired IDs:** ``| `old.id` | `new.id` | D-nn |`` under `headings.retired`; a dash instead of the new ID for a removed concept.
-- **IDs in Markdown:** in backticks. Other text is not read as IDs.
+- **IDs in Markdown text:** in backticks; other text is not read as IDs. Doc anchors and test tags, below, have their own forms.
 - **Implementation rows:** ``| `class.name` | `path`, `path` | note |`` inside the implementation section.
+- **Known divergences:** bullets under a heading that starts with `### Known divergences`; `--gap` prints them, and with a ticket only those naming its concepts.
 - **Mockup:** `data-ont="class.name"` attributes, and IDs in single quotes inside scripts (`'view.catalog'`). IDs built from templates are declared in a comment `/* data-ont dynamic: 'class.a','class.b' */`, and the markup must contain `data-ont="class.${`.
 - **Decision entries:** headings matched by `decisions.entry`.
 - **Checks:** ``| `check.section.name` | `id`, `id` | GIVEN | WHEN | THEN | auto or manual |`` under `## Section` headings; the second part of the ID is the heading in lowercase.

@@ -1,5 +1,5 @@
-// Shared parsing for ont-check and gen-glossary. One parser for both tools: if the generator and
-// the check read the glossary differently, a broken document passes unnoticed.
+// Shared parsing for the check and the generators. One parser for all of them: if a generator and
+// the check read the ontology differently, a broken document passes unnoticed.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
@@ -94,7 +94,7 @@ export const listFiles = (dir, match) =>
         .map((f) => join(dir, f))
     : [];
 
-// Tags in test titles and ticket scenarios: [inv.one-loan-per-item] or [rule.renewal, field.renewals].
+// Tags in tests and ticket scenarios: [check.loan.renew-while-held] or [rule.renewal, field.loan.renewals].
 export const tagIds = (text, classes) => {
   const id = `(?:${classes.join("|")})\\.[a-z0-9-]+(?:\\.[a-z0-9-]+)*`;
   return [...text.matchAll(new RegExp(`\\[(${id}(?:\\s*,\\s*${id})*)\\]`, "g"))].flatMap((m) =>
@@ -105,7 +105,7 @@ export const tagIds = (text, classes) => {
 export const idPattern = (classes) =>
   new RegExp(`^(?:${classes.join("|")})\\.[a-z0-9-]+(?:\\.[a-z0-9-]+)*$`);
 
-// IDs are written in backticks in Markdown: `field.due-date`. Anything else is prose.
+// IDs are written in backticks in Markdown: `field.loan.due-date`. Anything else is prose.
 export const backtickIds = (text, classes) => {
   const isId = idPattern(classes);
   return [...text.matchAll(/`([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)`/g)]

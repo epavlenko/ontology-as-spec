@@ -44,7 +44,7 @@ Described in Böckeler's article as the one tool that "explicitly aspires to a s
 
 Hartwig Grabowski, [The Spec Growth Engine: Spec-Anchored, Code-Coupled, Drift-Enforced Architecture for AI-Assisted Software Development](https://arxiv.org/abs/2606.27045) (arXiv, v1 June 2026, v2 October 2026). It names two failure modes, "context explosion" and "silent spec-code drift", and proposes a machine-readable spec graph (one `SPEC.md` per node, separating contract from design), a context assembler that scopes the agent to an ownership path, vertical slices ordered hardest-first, and "a drift gate that makes spec-code divergence a blocking merge condition". The gate compares an intent graph built from the specs with an evidence graph from static analysis of the code: orphan code without a spec owner, undeclared dependencies and bypassed contracts block the merge. It keeps "code as primary and treat[s] the spec as a verified contract – never as the generative source." It is a design paper with an illustrative example and no empirical evaluation.
 
-*Compared with this approach.* This is the nearest relative. Both are spec-anchored, both make drift a blocking check, both slice delivery. The differences are complementary. The Spec Growth Engine anchors to **code structure**: its drift gate reads the code and therefore catches what this approach cannot, namely code that has no owner in the spec. This approach anchors to **product meaning**: its check reads the interface, the decision log and the verification map, which the Spec Growth Engine does not cover, and it has a glossary of concepts, which the paper does not.
+*Compared with this approach.* This is the nearest relative. Both are spec-anchored, both make drift a blocking check, both slice delivery. The differences are complementary. The Spec Growth Engine anchors to **code structure**: its drift gate reads the code and therefore catches what this approach cannot, namely code that has no owner in the spec. This approach anchors to **product meaning**: its check reads the interface, the decision log, the check catalogue and the documentation, which the Spec Growth Engine does not cover, and it has a glossary of concepts, which the paper does not.
 
 ## Older practices
 
@@ -52,7 +52,7 @@ Hartwig Grabowski, [The Spec Growth Engine: Spec-Anchored, Code-Coupled, Drift-E
 | -------- | ------ | ------------------------ | ------------ |
 | Ubiquitous language (Domain-Driven Design) | [Martin Fowler, UbiquitousLanguage](https://martinfowler.com/bliki/UbiquitousLanguage.html), after Eric Evans | one rigorous shared vocabulary for developers and users | stable IDs for the terms, and a check that the vocabulary is actually used everywhere |
 | Architecture Decision Records | [Michael Nygard, Documenting Architecture Decisions](https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions) (2011) | short records in the repository; superseded records kept, not edited | product decisions instead of architecture; every entry names its concepts by ID; references checked |
-| Living Documentation | Cyrille Martraire, [Living Documentation](https://www.informit.com/store/living-documentation-continuous-knowledge-sharing-by-9780134689326) (Addison-Wesley, 2019) | documentation that changes with the design, with a reconciliation mechanism that checks it | the reconciliation spans the interface mockup and the verification map, not only code and docs |
+| Living Documentation | Cyrille Martraire, [Living Documentation](https://www.informit.com/store/living-documentation-continuous-knowledge-sharing-by-9780134689326) (Addison-Wesley, 2019) | documentation that changes with the design, with a reconciliation mechanism that checks it | the reconciliation spans the interface mockup, the checks and the tests, not only code and docs |
 | Requirements traceability | [Sphinx-Needs](https://sphinx-needs.readthedocs.io/en/latest/), used for safety-critical work such as ISO 26262 | requirements, specifications and tests as linked objects with IDs | lightweight: Markdown tables and one script instead of a requirements toolchain; links from interface elements |
 | Fitness functions | [Thoughtworks Technology Radar](https://www.thoughtworks.com/radar/techniques/architectural-fitness-function), after Ford, Parsons and Kua, *Building Evolutionary Architectures* | an automated, objective check of a property the team cares about, run continuously | the property is consistency of meaning across artifacts rather than an architectural characteristic |
 
@@ -65,7 +65,7 @@ Hartwig Grabowski, [The Spec Growth Engine: Spec-Anchored, Code-Coupled, Drift-E
 | OpenSpec | requirement by capability | yes, deltas merged | no | no | no (describes current behavior) | not examined here |
 | Tessl | code file | yes | no | no | no | regeneration |
 | Spec Growth Engine | spec graph node | yes | spec nodes, no glossary | no | no: divergence blocks the merge | spec ↔ code structure, blocking |
-| **This approach** | concept | yes | yes, permanent | yes, both directions | yes, explicitly | concepts ↔ interface, map, decisions, implementation table, checks, test tags, tickets, contracts |
+| **This approach** | concept | yes | yes, permanent | yes, both directions | yes, explicitly | concepts ↔ interface, map, decisions, implementation table, checks, test tags, tickets, contracts, documentation |
 
 ## Böckeler's criticisms, applied here
 
@@ -82,7 +82,7 @@ The objection is right about specifications that are frozen. This approach answe
 
 ## Where this approach is stronger
 
-- One concept is referenced by the glossary, the interface, the decisions, the implementation table, the check catalogue, the tickets and the tests, and a check keeps those references whole in both directions.
+- One concept is referenced by the glossary, the interface, the decisions, the implementation table, the check catalogue, the tickets, the tests and the documentation, and a check keeps those references whole in both directions.
 - The boundary between target, implemented and divergent is explicit and maintained.
 - Interface elements are bound to concepts, and the map records what each element deliberately does not do. No tool reviewed here does either.
 
@@ -93,4 +93,4 @@ The objection is right about specifications that are frozen. This approach answe
 - The tooling is small and generic only in its first version. The tools above are products.
 - There is no formal per-change process comparable to Spec Kit's clarify and analyze, or OpenSpec's deltas.
 
-[Limitations](limitations.md) lists these with proposed remedies.
+[Limitations](limitations.md) lists these, with what has been added since.

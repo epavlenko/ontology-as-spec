@@ -23,12 +23,14 @@ The catalogue has one section per entity, in the order of the ontology, and a ch
 
 The ontology states an invariant in a sentence. A test proves it in the terms of one implementation: a function, a command, a selector. Between the two there was nothing persistent. Examples with data lived in tickets, which close, and then survived only as test code. A rewrite had to dig the cases out of old tests.
 
-The catalogue is that missing layer. It is the same split behavior-driven development makes between scenarios in the language of the product and the step definitions that bind them to code. A check is written before the code, from the ontology; a test is written by whoever implements the check, a person or an agent, the way code is written from the ontology.
+The catalogue is that missing layer. It is the split behavior-driven development tools make between scenarios in the language of the product and the code that runs them. In Cucumber's words, "A Step Definition is a method with an expression that links it to one or more Gherkin steps" ([Cucumber, Step definitions](https://cucumber.io/docs/cucumber/step-definitions/)). A check is written before the code, from the ontology; a test is written by whoever implements the check, a person or an agent, the way code is written from the ontology.
 
 <!-- ont: ent.test@af89b6, inv.test-names-known-checks@1384c7, inv.test-only-implemented@059c2e, inv.no-manual-tested@46671b -->
 ## Tests that name checks
 
 A test starts its title with the IDs of the checks it implements, in square brackets. The tag is plain text in the title, so it works with any test runner and shows up in its output. A test may also name a concept directly, `[field.loan.renewals]`, for something that is not a product check, such as comparing the code's constants with the generated contract.
+
+The tool reads tags anywhere in a test file, not only in titles, because it cannot parse the syntax of every test framework. A string in a fixture that looks like a tag counts as one. When a fixture must contain an invalid tag, build the string from parts, as the tool's own tests do.
 
 <!-- ont: ent.test-suite@6bf22e, inv.suite-covers-classes@39e870, inv.suite-names-unique@f69f85, inv.suite-not-empty@2cd076 -->
 ## Test suites
@@ -76,4 +78,4 @@ Earlier versions kept a verification map: a directory of scenario files, one per
 
 ## In the example
 
-[`example/checks.md`](../../example/checks.md): twenty checks, two of them manual, for every invariant, rule, hook and action, including the hold queue that is not built yet. Two test suites implement them: unit tests in [`example/app/library.test.mjs`](../../example/app/library.test.mjs) and end-to-end tests in [`example/e2e/cli.test.mjs`](../../example/e2e/cli.test.mjs), which run the command line front end as a separate process.
+[`example/checks.md`](../../example/checks.md): twenty-one checks, two of them manual, for every invariant, rule, hook and action, including the hold queue that is not built yet. Two test suites implement them: unit tests in [`example/app/library.test.mjs`](../../example/app/library.test.mjs) and end-to-end tests in [`example/e2e/cli.test.mjs`](../../example/e2e/cli.test.mjs), which run the command line front end as a separate process.

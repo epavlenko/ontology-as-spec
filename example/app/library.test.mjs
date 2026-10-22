@@ -57,17 +57,20 @@ test("[check.loan.renew-while-held] renewal is refused while someone waits for t
   assert.throws(() => renew(s, { item: "dune-2", today: "2026-10-10" }), /1 member\(s\) waiting/);
 });
 
-test("[check.hold.only-when-all-out] a hold is refused while an item is available", () => {
-  assert.throws(
-    () => placeHold(library(), { title: "dune", member: "ana", today: "2026-10-01" }),
-    /available/,
-  );
+test("[check.hold.only-when-all-out] a hold is refused while an item is available, placed once all are out", () => {
+  const s = library();
+  s.members.carl = {};
+  assert.throws(() => placeHold(s, { title: "dune", member: "ana", today: "2026-10-01" }), /available/);
+  checkout(s, { item: "dune-1", member: "ana", today: "2026-10-01" });
+  checkout(s, { item: "dune-2", member: "carl", today: "2026-10-01" });
+  assert.equal(placeHold(s, { title: "dune", member: "ana", today: "2026-10-01" }).title, "dune");
 });
 
 test("[check.loan.overdue-after-due, check.loan.return-closes-loan] the member view marks overdue loans", () => {
   const s = library();
   checkout(s, { item: "dune-1", member: "ana", today: "2026-10-01" });
-  assert.deepEqual(memberView(s, "ana", "2026-10-23").loans[0].overdue, true);
+  assert.equal(memberView(s, "ana", "2026-10-22").loans[0].overdue, false);
+  assert.equal(memberView(s, "ana", "2026-10-23").loans[0].overdue, true);
   returnItem(s, { item: "dune-1", today: "2026-10-23" });
   assert.deepEqual(memberView(s, "ana", "2026-10-23").loans, []);
 });

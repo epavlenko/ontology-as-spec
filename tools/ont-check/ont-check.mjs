@@ -1,6 +1,6 @@
-// Drift check between the ontology, its glossary, the generated tooltips, the mockup, the
-// UI-to-ontology map, the decision log, the implementation table, the verification map, the tests
-// and the tickets.
+// Drift check between the ontology and everything that refers to it: the generated tooltips,
+// contracts and reference pages, the mockup and its map, the decision log, the implementation table,
+// the check catalogue, the tests, the tickets, the documentation, and the older verification map.
 // Usage: node tools/ont-check/ont-check.mjs [--config path/to/ont.config.json] [--coverage]
 //          [--gap [path/to/ticket.md]]
 // --coverage also prints which checks and test suites prove each implemented concept.

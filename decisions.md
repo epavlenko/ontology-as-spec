@@ -144,6 +144,10 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: each rule of the approach was written in up to six places (a part, the principles, the agent rules, the lifecycle, a template, the code of the check), and they had drifted. The lists of what the check enforces were hand-kept copies of the code. Now a rule has one row, the reference is regenerated, the parts are checked against it, and the manual checks are the honest list of what nothing enforces.
 - Rejected: generating the parts themselves (the explanations are why the parts exist); keeping the Rules sections next to the ontology (two homes again, the failure D-09 removed from product ontologies); moving only what the tool enforces (would drop the rules people follow, which the old sections held).
 
+## Tentative
+
+None.
+
 ## Open questions
 
 - When to name the source project.

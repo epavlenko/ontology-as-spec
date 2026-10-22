@@ -45,4 +45,4 @@ The fields of an implementation row and of a divergence, their rules and their c
 
 ## In the example
 
-[`example/ontology.md`](../../example/ontology.md), sections "Implementation status" and "Known divergences": 19 concepts implemented, four divergences, including a field that a decision abolished but the code still computes.
+[`example/ontology.md`](../../example/ontology.md), sections "Implementation status" and "Known divergences": 25 concepts implemented and two divergences, each with its ticket: the fines a decision abolished but the code still computes, and the hold queue nothing serves yet.

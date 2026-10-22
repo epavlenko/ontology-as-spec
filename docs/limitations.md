@@ -1,12 +1,12 @@
 # Limitations and open questions
 
-What the approach does not do, what has not been tested, and what could make it stronger. Six former proposals are implemented in the tool and the example but have not been used in a real project. The proposals in the last section have not been implemented or tried.
+What the approach does not do, what has not been tested, and what could make it stronger. Much of the tool was added after the project the approach came from; those additions are listed under "Implemented, not yet tried in a real project". No proposal is open.
 
 ## Weaknesses
 
 ### Code does not refer to IDs
 
-The check reads the ontology, the mockup, the map, the decision log, the implementation table, the check catalogue, the tickets and the tags in test titles. It does not read product code, and product code does not mention concept IDs. A tagged test ties a concept to behavior only as far as the test goes. The generated contracts carry IDs, but whether the code follows them is up to the project's own checks. Code that behaves differently from the ontology in a way no test exercises passes. The implementation table and the list of divergences are maintained by hand. In the project where the approach took shape, this is partly a matter of timing: most of the target model had not reached code yet. In general it is a real gap. The [Spec Growth Engine](comparison.md#the-spec-growth-engine) closes a version of it by reading code structure.
+The check reads the ontology, the mockup, the map, the decision log, the implementation table, the check catalogue, the tickets, the anchors in documentation and the tags in tests. It does not read product code, and product code does not mention concept IDs. A tagged test ties a concept to behavior only as far as the test goes. The generated contracts carry IDs, but whether the code follows them is up to the project's own checks. Code that behaves differently from the ontology in a way no test exercises passes. The implementation table and the list of divergences are maintained by hand. In the project where the approach took shape, this is partly a matter of timing: most of the target model had not reached code yet. In general it is a real gap. The [Spec Growth Engine](comparison.md#the-spec-growth-engine) closes a version of it by reading code structure.
 
 ### A tag says what a test implements, not that it does
 
@@ -27,6 +27,14 @@ The check confirms that the files named in the table exist, not that they implem
 ### The decision guard compares text with one earlier commit
 
 `guard-decisions.mjs` refuses an edit or removal of an accepted entry, comparing with `HEAD` before a commit and with the base of a push or pull request in CI. It sees text, not intent: a typo fix in an accepted entry is refused too, by design. `git commit --no-verify` skips the hook, and only CI catches that. A rewritten history removes the base it compares with. It does not check that a superseding entry names the entry it supersedes.
+
+### Test tags are read anywhere in a test file
+
+The tool cannot parse the syntax of every test framework, so it reads a tag wherever it appears in a test file, not only in a title. A fixture string that looks like a tag counts as one: an invalid one fails the check, a valid one claims proof the test does not give. Fixtures that need such strings build them from parts.
+
+### Reference pages show the target
+
+A generated reference page shows each concept's definition, which describes the target. A page limited to implemented concepts still shows the target definition of a concept that is only partly built: the example's terms page says the borrow limit is set by staff, while the code fixes it at five. The note column of the implementation table is not on the page.
 
 ### Small, homegrown tooling
 
@@ -60,6 +68,7 @@ The first six were proposals until [D-08 to D-11](../decisions.md); later additi
 - **Documentation anchored to the ontology.** Pages for people carry anchors naming the concepts each section explains; doc sets in the configuration say which classes each set must explain; a stamp marks sections to reread after a definition changed; reference pages are generated. Added with [D-18](../decisions.md). See [part 9](parts/documentation.md).
 - **The approach described with itself.** `ontology.md` and `checks.md` at the root of the repository hold the approach's concepts, rules and checks; the tool's tests implement the checks; the check runs on them like on any product. Manual checks are what the tool cannot enforce. Added with [D-19](../decisions.md).
 - **`docs/` as a doc set of the approach's ontology.** The rules, formats and "what the check enforces / cannot enforce" lists of the parts moved into the approach's ontology and check catalogue; the parts explain and point to the generated [reference](reference.md). Added with [D-20](../decisions.md).
+- **Accepted status in any language.** The guard reads the line that marks an entry accepted from the configuration, so a log written in another language is guarded too. Added with [D-12](../decisions.md).
 - **Guarded decisions.** `tools/ont-check/guard-decisions.mjs` compares every accepted entry with an earlier commit and fails if one changed or disappeared. It runs in the pre-commit hook and in CI. See [part 2](parts/decision-log.md#the-guard).
 
 ## Proposed strengthening

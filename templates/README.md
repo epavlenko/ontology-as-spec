@@ -2,7 +2,7 @@
 
 Starting files for every artifact. The set is itself a valid, tiny project: `node tools/ont-check/ont-check.mjs --config templates/ont.config.json` passes on it, so a broken template is caught in CI.
 
-Copy what you need, replace the placeholder concepts (`ent.thing`, `field.state`, `view.thing.page`, `action.close`) with your own, and adjust the paths in `ont.config.json`.
+Copy what you need, replace the placeholder concepts (`ent.thing`, `field.thing.state`, `view.thing.page`, `action.close`) with your own, and adjust the paths in `ont.config.json`.
 
 | File                                   | Part                                                            |
 | -------------------------------------- | --------------------------------------------------------------- |
@@ -17,11 +17,12 @@ Copy what you need, replace the placeholder concepts (`ent.thing`, `field.state`
 | `agents-section.md`                    | the section to paste into `AGENTS.md` (part 7)                  |
 | `issue.md`                             | ticket shape: a slice of the gap, its limits and permissions (part 8); checked through `tickets` in the config |
 
-Start with `ontology.md`, `decisions.md` and a config that has only those two (remove `mockup`, `map`, `checks`, `tickets`, `glossaryOut`, and set `"implementation": null` under `headings` until code exists). Write checks for invariants and rules as soon as they exist; they come before the code. When code has tests, tag them with the IDs of the checks they implement and add `"testSuites"`: one entry per suite the team runs, such as `{ "name": "unit", "dir": "<tests>", "cover": ["inv", "rule"] }`. Run `tools/ont-check/guard-decisions.mjs` from the start: the decision log is the first file worth guarding.
+Start with `ontology.md`, `decisions.md` and a config that has only those two (remove `mockup`, `map`, `glossaryOut`, `contracts`, `checks`, `tickets`, `docSets` and `references`, and set `"implementation": null` under `headings` until code exists). Write checks for invariants and rules as soon as they exist; they come before the code. When code has tests, tag them with the IDs of the checks they implement and add `"testSuites"`: one entry per suite the team runs, such as `{ "name": "unit", "dir": "<tests>", "cover": ["inv", "rule"] }`. Run `tools/ont-check/guard-decisions.mjs` from the start: the decision log is the first file worth guarding.
 
-After editing a definition row, regenerate the tooltips and the contracts:
+After editing a definition row, regenerate the tooltips, the contracts and the reference pages:
 
 ```bash
 node tools/ont-check/gen-glossary.mjs --config ont.config.json
 node tools/ont-check/gen-contracts.mjs --config ont.config.json
+node tools/ont-check/gen-reference.mjs --config ont.config.json
 ```

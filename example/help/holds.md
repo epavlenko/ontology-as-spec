@@ -3,7 +3,7 @@
 <!-- ont: action.place-hold@91f782, edge.hold.waits-for@2f70fc -->
 ## Placing a hold
 
-When every copy of a title is out, you can place a hold on the title. You wait for the title, not for a particular copy. If a copy is on the shelf, the app does not offer a hold: go and borrow it.
+When every copy of a title is out, you can place a hold on the title. You wait for the title, not for a particular copy. If a copy is on the shelf, the app refuses the hold and says so: go and borrow it.
 
 <!-- ont: derived.queue-position@f5cdc9, view.member.loans@a8a6f1 -->
 ## Your place in the queue

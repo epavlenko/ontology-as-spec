@@ -7,12 +7,13 @@ How each kind of change moves through the artifacts. The [agent rules](parts/age
 
 1. Add a definition row in the section of the entity it constrains or changes, in its kind's group: kind, ID, term, type, a definition that says what it is. A field or a relation names the entity in its ID and has a type.
 2. If it needs more than one line, add a note under the table. Refer to related concepts by ID; do not restate the definition.
-3. If the concept exists because of a choice, add a decision entry with the rejected alternatives.
-4. Regenerate the tooltip glossary and, for a field or a relation, the contracts.
-5. If it appears in the interface, add the map row, then the `data-ont` element in the mockup.
-6. If a doc set covers its class, explain it on a page with an anchor; regenerate the reference pages.
-7. Add a revision history line to the ontology.
-8. Run the check.
+3. If its class is one the check catalogue requires (invariants and rules by default; also hooks and actions in the example), write its check: a case with data, in the product's terms.
+4. If the concept exists because of a choice, add a decision entry with the rejected alternatives.
+5. Regenerate the tooltip glossary and, for a field or a relation, the contracts.
+6. If it appears in the interface, add the map row, then the `data-ont` element in the mockup.
+7. If a doc set covers its class, explain it on a page with an anchor; regenerate the reference pages.
+8. Add a revision history line to the ontology.
+9. Run the check.
 
 Order matters. The definition row comes first, so that nothing else can mention a concept that is not defined.
 
@@ -31,12 +32,12 @@ Rare. It is justified when an ID itself misleads: a class name collides with a t
 <!-- ont: action.remove-concept@7f8c20 -->
 ## Removing a concept
 
-Remove its definition row, its map rows and its mockup elements in one commit, with a decision entry, and list the ID under "Retired IDs" with a dash for the replacement. The check fails if any reference remains outside the decision log. Decision entries that mention the concept stay as they are; the retired table is what keeps their IDs resolvable.
+Remove its definition row, its checks, its map rows, its mockup elements, its implementation row and the anchors that name it in one commit, with a decision entry, and list the ID under "Retired IDs" with a dash for the replacement. Tests that implemented its checks go too, or are retagged. The check fails if any reference remains outside the decision log. Decision entries that mention the concept stay as they are; the retired table is what keeps their IDs resolvable.
 
 <!-- ont: action.supersede-decision@0d21ae -->
 ## Changing your mind
 
-Write a new decision entry that supersedes the old one and says why. Never edit the old entry. Then change the ontology, the map and the mockup to match, and mention the new decision where the change would otherwise look arbitrary.
+Write a new decision entry that supersedes the old one and says why. Never edit the old entry. Then change the ontology, the checks, the map and the mockup to match, reread the doc sections the check lists as anchored to a changed definition, and mention the new decision where the change would otherwise look arbitrary.
 
 <!-- ont: action.cut-slice@2b0910 -->
 ## Implementing a concept
@@ -63,5 +64,6 @@ Start small. The approach pays off before every part is in place.
 5. **Checks.** Write a check for each invariant and rule, in the product's terms, in `checks.md`.
 6. **Target and reality.** When code exists, add the implementation table and the divergences. Tag the tests with the checks they implement, and add `testSuites` to the config: which suite must prove which kind of concept.
 7. **Mockup.** When there is a mockup, label it and add the map.
+8. **Documentation.** When there are pages for people, anchor their sections and list them as a doc set; generate the reference pages.
 
 The [templates](../templates/README.md) have a starting file for each step.

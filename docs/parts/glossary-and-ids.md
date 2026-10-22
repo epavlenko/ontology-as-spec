@@ -1,6 +1,6 @@
 # 1. Glossary and permanent IDs
 
-<!-- ont: ent.concept@58346b, inv.one-definition-row@002e65, rule.kind-order@211943, inv.kind-named-once@608893, inv.field-in-its-entity@c2f44b, rule.concept-with-its-entity@053a4a -->
+<!-- ont: ent.concept@58346b, inv.one-definition-row@002e65, rule.kind-order@e49569, inv.kind-named-once@608893, inv.field-in-its-entity@c2f44b, rule.concept-with-its-entity@053a4a -->
 ## What it is
 
 The definitions of every concept, one table row each, with a permanent ID that everything else uses: the mockup tooltips, the map, the decision log, the checks, the tickets and the tests. Together these rows are the glossary. They do not sit in a separate section. The ontology has one section per entity, and each section is one table holding the entity and everything that belongs to it: its fields, relations, derived values, rules, invariants, hooks and actions. Screens get a section of their own, because each shows several entities.
@@ -8,19 +8,19 @@ The definitions of every concept, one table row each, with a permanent ID that e
 ```markdown
 ## Loan
 
-| Kind      | ID                       | Term                 | Definition                                                        |
-| --------- | ------------------------ | -------------------- | ----------------------------------------------------------------- |
-| Entity    | `ent.loan`               | Loan                 | An item lent to a member, from checkout until return.             |
-| Field     | `field.loan.due-date`    | Due date             | When the item must be back: checkout plus the loan period.        |
-|           | `field.loan.renewals`    | Renewals             | How many times the loan was renewed. A fact the system counts.    |
-| Rule      | `rule.loan-period`       | Loan period          | 21 days from checkout.                                            |
-| Invariant | `inv.no-renew-when-held` | No renewal when held | A loan cannot be renewed while someone waits for the title.       |
-| Action    | `action.renew`           | Renew                | Move the due date by the renewal rule.                            |
+| Kind      | ID                       | Term                 | Type         | Definition                                                     |
+| --------- | ------------------------ | -------------------- | ------------ | -------------------------------------------------------------- |
+| Entity    | `ent.loan`               | Loan                 |              | An item lent to a member, from checkout until return.          |
+| Field     | `field.loan.due-date`    | Due date             | date         | When the item must be back: checkout plus the loan period.     |
+|           | `field.loan.renewals`    | Renewals             | integer 0..2 | How many times the loan was renewed. A fact the system counts. |
+| Rule      | `rule.loan-period`       | Loan period          |              | 21 days from checkout.                                         |
+| Invariant | `inv.no-renew-when-held` | No renewal when held |              | A loan cannot be renewed while someone waits for the title.    |
+| Action    | `action.renew`           | Renew                |              | Move the due date by the renewal rule.                         |
 
 - `rule.loan-period` is the same for every title (D-01).
 ```
 
-Rows are grouped by kind in one fixed order, and the kind is written on the first row of its group. Whatever entity a reader opens, the fields come first, then the rules, then what people and the system do. Notes under the table add detail, such as who sets a field, which decision explains a rule, or which invariants an action can break. They refer to concepts by ID and never restate a definition.
+Rows are grouped by kind in the order of the classes the configuration lists, and the kind is written on the first row of its group. Whatever entity a reader opens, the fields come first, then the rules, then what people and the system do. Notes under the table add detail, such as who sets a field, which decision explains a rule, or which invariants an action can break. They refer to concepts by ID and never restate a definition.
 
 The alternative is a separate glossary table plus per-kind tables (entities, fields, rules, views) that explain the same concepts again. It gives every concept two homes, and in practice the two drift apart. One row per concept leaves nothing to drift from, and grouping by entity is how people look things up: "what is there about loans?"
 

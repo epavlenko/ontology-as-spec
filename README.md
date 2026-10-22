@@ -16,17 +16,17 @@ Last month you decided that a loan cannot be renewed while someone is waiting fo
 
 ## The idea
 
-Give every product concept one name, one short definition and a permanent ID, in a table for the entity it belongs to, grouped by kind:
+Give every product concept one name, one short definition and a permanent ID, in a table for the entity it belongs to, grouped by kind. Fields and relations also get a type:
 
 ```markdown
 ## Loan
 
-| Kind      | ID                       | Term                 | Definition                                                  |
-| --------- | ------------------------ | -------------------- | ----------------------------------------------------------- |
-| Entity    | `ent.loan`               | Loan                 | An item lent to a member, from checkout until return.       |
-| Field     | `field.loan.due-date`    | Due date             | When the item must be back: checkout plus the loan period.  |
-| Invariant | `inv.no-renew-when-held` | No renewal when held | A loan cannot be renewed while someone waits for the title. |
-| Action    | `action.renew`           | Renew                | Move the due date by the renewal rule.                      |
+| Kind      | ID                       | Term                 | Type | Definition                                                  |
+| --------- | ------------------------ | -------------------- | ---- | ----------------------------------------------------------- |
+| Entity    | `ent.loan`               | Loan                 |      | An item lent to a member, from checkout until return.       |
+| Field     | `field.loan.due-date`    | Due date             | date | When the item must be back: checkout plus the loan period.  |
+| Invariant | `inv.no-renew-when-held` | No renewal when held |      | A loan cannot be renewed while someone waits for the title. |
+| Action    | `action.renew`           | Renew                |      | Move the due date by the renewal rule.                      |
 ```
 
 These tables, one per entity with short notes under each, are the "ontology". It is a plain Markdown file written for people and agents to read, not a formal model in OWL or RDF. Each concept is defined once, and a reader who wants everything about loans opens one section.
@@ -74,7 +74,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | [docs/why-not-spec-as-source.md](docs/why-not-spec-as-source.md) | why the ontology does not generate the product |
 | [docs/limitations.md](docs/limitations.md) | weaknesses, open questions, and what was added after the source project and not yet tried there |
 | [templates/](templates/README.md) | starting files for every artifact |
-| [tools/ont-check/](tools/ont-check/README.md) | the check and the tooltip generator; Node, no dependencies |
+| [tools/ont-check/](tools/ont-check/README.md) | the check, the decision guard, and the generators of tooltips, contracts and reference pages; Node, no dependencies |
 | [ontology.md](ontology.md), [checks.md](checks.md) | the approach described with itself: its concepts, rules and checks, checked like any product |
 | [decisions.md](decisions.md) | decisions about this repository |
 

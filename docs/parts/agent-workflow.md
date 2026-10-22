@@ -75,4 +75,4 @@ The fields of a ticket, its rules and checks are in the reference: [Ticket](../r
 
 ## In the example
 
-[`example/issues/0003-serve-the-hold-queue.md`](../../example/issues/0003-serve-the-hold-queue.md): a slice of six concepts and six checks of the hold queue, which is not built yet. `--gap` with it prints `SLICE_OPEN: 6`.
+[`example/issues/0003-serve-the-hold-queue.md`](../../example/issues/0003-serve-the-hold-queue.md): a slice of six concepts and six checks of the hold queue, which is not built yet. `--gap` with it prints `SLICE_OPEN: 6`. [`example/issues/0004-suspend-instead-of-fines.md`](../../example/issues/0004-suspend-instead-of-fines.md): the slice that closes the other divergence, the fines a decision abolished.
