@@ -25,7 +25,7 @@
     "file": "decisions.md"
   },
   "contracts": {
-    "out": "docs/approach.schema.json",
+    "out": "contracts/approach.schema.json",
     "propertyCase": "camel"
   },
   "checks": {

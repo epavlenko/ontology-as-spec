@@ -144,6 +144,13 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: each rule of the approach was written in up to six places (a part, the principles, the agent rules, the lifecycle, a template, the code of the check), and they had drifted. The lists of what the check enforces were hand-kept copies of the code. Now a rule has one row, the reference is regenerated, the parts are checked against it, and the manual checks are the honest list of what nothing enforces.
 - Rejected: generating the parts themselves (the explanations are why the parts exist); keeping the Rules sections next to the ontology (two homes again, the failure D-09 removed from product ontologies); moving only what the tool enforces (would drop the rules people follow, which the old sections held).
 
+### D-21 · The approach's own files: text under CC BY 4.0, configuration and generated data under MIT
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: the files added after D-07 get the license of their kind. `ontology.md`, `checks.md` and `AGENTS.md` are text and are licensed under CC BY 4.0, like `README.md`, `docs/` and `decisions.md`. The configuration (`ont.config.json`, `package.json`), the hook, the CI and the generated contract are licensed under MIT, like the tool. The contract moves from `docs/approach.schema.json` to `contracts/approach.schema.json`, so that nothing in `docs/` is licensed differently from what D-07 says. D-07 still holds for everything it names.
+- Why: D-07 named the text, the tool, the templates and the example, and the repository has since gained files it does not cover. Text that people read and adapt fits CC BY; configuration and machine-readable data are used like code, and Creative Commons licenses are not recommended for software.
+- Rejected: CC BY for the contract (it is consumed by tools, not read); leaving the contract in `docs/` under MIT (a file in `docs/` licensed against D-07, which would be a partial supersession); one license for everything (rejected in D-07 for the same reasons).
+
 ## Tentative
 
 None.
@@ -154,6 +161,7 @@ None.
 
 ## History
 
+- 2026-10-22: D-21: licenses of the approach's own files.
 - 2026-10-22: D-20: docs/ as a doc set of the approach's ontology.
 - 2026-10-22: D-19: the approach's own ontology.
 - 2026-10-22: D-18: documentation anchored to the ontology.

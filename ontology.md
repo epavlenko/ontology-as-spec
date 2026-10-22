@@ -8,7 +8,7 @@ The approach described with itself: the concepts its artifacts are made of, the 
 
 ## How to read this
 
-One section per entity of the approach, one row per concept, rows grouped by kind in the configured order. Fields and relations name their entity. Types use the neutral vocabulary; `docs/approach.schema.json` is generated from them.
+One section per entity of the approach, one row per concept, rows grouped by kind in the configured order. Fields and relations name their entity. Types use the neutral vocabulary; `contracts/approach.schema.json` is generated from them.
 
 "Implemented" has a particular meaning here. A concept is implemented when it is realised: by the tool, for what the tool enforces, or by the page of `docs/` that states it, for rules people follow and procedures they carry out. Which rules the tool cannot enforce is visible in the check catalogue: their checks are manual.
 
