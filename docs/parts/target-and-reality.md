@@ -40,7 +40,9 @@ It also gives agents a precise instruction. An agent implementing a ticket build
 
 - Every ID in the implementation table exists in the glossary.
 - Every file named in the table exists.
-- Every implemented concept of a verifiable class has a verification scenario (see [part 6](verification-map.md)).
+- Every automatic check of implemented concepts has a test, and every concept a test suite covers is proven by it (see [part 6](checks-and-tests.md)).
+
+`ont-check.mjs --gap` reads the table the other way round: every concept not in it is target, and together with untested checks and the known divergences that is the work left. Divergences therefore list only code that contradicts the target; what is simply not built yet comes from the table.
 
 ## What it cannot enforce
 

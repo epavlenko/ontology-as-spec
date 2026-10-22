@@ -1,39 +1,28 @@
 # #<n> <Title that says what changes for the user>
 
-## Outcome
+A slice of the gap between the target and the implementation. What the slice means is already in the ontology and the checks; the ticket says which part to build now and within which limits. `ont-check.mjs --gap` lists the gap to cut slices from.
 
-What changes for the user, in two or three sentences.
+## Slice
 
-Ontology IDs: `action.close`, `inv.closed-is-final`.
+IDs: `action.close`, `inv.closed-is-final`.
 
-## Scope
+Checks: `check.thing.close`, `check.thing.stays-closed`.
 
-1. File-level, numbered.
+Why now: one sentence on why this slice comes before the rest of the gap.
 
 ## Out of scope
 
-What a helpful agent would otherwise add.
+What a helpful agent would otherwise add, including target concepts left for later slices.
 
-## Scenarios
+## Depends on
 
-Expected behavior, one line each, tagged with the IDs it proves. Each becomes a test whose title starts with the same tag. The check requires at least one, an ID tag and GIVEN … WHEN … THEN on every line, and tags from the `IDs:` line only.
-
-- [action.close] GIVEN an open thing WHEN its owner closes it THEN its state is closed.
-- [inv.closed-is-final] GIVEN a closed thing WHEN anyone tries to reopen it THEN the request is refused with the reason.
+Slices that must be done first, or "Nothing open".
 
 ## Done when
 
-- [ ] Every scenario above is a test with the same tag, and the tests pass.
-- [ ] Other observable acceptance criteria.
-- [ ] The ontology, the implementation table and the verification map agree.
-
-## Proof commands
-
-Per-file commands that must all pass. This block is the finish condition.
-
 ```bash
-<test command for the files touched>
-node tools/ont-check/ont-check.mjs --config <path>/ont.config.json
+node tools/ont-check/ont-check.mjs --config <path>/ont.config.json --gap <path>/issues/<this ticket>.md   # SLICE_DONE
+<test command>
 ```
 
 ## Pre-authorized

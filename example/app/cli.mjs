@@ -25,7 +25,7 @@ const [command, a, b] = args;
 
 const seed = () => {
   const s = emptyState();
-  s.members = { ana: { name: "Ana" }, ben: { name: "Ben" } };
+  s.members = { ana: { name: "Ana" }, ben: { name: "Ben" }, carl: { name: "Carl" } };
   s.titles = { dune: { name: "Dune" }, drill: { name: "Cordless drill" } };
   s.items = { "dune-1": { title: "dune" }, "dune-2": { title: "dune" }, "drill-1": { title: "drill" } };
   return s;
@@ -37,7 +37,7 @@ const state = command === "seed" ? seed() : load();
 try {
   switch (command) {
     case "seed":
-      console.log("seeded: members ana, ben; items dune-1, dune-2, drill-1");
+      console.log("seeded: members ana, ben, carl; items dune-1, dune-2, drill-1");
       break;
     case "checkout": {
       const loan = checkout(state, { item: a, member: b, today });

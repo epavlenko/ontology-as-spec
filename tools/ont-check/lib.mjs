@@ -60,6 +60,10 @@ export function loadConfig(configPath) {
         cover: t.cover ?? [],
       }),
     ),
+    checks: raw.checks && {
+      file: at(raw.checks.file),
+      require: raw.checks.require ?? ["inv", "rule"],
+    },
     tickets: raw.tickets && {
       dir: at(raw.tickets.dir),
       match: new RegExp(raw.tickets.match ?? "\\.md$"),
@@ -122,7 +126,9 @@ export function parseGlossary(md) {
   const rows = [];
   let table = 0;
   let inTable = false;
+  let heading = "";
   for (const line of md.split("\n")) {
+    if (/^## /.test(line)) heading = line.slice(3).trim();
     const pipe = line.startsWith("|");
     if (pipe && !inTable) table += 1;
     inTable = pipe;
@@ -136,10 +142,38 @@ export function parseGlossary(md) {
     const id = m[1];
     if (ONT[id]) throw new Error(`Duplicate ID in the glossary: ${id}`);
     ONT[id] = { name, def: def.replace(/`/g, "") };
-    rows.push({ table, kind, id, type: type?.replace(/`/g, "") ?? null, line });
+    rows.push({ table, heading, kind, id, type: type?.replace(/`/g, "") ?? null, line });
   }
   if (!rows.length) throw new Error("The glossary is empty: no | Kind | `id` | Term | Definition | rows");
   return { ONT, rows };
+}
+
+// The check catalogue: | `check.section.name` | `id`, `id` | GIVEN | WHEN | THEN | auto or manual |,
+// under one "## Section" per entity. A check states what must hold in product terms, for any
+// implementation; tests implement it and carry its ID in their title.
+export const slug = (heading) => heading.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+export function parseChecks(md) {
+  const checks = [];
+  let heading = "";
+  for (const line of md.split("\n")) {
+    if (/^## /.test(line)) heading = line.slice(3).trim();
+    if (!/^\|.*\|\s*$/.test(line)) continue;
+    const cells = line.trim().slice(1, -1).split("|").map((c) => c.trim());
+    const m = cells[0].match(/^`(check\.[a-z0-9-]+(?:\.[a-z0-9-]+)*)`$/);
+    if (!m) continue;
+    const [, concepts = "", given = "", when = "", then = "", proof = ""] = cells;
+    checks.push({
+      id: m[1],
+      section: slug(heading),
+      concepts: [...concepts.matchAll(/`([^`]+)`/g)].map((x) => x[1]),
+      given,
+      when,
+      then,
+      proof,
+      cells: cells.length,
+    });
+  }
+  return checks;
 }
 
 // Retired IDs: | `old.id` | `new.id` or — | D-nn |. An ID that had to change stays resolvable here,

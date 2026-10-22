@@ -10,11 +10,11 @@ A library lends books, games and tools. Members borrow items, wait in a queue fo
 | [decisions.md](./decisions.md)                         | the decision log                                           |
 | [mockup/index.html](./mockup/index.html)               | the mockup with `data-ont`; tooltips come from `mockup/ontology.js` |
 | [mockup/ontology-map.md](./mockup/ontology-map.md)     | the UI-to-ontology map                                     |
-| [features/](./features/README.md)                      | the verification map, keyed by `IDs:` lines                |
+| [checks.md](./checks.md)                               | the check catalogue: what must hold, for any implementation |
 | [AGENTS.md](./AGENTS.md)                               | the rules for agents: what else to update, what to run     |
-| [issues/0003-serve-the-hold-queue.md](./issues/0003-serve-the-hold-queue.md) | a ticket that starts from IDs, states behavior as tagged GIVEN/WHEN/THEN scenarios and ends in commands |
-| [app/](./app/)                                         | the code: a small domain module, a command line front end, and unit tests whose titles name the IDs they prove |
-| [e2e/](./e2e/)                                         | end-to-end tests that run the command line front end as a user does, also tagged with IDs |
+| [issues/0003-serve-the-hold-queue.md](./issues/0003-serve-the-hold-queue.md) | a ticket: a slice of the gap, done when `--gap` with it prints `SLICE_DONE` |
+| [app/](./app/)                                         | the code: a small domain module, a command line front end, and unit tests whose titles name the checks they implement |
+| [e2e/](./e2e/)                                         | end-to-end tests that run the command line front end as a user does, also named by check |
 | [contracts/ontology.schema.json](./contracts/ontology.schema.json) | the contracts: JSON Schema generated from the types of fields and relations |
 | [ont.config.json](./ont.config.json)                   | the check's configuration for this example                 |
 
@@ -28,9 +28,10 @@ From the repository root:
 node tools/ont-check/gen-glossary.mjs --config example/ont.config.json   # definition rows → mockup/ontology.js
 node tools/ont-check/gen-contracts.mjs --config example/ont.config.json  # field and relation types → contracts/ontology.schema.json
 node tools/ont-check/ont-check.mjs --config example/ont.config.json      # prints ONT_OK
+node tools/ont-check/ont-check.mjs --config example/ont.config.json --gap   # what is left to build
 node --test 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'          # unit and end-to-end tests
 ```
 
 Open `mockup/index.html` in a browser from the file system or any static server started at the repository root. Hover any labelled element to see its glossary definition.
 
-Try breaking it: rename `data-ont="view.desk"` in the mockup, delete a row from the map, reference `D-09` in the ontology, or remove the `[inv.one-loan-per-item]` tag from a test. The check names the exact drift. Edit an accepted entry in `decisions.md` and run `node tools/ont-check/guard-decisions.mjs --config example/ont.config.json`: the guard names the entry.
+Try breaking it: rename `data-ont="view.desk"` in the mockup, delete a row from the map, reference `D-09` in the ontology, or remove the `[check.loan.renew-twice]` tag from a test. The check names the exact drift. Run it with `--gap` to see what is left to build, or with `--gap issues/0003-serve-the-hold-queue.md` for one ticket's slice. Edit an accepted entry in `decisions.md` and run `node tools/ont-check/guard-decisions.mjs --config example/ont.config.json`: the guard names the entry.

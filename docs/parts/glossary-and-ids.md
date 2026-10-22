@@ -2,7 +2,7 @@
 
 ## What it is
 
-The definitions of every concept, one table row each, with a permanent ID that everything else uses: the mockup tooltips, the map, the decision log, the scenarios, the tickets and the tests. Together these rows are the glossary. They do not sit in a separate section. The ontology has one section per entity, and each section is one table holding the entity and everything that belongs to it: its fields, relations, derived values, rules, invariants, hooks and actions. Screens get a section of their own, because each shows several entities.
+The definitions of every concept, one table row each, with a permanent ID that everything else uses: the mockup tooltips, the map, the decision log, the checks, the tickets and the tests. Together these rows are the glossary. They do not sit in a separate section. The ontology has one section per entity, and each section is one table holding the entity and everything that belongs to it: its fields, relations, derived values, rules, invariants, hooks and actions. Screens get a section of their own, because each shows several entities.
 
 ```markdown
 ## Loan

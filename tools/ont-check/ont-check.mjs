@@ -2,7 +2,10 @@
 // UI-to-ontology map, the decision log, the implementation table, the verification map, the tests
 // and the tickets.
 // Usage: node tools/ont-check/ont-check.mjs [--config path/to/ont.config.json] [--coverage]
-// --coverage also prints which test suites and scenarios prove each implemented concept.
+//          [--gap [path/to/ticket.md]]
+// --coverage also prints which checks and test suites prove each implemented concept.
+// --gap also prints the work left: target concepts with their checks, untested checks, divergences;
+//   with a ticket, only its slice, and the exit code is 1 until the slice is done.
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
 import { existsSync, readdirSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -11,9 +14,11 @@ import {
   idPattern,
   listFiles,
   loadConfig,
+  parseChecks,
   parseGlossary,
   parseRetired,
   read,
+  slug,
   renderGlossary,
   section,
   tagIds,
@@ -202,11 +207,51 @@ if (cfg.decisions) {
   );
 }
 
-// Tests name the concepts they prove in a tag: test("[inv.one-loan-per-item] an item …").
-// A test may only prove what the implementation table claims. Each suite (unit, end-to-end, …) names
-// the classes it must cover: every implemented concept of those classes needs a test in that suite.
+// Check catalogue: what must hold, in product terms, for any implementation. One row per check,
+// under the section of the entity it belongs to; every concept of a required class has a check.
+const checks = cfg.checks ? parseChecks(read(cfg.checks.file)) : [];
+const checkById = new Map(checks.map((c) => [c.id, c]));
+const checkConcepts = new Set(checks.flatMap((c) => c.concepts));
+const fullyImplemented = (c) => c.concepts.every((x) => implemented.has(x));
+if (cfg.checks) {
+  report(
+    "duplicate checks in the catalogue",
+    checks.map((c) => c.id).filter((x, i, a) => a.indexOf(x) !== i),
+  );
+  report(
+    "checks outside their section (check.<section>.<name>)",
+    checks.filter((c) => c.id.split(".")[1] !== c.section).map((c) => `${c.id} in "${c.section}"`),
+  );
+  report(
+    "malformed checks: six cells, concepts, GIVEN, WHEN, THEN, auto or manual",
+    checks
+      .filter(
+        (c) =>
+          c.cells !== 6 ||
+          !c.concepts.length ||
+          !c.given ||
+          !c.when ||
+          !c.then ||
+          !["auto", "manual"].includes(c.proof),
+      )
+      .map((c) => c.id),
+  );
+  unknown("IDs in the check catalogue but not in the glossary", "the check catalogue", checkConcepts);
+  const required = new RegExp(`^(?:${cfg.checks.require.join("|")})\\.`);
+  report(
+    "concepts without a check",
+    cfg.checks.require.length ? diff(glossary, checkConcepts).filter((x) => required.test(x)) : [],
+  );
+}
+
+// Tests carry the IDs they prove in a tag at the start of the title: a check from the catalogue,
+// test("[check.loan.renew-while-held] …"), or a concept directly, test("[inv.queue-order] …").
+// A test may only prove what is implemented. Each suite (unit, end-to-end, …) names the classes it
+// must cover: every implemented concept of those classes needs a test in that suite, directly or
+// through a check that names it.
 let tested = new Set();
 const bySuite = new Map();
+const checksTested = new Set();
 const suiteName = (t) => (t.name ? `${t.name} ` : "");
 const dupes = cfg.testSuites.map((t) => t.name).filter((n, i, a) => a.indexOf(n) !== i);
 report("test suites with the same name", [...new Set(dupes)].map((n) => n || "(unnamed)"));
@@ -216,41 +261,71 @@ for (const t of cfg.testSuites) {
     `no ${suiteName(t)}test files found`,
     files.length ? [] : [relative(cfg.base, t.dir) || "."],
   );
-  const ids = new Set(files.flatMap((f) => tagIds(read(f), classes)));
-  bySuite.set(t.name, ids);
-  ids.forEach((x) => tested.add(x));
+  const tags = files.flatMap((f) => tagIds(read(f), [...classes, "check"]));
+  const ids = new Set(tags.filter((x) => !x.startsWith("check.")));
+  const own = new Set(tags.filter((x) => x.startsWith("check.")));
+  own.forEach((x) => checksTested.add(x));
+  report(
+    `checks in ${suiteName(t)}tests but not in the catalogue`,
+    [...own].filter((x) => !checkById.has(x)).sort(),
+  );
+  report(
+    `manual checks tagged in ${suiteName(t)}tests (mark them auto)`,
+    [...own].filter((x) => checkById.get(x)?.proof === "manual").sort(),
+  );
+  report(
+    `checks in ${suiteName(t)}tests whose concepts are not all implemented`,
+    [...own].filter((x) => checkById.has(x) && !fullyImplemented(checkById.get(x))).sort(),
+  );
   unknown(`IDs in ${suiteName(t)}tests but not in the glossary`, `${suiteName(t)}tests`, ids);
   report(
     `IDs in ${suiteName(t)}tests but not in the implementation table`,
     diff(ids, implemented).filter((x) => glossary.has(x)),
   );
+  const proven = new Set([...ids, ...[...own].flatMap((x) => checkById.get(x)?.concepts ?? [])]);
+  bySuite.set(t.name, proven);
+  proven.forEach((x) => tested.add(x));
   const cover = new RegExp(`^(?:${t.cover.join("|")})\\.`);
   report(
     t.name ? `implemented concepts without a test in the ${t.name} suite` : "implemented concepts without a test",
-    t.cover.length ? diff(implemented, ids).filter((x) => cover.test(x)) : [],
+    t.cover.length ? diff(implemented, proven).filter((x) => cover.test(x)) : [],
   );
 }
+if (cfg.checks && cfg.testSuites.length)
+  report(
+    "automatic checks of implemented concepts without a test",
+    checks
+      .filter((c) => c.proof === "auto" && fullyImplemented(c) && !checksTested.has(c.id))
+      .map((c) => c.id),
+  );
 
-// Tickets: an `IDs:` line, and expected behavior as tagged one-line scenarios under "## Scenarios":
-// - [hook.hold-ready] GIVEN … WHEN … THEN …
-// The tag is the one the test will carry once the scenario is implemented.
+// Tickets: a slice of the gap between target and implementation. An `IDs:` line names the concepts,
+// and the checks it lists must exist and concern those concepts. Older tickets may still carry
+// tagged one-line scenarios under "## Scenarios"; those are validated as before.
 let ticketIds = new Set();
+const tickets = [];
 if (cfg.tickets) {
   const files = listFiles(cfg.tickets.dir, cfg.tickets.match);
   const name = (f) => relative(cfg.base, f);
   const noLine = [];
-  const noScenarios = [];
   const malformed = [];
   const outside = [];
+  const unknownChecks = [];
+  const unrelated = [];
   for (const f of files) {
     const text = read(f);
     const line = text.match(/^(?:Ontology )?IDs:(.*)$/m);
     if (!line) noLine.push(name(f));
     const own = new Set(line ? ids(line[1]) : []);
+    const listed = [...new Set([...text.matchAll(/`(check\.[a-z0-9.-]+)`/g)].map((m) => m[1]))];
+    for (const c of listed) {
+      if (!checkById.has(c)) unknownChecks.push(`${name(f)}: ${c}`);
+      else if (!checkById.get(c).concepts.some((x) => own.has(x))) unrelated.push(`${name(f)}: ${c}`);
+    }
+    tickets.push({ file: f, own, checks: listed });
     const bullets = /^## Scenarios$/m.test(text)
       ? section(text, "## Scenarios").split("\n").filter((l) => /^- /.test(l))
       : [];
-    if (!bullets.length) noScenarios.push(name(f));
     for (const b of bullets) {
       const tags = tagIds(b, classes);
       if (!tags.length || !/\bGIVEN\b.*\bWHEN\b.*\bTHEN\b/.test(b))
@@ -261,16 +336,20 @@ if (cfg.tickets) {
     ids(text).forEach((t) => ticketIds.add(t));
   }
   report("tickets without an `IDs:` line", noLine);
-  report("tickets without scenarios", noScenarios);
   report("ticket scenarios without an ID tag or GIVEN … WHEN … THEN", malformed);
   report("scenario tags not on the ticket's `IDs:` line", outside);
+  report("checks in tickets but not in the catalogue", unknownChecks);
+  report("ticket checks that name none of the ticket's IDs", unrelated);
   unknown("IDs in tickets but not in the glossary", "tickets", ticketIds);
 }
 
 // A concept nobody refers to is a dead glossary row.
 report(
   "glossary concepts nobody refers to",
-  diff(glossary, new Set([...body, ...mapped, ...used, ...implemented, ...tested, ...ticketIds])),
+  diff(
+    glossary,
+    new Set([...body, ...mapped, ...used, ...implemented, ...tested, ...ticketIds, ...checkConcepts]),
+  ),
 );
 
 // Verification map: each scenario file carries an `IDs:` line with the concepts it proves.
@@ -318,19 +397,70 @@ if (cfg.mockup.length && cfg.notYetShown.length) {
 }
 report("retired IDs still in use outside the decision log", retiredUse);
 
-// --coverage: what proves each implemented concept, one column per test suite and the scenarios.
-if (process.argv.includes("--coverage")) {
+// --coverage: what proves each implemented concept: the checks that name it, one column per test
+// suite, and the scenarios of the older verification map.
+const flag = (name) => process.argv.indexOf(name);
+if (flag("--coverage") > 0) {
+  const checksOf = (x) => checks.filter((c) => c.concepts.includes(x));
   const cols = [
-    ...cfg.testSuites.map((t) => [t.name || "tests", bySuite.get(t.name)]),
-    ...(cfg.features ? [["scenarios", featureIds]] : []),
+    ...(cfg.checks
+      ? [["checks", (x) => {
+          const cs = checksOf(x);
+          const manual = cs.filter((c) => c.proof === "manual").length;
+          return cs.length ? `${cs.length}${manual ? ` (${manual} manual)` : ""}` : "";
+        }]]
+      : []),
+    ...cfg.testSuites.map((t) => [t.name || "tests", (x) => (bySuite.get(t.name).has(x) ? "yes" : "")]),
+    ...(cfg.features ? [["scenarios", (x) => (featureIds.has(x) ? "yes" : "")]] : []),
   ];
   const head = ["concept", ...cols.map(([n]) => n)];
   const body = Object.keys(ONT)
     .filter((x) => implemented.has(x))
-    .map((x) => [`\`${x}\``, ...cols.map(([, set]) => (set.has(x) ? "yes" : ""))]);
+    .map((x) => [`\`${x}\``, ...cols.map(([, f]) => f(x))]);
   const width = head.map((h, i) => Math.max(h.length, 3, ...body.map((r) => r[i].length)));
   const line = (r) => `| ${r.map((c, i) => c.padEnd(width[i])).join(" | ")} |`;
   console.log([line(head), line(width.map((w) => "-".repeat(w))), ...body.map(line)].join("\n"));
+}
+
+// --gap: the work left, computed rather than listed by hand. Target concepts by section with their
+// checks, automatic checks of implemented concepts that still lack a test, and the known
+// divergences. --gap path/to/ticket.md narrows it to the ticket's slice and exits 1 until the slice
+// is done: every concept implemented, every automatic check of the slice tested.
+let sliceOpen = 0;
+if (flag("--gap") > 0) {
+  const next = process.argv[flag("--gap") + 1];
+  const ticket = next && !next.startsWith("--") ? tickets.find((t) => t.file === resolve(next)) : null;
+  if (next && !next.startsWith("--") && !ticket) {
+    console.log(`ERROR · --gap: ${next} is not a ticket the config knows`);
+    errors.push("--gap");
+  }
+  const inScope = (x) => !ticket || ticket.own.has(x);
+  const checkInScope = (c) => !ticket || ticket.checks.includes(c.id) || c.concepts.some((x) => ticket.own.has(x));
+  const untested = (c) => c.proof === "auto" && fullyImplemented(c) && !checksTested.has(c.id);
+  const out = [];
+  for (const [heading, rs] of groupBy(rows, (r) => r.heading)) {
+    const lines = [];
+    for (const r of rs.filter((r) => inScope(r.id))) {
+      const cs = checks.filter((c) => c.concepts.includes(r.id) && checkInScope(c));
+      if (!implemented.has(r.id)) {
+        lines.push(`  ${r.id}  target${cs.length ? ` · checks: ${cs.map((c) => c.id).join(", ")}` : ""}`);
+        sliceOpen += 1;
+      }
+    }
+    const open = checks.filter((c) => untested(c) && checkInScope(c) && c.section === slug(heading));
+    for (const c of open) {
+      lines.push(`  ${c.id}  no test yet`);
+      sliceOpen += 1;
+    }
+    if (lines.length) out.push(`GAP · ${heading}`, ...lines);
+  }
+  const divHeading = md.match(/^### Known divergences.*$/m)?.[0];
+  const divergences = divHeading
+    ? section(md, divHeading).split("\n").filter((l) => /^- /.test(l) && (!ticket || ids(l).some(inScope)))
+    : [];
+  if (divergences.length) out.push("GAP · known divergences", ...divergences.map((l) => `  ${l}`));
+  console.log(out.length ? out.join("\n") : "GAP · nothing open");
+  if (ticket) console.log(sliceOpen ? `SLICE_OPEN: ${sliceOpen}` : "SLICE_DONE");
 }
 
 console.log(
@@ -340,9 +470,10 @@ console.log(
     `mockup ${used.size}`,
     `map ${mapped.size}`,
     `implemented ${implemented.size}`,
-    `scenarios ${featureIds.size}`,
+    ...(cfg.checks ? [`checks ${checks.length}`] : []),
+    ...(cfg.features ? [`scenarios ${featureIds.size}`] : []),
     ...cfg.testSuites.map((t) => `${t.name || "tested"} ${bySuite.get(t.name).size}`),
-    ...(cfg.tickets ? [`tickets ${listFiles(cfg.tickets.dir, cfg.tickets.match).length}`] : []),
+    ...(cfg.tickets ? [`tickets ${tickets.length}`] : []),
   ].join(" · "),
 );
 if (errors.length) {
@@ -350,3 +481,4 @@ if (errors.length) {
   process.exit(1);
 }
 console.log("ONT_OK");
+if (sliceOpen && flag("--gap") > 0 && process.argv[flag("--gap") + 1]?.endsWith(".md")) process.exit(1);

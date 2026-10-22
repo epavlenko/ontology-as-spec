@@ -6,6 +6,7 @@ The drift check, the decision guard, the tooltip generator and the contract gene
 node tools/ont-check/gen-glossary.mjs --config path/to/ont.config.json   # glossary → generated tooltips
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json   # ONT_OK, or the drift and exit code 1
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --coverage   # also: what proves each implemented concept
+node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --gap [ticket.md]   # also: the work left, or one ticket's slice (exit 1 until done)
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK
 ```
@@ -45,7 +46,8 @@ Paths are relative to the config file.
 | `contracts.out`, `contracts.classes`, `contracts.propertyCase` | the generated JSON Schema; the classes that carry a type (default `["field", "edge"]`); property names from the ID's last part as `camel` (default), `snake` or `kebab` | no |
 | `mockup` | list of mockup HTML files | no |
 | `map.file`, `map.idColumn` | the UI-to-ontology map and the 1-based column holding IDs; default 2 | no |
-| `features.dir`, `features.cover` | the verification map directory and the classes every implemented ID of which must be covered | no |
+| `checks.file`, `checks.require` | the check catalogue, and the classes every concept of which must have a check (default `["inv", "rule"]`) | no |
+| `features.dir`, `features.cover` | the older verification map: scenario files with an `IDs:` line; still read, superseded by `checks` | no |
 | `testSuites` | a list of suites, each `{ "name", "dir", "match", "cover" }`: a unique name such as `unit` or `end-to-end`, where its tests are, a regex for test file paths (default `\.test\.[a-z]+$`), and the classes every implemented ID of which must be named by a test in this suite | no |
 | `tests` | the older form: one suite without a name, with the same `dir`, `match` and `cover` | no |
 | `tickets.dir`, `tickets.match` | where ticket files are, and a regex for their paths (default `\.md$`; `README.md` is skipped) | no |
@@ -62,9 +64,10 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Implementation rows:** ``| `class.name` | `path`, `path` | note |`` inside the implementation section.
 - **Mockup:** `data-ont="class.name"` attributes, and IDs in single quotes inside scripts (`'view.catalog'`). IDs built from templates are declared in a comment `/* data-ont dynamic: 'class.a','class.b' */`, and the markup must contain `data-ont="class.${`.
 - **Decision entries:** headings matched by `decisions.entry`.
-- **Scenario files:** an `IDs:` line at the start of a line.
-- **Test tags:** IDs in square brackets anywhere in a test file, normally at the start of a test title: `test("[inv.one-loan-per-item] …")`, `test("[rule.renewal, field.renewals] …")`. Only configured classes are read, so `[0]` or `[x.y]` is not a tag.
-- **Tickets:** an `IDs:` or `Ontology IDs:` line, and a `## Scenarios` section whose bullets read `- [id, id] GIVEN … WHEN … THEN …`.
+- **Checks:** ``| `check.section.name` | `id`, `id` | GIVEN | WHEN | THEN | auto or manual |`` under `## Section` headings; the second part of the ID is the heading in lowercase.
+- **Scenario files (older):** an `IDs:` line at the start of a line.
+- **Test tags:** IDs in square brackets anywhere in a test file, normally at the start of a test title: `test("[check.loan.renew-while-held] …")`, or a concept for what is not a product check, `test("[field.loan.renewals] …")`. Only `check` and configured classes are read, so `[0]` or `[x.y]` is not a tag.
+- **Tickets:** an `IDs:` or `Ontology IDs:` line; the checks they list, in backticks. Older tickets may have a `## Scenarios` section whose bullets read `- [id, id] GIVEN … WHEN … THEN …`.
 - **Decision status (guard):** an entry is accepted when one of its lines matches `decisions.accepted`, by default a `- Date:` line containing `Status: accepted`.
 
 ## Hooks

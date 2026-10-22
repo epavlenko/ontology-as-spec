@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -10,7 +10,7 @@ const TOOLS = fileURLToPath(new URL("../", import.meta.url));
 const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
 
 // Each case copies the example, breaks one thing and expects the check to name exactly that.
-const run = (edit) => {
+const run = (edit, ...args) => {
   const dir = mkdtempSync(join(tmpdir(), "ont-check-"));
   try {
     cpSync(EXAMPLE, dir, { recursive: true });
@@ -21,9 +21,11 @@ const run = (edit) => {
       writeFileSync(path, text.replace(from, to));
     };
     edit?.(patch, dir);
-    const r = spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json")], {
-      encoding: "utf8",
-    });
+    const r = spawnSync(
+      "node",
+      [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), ...args.map((a) => a.replace("$DIR", dir))],
+      { encoding: "utf8" },
+    );
     return { code: r.status, out: r.stdout + r.stderr };
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -51,7 +53,39 @@ test("accepts the older single tests key as one unnamed suite", () => {
     ),
   );
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, / tested 14 /);
+  assert.match(r.out, / tested \d+ /);
+});
+
+test("--gap with a ticket reports the open slice and exits 1", () => {
+  const r = run(null, "--gap", "$DIR/issues/0003-serve-the-hold-queue.md");
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /concept\.reservation {2}target · checks: check\.hold\.reserve-on-return/);
+  assert.match(r.out, /SLICE_OPEN: 6/);
+  assert.match(r.out, /ONT_OK/);
+});
+
+test("--gap with a ticket whose slice is built prints SLICE_DONE", () => {
+  const r = run(
+    (p, dir) =>
+      writeFileSync(
+        join(dir, "issues", "0001-renewal.md"),
+        "# #1 Renewal\n\n## Slice\n\nIDs: `action.renew`, `inv.no-renew-when-held`.\n\nChecks: `check.loan.renew-while-held`.\n",
+      ),
+    "--gap",
+    "$DIR/issues/0001-renewal.md",
+  );
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /GAP · nothing open\nSLICE_DONE/);
+});
+
+test("still reads the older verification map", () => {
+  const r = run((p, dir) => {
+    mkdirSync(join(dir, "features"));
+    writeFileSync(join(dir, "features", "loans.md"), "# Loans\n\nNo IDs line here.\n");
+    p("ont.config.json", '"checks": {', '"features": { "dir": "features", "cover": [] },\n  "checks": {');
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /scenario files without an `IDs:` line/);
 });
 
 const cases = [
@@ -73,10 +107,6 @@ const cases = [
     (p) => p("decisions.md", "`field.due-date`, `action.checkout`", "`field.due-on`, `action.checkout`")],
   ["a missing implementation file", "files from the implementation table not found",
     (p) => p("ontology.md", "| `action.checkout`        | `app/cli.mjs` ", "| `action.checkout`        | `app/desk.mjs`")],
-  ["an implemented action with no scenario", "implemented concepts without a verification scenario",
-    (p) => p("features/holds.md", "IDs: `action.place-hold`, ", "IDs: ")],
-  ["a scenario file without an IDs line", "scenario files without an `IDs:` line",
-    (p) => p("features/holds.md", "IDs: ", "Concepts: ")],
   ["a dynamic class without a template", "class declared dynamic but the mockup has no data-ont template",
     (p) => p("mockup/index.html", 'data-ont="derived.${s}"', 'data-ont="derived.overdue"')],
   ["a glossary row nobody refers to", "glossary concepts nobody refers to",
@@ -102,23 +132,44 @@ const cases = [
   ["a retired ID that is still defined", "retired IDs still defined in the glossary",
     (p) => p("ontology.md", "| `edge.copy-of`         |", "| `edge.item.copy-of`    |")],
   ["an implemented invariant no test names", "implemented concepts without a test in the unit suite",
-    (p) => p("app/library.test.mjs", "[inv.one-loan-per-item] ", "")],
+    (p) => p("app/library.test.mjs", "[check.item.one-open-loan] ", "")],
   ["a test tag with an unknown ID", "IDs in unit tests but not in the glossary",
-    (p) => p("app/library.test.mjs", "[inv.one-loan-per-item]", "[inv.one-loan-per-copy]")],
+    (p) => p("app/library.test.mjs", "[field.loan.renewals, field.member.borrow-limit]", "[field.loan.renewal-count]")],
   ["a test that proves a concept the table does not list", "IDs in unit tests but not in the implementation table",
-    (p) => p("app/library.test.mjs", "[action.place-hold]", "[action.place-hold, hook.hold-ready]")],
+    (p) => p("app/library.test.mjs", "[field.loan.renewals, field.member.borrow-limit]", "[field.loan.renewals, field.item.condition]")],
   ["an implemented action with no end-to-end test", "implemented concepts without a test in the end-to-end suite",
-    (p) => p("e2e/cli.test.mjs", "[action.renew] ", "")],
+    (p) => p("e2e/cli.test.mjs", "[check.loan.renew-while-held] ", "")],
   ["two test suites with the same name", "test suites with the same name",
     (p) => p("ont.config.json", '"name": "end-to-end"', '"name": "unit"')],
   ["a test suite whose directory has no tests", "no end-to-end test files found",
     (p) => p("ont.config.json", '"dir": "e2e"', '"dir": "e2e-missing"')],
-  ["a ticket without scenarios", "tickets without scenarios",
-    (p) => p("issues/0003-serve-the-hold-queue.md", "## Scenarios", "## Behavior")],
-  ["a ticket scenario without THEN", "ticket scenarios without an ID tag or GIVEN … WHEN … THEN",
-    (p) => p("issues/0003-serve-the-hold-queue.md", "THEN it is not, although", "and it is not, although")],
-  ["a ticket scenario tag not on the ticket's IDs line", "scenario tags not on the ticket's `IDs:` line",
-    (p) => p("issues/0003-serve-the-hold-queue.md", "- [inv.queue-order]", "- [inv.queue-order, ent.member]")],
+  ["a check listed twice", "duplicate checks in the catalogue",
+    (p) => p("checks.md", "| `check.hold.cancel`", "| `check.hold.cancel` | `action.cancel-hold` | a | b | c | auto |\n| `check.hold.cancel`")],
+  ["a check under another entity's section", "checks outside their section",
+    (p) => p("checks.md", "| `check.hold.cancel`  ", "| `check.loan.cancel`  ")],
+  ["a check without a valid proof", "malformed checks",
+    (p, dir) => {
+      const f = join(dir, "checks.md");
+      writeFileSync(f, readFileSync(f, "utf8").replace(/(`check\.hold\.cancel`[^\n]*\| )auto( *\|)/, "$1maybe$2"));
+    }],
+  ["a check naming an unknown concept", "IDs in the check catalogue but not in the glossary",
+    (p) => p("checks.md", "`inv.queue-order`  ", "`inv.queue-orders` ")],
+  ["an invariant without a check", "concepts without a check",
+    (p) => p("checks.md", "`inv.queue-order`  ", "`derived.available`")],
+  ["an automatic check of implemented concepts without a test", "automatic checks of implemented concepts without a test",
+    (p) => p("app/library.test.mjs", "[check.loan.renew-twice] ", "[rule.renewal] ")],
+  ["a test tag naming a check not in the catalogue", "checks in unit tests but not in the catalogue",
+    (p) => p("app/library.test.mjs", "[check.loan.renew-twice]", "[check.loan.renew-thrice]")],
+  ["a test implementing a manual check", "manual checks tagged in end-to-end tests",
+    (p) => p("e2e/cli.test.mjs", "[check.loan.return-closes-loan]", "[check.loan.return-closes-loan, check.loan.overdue-in-real-time]")],
+  ["a test implementing a check of concepts not built", "checks in unit tests whose concepts are not all implemented",
+    (p) => p("app/library.test.mjs", "[check.loan.renew-twice]", "[check.loan.renew-twice, check.hold.cancel]")],
+  ["a ticket listing a check not in the catalogue", "checks in tickets but not in the catalogue",
+    (p) => p("issues/0003-serve-the-hold-queue.md", "`check.hold.served-in-order`", "`check.hold.served-first`")],
+  ["a ticket listing a check that names none of its IDs", "ticket checks that name none of the ticket's IDs",
+    (p) => p("issues/0003-serve-the-hold-queue.md", "`check.hold.served-in-order`", "`check.loan.renew-twice`")],
+  ["an older ticket scenario without THEN", "ticket scenarios without an ID tag or GIVEN … WHEN … THEN",
+    (p) => p("issues/0003-serve-the-hold-queue.md", "## Out of scope", "## Scenarios\n\n- [inv.queue-order] GIVEN two holds WHEN a copy comes back\n\n## Out of scope")],
 ];
 
 for (const [name, label, edit] of cases)

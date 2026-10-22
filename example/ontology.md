@@ -14,7 +14,7 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 
 **Rows are grouped by kind**, always in this order: Entity, Field, Relation, Derived, Concept, Rule, Invariant, Hook, Action, View. The kind is written on the first row of its group. A concept that involves several entities sits with the entity it constrains or changes. Derived values are computed, never stored and never typed in. Hooks are what the system does on its own, without a person pressing a button.
 
-**Identifiers.** Every concept has a permanent ID of the form `class.name`. Fields and relations also name their entity: `field.loan.due-date`, `edge.item.copy-of`. The ID never changes when the term is renamed; only the row's text changes. The mockup, the map, the decision log, the verification scenarios, the tickets, the tests and the implementation table refer to concepts by ID. When an ID has to change, the old one moves to "Retired IDs", so that the decision log, which is never edited, still resolves.
+**Identifiers.** Every concept has a permanent ID of the form `class.name`. Fields and relations also name their entity: `field.loan.due-date`, `edge.item.copy-of`. The ID never changes when the term is renamed; only the row's text changes. The mockup, the map, the decision log, the check catalogue, the tickets, the tests and the implementation table refer to concepts by ID. When an ID has to change, the old one moves to "Retired IDs", so that the decision log, which is never edited, still resolves.
 
 **Types** are written in a vocabulary that belongs to no programming language: `text`, `integer` with an optional range such as `integer 0..2`, `number`, `boolean`, `date`, `datetime`, `one of` a list of values, `ref` or `refs` an entity, and `optional` after any of them. Derived values have no type in the contract, because they are never stored.
 
@@ -161,12 +161,13 @@ The table answers "is this already in the code or is it the target". Everything 
 
 ### Hold
 
-| ID                    | Implemented in    | Note                                         |
-| --------------------- | ----------------- | -------------------------------------------- |
-| `ent.hold`            | `app/library.mjs` | placement only; nothing serves the queue yet |
-| `edge.hold.waits-for` | `app/library.mjs` |                                              |
-| `edge.hold.member`    | `app/library.mjs` |                                              |
-| `action.place-hold`   | `app/cli.mjs`     |                                              |
+| ID                       | Implemented in    | Note                                         |
+| ------------------------ | ----------------- | -------------------------------------------- |
+| `ent.hold`               | `app/library.mjs` | placement only; nothing serves the queue yet |
+| `edge.hold.waits-for`    | `app/library.mjs` |                                              |
+| `edge.hold.member`       | `app/library.mjs` |                                              |
+| `derived.queue-position` | `app/library.mjs` |                                              |
+| `action.place-hold`      | `app/cli.mjs`     |                                              |
 
 ### Screens
 
@@ -176,13 +177,10 @@ The table answers "is this already in the code or is it the target". Everything 
 
 ### Known divergences between code and ontology
 
-A divergence is not an error in the ontology: the ontology describes the agreed target. Each line becomes a ticket, or a new decision if the target changed.
+Places where the code does something the ontology does not want. Concepts that are simply not built yet are not listed here: `ont-check.mjs --gap` computes them from this table. Each line becomes a ticket, or a new decision if the target changed.
 
-- **Member.** `inv.suspended-cannot-borrow` is not enforced. The code still stores `fineCents` on a loan and adds to it when a loan is returned late, although D-03 replaced fines with `concept.suspension`.
-- **Item.** `field.item.condition` is absent; `action.return` records nothing about the item.
-- **Loan.** `hook.due-reminder` is target only.
-- **Hold.** Nothing serves the queue: `hook.hold-ready`, `hook.hold-expire`, `concept.reservation` and `rule.pickup-window` are absent, so a returned item becomes available to anyone. Ticket: #3 Serve the hold queue: reservation on return and the pickup window. `action.cancel-hold` is target only.
-- **Screens.** `view.catalog`, `view.title.page` and `view.desk` are target only.
+- **Member.** The code still stores `fineCents` on a loan and adds to it when a loan is returned late, although D-03 replaced fines with `concept.suspension`; `inv.suspended-cannot-borrow` is not enforced, so a member with an overdue loan can still borrow.
+- **Hold.** Nothing serves the queue, so a returned item becomes available to anyone, ahead of the members waiting for it (`concept.reservation`, `inv.queue-order`). Ticket: #3 Serve the hold queue: reservation on return and the pickup window.
 
 ## Retired IDs
 
@@ -199,6 +197,7 @@ IDs that had to change. The decision log keeps using them, because its entries a
 
 ## Revision history
 
+- 2026-10-22: known divergences keep only behavior that contradicts the target; what is not built yet comes from `--gap`. `derived.queue-position` added to the implementation table, which `--gap` showed missing.
 - 2026-10-21: types for fields and relations, contracts generated from them; relations `edge.loan.item`, `edge.loan.member` and `edge.hold.member`, which the code already had.
 - 2026-10-21: one section per entity with one definition row per concept, grouped by kind; the separate glossary table and the per-kind tables merged into them. Fields and relations name their entity (D-06); the old IDs retired.
 - 2026-10-17: first version: entities, fields, rules, invariants, derived values, hooks, views, actions; fines replaced by suspension (D-03).

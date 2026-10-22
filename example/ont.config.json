@@ -34,12 +34,13 @@
     "file": "mockup/ontology-map.md",
     "idColumn": 2
   },
-  "features": {
-    "dir": "features",
-    "cover": [
-      "view",
-      "action",
-      "hook"
+  "checks": {
+    "file": "checks.md",
+    "require": [
+      "inv",
+      "rule",
+      "hook",
+      "action"
     ]
   },
   "testSuites": [

@@ -95,12 +95,34 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: one test set could not say that an action proven only by a unit test was never tried the way a person uses it, or that a hook needs a test that controls time. Kinds of tests are the team's process, not the product's meaning: a different team could test the same product differently while the ontology stays the same. So the policy lives next to the check, and the ontology gains no test concepts.
 - Rejected: test suites as concepts in the ontology (mixes process into meaning and would sit in the entity tables); a suite named per tag, such as `[e2e:action.renew]` (a second tag format, and the directory already says it); the key name "suites" (too generic in a configuration that also has scenarios); conversational test dialogs as the example's second suite (specific to chat products; end-to-end tests through the interface are the common case).
 
+### D-14 · A check catalogue states what must hold, for any implementation
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: what must hold is a catalogue of checks (`checks.md`): one section per entity, one row per check with an ID `check.<section>.<name>`, the concepts it proves, GIVEN, WHEN and THEN in the product's terms, and `auto` or `manual`. Every concept of a required class (invariants, rules, hooks and actions in the example) has a check, including concepts not built yet. Tests implement checks and start their title with the check's ID; every automatic check of implemented concepts needs a test. The catalogue replaces the verification map (`features/`) and the scenarios in tickets; the tool still reads both for existing projects. This supersedes the scenario part of D-08.
+- Why: the ontology states a rule in a sentence and a test proves it in the terms of one implementation; between them nothing persistent held the cases. Ticket scenarios disappeared with the ticket, and the verification map repeated the tests as recipes nothing ran. A catalogue in the product's terms survives a rewrite of the code or of the tests, the same split behavior-driven development makes between scenarios and step definitions. The owner asked that the set of checks work for any implementation of both the code and the tests.
+- Rejected: checks as rows in the ontology (examples with data would bury the definitions the entity tables exist to show); keeping ticket scenarios (lost when the ticket closes); keeping the verification map and renaming it (recipes that repeat tests rot; manual checks fit in the catalogue as `manual`); Gherkin feature files (a second format and a runner, while one table row per check is enough); generating tests from checks deterministically (binding a check to an implementation depends on the implementation; tests are written from checks the way code is written from the ontology).
+
+### D-15 · The gap between target and implementation is computed
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: `ont-check.mjs --gap` prints the work left by entity: concepts absent from the implementation table, with their checks; automatic checks of implemented concepts without a test; and the known divergences. Known divergences list only code that contradicts the target; what is simply not built yet is no longer written there.
+- Why: the target ontology and the implementation table already hold the gap, so a hand-kept backlog of "target only" lines duplicates them and drifts. On its first run the report found a concept implemented in the example's code but missing from the table.
+- Rejected: a generated backlog file in the repository (one more artifact to keep current; the report is cheap to run); keeping "target only" lines in the divergences (a second, hand-kept copy of the gap).
+
+### D-16 · A ticket is a slice of the gap, done when the check says so
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: a ticket for product work names the concepts (`IDs:`) and checks of the slice, why now, what is out of scope, what it depends on and what the agent may do. It no longer carries expected behavior, files to touch or a hand-written finish condition. The finish condition is derived: `ont-check.mjs --gap <ticket>` prints `SLICE_DONE` (every concept of the slice implemented, every automatic check of the slice tested) and the tests pass. The check requires that the checks a ticket lists exist and name at least one of its IDs. Work that does not change meaning stays an ordinary ticket.
+- Why: with a target ontology and a check catalogue, a ticket that restates scope and behavior is a third copy of the same meaning. What only a ticket holds is process: which part now, in which order, within which limits, and, with an external contractor, what is delivered and accepted.
+- Rejected: no tickets at all (loses the limits, the order, the unit of review and the permissions); tickets with their own scenarios (D-14 moved them to the catalogue); priority in the ontology (process, not meaning, as with test suites in D-13).
+
 ## Open questions
 
 - When to name the source project.
 
 ## History
 
+- 2026-10-22: D-14: check catalogue. D-15: computed gap. D-16: tickets as slices.
 - 2026-10-22: D-13: test suites per kind of concept.
 - 2026-10-21: D-12: configurable accepted status.
 - 2026-10-21: D-11: contracts generated from typed fields.
