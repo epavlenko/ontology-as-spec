@@ -188,6 +188,13 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: D-17's test, a choice that can be reversed on its own, splits almost any decision about a mechanism into pieces. Read literally, it called for ten new entries that would restate D-18, D-19 and D-25 without adding a reason. The failure D-17 was written against is narrower: an entry changed in part, so that a reader cannot tell what of it still holds.
 - Rejected: keeping D-17's test (it makes reviews pedantic and the log longer without making it clearer); allowing a later entry to change part of an earlier one with a pointer to that part (the reader still has to merge two texts to know what holds).
 
+### D-27 · A consistency review reports what would mislead or break, not every imperfection
+
+- Date: 2026-10-22 · Status: accepted
+- Decision: a consistency review of a project made with the approach reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance with a rule that changes nothing are not findings. The rule is in the agent rules (part 7, the template, the example, this repository's `AGENTS.md`) and in the approach's ontology with a manual check.
+- Why: a review of this repository listed nine findings, and half of them misled no one: a missing table row, a link that could cite a newer decision, a hook trigger the check would not use. Lists like that cost the owner's attention and teach agents that review output is noise. The check itself already has the same boundary: it keeps to references between artifacts and does not grow into a linter of style.
+- Rejected: a severity scale for findings (agents rank everything as medium); leaving it to judgment without a written rule (the next agent repeats the long list).
+
 ## Tentative
 
 None.
@@ -198,6 +205,7 @@ None.
 
 ## History
 
+- 2026-10-22: D-27: what a consistency review reports.
 - 2026-10-22: D-26: one question per entry; D-17 superseded.
 - 2026-10-22: D-25: supersession on a line of its own.
 - 2026-10-22: D-24: D-05 superseded whole.

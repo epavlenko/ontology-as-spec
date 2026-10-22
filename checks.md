@@ -124,10 +124,11 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 
 ## Agent rules
 
-| Check                                  | Concepts                                                    | GIVEN                   | WHEN                | THEN                                                          | Proof  |
-| -------------------------------------- | ----------------------------------------------------------- | ----------------------- | ------------------- | ------------------------------------------------------------- | ------ |
-| `check.agent-rules.short-and-concrete` | `rule.agent-rules-short`, `rule.agent-rules-point-at-files` | the agent rules section | a reviewer reads it | it fits on one screen and every row names a path or a command | manual |
-| `check.agent-rules.start-from-ids`     | `rule.start-from-ids`                                       | a task for an agent     | the agent starts    | it names the IDs the task touches before writing code         | manual |
+| Check                                    | Concepts                                                    | GIVEN                             | WHEN                          | THEN                                                                                                                                    | Proof  |
+| ---------------------------------------- | ----------------------------------------------------------- | --------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `check.agent-rules.short-and-concrete`   | `rule.agent-rules-short`, `rule.agent-rules-point-at-files` | the agent rules section           | a reviewer reads it           | it fits on one screen and every row names a path or a command                                                                           | manual |
+| `check.agent-rules.start-from-ids`       | `rule.start-from-ids`                                       | a task for an agent               | the agent starts              | it names the IDs the task touches before writing code                                                                                   | manual |
+| `check.agent-rules.findings-that-matter` | `rule.findings-mislead`                                     | a consistency review of a project | a reviewer reads its findings | each one says who would be misled or which check would break; style, list completeness and compliance that changes nothing are left out | manual |
 
 ## Contract
 

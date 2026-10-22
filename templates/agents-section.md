@@ -24,3 +24,4 @@ Rules the check cannot enforce:
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side.
 - A ticket is a slice of the gap: IDs, checks, out of scope, dependencies, permissions. It does not describe behavior; behavior goes into the catalogue first.
 - A tag on a test is a claim that the test implements the check. Do not tag a test that does not.
+- A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.

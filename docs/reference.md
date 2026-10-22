@@ -279,17 +279,19 @@ Every concept of the approach, its type and definition, and the checks that hold
 
 ## Agent rules
 
-| Kind   | Term            | ID                                | Type | Definition                                                                                                              |
-| ------ | --------------- | --------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------- |
-| Entity | Agent rules     | `ent.agent-rules`                 |      | The section of the agents' instructions that says what else to update when something changes, and what to run.          |
-| Rule   | Short           | `rule.agent-rules-short`          |      | The section is short enough to be read at the start of every session.                                                   |
-| Rule   | Points at files | `rule.agent-rules-point-at-files` |      | Every row names a path or a command.                                                                                    |
-| Rule   | Start from IDs  | `rule.start-from-ids`             |      | Every task starts by naming the IDs it touches; a task that cannot is not about meaning, or the ontology is incomplete. |
+| Kind   | Term                 | ID                                | Type | Definition                                                                                                                                                                           |
+| ------ | -------------------- | --------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Entity | Agent rules          | `ent.agent-rules`                 |      | The section of the agents' instructions that says what else to update when something changes, and what to run.                                                                       |
+| Rule   | Short                | `rule.agent-rules-short`          |      | The section is short enough to be read at the start of every session.                                                                                                                |
+| Rule   | Points at files      | `rule.agent-rules-point-at-files` |      | Every row names a path or a command.                                                                                                                                                 |
+| Rule   | Start from IDs       | `rule.start-from-ids`             |      | Every task starts by naming the IDs it touches; a task that cannot is not about meaning, or the ontology is incomplete.                                                              |
+| Rule   | Findings that matter | `rule.findings-mislead`           |      | A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings. |
 
-| Check                                  | Concepts                                                    | GIVEN                   | WHEN                | THEN                                                          | Proof  |
-| -------------------------------------- | ----------------------------------------------------------- | ----------------------- | ------------------- | ------------------------------------------------------------- | ------ |
-| `check.agent-rules.short-and-concrete` | `rule.agent-rules-short`, `rule.agent-rules-point-at-files` | the agent rules section | a reviewer reads it | it fits on one screen and every row names a path or a command | manual |
-| `check.agent-rules.start-from-ids`     | `rule.start-from-ids`                                       | a task for an agent     | the agent starts    | it names the IDs the task touches before writing code         | manual |
+| Check                                    | Concepts                                                    | GIVEN                             | WHEN                          | THEN                                                                                                                                    | Proof  |
+| ---------------------------------------- | ----------------------------------------------------------- | --------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `check.agent-rules.short-and-concrete`   | `rule.agent-rules-short`, `rule.agent-rules-point-at-files` | the agent rules section           | a reviewer reads it           | it fits on one screen and every row names a path or a command                                                                           | manual |
+| `check.agent-rules.start-from-ids`       | `rule.start-from-ids`                                       | a task for an agent               | the agent starts              | it names the IDs the task touches before writing code                                                                                   | manual |
+| `check.agent-rules.findings-that-matter` | `rule.findings-mislead`                                     | a consistency review of a project | a reviewer reads its findings | each one says who would be misled or which check would break; style, list completeness and compliance that changes nothing are left out | manual |
 
 ## Contract
 

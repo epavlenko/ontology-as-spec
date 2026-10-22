@@ -22,6 +22,7 @@ Rules the check cannot enforce:
 - IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it.
 - Removing a concept is a decision: write the entry and retire the ID; the check then finds every reference left.
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side.
+- A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.
 
 ## Why a table
 
@@ -29,15 +30,16 @@ Agents follow explicit procedures well and infer side effects badly. "Remember t
 
 The list after the table holds only the rules no check enforces; it exists because some rules have no mechanical check yet. Writing them down is the fallback. When a rule keeps being broken, it should move from the list into the check. Encoding a lesson in structure beats repeating it in prose.
 
-<!-- ont: rule.agent-rules-short@66c9df, rule.agent-rules-point-at-files@13a4c3, rule.start-from-ids@8804d9 -->
+<!-- ont: rule.agent-rules-short@66c9df, rule.agent-rules-point-at-files@13a4c3, rule.start-from-ids@8804d9, rule.findings-mislead@0229fa -->
 ## Reference
 
-The rules for the section itself are in the reference: [Agent rules](../reference.md#agent-rules). Keep it short, because it is read at the start of every session and long sections are skimmed. Let every row name a path or a command. Let every task start by naming the IDs it touches: if an agent cannot name them, the task is not about meaning, or the ontology is incomplete. The tool enforces none of this directly; it enforces the consequences, because a skipped row usually fails the check.
+The rules for the section itself are in the reference: [Agent rules](../reference.md#agent-rules). Keep it short, because it is read at the start of every session and long sections are skimmed. Let every row name a path or a command. Let every task start by naming the IDs it touches: if an agent cannot name them, the task is not about meaning, or the ontology is incomplete. The tool enforces none of this directly; it enforces the consequences, because a skipped row usually fails the check. The same restraint applies to reviews: a consistency review reports what would mislead someone or break a check, not every imperfection it can find.
 
 ## How it fails in practice
 
 - **The table describes an older layout of the repository.** When paths move, update the table in the same change. Include the agent instructions file in the paths that trigger the check.
 - **Rules that should be checks stay rules forever.** Review the list from time to time and ask which item could be a check.
+- **Reviews that list everything.** A finding that misleads no one costs the reader's attention and teaches agents that the list is noise. Report what would mislead a reader or an agent, or would break a check, and leave style and completeness alone.
 
 ## In the example
 

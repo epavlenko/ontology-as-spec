@@ -193,12 +193,13 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Agent rules
 
-| Kind   | ID                                | Term            | Type | Definition                                                                                                              |
-| ------ | --------------------------------- | --------------- | ---- | ----------------------------------------------------------------------------------------------------------------------- |
-| Entity | `ent.agent-rules`                 | Agent rules     |      | The section of the agents' instructions that says what else to update when something changes, and what to run.          |
-| Rule   | `rule.agent-rules-short`          | Short           |      | The section is short enough to be read at the start of every session.                                                   |
-|        | `rule.agent-rules-point-at-files` | Points at files |      | Every row names a path or a command.                                                                                    |
-|        | `rule.start-from-ids`             | Start from IDs  |      | Every task starts by naming the IDs it touches; a task that cannot is not about meaning, or the ontology is incomplete. |
+| Kind   | ID                                | Term                 | Type | Definition                                                                                                                                                                           |
+| ------ | --------------------------------- | -------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Entity | `ent.agent-rules`                 | Agent rules          |      | The section of the agents' instructions that says what else to update when something changes, and what to run.                                                                       |
+| Rule   | `rule.agent-rules-short`          | Short                |      | The section is short enough to be read at the start of every session.                                                                                                                |
+|        | `rule.agent-rules-point-at-files` | Points at files      |      | Every row names a path or a command.                                                                                                                                                 |
+|        | `rule.start-from-ids`             | Start from IDs       |      | Every task starts by naming the IDs it touches; a task that cannot is not about meaning, or the ontology is incomplete.                                                              |
+|        | `rule.findings-mislead`           | Findings that matter |      | A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings. |
 
 ## Contract
 
@@ -425,12 +426,13 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Agent rules
 
-| ID                                | Implemented in              | Note |
-| --------------------------------- | --------------------------- | ---- |
-| `ent.agent-rules`                 | `docs/parts/agent-rules.md` |      |
-| `rule.agent-rules-short`          | `docs/parts/agent-rules.md` |      |
-| `rule.agent-rules-point-at-files` | `docs/parts/agent-rules.md` |      |
-| `rule.start-from-ids`             | `docs/parts/agent-rules.md` |      |
+| ID                                | Implemented in              | Note                  |
+| --------------------------------- | --------------------------- | --------------------- |
+| `ent.agent-rules`                 | `docs/parts/agent-rules.md` |                       |
+| `rule.agent-rules-short`          | `docs/parts/agent-rules.md` |                       |
+| `rule.agent-rules-point-at-files` | `docs/parts/agent-rules.md` |                       |
+| `rule.start-from-ids`             | `docs/parts/agent-rules.md` |                       |
+| `rule.findings-mislead`           | `docs/parts/agent-rules.md` | reviewed, not checked |
 
 ### Contract
 
@@ -478,6 +480,7 @@ None known.
 
 ## Revision history
 
+- 2026-10-22: `rule.findings-mislead`: what a consistency review reports (D-27).
 - 2026-10-22: one question per entry; a later entry adds to an earlier one or supersedes it whole (D-26).
 - 2026-10-22: supersession on a `Supersedes:` line, `derived.in-force` and `inv.supersedes-older` (D-25).
 - 2026-10-22: a stamp covers the notes that name a concept, not only its row (D-23).
