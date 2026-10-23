@@ -27,7 +27,7 @@ node tools/ont-check/ont-check.mjs --config example/ont.config.json --gap exampl
 node --test 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'
 ```
 
-`SLICE_DONE` means every ID of the slice is in the implementation table and every automatic check of the slice has a test. The tests passing means those checks hold.
+`SLICE_DONE` means every ID of the slice is in the implementation table, every automatic check of the slice has a test, and the Hold line under known divergences is gone. Passing tests mean those checks hold as far as each test does what its check says; the reviewer reads the new tests next to their checks.
 
 ## Pre-authorized
 

@@ -45,4 +45,4 @@ The rules of the mockup and the map, and the checks that hold them, are in the r
 
 ## In the example
 
-[`example/mockup/index.html`](../../example/mockup/index.html) and [`example/mockup/ontology-map.md`](../../example/mockup/ontology-map.md): four screens, 22 concepts, two dynamic IDs.
+[`example/mockup/index.html`](../../example/mockup/index.html) and [`example/mockup/ontology-map.md`](../../example/mockup/ontology-map.md): four screens, 23 concepts, two dynamic IDs.

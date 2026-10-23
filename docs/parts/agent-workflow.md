@@ -37,7 +37,11 @@ node --test 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'
 - PR: not yet
 ```
 
-`--gap` with a ticket lists the slice's concepts that are still target, with their checks, and the slice's automatic checks that have no test, and exits 1 until there are none. Tests passing then means those checks hold. Pre-authorized lines answer in advance the permissions an agent would otherwise stop and ask for: committing, opening a pull request, driving a browser. A missing line means the repository default.
+`--gap` with a ticket lists what is left of the slice: its concepts that are still target, with their checks; its automatic checks that have no test; the checks on its `Checks:` line that wait for a concept outside the slice; and the known divergences that name only its concepts. It exits 1 until nothing is left. Only the `Checks:` line lists the checks of the slice; a check named under out of scope is not one of them. A divergence that also names concepts outside the slice is shown apart and does not count: the slice that covers all of its concepts closes it.
+
+Passing tests then mean the slice's checks hold as far as each test does what its check says, and the tool cannot see that. The reviewer reads the new tests next to their checks, and runs the slice's manual checks or reports them as not run.
+
+Pre-authorized lines answer in advance the permissions an agent would otherwise stop and ask for: committing, opening a pull request, driving a browser. A missing line means the repository default.
 
 What a ticket no longer carries: expected behavior (it is in the check catalogue, written before the ticket and kept after it closes), the files to touch (the agent finds them), and a hand-written finish condition (it is derived). If a slice needs a check the catalogue lacks, the check is added to the catalogue first.
 
@@ -75,4 +79,4 @@ The fields of a ticket, its rules and checks are in the reference: [Ticket](../r
 
 ## In the example
 
-[`example/issues/0003-serve-the-hold-queue.md`](../../example/issues/0003-serve-the-hold-queue.md): a slice of six concepts and six checks of the hold queue, which is not built yet. `--gap` with it prints `SLICE_OPEN: 6`. [`example/issues/0004-suspend-instead-of-fines.md`](../../example/issues/0004-suspend-instead-of-fines.md): the slice that closes the other divergence, the fines a decision abolished.
+[`example/issues/0003-serve-the-hold-queue.md`](../../example/issues/0003-serve-the-hold-queue.md): a slice of six concepts and six checks of the hold queue, which is not built yet. `--gap` with it prints `SLICE_OPEN: 7`: the six concepts and the divergence the slice closes. [`example/issues/0004-suspend-instead-of-fines.md`](../../example/issues/0004-suspend-instead-of-fines.md): the slice that closes the other divergence, the fines a decision abolished.

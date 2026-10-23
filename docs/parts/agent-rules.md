@@ -22,6 +22,7 @@ Rules the check cannot enforce:
 - IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it.
 - Removing a concept is a decision: write the entry and retire the ID; the check then finds every reference left.
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side.
+- What a partial implementation leaves out is a target concept, named in the note of its row. A note alone hides the work from `--gap`.
 - A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.
 
 ## Why a table

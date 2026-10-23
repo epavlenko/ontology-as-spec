@@ -140,6 +140,17 @@ report(
   implFiles.filter((f) => !existsSync(resolve(cfg.root, f))),
 );
 
+// Known divergences: bullets under the configured heading, each naming the concepts involved.
+// --gap matches a divergence to a ticket by those IDs, so a line that names none belongs to no slice.
+const divHeading = cfg.headings.divergences
+  ? md.split("\n").find((l) => l.startsWith(cfg.headings.divergences))
+  : null;
+const divergenceLines = divHeading ? section(md, divHeading).split("\n").filter((l) => /^- /.test(l)) : [];
+report(
+  "known divergences that name no concept by ID",
+  divergenceLines.filter((l) => !ids(l).some((x) => glossary.has(x))).map((l) => l.slice(0, 70)),
+);
+
 // Generated tooltips are compared whole: catches both a forgotten regeneration and a hand edit.
 if (cfg.glossaryOut) {
   const expected = renderGlossary(ONT, relative(cfg.base, cfg.ontology));
@@ -360,9 +371,11 @@ if (cfg.checks && cfg.testSuites.length)
       .map((c) => c.id),
   );
 
-// Tickets: a slice of the gap between target and implementation. An `IDs:` line names the concepts,
-// and the checks it lists must exist and concern those concepts. Older tickets may still carry
-// tagged one-line scenarios under "## Scenarios"; those are validated as before.
+// Tickets: a slice of the gap between target and implementation. An `IDs:` line names the concepts
+// and a `Checks:` line the checks of the slice, which must concern those concepts. A check named
+// elsewhere in the ticket, such as under out of scope, must exist but is not part of the slice.
+// Older tickets may still carry tagged one-line scenarios under "## Scenarios"; those are validated
+// as before.
 let ticketIds = new Set();
 const tickets = [];
 if (cfg.tickets) {
@@ -378,11 +391,11 @@ if (cfg.tickets) {
     const line = text.match(/^(?:Ontology )?IDs:(.*)$/m);
     if (!line) noLine.push(name(f));
     const own = new Set(line ? ids(line[1]) : []);
-    const listed = [...new Set([...text.matchAll(/`(check\.[a-z0-9.-]+)`/g)].map((m) => m[1]))];
-    for (const c of listed) {
-      if (!checkById.has(c)) unknownChecks.push(`${name(f)}: ${c}`);
-      else if (!checkById.get(c).concepts.some((x) => own.has(x))) unrelated.push(`${name(f)}: ${c}`);
-    }
+    const checkIds = (s) => [...new Set([...s.matchAll(/`(check\.[a-z0-9.-]+)`/g)].map((m) => m[1]))];
+    const listed = checkIds(text.match(/^Checks:(.*)$/m)?.[1] ?? "");
+    for (const c of checkIds(text)) if (!checkById.has(c)) unknownChecks.push(`${name(f)}: ${c}`);
+    for (const c of listed)
+      if (checkById.has(c) && !checkById.get(c).concepts.some((x) => own.has(x))) unrelated.push(`${name(f)}: ${c}`);
     tickets.push({ file: f, own, checks: listed });
     const bullets = /^## Scenarios$/m.test(text)
       ? section(text, "## Scenarios").split("\n").filter((l) => /^- /.test(l))
@@ -574,12 +587,15 @@ if (flag("--decisions") > 0) {
 
 // --gap: the work left, computed rather than listed by hand. Target concepts by section with their
 // checks, automatic checks of implemented concepts that still lack a test, and the known
-// divergences. --gap path/to/ticket.md narrows it to the ticket's slice and exits 1 until the slice
-// is done: every concept implemented, every automatic check of the slice tested.
+// divergences. --gap path/to/ticket narrows it to the ticket's slice and exits 1 until nothing of
+// the slice is left: every concept implemented, every automatic check of the slice tested, no check
+// the ticket lists waiting for a concept outside the slice, no divergence that names only its concepts.
 let sliceOpen = 0;
+let gapTicket = null;
 if (flag("--gap") > 0) {
   const next = process.argv[flag("--gap") + 1];
   const ticket = next && !next.startsWith("--") ? tickets.find((t) => t.file === resolve(next)) : null;
+  gapTicket = ticket;
   if (next && !next.startsWith("--") && !ticket) {
     console.log(`ERROR · --gap: ${next} is not a ticket the config knows`);
     errors.push("--gap");
@@ -587,6 +603,13 @@ if (flag("--gap") > 0) {
   const inScope = (x) => !ticket || ticket.own.has(x);
   const checkInScope = (c) => !ticket || ticket.checks.includes(c.id) || c.concepts.some((x) => ticket.own.has(x));
   const untested = (c) => c.proof === "auto" && fullyImplemented(c) && !checksTested.has(c.id);
+  // An automatic check the ticket lists cannot be tested while it needs a concept outside the slice
+  // that is not built; it waits for it. Shown once the slice's own concepts of the check are built,
+  // since until then they are listed as target with the check.
+  const waitsFor = (c) =>
+    ticket?.checks.includes(c.id) && c.proof === "auto" && c.concepts.every((x) => !inScope(x) || implemented.has(x))
+      ? c.concepts.filter((x) => !implemented.has(x))
+      : [];
   const out = [];
   for (const [heading, rs] of groupBy(rows, (r) => r.heading)) {
     const lines = [];
@@ -597,18 +620,25 @@ if (flag("--gap") > 0) {
         sliceOpen += 1;
       }
     }
-    const open = checks.filter((c) => untested(c) && checkInScope(c) && c.section === slug(heading));
-    for (const c of open) {
-      lines.push(`  ${c.id}  no test yet`);
+    for (const c of checks.filter((c) => c.section === slug(heading))) {
+      const missing = waitsFor(c);
+      if (untested(c) && checkInScope(c)) lines.push(`  ${c.id}  no test yet`);
+      else if (missing.length) lines.push(`  ${c.id}  waits for ${missing.join(", ")}`);
+      else continue;
       sliceOpen += 1;
     }
     if (lines.length) out.push(`GAP · ${heading}`, ...lines);
   }
-  const divHeading = md.match(/^### Known divergences.*$/m)?.[0];
-  const divergences = divHeading
-    ? section(md, divHeading).split("\n").filter((l) => /^- /.test(l) && (!ticket || ids(l).some(inScope)))
-    : [];
-  if (divergences.length) out.push("GAP · known divergences", ...divergences.map((l) => `  ${l}`));
+  // With a ticket, a divergence that names only concepts of the slice is the slice's own work and keeps
+  // it open until the line is removed. One that also names concepts outside the slice is shown apart:
+  // it is closed by a slice that covers all of its concepts.
+  const divergences = divergenceLines.filter((l) => !ticket || ids(l).some(inScope));
+  const ownLines = divergences.filter((l) => ids(l).every(inScope));
+  const sharedLines = divergences.filter((l) => !ownLines.includes(l));
+  if (ticket) sliceOpen += ownLines.length;
+  if (ownLines.length) out.push("GAP · known divergences", ...ownLines.map((l) => `  ${l}`));
+  if (sharedLines.length)
+    out.push("GAP · known divergences partly outside the slice (not counted)", ...sharedLines.map((l) => `  ${l}`));
   console.log(out.length ? out.join("\n") : "GAP · nothing open");
   if (ticket) console.log(sliceOpen ? `SLICE_OPEN: ${sliceOpen}` : "SLICE_DONE");
 }
@@ -632,4 +662,4 @@ if (errors.length) {
   process.exit(1);
 }
 console.log("ONT_OK");
-if (sliceOpen && flag("--gap") > 0 && process.argv[flag("--gap") + 1]?.endsWith(".md")) process.exit(1);
+if (gapTicket && sliceOpen) process.exit(1);

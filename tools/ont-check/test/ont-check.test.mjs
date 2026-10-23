@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -39,7 +39,7 @@ test("the example is consistent", () => {
 });
 
 test("[check.concept.untried] lists a concept with no mockup element, ticket or code as information", () => {
-  const r = run((p) => p("ontology.md", "| `edge.item.copy-of`     | `app/library.mjs` |                  |\n", ""));
+  const r = run((p) => p("ontology.md", "| `edge.item.copy-of`     | `app/library.mjs` |                                           |\n", ""));
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /info · concepts with no mockup element, ticket or implementation yet \(1\):\n  edge\.item\.copy-of/);
 });
@@ -60,22 +60,103 @@ test("[check.ticket.slice-open] --gap with a ticket reports the open slice and e
   const r = run(null, "--gap", "$DIR/issues/0003-serve-the-hold-queue.md");
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /concept\.reservation {2}target · checks: check\.hold\.reserve-on-return/);
-  assert.match(r.out, /SLICE_OPEN: 6/);
+  assert.match(r.out, /GAP · known divergences\n {2}- \*\*Hold\.\*\*/);
+  assert.match(r.out, /SLICE_OPEN: 7/);
   assert.match(r.out, /ONT_OK/);
 });
 
-test("[check.ticket.slice-done] --gap with a ticket whose slice is built prints SLICE_DONE", () => {
+test("[check.ticket.slice-open] --gap exits 1 for an open slice whatever the ticket file is called", () => {
   const r = run(
-    (p, dir) =>
-      writeFileSync(
-        join(dir, "issues", "0001-renewal.md"),
-        "# #1 Renewal\n\n## Slice\n\nIDs: `action.renew`, `inv.no-renew-when-held`.\n\nChecks: `check.loan.renew-while-held`.\n",
-      ),
+    (p, dir) => {
+      renameSync(join(dir, "issues", "0003-serve-the-hold-queue.md"), join(dir, "issues", "0003-serve-the-hold-queue.txt"));
+      p("ont.config.json", '"dir": "issues"', '"dir": "issues", "match": "\\\\.(md|txt)$"');
+    },
+    "--gap",
+    "$DIR/issues/0003-serve-the-hold-queue.txt",
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /SLICE_OPEN: 7/);
+});
+
+// A ticket for two concepts the example has built and tested, and a line to add under its known
+// divergences: the cases of a slice that is done apart from one thing.
+const renewal = (more = "") => (p, dir) =>
+  writeFileSync(
+    join(dir, "issues", "0001-renewal.md"),
+    `# #1 Renewal\n\n## Slice\n\nIDs: \`action.renew\`, \`inv.no-renew-when-held\`.\n\nChecks: \`check.loan.renew-while-held\`.\n${more}`,
+  );
+const divergence = (line) => (p) =>
+  p("ontology.md", "a new decision if the target changed.\n", `a new decision if the target changed.\n\n- ${line}`);
+
+test("[check.ticket.slice-done] --gap with a ticket whose slice is built prints SLICE_DONE", () => {
+  const r = run(renewal(), "--gap", "$DIR/issues/0001-renewal.md");
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /GAP · nothing open\nSLICE_DONE/);
+});
+
+test("[check.ticket.own-divergence] a divergence that names only the slice's concepts keeps the ticket open", () => {
+  const r = run(
+    (p, dir) => {
+      renewal()(p, dir);
+      divergence("**Loan.** The desk can renew a loan while someone waits (`action.renew`, `inv.no-renew-when-held`).")(p);
+    },
+    "--gap",
+    "$DIR/issues/0001-renewal.md",
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /GAP · known divergences\n {2}- \*\*Loan\.\*\* The desk can renew/);
+  assert.match(r.out, /SLICE_OPEN: 1/);
+});
+
+test("[check.ticket.shared-divergence] a divergence that also names a concept outside the slice is shown apart, not counted", () => {
+  const r = run(
+    (p, dir) => {
+      renewal()(p, dir);
+      divergence("**Loan.** Renewal ignores holds placed at the desk (`action.renew`, `action.place-hold`).")(p);
+    },
     "--gap",
     "$DIR/issues/0001-renewal.md",
   );
   assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /GAP · known divergences partly outside the slice \(not counted\)\n {2}- \*\*Loan\.\*\* Renewal ignores/);
+  assert.doesNotMatch(r.out, /GAP · known divergences\n/);
+  assert.match(r.out, /SLICE_DONE/);
+});
+
+test("[check.ticket.check-waits] a listed check that needs a concept of another slice keeps the ticket open", () => {
+  const r = run(
+    (p, dir) =>
+      writeFileSync(
+        join(dir, "issues", "0005-reserved-items-at-the-desk.md"),
+        "# #5 Reserved items at the desk\n\n## Slice\n\nIDs: `action.checkout`.\n\nChecks: `check.hold.reserved-for-holder-only`.\n",
+      ),
+    "--gap",
+    "$DIR/issues/0005-reserved-items-at-the-desk.md",
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /GAP · Hold\n {2}check\.hold\.reserved-for-holder-only {2}waits for concept\.reservation/);
+  assert.match(r.out, /SLICE_OPEN: 1/);
+});
+
+test("[check.ticket.checks-line-only] a check named outside the Checks line is not part of the slice", () => {
+  const r = run(renewal("\n## Out of scope\n\n`check.hold.cancel` comes with a later slice.\n"), "--gap", "$DIR/issues/0001-renewal.md");
+  assert.equal(r.code, 0, r.out);
+  assert.doesNotMatch(r.out, /check\.hold\.cancel/);
   assert.match(r.out, /GAP · nothing open\nSLICE_DONE/);
+});
+
+test("reads the known divergences under the heading the config names", () => {
+  const r = run(
+    (p) => {
+      p("ontology.md", "### Known divergences between code and ontology", "### Where the code contradicts the target");
+      p("ont.config.json", '"retired": "## Retired IDs"', '"retired": "## Retired IDs",\n    "divergences": "### Where the code contradicts"');
+    },
+    "--gap",
+    "$DIR/issues/0004-suspend-instead-of-fines.md",
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /GAP · known divergences\n {2}- \*\*Member\.\*\*/);
+  assert.match(r.out, /SLICE_OPEN: 3/);
 });
 
 test("still reads the older verification map", () => {
@@ -251,6 +332,8 @@ const cases = [
     (p) => p("ontology.md", "| Entity | `ent.title` |", "|        | `type.title` | Type | x |\n| Entity | `ent.title` |")],
   ["[check.retired-id.unknown-replacement] a retired ID replaced by an undefined one", "retired IDs replaced by an ID not in the glossary",
     (p) => p("ontology.md", "| `field.loan.due-date`       | D-06", "| `field.loan.due-on`         | D-06")],
+  ["[check.divergence.no-concept] a known divergence that names no concept", "known divergences that name no concept by ID",
+    divergence("**Loan.** The desk sees no reason when a renewal is refused.")],
   ["[check.ticket.no-ids] a ticket without an IDs line", "tickets without an `IDs:` line",
     (p) => p("issues/0003-serve-the-hold-queue.md", "IDs: `hook.hold-ready`", "Concepts: `hook.hold-ready`")],
   ["[check.doc-set.duplicate-name] two doc sets with the same name", "doc sets with the same name",

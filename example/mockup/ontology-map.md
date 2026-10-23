@@ -45,9 +45,10 @@ Map rules:
 
 ## Desk
 
-| Element         | ID                            | What it shows                              | What it does not do            |
-| --------------- | ----------------------------- | ------------------------------------------ | ------------------------------ |
-| "Check out"     | `action.checkout`             | lends the item to the member               |                                |
-| Refusal message | `inv.suspended-cannot-borrow` | why checkout is refused, and what lifts it | no override button at the desk |
-| "Return"        | `action.return`               | takes the item back                        |                                |
-| "Loans: 2 of 5" | `field.member.borrow-limit`   | open loans against the member's limit      |                                |
+| Element         | ID                            | What it shows                              | What it does not do                   |
+| --------------- | ----------------------------- | ------------------------------------------ | ------------------------------------- |
+| "Check out"     | `action.checkout`             | lends the item to the member               |                                       |
+| Refusal message | `inv.suspended-cannot-borrow` | why checkout is refused, and what lifts it | no override button at the desk        |
+| "Return"        | `action.return`               | takes the item back                        |                                       |
+| "Loans: 2 of 5" | `field.member.borrow-limit`   | open loans against the member's limit      |                                       |
+| "Change limit"  | `action.set-borrow-limit`     | changes the member's limit                 | members cannot change their own limit |

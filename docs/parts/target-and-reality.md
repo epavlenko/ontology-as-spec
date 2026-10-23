@@ -11,10 +11,10 @@ The ontology describes the **target model**: the product as agreed, not as built
 ```markdown
 ### Hold
 
-| ID                  | Implemented in    | Note                                         |
-| ------------------- | ----------------- | -------------------------------------------- |
-| `ent.hold`          | `app/library.mjs` | placement only; nothing serves the queue yet |
-| `action.place-hold` | `app/cli.mjs`     |                                              |
+| ID                  | Implemented in    | Note                                                             |
+| ------------------- | ----------------- | ---------------------------------------------------------------- |
+| `ent.hold`          | `app/library.mjs` | placement only; nothing serves the queue until `hook.hold-ready` |
+| `action.place-hold` | `app/cli.mjs`     |                                                                  |
 
 ### Known divergences
 
@@ -30,12 +30,12 @@ A design document that is edited to match the code stops being a design. A desig
 
 It also gives agents a precise instruction. An agent implementing a ticket builds toward the ontology. When it finds the code disagreeing, it does not quietly "fix" the ontology to match. It records a divergence.
 
-<!-- ont: inv.implementation-files-exist@07da6e, inv.implementation-true@182ebf, rule.table-with-code@a2eb21, rule.partial-noted@dc25d4, rule.divergence-becomes-work@5253b4, rule.second-vocabulary@82a1d4 -->
+<!-- ont: inv.implementation-files-exist@07da6e, inv.implementation-true@182ebf, rule.table-with-code@a2eb21, rule.partial-noted@164c8d, rule.divergence-becomes-work@5253b4, rule.second-vocabulary@82a1d4, inv.divergence-names-concepts@56bf0a -->
 ## Reference
 
-`ont-check.mjs --gap` reads the table the other way round: every concept not in it is target, and together with untested checks and the known divergences that is the work left. Divergences therefore list only code that contradicts the target; what is simply not built yet comes from the table.
+`ont-check.mjs --gap` reads the table the other way round: every concept not in it is target, and together with untested checks and the known divergences that is the work left. Divergences therefore list only code that contradicts the target; what is simply not built yet comes from the table. For the same reason a note cannot hold work: a concept with a row counts as built, whatever its note says is missing. The note of a partial row names the target concept that adds what is missing, and when no concept covers it, one is added with its check. In the example, the borrow limit is fixed at five until staff can set it, and setting it is a target action with its own check.
 
-The fields of an implementation row and of a divergence, their rules and their checks are in the reference: [Implementation row](../reference.md#implementation-row) and [Divergence](../reference.md#divergence). The tool confirms that the files a row names exist, not that they realise the concept; that, and keeping the table current with the code, are manual checks.
+The fields of an implementation row and of a divergence, their rules and their checks are in the reference: [Implementation row](../reference.md#implementation-row) and [Divergence](../reference.md#divergence). The tool confirms that the files a row names exist, not that they realise the concept; that, and keeping the table current with the code, are manual checks. It also fails on a divergence that names no concept: `--gap` matches divergences to tickets by their IDs, and a line without them would belong to no slice.
 
 ## How it fails in practice
 

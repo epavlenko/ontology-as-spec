@@ -78,4 +78,4 @@ Earlier versions kept a verification map: a directory of scenario files, one per
 
 ## In the example
 
-[`example/checks.md`](../../example/checks.md): twenty-one checks, two of them manual, for every invariant, rule, hook and action, including the hold queue that is not built yet. Two test suites implement them: unit tests in [`example/app/library.test.mjs`](../../example/app/library.test.mjs) and end-to-end tests in [`example/e2e/cli.test.mjs`](../../example/e2e/cli.test.mjs), which run the command line front end as a separate process.
+[`example/checks.md`](../../example/checks.md): twenty-two checks, two of them manual, for every invariant, rule, hook and action, including the hold queue that is not built yet. Two test suites implement them: unit tests in [`example/app/library.test.mjs`](../../example/app/library.test.mjs) and end-to-end tests in [`example/e2e/cli.test.mjs`](../../example/e2e/cli.test.mjs), which run the command line front end as a separate process.

@@ -43,6 +43,7 @@ Paths are relative to the config file.
 | `ontology` | the ontology Markdown file | yes |
 | `headings.retired` | heading of the retired IDs table; default `## Retired IDs`; the section may be absent | no |
 | `headings.implementation` | heading of the implementation table; default `## Implementation status`; `null` until code exists | no |
+| `headings.divergences` | the start of the heading of the known divergences; default `### Known divergences`; the section may be absent | no |
 | `root` | base directory for paths in the implementation table; default the config's directory | no |
 | `decisions.file` | the decision log | no |
 | `decisions.entry` | regex for an entry heading with the number in group 1; default `^### (D-\d+) · .+$` | no |
@@ -72,13 +73,13 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Retired IDs:** ``| `old.id` | `new.id` | D-nn |`` under `headings.retired`; a dash instead of the new ID for a removed concept.
 - **IDs in Markdown text:** in backticks; other text is not read as IDs. Doc anchors and test tags, below, have their own forms.
 - **Implementation rows:** ``| `class.name` | `path`, `path` | note |`` inside the implementation section.
-- **Known divergences:** bullets under a heading that starts with `### Known divergences`; `--gap` prints them, and with a ticket only those naming its concepts.
+- **Known divergences:** bullets under a heading that starts with `headings.divergences`, by default `### Known divergences`, each naming the concepts involved in backticks; the check fails on a line that names none. `--gap` prints them. With a ticket it prints only those naming its concepts: a line that names only concepts of the slice keeps it open, and one that also names other concepts is shown apart and not counted.
 - **Mockup:** `data-ont="class.name"` attributes, and IDs in single quotes inside scripts (`'view.catalog'`). IDs built from templates are declared in a comment `/* data-ont dynamic: 'class.a','class.b' */`, and the markup must contain `data-ont="class.${`.
 - **Decision entries:** headings matched by `decisions.entry`.
 - **Checks:** ``| `check.section.name` | `id`, `id` | GIVEN | WHEN | THEN | auto or manual |`` under `## Section` headings; the second part of the ID is the heading in lowercase.
 - **Scenario files (older):** an `IDs:` line at the start of a line.
 - **Test tags:** IDs in square brackets anywhere in a test file, normally at the start of a test title: `test("[check.loan.renew-while-held] …")`, or a concept for what is not a product check, `test("[field.loan.renewals] …")`. Only `check` and configured classes are read, so `[0]` or `[x.y]` is not a tag.
-- **Tickets:** an `IDs:` or `Ontology IDs:` line; the checks they list, in backticks. Older tickets may have a `## Scenarios` section whose bullets read `- [id, id] GIVEN … WHEN … THEN …`.
+- **Tickets:** an `IDs:` or `Ontology IDs:` line, and a `Checks:` line with the checks of the slice in backticks. A check named elsewhere in a ticket must exist but is not part of the slice. Older tickets may have a `## Scenarios` section whose bullets read `- [id, id] GIVEN … WHEN … THEN …`.
 - **Doc anchors:** `<!-- ont: id, id@stamp -->` in pages of a doc set; IDs are concepts or checks, stamps are optional and written by `stamp-docs.mjs`.
 - **Supersession:** an entry that replaces older ones names them on a line matched by `decisions.supersedes`, by default `- Supersedes: D-05, D-07`.
 - **Decision status (guard):** an entry is accepted when one of its lines matches `decisions.accepted`, by default a `- Date:` line containing `Status: accepted`.

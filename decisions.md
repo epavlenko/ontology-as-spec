@@ -195,6 +195,35 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: a review of this repository listed nine findings, and half of them misled no one: a missing table row, a link that could cite a newer decision, a hook trigger the check would not use. Lists like that cost the owner's attention and teach agents that review output is noise. The check itself already has the same boundary: it keeps to references between artifacts and does not grow into a linter of style.
 - Rejected: a severity scale for findings (agents rank everything as medium); leaving it to judgment without a written rule (the next agent repeats the long list).
 
+### D-28 · A ticket stays open while a divergence of its own remains or a check it lists waits
+
+- Date: 2026-10-23 · Status: accepted
+- Supersedes: D-16
+- Decision: `ont-check.mjs --gap <ticket>` prints `SLICE_DONE` only when nothing of the slice is left: every concept of the slice is implemented, every automatic check of the slice is tested, no automatic check the ticket lists waits for a concept outside the slice, and no known divergence names only concepts of the slice. A waiting check is printed with the concepts it waits for. A divergence that also names concepts outside the slice is printed apart and does not keep the ticket open. The checks a ticket lists are those on its `Checks:` line; a check named elsewhere in the ticket, such as under out of scope, must exist but is not part of the slice. What still holds of D-16: a ticket for product work names the concepts (`IDs:`) and the checks of the slice, why now, what is out of scope, what it depends on and what the agent may do; it carries no expected behavior, no files to touch and no hand-written finish condition; the finish condition is `SLICE_DONE` and passing tests; the check requires that the checks a ticket lists exist and name at least one of its IDs; work that does not change meaning stays an ordinary ticket.
+- Why: D-16 counted only what is missing, a concept outside the implementation table or an automatic check without a test. A slice that brings code back to the target has nothing missing once its rows and tests exist: in the example, #4 Suspend borrowing instead of fines printed `SLICE_DONE` with its line under known divergences still in place. A check the ticket listed dropped out of the count when it also needed a concept of another slice, so the ticket closed without it. And a check named under out of scope counted as one the ticket lists.
+- Rejected: keeping the ticket open for every divergence that names any of its concepts (a line that spans two slices would hold the first one open for work outside it); matching a divergence to its ticket by the ticket's number in the line (a second link to keep current, while both already name the concepts, and tickets kept in a tracker have no file to match); refusing a listed check that needs a concept outside the slice (a slice that depends on another may list it; it should wait, not fail); reading checks anywhere in the ticket (out of scope and notes name checks too).
+
+### D-29 · What a partial implementation leaves out is a target concept, not only a note
+
+- Date: 2026-10-23 · Status: accepted
+- Decision: when an implementation row is partial, its note names the target concept that will add what is missing. If no concept covers the missing part, one is added like any other, with a check when its class needs one. `--gap` then lists the missing part as target, with its checks, and a ticket can take it. This adds to D-15, which still holds.
+- Why: `--gap` reads only the implementation table, so a concept with a row counts as built whatever its note says. In the example, the target has staff set a member's borrow limit, and the row said "fixed at 5, staff cannot change it": the work existed only in a note, and neither `--gap` nor a ticket would ever show it.
+- Rejected: a partial status in the implementation table that `--gap` counts (a third state to keep current, and the note would still have to say what is missing); reading the note column (free text); recording the shortfall as a divergence (the code does not contradict the target, it stops short of it, and D-15 keeps divergences for contradictions).
+
+### D-30 · The heading of known divergences is configurable
+
+- Date: 2026-10-23 · Status: accepted
+- Decision: `--gap` reads the known divergences under the heading that `headings.divergences` in the configuration names, matched at the start of a line. The default stays `### Known divergences`.
+- Why: the heading was written into the tool in English. In an ontology written in another language, `--gap` showed no divergences and did not say so, and since D-28 a ticket would also close with its divergence still open. The headings of the implementation table and of retired IDs were already configurable, and D-12 made the accepted status configurable for the same reason.
+- Rejected: requiring the English heading (the ontology is written for the team, in its language); an error when the heading is missing (an ontology has no divergences before there is code).
+
+### D-31 · A known divergence names its concepts, and the check requires it
+
+- Date: 2026-10-23 · Status: accepted
+- Decision: the check fails on a line under known divergences that names no concept of the ontology by ID, in backticks. The approach's ontology gets the invariant `inv.divergence-names-concepts` and its check.
+- Why: since D-28, `--gap` matches a divergence to a ticket by the IDs the line names. A line without IDs belonged to no slice: `--gap` with a ticket never showed it, and the ticket could close while the line stood. Part 3 and the lifecycle already said that a line names the IDs involved, but nothing enforced it.
+- Rejected: information instead of an error (the line is fixed by naming the concepts, and until then the gap of every ticket is wrong); counting a line without IDs against every ticket (it would keep every slice open); matching the ticket's number written in the line (rejected in D-28).
+
 ## Tentative
 
 None.
@@ -205,6 +234,10 @@ None.
 
 ## History
 
+- 2026-10-23: D-31: a known divergence names its concepts.
+- 2026-10-23: D-30: configurable heading of known divergences.
+- 2026-10-23: D-29: what a partial implementation leaves out is a target concept.
+- 2026-10-23: D-28: a ticket stays open while a divergence of its own remains or a listed check waits; D-16 superseded.
 - 2026-10-22: D-27: what a consistency review reports.
 - 2026-10-22: D-26: one question per entry; D-17 superseded.
 - 2026-10-22: D-25: supersession on a line of its own.

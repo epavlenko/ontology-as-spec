@@ -17,9 +17,12 @@ export function loadConfig(configPath) {
   const base = dirname(file);
   const raw = JSON.parse(read(file));
   const at = (p) => (p ? resolve(base, p) : null);
+  // Headings in another language are set in the config. Known divergences are found by the start of
+  // their heading line, so "### Known divergences between code and ontology" matches the default.
   const headings = {
     implementation: "## Implementation status",
     retired: "## Retired IDs",
+    divergences: "### Known divergences",
     ...raw.headings,
   };
   // classes: an array of class names, or an object { class: "Kind label" }. The order is the order

@@ -370,7 +370,7 @@
           }
         },
         "checks": {
-          "description": "The checks of the slice.",
+          "description": "The checks of the slice, on the ticket's Checks: line.",
           "x-ont": "edge.ticket.checks",
           "type": "array",
           "items": {

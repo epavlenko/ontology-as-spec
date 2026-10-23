@@ -85,27 +85,28 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Implementation row
 
-| Kind      | ID                                | Term                  | Type              | Definition                                                                                                    |
-| --------- | --------------------------------- | --------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.implementation-row`          | Implementation row    |                   | A claim that a concept exists in the product, with the files and a note on what is partial.                   |
-| Field     | `field.implementation-row.files`  | Files                 | text              | Paths of the files that realise the concept.                                                                  |
-|           | `field.implementation-row.note`   | Note                  | text optional     | What is partial or missing.                                                                                   |
-| Relation  | `edge.implementation-row.concept` | Concept               | ref `ent.concept` | The concept the row claims.                                                                                   |
-| Rule      | `rule.table-with-code`            | Updated with the code |                   | A change to behavior updates the implementation table in the same change.                                     |
-|           | `rule.partial-noted`              | Partial noted         |                   | A partial implementation says in the note what is missing; no note means complete as far as the author knows. |
-| Invariant | `inv.implementation-files-exist`  | Files exist           |                   | Every file the table names exists.                                                                            |
-|           | `inv.implementation-true`         | Row is true           |                   | The files a row names do realise the concept.                                                                 |
+| Kind      | ID                                | Term                  | Type              | Definition                                                                                                                       |
+| --------- | --------------------------------- | --------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.implementation-row`          | Implementation row    |                   | A claim that a concept exists in the product, with the files and a note on what is partial.                                      |
+| Field     | `field.implementation-row.files`  | Files                 | text              | Paths of the files that realise the concept.                                                                                     |
+|           | `field.implementation-row.note`   | Note                  | text optional     | What is partial or missing.                                                                                                      |
+| Relation  | `edge.implementation-row.concept` | Concept               | ref `ent.concept` | The concept the row claims.                                                                                                      |
+| Rule      | `rule.table-with-code`            | Updated with the code |                   | A change to behavior updates the implementation table in the same change.                                                        |
+|           | `rule.partial-noted`              | Partial noted         |                   | The note of a partial row names the target concept that adds what is missing; no note means complete as far as the author knows. |
+| Invariant | `inv.implementation-files-exist`  | Files exist           |                   | Every file the table names exists.                                                                                               |
+|           | `inv.implementation-true`         | Row is true           |                   | The files a row names do realise the concept.                                                                                    |
 
 ## Divergence
 
-| Kind     | ID                             | Term                | Type               | Definition                                                                                                                                         |
-| -------- | ------------------------------ | ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entity   | `ent.divergence`               | Divergence          |                    | A place where the product does something the target does not want.                                                                                 |
-| Field    | `field.divergence.description` | Description         | text               | What the product does instead, and the ticket or decision that will settle it.                                                                     |
-| Relation | `edge.divergence.concepts`     | Concepts            | refs `ent.concept` | The concepts involved.                                                                                                                             |
-| Rule     | `rule.divergence-contradicts`  | Only contradictions |                    | A divergence records behavior that contradicts the target; what is not built yet is the gap, not a divergence.                                     |
-|          | `rule.divergence-becomes-work` | Becomes work        |                    | Each divergence becomes a ticket, or a decision when the target was what changed.                                                                  |
-|          | `rule.second-vocabulary`       | Second vocabulary   |                    | A project may keep the vocabulary of what shipped apart from the target's; where they disagree, it is a divergence, never a silent edit of either. |
+| Kind      | ID                              | Term                | Type               | Definition                                                                                                                                         |
+| --------- | ------------------------------- | ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.divergence`                | Divergence          |                    | A place where the product does something the target does not want.                                                                                 |
+| Field     | `field.divergence.description`  | Description         | text               | What the product does instead, and the ticket or decision that will settle it.                                                                     |
+| Relation  | `edge.divergence.concepts`      | Concepts            | refs `ent.concept` | The concepts involved.                                                                                                                             |
+| Rule      | `rule.divergence-contradicts`   | Only contradictions |                    | A divergence records behavior that contradicts the target; what is not built yet is the gap, not a divergence.                                     |
+|           | `rule.divergence-becomes-work`  | Becomes work        |                    | Each divergence becomes a ticket, or a decision when the target was what changed.                                                                  |
+|           | `rule.second-vocabulary`        | Second vocabulary   |                    | A project may keep the vocabulary of what shipped apart from the target's; where they disagree, it is a divergence, never a silent edit of either. |
+| Invariant | `inv.divergence-names-concepts` | Concepts named      |                    | Every line under known divergences names at least one concept by ID.                                                                               |
 
 ## Mockup element
 
@@ -175,21 +176,21 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Ticket
 
-| Kind      | ID                             | Term                   | Type                       | Definition                                                                                            |
-| --------- | ------------------------------ | ---------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.ticket`                   | Ticket                 |                            | A slice of the gap: what to build now, within which limits.                                           |
-| Field     | `field.ticket.why-now`         | Why now                | text                       | Why this slice comes before the rest of the gap.                                                      |
-|           | `field.ticket.out-of-scope`    | Out of scope           | text optional              | What not to build, though it is target too.                                                           |
-|           | `field.ticket.pre-authorized`  | Pre-authorized         | text optional              | Permissions the agent would otherwise stop and ask for.                                               |
-| Relation  | `edge.ticket.concepts`         | Slice                  | refs `ent.concept`         | The concepts to build.                                                                                |
-|           | `edge.ticket.checks`           | Checks                 | refs `ent.check` optional  | The checks of the slice.                                                                              |
-|           | `edge.ticket.depends-on`       | Depends on             | refs `ent.ticket` optional | Slices that must be done first.                                                                       |
-| Derived   | `derived.gap`                  | Gap                    |                            | The work left: target concepts with their checks, automatic checks without a test, known divergences. |
-|           | `derived.slice-done`           | Slice done             |                            | Every concept of the slice implemented and every automatic check of it tested.                        |
-| Rule      | `rule.ticket-without-behavior` | No behavior in tickets |                            | A ticket does not describe behavior; behavior is in the check catalogue, written before the ticket.   |
-| Invariant | `inv.ticket-has-ids`           | Names its concepts     |                            | A ticket has an `IDs:` line.                                                                          |
-|           | `inv.ticket-checks-related`    | Related checks         |                            | Every check a ticket lists exists and names one of its concepts.                                      |
-| Action    | `action.cut-slice`             | Cut a slice            |                            | Take part of the gap and write the ticket with its limits and permissions.                            |
+| Kind      | ID                             | Term                   | Type                       | Definition                                                                                                                                                                                            |
+| --------- | ------------------------------ | ---------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.ticket`                   | Ticket                 |                            | A slice of the gap: what to build now, within which limits.                                                                                                                                           |
+| Field     | `field.ticket.why-now`         | Why now                | text                       | Why this slice comes before the rest of the gap.                                                                                                                                                      |
+|           | `field.ticket.out-of-scope`    | Out of scope           | text optional              | What not to build, though it is target too.                                                                                                                                                           |
+|           | `field.ticket.pre-authorized`  | Pre-authorized         | text optional              | Permissions the agent would otherwise stop and ask for.                                                                                                                                               |
+| Relation  | `edge.ticket.concepts`         | Slice                  | refs `ent.concept`         | The concepts to build.                                                                                                                                                                                |
+|           | `edge.ticket.checks`           | Checks                 | refs `ent.check` optional  | The checks of the slice, on the ticket's `Checks:` line.                                                                                                                                              |
+|           | `edge.ticket.depends-on`       | Depends on             | refs `ent.ticket` optional | Slices that must be done first.                                                                                                                                                                       |
+| Derived   | `derived.gap`                  | Gap                    |                            | The work left: target concepts with their checks, automatic checks without a test, known divergences.                                                                                                 |
+|           | `derived.slice-done`           | Slice done             |                            | Nothing of the slice left: its concepts implemented, its automatic checks tested, none of the checks it lists waiting for a concept outside it, and no known divergence that names only its concepts. |
+| Rule      | `rule.ticket-without-behavior` | No behavior in tickets |                            | A ticket does not describe behavior; behavior is in the check catalogue, written before the ticket.                                                                                                   |
+| Invariant | `inv.ticket-has-ids`           | Names its concepts     |                            | A ticket has an `IDs:` line.                                                                                                                                                                          |
+|           | `inv.ticket-checks-related`    | Related checks         |                            | Every check a ticket lists exists and names one of its concepts.                                                                                                                                      |
+| Action    | `action.cut-slice`             | Cut a slice            |                            | Take part of the gap and write the ticket with its limits and permissions.                                                                                                                            |
 
 ## Agent rules
 
@@ -331,14 +332,15 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Divergence
 
-| ID                             | Implemented in                     | Note                  |
-| ------------------------------ | ---------------------------------- | --------------------- |
-| `ent.divergence`               | `tools/ont-check/ont-check.mjs`    |                       |
-| `field.divergence.description` | `tools/ont-check/ont-check.mjs`    |                       |
-| `edge.divergence.concepts`     | `tools/ont-check/ont-check.mjs`    |                       |
-| `rule.divergence-contradicts`  | `docs/parts/target-and-reality.md` | reviewed, not checked |
-| `rule.divergence-becomes-work` | `docs/parts/target-and-reality.md` | reviewed, not checked |
-| `rule.second-vocabulary`       | `docs/parts/target-and-reality.md` | reviewed, not checked |
+| ID                              | Implemented in                     | Note                  |
+| ------------------------------- | ---------------------------------- | --------------------- |
+| `ent.divergence`                | `tools/ont-check/ont-check.mjs`    |                       |
+| `field.divergence.description`  | `tools/ont-check/ont-check.mjs`    |                       |
+| `edge.divergence.concepts`      | `tools/ont-check/ont-check.mjs`    |                       |
+| `rule.divergence-contradicts`   | `docs/parts/target-and-reality.md` | reviewed, not checked |
+| `rule.divergence-becomes-work`  | `docs/parts/target-and-reality.md` | reviewed, not checked |
+| `rule.second-vocabulary`        | `docs/parts/target-and-reality.md` | reviewed, not checked |
+| `inv.divergence-names-concepts` | `tools/ont-check/ont-check.mjs`    |                       |
 
 ### Mockup element
 
@@ -408,21 +410,21 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Ticket
 
-| ID                             | Implemented in                  | Note                                        |
-| ------------------------------ | ------------------------------- | ------------------------------------------- |
-| `ent.ticket`                   | `tools/ont-check/ont-check.mjs` |                                             |
-| `field.ticket.why-now`         | `tools/ont-check/ont-check.mjs` |                                             |
-| `field.ticket.out-of-scope`    | `tools/ont-check/ont-check.mjs` |                                             |
-| `field.ticket.pre-authorized`  | `tools/ont-check/ont-check.mjs` |                                             |
-| `edge.ticket.concepts`         | `tools/ont-check/ont-check.mjs` |                                             |
-| `edge.ticket.checks`           | `tools/ont-check/ont-check.mjs` |                                             |
-| `edge.ticket.depends-on`       | `tools/ont-check/ont-check.mjs` |                                             |
-| `derived.gap`                  | `tools/ont-check/ont-check.mjs` |                                             |
-| `derived.slice-done`           | `tools/ont-check/ont-check.mjs` |                                             |
-| `rule.ticket-without-behavior` | `docs/parts/agent-workflow.md`  | reviewed, not checked                       |
-| `inv.ticket-has-ids`           | `tools/ont-check/ont-check.mjs` |                                             |
-| `inv.ticket-checks-related`    | `tools/ont-check/ont-check.mjs` |                                             |
-| `action.cut-slice`             | `docs/parts/agent-workflow.md`  | a procedure; `--gap` lists what to cut from |
+| ID                             | Implemented in                  | Note                                         |
+| ------------------------------ | ------------------------------- | -------------------------------------------- |
+| `ent.ticket`                   | `tools/ont-check/ont-check.mjs` |                                              |
+| `field.ticket.why-now`         | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it |
+| `field.ticket.out-of-scope`    | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it |
+| `field.ticket.pre-authorized`  | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it |
+| `edge.ticket.concepts`         | `tools/ont-check/ont-check.mjs` |                                              |
+| `edge.ticket.checks`           | `tools/ont-check/ont-check.mjs` |                                              |
+| `edge.ticket.depends-on`       | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it |
+| `derived.gap`                  | `tools/ont-check/ont-check.mjs` |                                              |
+| `derived.slice-done`           | `tools/ont-check/ont-check.mjs` |                                              |
+| `rule.ticket-without-behavior` | `docs/parts/agent-workflow.md`  | reviewed, not checked                        |
+| `inv.ticket-has-ids`           | `tools/ont-check/ont-check.mjs` |                                              |
+| `inv.ticket-checks-related`    | `tools/ont-check/ont-check.mjs` |                                              |
+| `action.cut-slice`             | `docs/parts/agent-workflow.md`  | a procedure; `--gap` lists what to cut from  |
 
 ### Agent rules
 
@@ -480,6 +482,9 @@ None known.
 
 ## Revision history
 
+- 2026-10-23: `inv.divergence-names-concepts`, enforced by the check (D-31).
+- 2026-10-23: `rule.partial-noted`: the note names the target concept that adds what is missing (D-29).
+- 2026-10-23: `derived.slice-done` also waits for the slice's own divergences and for listed checks that need a concept outside it; `edge.ticket.checks` is the `Checks:` line (D-28). The ticket's sections the tool does not read are realised by part 8.
 - 2026-10-22: `rule.findings-mislead`: what a consistency review reports (D-27).
 - 2026-10-22: one question per entry; a later entry adds to an earlier one or supersedes it whole (D-26).
 - 2026-10-22: supersession on a `Supersedes:` line, `derived.in-force` and `inv.supersedes-older` (D-25).

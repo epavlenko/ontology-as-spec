@@ -20,6 +20,10 @@ window.ONT = {
   "name": "Suspended cannot borrow",
   "def": "A member with an overdue loan cannot check out or place holds until it is back."
  },
+ "action.set-borrow-limit": {
+  "name": "Set borrow limit",
+  "def": "Change a member's borrow limit. Refused while the member has more open loans than the new limit."
+ },
  "ent.title": {
   "name": "Title",
   "def": "A work in the catalog: a book, a board game, a tool model. Has one or more items."

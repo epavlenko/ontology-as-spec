@@ -29,9 +29,11 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 | Concept   | `concept.suspension`          | Suspension              |             | A member with an overdue loan. Not stored and not timed: ends when the last overdue item comes back. |
 | Invariant | `inv.within-limit`            | Within the limit        |             | Open loans never exceed the member's borrow limit.                                                   |
 |           | `inv.suspended-cannot-borrow` | Suspended cannot borrow |             | A member with an overdue loan cannot check out or place holds until it is back.                      |
+| Action    | `action.set-borrow-limit`     | Set borrow limit        |             | Change a member's borrow limit. Refused while the member has more open loans than the new limit.     |
 
 - `concept.suspension` starts the moment one of the member's loans becomes `derived.overdue`. It replaces money fines, which do not exist (D-03).
 - `inv.suspended-cannot-borrow` blocks `action.checkout` and `action.place-hold`. Nobody can override it at the desk.
+- `action.set-borrow-limit` is done by staff at the desk.
 
 ## Title
 
@@ -110,7 +112,7 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 - `view.catalog` shows each `ent.title` with how many items are `derived.available`, or the queue length.
 - `view.title.page` shows `field.item.condition`, `derived.queue-position` and `action.place-hold`.
 - `view.member.loans` shows `field.loan.due-date`, `derived.overdue`, `field.loan.renewals` and `action.renew`.
-- `view.desk` offers `action.checkout` and `action.return`, and shows `field.member.borrow-limit`.
+- `view.desk` offers `action.checkout`, `action.return` and `action.set-borrow-limit`, and shows `field.member.borrow-limit`.
 
 ## Deliberately out of scope
 
@@ -122,11 +124,11 @@ The table answers "is this already in the code or is it the target". Everything 
 
 ### Member
 
-| ID                          | Implemented in    | Note                               |
-| --------------------------- | ----------------- | ---------------------------------- |
-| `ent.member`                | `app/library.mjs` |                                    |
-| `field.member.borrow-limit` | `app/library.mjs` | fixed at 5, staff cannot change it |
-| `inv.within-limit`          | `app/library.mjs` |                                    |
+| ID                          | Implemented in    | Note                                       |
+| --------------------------- | ----------------- | ------------------------------------------ |
+| `ent.member`                | `app/library.mjs` |                                            |
+| `field.member.borrow-limit` | `app/library.mjs` | fixed at 5 until `action.set-borrow-limit` |
+| `inv.within-limit`          | `app/library.mjs` |                                            |
 
 ### Title
 
@@ -136,38 +138,38 @@ The table answers "is this already in the code or is it the target". Everything 
 
 ### Item
 
-| ID                      | Implemented in    | Note             |
-| ----------------------- | ----------------- | ---------------- |
-| `ent.item`              | `app/library.mjs` | no condition yet |
-| `edge.item.copy-of`     | `app/library.mjs` |                  |
-| `inv.one-loan-per-item` | `app/library.mjs` |                  |
+| ID                      | Implemented in    | Note                                      |
+| ----------------------- | ----------------- | ----------------------------------------- |
+| `ent.item`              | `app/library.mjs` | no condition until `field.item.condition` |
+| `edge.item.copy-of`     | `app/library.mjs` |                                           |
+| `inv.one-loan-per-item` | `app/library.mjs` |                                           |
 
 ### Loan
 
-| ID                       | Implemented in    | Note                   |
-| ------------------------ | ----------------- | ---------------------- |
-| `ent.loan`               | `app/library.mjs` |                        |
-| `edge.loan.item`         | `app/library.mjs` |                        |
-| `edge.loan.member`       | `app/library.mjs` |                        |
-| `field.loan.due-date`    | `app/library.mjs` |                        |
-| `field.loan.renewals`    | `app/library.mjs` |                        |
-| `derived.overdue`        | `app/library.mjs` |                        |
-| `rule.loan-period`       | `app/library.mjs` |                        |
-| `rule.renewal`           | `app/library.mjs` |                        |
-| `inv.no-renew-when-held` | `app/library.mjs` |                        |
-| `action.checkout`        | `app/cli.mjs`     |                        |
-| `action.return`          | `app/cli.mjs`     | condition not recorded |
-| `action.renew`           | `app/cli.mjs`     |                        |
+| ID                       | Implemented in    | Note                                              |
+| ------------------------ | ----------------- | ------------------------------------------------- |
+| `ent.loan`               | `app/library.mjs` |                                                   |
+| `edge.loan.item`         | `app/library.mjs` |                                                   |
+| `edge.loan.member`       | `app/library.mjs` |                                                   |
+| `field.loan.due-date`    | `app/library.mjs` |                                                   |
+| `field.loan.renewals`    | `app/library.mjs` |                                                   |
+| `derived.overdue`        | `app/library.mjs` |                                                   |
+| `rule.loan-period`       | `app/library.mjs` |                                                   |
+| `rule.renewal`           | `app/library.mjs` |                                                   |
+| `inv.no-renew-when-held` | `app/library.mjs` |                                                   |
+| `action.checkout`        | `app/cli.mjs`     |                                                   |
+| `action.return`          | `app/cli.mjs`     | records no condition until `field.item.condition` |
+| `action.renew`           | `app/cli.mjs`     |                                                   |
 
 ### Hold
 
-| ID                       | Implemented in    | Note                                         |
-| ------------------------ | ----------------- | -------------------------------------------- |
-| `ent.hold`               | `app/library.mjs` | placement only; nothing serves the queue yet |
-| `edge.hold.waits-for`    | `app/library.mjs` |                                              |
-| `edge.hold.member`       | `app/library.mjs` |                                              |
-| `derived.queue-position` | `app/library.mjs` |                                              |
-| `action.place-hold`      | `app/cli.mjs`     |                                              |
+| ID                       | Implemented in    | Note                                                             |
+| ------------------------ | ----------------- | ---------------------------------------------------------------- |
+| `ent.hold`               | `app/library.mjs` | placement only; nothing serves the queue until `hook.hold-ready` |
+| `edge.hold.waits-for`    | `app/library.mjs` |                                                                  |
+| `edge.hold.member`       | `app/library.mjs` |                                                                  |
+| `derived.queue-position` | `app/library.mjs` |                                                                  |
+| `action.place-hold`      | `app/cli.mjs`     |                                                                  |
 
 ### Screens
 
@@ -197,6 +199,7 @@ IDs that had to change. The decision log keeps using them, because its entries a
 
 ## Revision history
 
+- 2026-10-23: `action.set-borrow-limit`, the staff action the borrow limit's definition already implied, so that `--gap` shows it as work; notes on partial rows name the target concept that adds what is missing.
 - 2026-10-22: known divergences keep only behavior that contradicts the target; what is not built yet comes from `--gap`. `derived.queue-position` added to the implementation table, which `--gap` showed missing.
 - 2026-10-21: types for fields and relations, contracts generated from them; relations `edge.loan.item`, `edge.loan.member` and `edge.hold.member`, which the code already had.
 - 2026-10-21: one section per entity with one definition row per concept, grouped by kind; the separate glossary table and the per-kind tables merged into them. Fields and relations name their entity (D-06); the old IDs retired.

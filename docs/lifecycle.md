@@ -45,8 +45,8 @@ Write a new decision entry that supersedes the old one whole, names it on a `- S
 1. The concept has its checks in the catalogue. If one is missing, it is written first.
 2. A ticket cuts the slice from the gap (`ont-check.mjs --gap`): IDs, checks, out of scope, dependencies, permissions.
 3. The agent reads the definition rows, the checks and the decisions for those IDs.
-4. Code, a test for each automatic check whose title starts with the check's ID, then the implementation table row with a note on anything partial.
-5. Remove the matching line from known divergences, if there was one.
+4. Code, a test for each automatic check whose title starts with the check's ID, then the implementation table row. If the code leaves part of the concept out, the row's note names the target concept that adds it; if there is none, add one, with its check, like any new concept.
+5. Remove the matching line from known divergences, if there was one; while it stays, `--gap` keeps the slice open.
 6. `--gap` with the ticket prints `SLICE_DONE`, and the tests pass.
 
 ## Finding a divergence

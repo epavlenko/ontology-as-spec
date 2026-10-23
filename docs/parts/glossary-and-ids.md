@@ -81,4 +81,4 @@ The fields of a definition row, the rules every row follows and the checks that 
 
 ## In the example
 
-[`example/ontology.md`](../../example/ontology.md): five entity sections and a screens section, 39 concepts in ten classes, typed fields and relations with the generated [`contracts/ontology.schema.json`](../../example/contracts/ontology.schema.json), and six retired IDs from the change that put the entity into field and relation IDs.
+[`example/ontology.md`](../../example/ontology.md): five entity sections and a screens section, 40 concepts in ten classes, typed fields and relations with the generated [`contracts/ontology.schema.json`](../../example/contracts/ontology.schema.json), and six retired IDs from the change that put the entity into field and relation IDs.
