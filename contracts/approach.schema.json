@@ -82,7 +82,7 @@
           "type": "string"
         },
         "status": {
-          "description": "Accepted entries are final; a tentative one may change without a new entry, and removing the flag is an entry.",
+          "description": "Accepted entries are final; a tentative one may change without a new entry, and its acceptance is a line in History.",
           "x-ont": "field.decision.status",
           "enum": [
             "accepted",
@@ -146,7 +146,7 @@
     },
     "implementation-row": {
       "title": "Implementation row",
-      "description": "A claim that a concept exists in the product, with the files and a note on what is partial.",
+      "description": "A claim that one or more concepts exist in the product, with the files and a note on what is partial.",
       "x-ont": "ent.implementation-row",
       "type": "object",
       "properties": {
@@ -161,10 +161,13 @@
           "type": "string"
         },
         "concept": {
-          "description": "The concept the row claims.",
+          "description": "The concepts the row claims; concepts realised in the same files may share a row.",
           "x-ont": "edge.implementation-row.concept",
-          "type": "string",
-          "x-ont-ref": "ent.concept"
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ont-ref": "ent.concept"
+          }
         }
       },
       "required": [

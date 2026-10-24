@@ -26,7 +26,7 @@ The check confirms that the files named in the table exist, not that they implem
 
 ### The decision guard compares text with one earlier commit
 
-`guard-decisions.mjs` refuses an edit or removal of an accepted entry, comparing with `HEAD` before a commit and with the base of a push or pull request in CI. It sees text, not intent: a typo fix in an accepted entry is refused too, by design. `git commit --no-verify` skips the hook, and only CI catches that. A rewritten history removes the base it compares with. It does not check that a new entry which replaces an older one names it on its `Supersedes:` line; it checks only that the entries named there exist and are older.
+`guard-decisions.mjs` refuses an edit or removal of an accepted entry, comparing with `HEAD` before a commit and with the base of a push or pull request in CI. It sees text, not intent: a typo fix in an accepted entry is refused too, by design. `git commit --no-verify` skips the hook, and only CI catches that. A rewritten history removes the base it compares with. It does not check that a new entry which replaces an older one names it on its `Supersedes:` line; it checks only that the entries named there exist and are older. Before the first commit it has nothing to compare with and says `GUARD_OFF`: until then, accepted entries are protected by review only.
 
 ### Test tags are read anywhere in a test file
 
@@ -70,8 +70,10 @@ The first six were proposals until [D-08 to D-11](../decisions.md); later additi
 - **The approach described with itself.** `ontology.md` and `checks.md` at the root of the repository hold the approach's concepts, rules and checks; the tool's tests implement the checks; the check runs on them like on any product. Manual checks are what the tool cannot enforce. Added with [D-19](../decisions.md).
 - **`docs/` as a doc set of the approach's ontology.** The rules, formats and "what the check enforces / cannot enforce" lists of the parts moved into the approach's ontology and check catalogue; the parts explain and point to the generated [reference](reference.md). Added with [D-20](../decisions.md).
 - **Accepted status and the divergences heading in any language.** The guard reads the line that marks an entry accepted from the configuration, so a log written in another language is guarded too; `--gap` reads the heading of known divergences from it as well. Added with [D-12](../decisions.md) and [D-30](../decisions.md).
-- **Supersession on a line of its own.** An entry names the entries it replaces on a `Supersedes:` line; the check confirms they exist and are older, `--decisions` lists every entry as in force, tentative or superseded, and the hint about partial replacement also reads "no longer applies". Added with [D-25](../decisions.md).
-- **Guarded decisions.** `tools/ont-check/guard-decisions.mjs` compares every accepted entry with an earlier commit and fails if one changed or disappeared. It runs in the pre-commit hook and in CI. See [part 2](parts/decision-log.md#the-guard).
+- **Supersession on a line of its own.** An entry names the entries it replaces on a `Supersedes:` line; the check confirms they exist and are older, `--decisions` lists every entry as in force, tentative or superseded, and the hint about partial replacement also reads "no longer applies". Added with [D-25](../decisions.md). The hint knows English phrases only; in a log in another language, `--decisions` shows which later entries name an entry, added with [D-36](../decisions.md).
+- **Guarded decisions.** `tools/ont-check/guard-decisions.mjs` compares every accepted entry with an earlier commit and fails if one changed or disappeared. It runs in the pre-commit hook and in CI. Before the first commit it prints `GUARD_OFF` instead of failing, since [D-32](../decisions.md). See [part 2](parts/decision-log.md#the-guard).
+- **A formatter for definition tables.** `format-ontology.mjs` writes the kind order, the Kind cells and the alignment of the definition tables; the check still reports them and names the formatter. Added with [D-37](../decisions.md).
+- **Shared implementation rows.** Concepts realised in the same files may share a row of the implementation table; a concept realised in part keeps its own row and note. Added with [D-38](../decisions.md).
 
 ## Proposed strengthening
 

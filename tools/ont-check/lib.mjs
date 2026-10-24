@@ -197,14 +197,17 @@ export function parseChecks(md) {
   return checks;
 }
 
-// Implementation status: | `id` | `path`, `path` | note | under the implementation heading.
-// Returns the rows as [id, files] pairs; an empty list when the heading is unset or absent.
+// Implementation status: | `id` | `path`, `path` | note | under the implementation heading. Concepts
+// realised in the same files may share a row: | `id`, `id` | `path` | |. Returns [id, files] pairs, one
+// per concept; an empty list when the heading is unset or absent.
 export function parseImplemented(md, heading) {
   if (!heading || !md.includes(heading)) return [];
-  return [...section(md, heading).matchAll(/^\|\s*`([a-z][a-z0-9.-]+)`\s*\|([^|]*)\|/gm)].map((r) => [
-    r[1],
-    [...r[2].matchAll(/`([^`]+)`/g)].map((x) => x[1]),
-  ]);
+  return [
+    ...section(md, heading).matchAll(/^\|\s*(`[a-z][a-z0-9.-]+`(?:\s*,\s*`[a-z][a-z0-9.-]+`)*)\s*\|([^|]*)\|/gm),
+  ].flatMap((r) => {
+    const files = [...r[2].matchAll(/`([^`]+)`/g)].map((x) => x[1]);
+    return [...r[1].matchAll(/`([^`]+)`/g)].map((x) => [x[1], files]);
+  });
 }
 
 // Retired IDs: | `old.id` | `new.id` or — | D-nn |. An ID that had to change stays resolvable here,

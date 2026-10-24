@@ -6,7 +6,8 @@
 // --coverage also prints which checks and test suites prove each implemented concept.
 // --gap also prints the work left: target concepts with their checks, untested checks, divergences;
 //   with a ticket, only its slice, and the exit code is 1 until the slice is done.
-// --decisions also prints every entry of the decision log: in force, tentative or superseded by what.
+// --decisions also prints every entry of the decision log: in force, tentative or superseded by what,
+//   and the later entries that name it.
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -124,8 +125,8 @@ for (const t of tables.values()) {
     }
   });
 }
-report("definition rows out of kind order", outOfOrder);
-report("Kind cells that do not match the row's class", badKind);
+report("definition rows out of kind order (run format-ontology.mjs)", outOfOrder);
+report("Kind cells that do not match the row's class (run format-ontology.mjs)", badKind);
 report("fields or relations outside their entity's table", misplaced);
 report("definition tables with more than one entity", twoEntities);
 
@@ -231,11 +232,17 @@ if (cfg.decisions) {
   // Supersession is written on a line of its own: "- Supersedes: D-05". Every entry named there exists
   // and is older than the entry naming it; an entry no such line names is in force.
   const heads = [...dec.matchAll(cfg.decisions.entry)];
-  const log = heads.map((m, i) => ({
-    id: m[1],
-    title: m[0].replace(/^#+\s*/, "").replace(m[1], "").replace(/^\s*[·:—-]?\s*/, ""),
-    body: dec.slice(m.index, heads[i + 1]?.index),
-  }));
+  // An entry runs to the next heading of level 1 to 3, as in the guard, so that the last entry does not
+  // take in the open questions and the history after it.
+  const log = heads.map((m, i) => {
+    const rest = dec.slice(m.index + m[0].length, heads[i + 1]?.index);
+    const end = rest.search(/\n#{1,3} /);
+    return {
+      id: m[1],
+      title: m[0].replace(/^#+\s*/, "").replace(m[1], "").replace(/^\s*[·:—-]?\s*/, ""),
+      body: m[0] + (end < 0 ? rest : rest.slice(0, end)),
+    };
+  });
   const number = (id) => (/\d/.test(id) ? Number(id.replace(/\D+/g, "")) : null);
   const refIn = (text) => [...text.matchAll(new RegExp(cfg.decisions.ref.source, "g"))].map((m) => m[0]);
   const supersededBy = new Map();
@@ -250,6 +257,13 @@ if (cfg.decisions) {
     }
   }
   report("Supersedes lines that name no older entry", badSupersedes);
+  // Later entries that mention an entry by number, whatever language the log is in: where a reader of
+  // an older entry looks for what came after it.
+  const namedBy = new Map();
+  for (const e of log)
+    for (const old of new Set(refIn(e.body)))
+      if (old !== e.id && entries.includes(old) && number(old) !== null && number(old) < number(e.id))
+        namedBy.set(old, [...(namedBy.get(old) ?? []), e.id]);
   // One entry, one choice: an entry that replaces only part of another, in prose, shows the older one
   // bundled several choices. Information, because the older entry can no longer be edited; it leaves
   // the list once some entry supersedes the older one whole.
@@ -270,6 +284,7 @@ if (cfg.decisions) {
   decisionLog.push(
     ...log.map((e) => ({
       ...e,
+      namedBy: (namedBy.get(e.id) ?? []).join(", "),
       state: supersededBy.has(e.id)
         ? `superseded by ${supersededBy.get(e.id).join(", ")}`
         : cfg.decisions.accepted.test(e.body)
@@ -569,18 +584,19 @@ if (flag("--coverage") > 0) {
   console.log([line(head), line(width.map((w) => "-".repeat(w))), ...body.map(line)].join("\n"));
 }
 
-// --decisions: every entry of the log and whether it is in force, tentative or superseded.
+// --decisions: every entry of the log, whether it is in force, tentative or superseded, and the later
+// entries that name it.
 if (flag("--decisions") > 0) {
   const width = (k, h) => Math.max(h.length, 3, ...decisionLog.map((e) => e[k].length));
-  const w = [width("id", "Entry"), width("title", "Title"), width("state", "State")];
+  const w = [width("id", "Entry"), width("title", "Title"), width("state", "State"), width("namedBy", "Named by")];
   const line = (r) => `| ${r.map((c, i) => c.padEnd(w[i])).join(" | ")} |`;
   console.log(
     [
-      line(["Entry", "Title", "State"]),
+      line(["Entry", "Title", "State", "Named by"]),
       line(w.map((x) => "-".repeat(x))),
       ...[...decisionLog]
         .sort((a, b) => (Number(a.id.replace(/\D+/g, "")) || 0) - (Number(b.id.replace(/\D+/g, "")) || 0))
-        .map((e) => line([e.id, e.title, e.state])),
+        .map((e) => line([e.id, e.title, e.state, e.namedBy])),
     ].join("\n"),
   );
 }

@@ -8,7 +8,8 @@ Product decisions with their reasons. Rules:
 
 - An entry is never edited after it is accepted. A later entry either adds to it, leaving it in force, or supersedes it whole and names it on a `- Supersedes: D-nn` line.
 - One entry answers one question; the parts of one answer stay together.
-- "Tentative" is a chosen course that may change without a new entry. Removing the flag is an entry.
+- "Tentative" is a chosen course that may change without a new entry. A choice the owner has not explicitly approved is tentative; accepting it changes its status and adds a line to History.
+- History lists only what the entries do not show: the log created, a tentative entry accepted.
 - Concepts are named by ID; the check verifies them.
 
 ## Accepted

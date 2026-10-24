@@ -16,12 +16,12 @@ What the product is for, in two sentences. This document describes the **target 
 
 ## Thing
 
-| Kind      | ID                    | Term            | Type                    | Definition                            |
-| --------- | --------------------- | --------------- | ----------------------- | ------------------------------------- |
-| Entity    | `ent.thing`           | Thing           |                         | The main object people work with.     |
-| Field     | `field.thing.state`   | State           | one of open, closed     | Open or closed.                       |
-| Invariant | `inv.closed-is-final` | Closed is final |                         | A closed thing is never reopened.     |
-| Action    | `action.close`        | Close           |                         | Close a thing. It cannot be reopened. |
+| Kind      | ID                    | Term            | Type                | Definition                            |
+| --------- | --------------------- | --------------- | ------------------- | ------------------------------------- |
+| Entity    | `ent.thing`           | Thing           |                     | The main object people work with.     |
+| Field     | `field.thing.state`   | State           | one of open, closed | Open or closed.                       |
+| Invariant | `inv.closed-is-final` | Closed is final |                     | A closed thing is never reopened.     |
+| Action    | `action.close`        | Close           |                     | Close a thing. It cannot be reopened. |
 
 - `field.thing.state` is set by the system; `action.close` is the only way to change it. `inv.closed-is-final` follows from D-01.
 
@@ -39,7 +39,7 @@ What a helpful contributor would otherwise add, and why it is absent.
 
 ## Implementation status
 
-Is this already in the code, or is it the target? Everything absent from the table is target. The check verifies that IDs exist and the listed files exist; completeness is a human judgment, recorded in the note. A row looks like `| ent.thing | src/thing.ts | note |` with the ID and paths in backticks. Group the rows under the same entity headings as above when the table grows.
+Is this already in the code, or is it the target? Everything absent from the table is target. The check verifies that IDs exist and the listed files exist; completeness is a human judgment, recorded in the note. A row looks like `| ent.thing | src/thing.ts | note |` with the ID and paths in backticks. Concepts built in the same files may share a row: `| ent.thing, action.close | src/thing.ts | |`. Group the rows under the same entity headings as above when the table grows.
 
 | ID  | Implemented in | Note |
 | --- | -------------- | ---- |

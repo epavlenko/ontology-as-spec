@@ -29,7 +29,7 @@ A decision answers one question: what was chosen, why, what was rejected and whi
 
 *Prevents:* the next person or agent reversing a decision whose reason they never saw, and reopening an alternative that was already rejected.
 
-<!-- ont: ent.implementation-row@3e847f, ent.divergence@c86a47 -->
+<!-- ont: ent.implementation-row@f093f9, ent.divergence@c86a47 -->
 ## 5. The target and the reality are separate and both are written down
 
 The ontology describes the agreed target. An implementation table says which concepts the code already has, and a list of divergences says where the code disagrees with the target. A divergence is not an error in the ontology. It becomes a ticket, or a new decision if the target changed.

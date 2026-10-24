@@ -10,7 +10,8 @@ Log rules:
 
 - An entry is never edited after it is accepted. A later entry either adds to it, leaving it in force, or supersedes it whole and names it on a `- Supersedes: D-nn` line.
 - One entry answers one question; the parts of one answer stay together.
-- "Tentative" means a chosen course that may still change without a separate entry. Removing the flag is an entry.
+- "Tentative" means a chosen course that may still change without a separate entry. A choice the owner has not explicitly approved is tentative; accepting it changes its status and adds a line to History.
+- History lists only what the entries do not show: the log created, a tentative entry accepted.
 - `tools/ont-check/ont-check.mjs` checks the IDs mentioned here against the glossary and the retired IDs, and every `D-nn` reference in the ontology and the map against this log.
 
 ## Accepted

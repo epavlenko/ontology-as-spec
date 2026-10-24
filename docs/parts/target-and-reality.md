@@ -1,11 +1,11 @@
 # 3. Target and reality
 
-<!-- ont: ent.implementation-row@3e847f, ent.divergence@c86a47, rule.divergence-contradicts@792674 -->
+<!-- ont: ent.implementation-row@f093f9, ent.divergence@c86a47, rule.divergence-contradicts@792674 -->
 ## What it is
 
 The ontology describes the **target model**: the product as agreed, not as built. Two sections at the end of the ontology say how far the code has come:
 
-- **Implementation status**, a table from ID to the files that implement it, with a note on what is partial. It follows the entity sections of the ontology, one subheading per entity, so the status of a concept is found where its definition is.
+- **Implementation status**, a table from ID to the files that implement it, with a note on what is partial. Concepts built in the same files may share a row. It follows the entity sections of the ontology, one subheading per entity, so the status of a concept is found where its definition is.
 - **Known divergences**, a list of places where the code disagrees with the target. Each line names the IDs involved and points at the ticket that closes it, or says that a decision is pending.
 
 ```markdown

@@ -189,6 +189,56 @@ test("[check.decision.partial-supersession] an entry superseded whole leaves the
   assert.doesNotMatch(r.out, /entries replaced only in part/);
 });
 
+test("[check.decision.named-by] --decisions names the later entries that mention an entry", () => {
+  const r = run((p) => p("decisions.md", "## Tentative", entry("07", ["Decision: adds a second reminder to the rule of D-04."])), "--decisions");
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| in force +\| D-07 +\|/);
+  // The last entry ends at the next heading: the history after it, which lists D-01…D-05, names nothing.
+  assert.match(r.out, /\| D-01 +\| A loan is 21 days with a fixed rule, not a per-title setting +\| in force +\| +\|/);
+});
+
+test("[check.implementation-row.grouped] concepts realised in the same files may share an implementation row", () => {
+  const r = run((p) =>
+    p(
+      "ontology.md",
+      "| `edge.loan.item`         | `app/library.mjs` |                                                   |\n| `edge.loan.member`       | `app/library.mjs` |                                                   |\n",
+      "| `edge.loan.item`, `edge.loan.member` | `app/library.mjs` | |\n",
+    ),
+  );
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, / implemented 25 /);
+});
+
+test("[check.concept.formatted] format-ontology.mjs writes the kind order and the Kind cells", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ont-format-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    const cfg = join(dir, "ont.config.json");
+    const node = (script) => spawnSync("node", [join(TOOLS, script), "--config", cfg], { encoding: "utf8" });
+    const onto = join(dir, "ontology.md");
+    const invariant = "| Invariant | `inv.no-renew-when-held` | No renewal when held |                  | A loan cannot be renewed while someone waits for the title.                        |\n";
+    const hook = "| Hook      | `hook.due-reminder`      | Due reminder         |                  | Two days before the due date the member is notified once, with renew if allowed.   |\n";
+    const text = readFileSync(onto, "utf8");
+    assert.ok(text.includes(invariant + hook), "fixture rows not found");
+    writeFileSync(
+      onto,
+      text
+        .replace(invariant + hook, hook + invariant)
+        .replace("|           | `field.loan.renewals`", "| Field     | `field.loan.renewals`"),
+    );
+    const broken = node("ont-check.mjs");
+    assert.equal(broken.status, 1, broken.stdout);
+    assert.match(broken.stdout, /definition rows out of kind order \(run format-ontology\.mjs\)/);
+    assert.match(node("format-ontology.mjs").stdout, /formatted, 2 rows moved into kind order/);
+    assert.equal(readFileSync(onto, "utf8"), text);
+    const fixed = node("ont-check.mjs");
+    assert.equal(fixed.status, 0, fixed.stdout);
+    assert.match(node("format-ontology.mjs").stdout, /already formatted/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("[check.decision.in-force-report] --decisions lists each entry as in force, tentative or superseded", () => {
   const r = run((p) => p("decisions.md", "## Tentative", entry("07", ["Supersedes: D-04", "Decision: renewal is shown differently."])), "--decisions");
   assert.equal(r.code, 0, r.out);

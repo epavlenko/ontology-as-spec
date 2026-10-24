@@ -20,7 +20,7 @@ The definitions of every concept, one table row each, with a permanent ID that e
 - `rule.loan-period` is the same for every title (D-01).
 ```
 
-Rows are grouped by kind in the order of the classes the configuration lists, and the kind is written on the first row of its group. Whatever entity a reader opens, the fields come first, then the rules, then what people and the system do. Notes under the table add detail, such as who sets a field, which decision explains a rule, or which invariants an action can break. They refer to concepts by ID and never restate a definition.
+Rows are grouped by kind in the order of the classes the configuration lists, and the kind is written on the first row of its group. `tools/ont-check/format-ontology.mjs` puts the rows in that order and writes the Kind cells, so nobody has to get them right by hand. Whatever entity a reader opens, the fields come first, then the rules, then what people and the system do. Notes under the table add detail, such as who sets a field, which decision explains a rule, or which invariants an action can break. They refer to concepts by ID and never restate a definition.
 
 The alternative is a separate glossary table plus per-kind tables (entities, fields, rules, views) that explain the same concepts again. It gives every concept two homes, and in practice the two drift apart. One row per concept leaves nothing to drift from, and grouping by entity is how people look things up: "what is there about loans?"
 

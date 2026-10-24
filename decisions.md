@@ -1,6 +1,6 @@
 # Decisions about this repository
 
-The approach applied to itself: decisions about how the approach is described and packaged, in the same format as a product decision log. Entries are never edited. One entry answers one question; a later entry adds to an earlier one or supersedes it whole (D-26).
+The approach applied to itself: decisions about how the approach is described and packaged, in the same format as a product decision log. Entries are never edited. One entry answers one question; a later entry adds to an earlier one or supersedes it whole (D-26). History lists only what the entries do not show (D-33).
 
 ## Accepted
 
@@ -224,6 +224,55 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: since D-28, `--gap` matches a divergence to a ticket by the IDs the line names. A line without IDs belonged to no slice: `--gap` with a ticket never showed it, and the ticket could close while the line stood. Part 3 and the lifecycle already said that a line names the IDs involved, but nothing enforced it.
 - Rejected: information instead of an error (the line is fixed by naming the concepts, and until then the gap of every ticket is wrong); counting a line without IDs against every ticket (it would keep every slice open); matching the ticket's number written in the line (rejected in D-28).
 
+### D-32 · Before the first commit the guard says it is off instead of failing
+
+- Date: 2026-10-24 · Status: accepted
+- Decision: when no `--base` is given and the repository has no commit yet, or is not a git repository, `guard-decisions.mjs` prints `GUARD_OFF`, says that accepted entries are not protected until the first commit, and exits 0. A `--base` that is given and not found stays an error. The advice to write a superseding entry is printed only when an entry was edited or removed.
+- Why: a project that adopted the approach worked for a day without a commit, because agents there commit only when asked. On every run the guard failed with "commit HEAD not found" and advice about editing entries that nobody had edited, so the failure read as noise. Before the first commit the guard cannot protect anything; it can say so plainly.
+- Rejected: failing as before (a failure without a violation teaches people to ignore the guard); passing with `GUARD_OK` (claims a protection that does not exist); a copy of the accepted entries kept outside git (a second record to keep current, for a state that ends with the first commit).
+
+### D-33 · The decision log's History lists only what the entries do not show
+
+- Date: 2026-10-24 · Status: accepted
+- Decision: the History section of a decision log lists the events that have no entry of their own: the log created, a tentative entry accepted. A new entry needs no History line, because it carries its own date and `--decisions` lists every entry. A tentative entry is accepted by changing its status and adding a History line. Lines written before this rule stay. The ontology's revision history does not change.
+- Why: every decision was written down three times: as the entry, as a line in the ontology's revision history and as a line in the log's History, which repeated the entry's title and date. A project that adopted the approach counted the two history lines among the six places one small change touched.
+- Rejected: generating History from the entries (a generated section inside a hand-written file, while `--decisions` already lists them); dropping the ontology's revision history instead (it records changes of meaning that have no entry); dropping History altogether (the log would have no place for the events that are not entries).
+
+### D-34 · A choice the owner has not approved is tentative
+
+- Date: 2026-10-24 · Status: accepted
+- Decision: an entry whose choice the owner has not explicitly approved, such as a value an agent picked after being asked to tune the model, is recorded as tentative, and the owner's approval accepts it (D-33). The rule is in part 2 and in the agent rules, with a manual check. Entries get no separate field for who decided.
+- Why: in a project that adopted the approach, an agent recorded every entry as accepted, including values it had chosen itself. The log looked more agreed than it was. The tentative status already means a course that may change without a new entry, and `--decisions` already lists tentative entries, so the owner gets a list to review without a new mechanism.
+- Rejected: a "proposed by, approved by" field (a second way to say what the status says, and an accepted entry, which is never edited, could not record a later approval); leaving it to the agent's judgment (that judgment produced the problem).
+
+### D-35 · A value a decision chose is held by a check, and tuning toward a recorded target needs no entry
+
+- Date: 2026-10-24 · Status: accepted
+- Decision: a value or a target that a decision chose, such as a default, a price or the result a model must reach, is held by an automatic check, so that a later change cannot drop it unnoticed. When values are tuned toward a target, the log records the target and why, and a check holds the target; tuning that keeps the check passing needs no new entry. A value gets an entry of its own, short and about that value alone, when its choice has a reason someone could dispute, such as a price set by a market corridor. The approach's ontology gets two rules, one for checks and one for the log, each with a manual check.
+- Why: in a project that adopted the approach, the defaults of a model (prices, conversions, meetings a month) were the main result of two decisions, and no check held them: a later edit could drop the model below its target with every test passing. The same values sat inside a long entry about the structure of the offer, so changing one price meant superseding the whole entry and restating it (D-26), and an entry still in force quoted the old prices.
+- Rejected: an entry for every change of a default (the log turns into a changelog, and every number lives in two places); keeping defaults out of the log entirely (their reasons, such as a market corridor, would be lost); a check for every default (pins numbers nobody decided and makes tuning a chore; the target is what was decided).
+
+### D-36 · `--decisions` shows which later entries name each entry
+
+- Date: 2026-10-24 · Status: accepted
+- Decision: `ont-check.mjs --decisions` gains a column with the later entries that mention each entry by its number. The approach's ontology gets `derived.named-by` and its check. The hint about partial replacement stays as it is.
+- Why: a reader of an older entry could not see that a later one changed what it describes unless the later one superseded it. The hint that catches partial replacement knows English phrases only, so in a log in another language it never fires. Numbers are the same in every language, and the column shows where to look without letting an entry be changed in part, which D-26 rejected.
+- Rejected: a "refined in D-nn" line in the older entry (accepted entries are never edited); configurable phrases for the hint (every log would list its own phrasings, and they would still miss prose); listing the mentions on every run of the check (most mentions are ordinary references, so the list would be noise).
+
+### D-37 · A formatter writes the kind order, the Kind cells and the alignment of definition tables
+
+- Date: 2026-10-24 · Status: accepted
+- Decision: `format-ontology.mjs` puts the definition rows of every table in the order of the configured classes, writes the kind on the first row of each group and clears it on the rest, and aligns the columns of those tables. The text and the other tables stay as they are. The check still reports rows out of order and wrong Kind cells, and its message names the formatter.
+- Why: both rules follow from the IDs and the configuration, yet each cost an agent a run of the check and an edit; a project that adopted the approach counted them as iterations that add no meaning. The rules help readers, so they stay, and the tool that already knows them writes them.
+- Rejected: dropping the rules (tables would differ from entity to entity); letting `ont-check.mjs` rewrite the file (a check that changes what it checks hides the drift it reports); formatting every table of the file (the other tables have no format rule of the check, and rewriting them would change files for nothing).
+
+### D-38 · Concepts realised in the same files may share an implementation row
+
+- Date: 2026-10-24 · Status: accepted
+- Decision: the first cell of an implementation row may list several IDs, ``| `a`, `b` | `path` | note |``, and each of them counts as implemented in those files. A concept realised only in part keeps a row of its own, whose note names the target concept that adds what is missing (D-29). `edge.implementation-row.concept` becomes a list.
+- Why: in a project where every concept was built in the same two files, the table had 164 rows repeating the same paths. Deriving the table from the IDs mentioned in code was suggested instead, but there 13 of the 164 built concepts are not mentioned in the code at all, and a mention is not an implementation. A shared row keeps the claim explicit and the table short.
+- Rejected: deriving the table from the code (both reasons above); an empty Files cell (the claim would lose where to look); one row per entity (an entity often has concepts in different files and in different states).
+
 ## Tentative
 
 None.
@@ -234,6 +283,7 @@ None.
 
 ## History
 
+- 2026-10-24: from D-32 on, History lists only events that have no entry of their own (D-33).
 - 2026-10-23: D-31: a known divergence names its concepts.
 - 2026-10-23: D-30: configurable heading of known divergences.
 - 2026-10-23: D-29: what a partial implementation leaves out is a target concept.

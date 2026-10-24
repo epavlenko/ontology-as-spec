@@ -5,7 +5,8 @@
 //          [--base REF] [--staged]
 // --base   the commit to compare with; default HEAD
 // --staged compare the staged version (for a pre-commit hook) instead of the working tree
-// Exit code 1 on any change. Prints GUARD_OK when every accepted entry is intact.
+// Exit code 1 on any change. Prints GUARD_OK when every accepted entry is intact, and GUARD_OFF when
+// there is no commit yet to compare with: before the first commit nothing is protected.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
@@ -13,7 +14,8 @@ import { DEFAULT_ACCEPTED, loadConfig, read } from "./lib.mjs";
 
 const argv = process.argv.slice(2);
 const values = (flag) => argv.flatMap((a, i) => (argv[i - 1] === flag ? [a] : []));
-const base = values("--base").at(-1) ?? "HEAD";
+const named = values("--base").at(-1);
+const base = named ?? "HEAD";
 const staged = argv.includes("--staged");
 const DEFAULT_ENTRY = "^### (D-\\d+) · .+$";
 
@@ -51,11 +53,24 @@ const entries = (text, entry) => {
 };
 
 const errors = [];
+const off = [];
+let violations = 0;
 for (const { file, entry, accepted } of targets) {
   const cwd = dirname(file);
   const path = `./${basename(file)}`;
   const name = relative(process.cwd(), file);
   if (git(cwd, "rev-parse", "--verify", "--quiet", `${base}^{commit}`).status !== 0) {
+    // Without a commit there is nothing to compare with. Failing here would be a failure without a
+    // violation, so the guard says that it is off instead. A base that was named and is missing is an
+    // error, as in CI with a wrong base.
+    if (!named) {
+      const repo = git(cwd, "rev-parse", "--git-dir").status === 0;
+      console.log(
+        `GUARD_OFF · ${name}: ${repo ? "no commit yet" : "not a git repository"}; accepted entries are not protected until the first commit`,
+      );
+      off.push(name);
+      continue;
+    }
     console.log(`ERROR · ${name}: commit ${base} not found`);
     errors.push(name);
     continue;
@@ -87,13 +102,14 @@ for (const { file, entry, accepted } of targets) {
     if (items.length) {
       console.log(`ERROR · ${name}: ${label} (${items.length}):\n  ${items.join("\n  ")}`);
       errors.push(label);
+      violations += items.length;
     }
   console.log(`${name}: ${[...old.values()].filter((b) => accepted.test(b)).length} accepted entries in ${base}`);
 }
 
 if (errors.length) {
-  console.log("Write a new entry that supersedes the old one instead of editing it.");
+  if (violations) console.log("Write a new entry that supersedes the old one instead of editing it.");
   console.log(`DRIFT: ${errors.length}`);
   process.exit(1);
 }
-console.log("GUARD_OK");
+console.log(off.length ? "GUARD_OFF" : "GUARD_OK");

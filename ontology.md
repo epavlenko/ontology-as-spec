@@ -60,7 +60,7 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 | --------- | --------------------------------- | -------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Entity    | `ent.decision`                    | Decision                   |                              | One choice about the product, with its reason and the alternatives rejected.                                                                              |
 | Field     | `field.decision.number`           | Number                     | text                         | `D-nn`, unique in the log.                                                                                                                                |
-|           | `field.decision.status`           | Status                     | one of accepted, tentative   | Accepted entries are final; a tentative one may change without a new entry, and removing the flag is an entry.                                            |
+|           | `field.decision.status`           | Status                     | one of accepted, tentative   | Accepted entries are final; a tentative one may change without a new entry, and its acceptance is a line in History.                                      |
 |           | `field.decision.date`             | Date                       | date                         | When the choice was made.                                                                                                                                 |
 |           | `field.decision.choice`           | Decision                   | text                         | What was chosen, precisely enough to implement.                                                                                                           |
 |           | `field.decision.why`              | Why                        | text                         | The reason, including what went wrong before.                                                                                                             |
@@ -69,9 +69,12 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 | Relation  | `edge.decision.concepts`          | Concepts                   | refs `ent.concept`           | The concepts the choice touches.                                                                                                                          |
 |           | `edge.decision.supersedes`        | Supersedes                 | refs `ent.decision` optional | Earlier entries this one replaces, each whole, named on a `Supersedes:` line.                                                                             |
 | Derived   | `derived.in-force`                | In force                   |                              | An entry that no `Supersedes:` line names.                                                                                                                |
+|           | `derived.named-by`                | Named by                   |                              | The later entries that mention an entry by its number.                                                                                                    |
 | Rule      | `rule.one-choice`                 | One question               |                              | An entry answers one question; the parts of one answer, its mechanism and its direct consequences, stay together.                                         |
 |           | `rule.cite-decisions`             | Cite by number             |                              | The ontology refers to a decision by number where a rule would otherwise look arbitrary.                                                                  |
 |           | `rule.product-decisions-only`     | Product decisions only     |                              | The log holds what someone working on the product needs; personal and strategic decisions live elsewhere.                                                 |
+|           | `rule.unconfirmed-tentative`      | Unconfirmed is tentative   |                              | A choice the owner has not explicitly approved, such as a value an agent picked, is tentative until the owner accepts it.                                 |
+|           | `rule.target-not-tuning`          | Targets, not tuning        |                              | When values are tuned toward a target, the log records the target and why; a value has an entry of its own only when its choice has a reason of its own.  |
 | Invariant | `inv.accepted-never-edited`       | Never edited               |                              | An accepted entry is never edited or removed.                                                                                                             |
 |           | `inv.decision-numbers-unique`     | Unique numbers             |                              | No entry number is used twice.                                                                                                                            |
 |           | `inv.decision-references-resolve` | References resolve         |                              | Every `D-nn` the ontology or the map refers to has an entry.                                                                                              |
@@ -85,16 +88,16 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Implementation row
 
-| Kind      | ID                                | Term                  | Type              | Definition                                                                                                                       |
-| --------- | --------------------------------- | --------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.implementation-row`          | Implementation row    |                   | A claim that a concept exists in the product, with the files and a note on what is partial.                                      |
-| Field     | `field.implementation-row.files`  | Files                 | text              | Paths of the files that realise the concept.                                                                                     |
-|           | `field.implementation-row.note`   | Note                  | text optional     | What is partial or missing.                                                                                                      |
-| Relation  | `edge.implementation-row.concept` | Concept               | ref `ent.concept` | The concept the row claims.                                                                                                      |
-| Rule      | `rule.table-with-code`            | Updated with the code |                   | A change to behavior updates the implementation table in the same change.                                                        |
-|           | `rule.partial-noted`              | Partial noted         |                   | The note of a partial row names the target concept that adds what is missing; no note means complete as far as the author knows. |
-| Invariant | `inv.implementation-files-exist`  | Files exist           |                   | Every file the table names exists.                                                                                               |
-|           | `inv.implementation-true`         | Row is true           |                   | The files a row names do realise the concept.                                                                                    |
+| Kind      | ID                                | Term                  | Type               | Definition                                                                                                                       |
+| --------- | --------------------------------- | --------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.implementation-row`          | Implementation row    |                    | A claim that one or more concepts exist in the product, with the files and a note on what is partial.                            |
+| Field     | `field.implementation-row.files`  | Files                 | text               | Paths of the files that realise the concept.                                                                                     |
+|           | `field.implementation-row.note`   | Note                  | text optional      | What is partial or missing.                                                                                                      |
+| Relation  | `edge.implementation-row.concept` | Concepts              | refs `ent.concept` | The concepts the row claims; concepts realised in the same files may share a row.                                                |
+| Rule      | `rule.table-with-code`            | Updated with the code |                    | A change to behavior updates the implementation table in the same change.                                                        |
+|           | `rule.partial-noted`              | Partial noted         |                    | The note of a partial row names the target concept that adds what is missing; no note means complete as far as the author knows. |
+| Invariant | `inv.implementation-files-exist`  | Files exist           |                    | Every file the table names exists.                                                                                               |
+|           | `inv.implementation-true`         | Row is true           |                    | The files a row names do realise the concept.                                                                                    |
 
 ## Divergence
 
@@ -145,6 +148,7 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 | Rule      | `rule.check-in-product-terms`   | In the product's terms  |                     | GIVEN, WHEN and THEN use concrete data from a fixed sample and the product's words; no function names, commands or selectors. |
 |           | `rule.unreachable-reported`     | Unreachable reported    |                     | A manual check that could not be run is reported as not run, never verified through another path.                             |
 |           | `rule.manual-evidence-kept`     | Evidence kept           |                     | Evidence of a manual check is kept outside the repository, named by check and date.                                           |
+|           | `rule.chosen-value-checked`     | Chosen values checked   |                     | A value or a target a decision chose is held by an automatic check, so that a later change cannot drop it unnoticed.          |
 | Invariant | `inv.check-ids-unique`          | Unique                  |                     | No check ID is used twice.                                                                                                    |
 |           | `inv.check-in-its-section`      | In its section          |                     | A check's ID names the catalogue section it sits in.                                                                          |
 |           | `inv.check-well-formed`         | Well formed             |                     | A check has concepts, GIVEN, WHEN, THEN and `auto` or `manual`.                                                               |
@@ -248,34 +252,34 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Concept
 
-| ID                             | Implemented in                                             | Note                                                                              |
-| ------------------------------ | ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `ent.concept`                  | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `field.concept.id`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `field.concept.kind`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `field.concept.term`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `field.concept.type`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `field.concept.definition`     | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `edge.concept.entity`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `derived.implemented`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `derived.target`               | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `rule.kind-order`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `rule.scoped-ids`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `rule.definition-says-what`    | `docs/parts/glossary-and-ids.md`                           | reviewed, not checked                                                             |
-| `rule.concept-with-its-entity` | `docs/parts/glossary-and-ids.md`                           | reviewed, not checked                                                             |
-| `inv.one-definition-row`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `inv.known-classes`            | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `inv.kind-named-once`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `inv.field-in-its-entity`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `inv.references-defined`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `inv.concept-referenced`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `inv.concept-tried`            | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                                                                   |
-| `inv.ids-permanent`            | `docs/parts/glossary-and-ids.md`                           | a rule for people; the check sees a changed ID only as a removal plus an addition |
-| `inv.no-restated-definition`   | `docs/parts/glossary-and-ids.md`                           | reviewed, not checked                                                             |
-| `action.add-concept`           | `docs/lifecycle.md`                                        | a procedure                                                                       |
-| `action.rename-term`           | `docs/lifecycle.md`                                        | a procedure                                                                       |
-| `action.change-id`             | `docs/lifecycle.md`                                        | a procedure                                                                       |
-| `action.remove-concept`        | `docs/lifecycle.md`                                        | a procedure                                                                       |
+| ID                             | Implemented in                                                                                    | Note                                                                              |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `ent.concept`                  | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `field.concept.id`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `field.concept.kind`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `field.concept.term`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `field.concept.type`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `field.concept.definition`     | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `edge.concept.entity`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `derived.implemented`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `derived.target`               | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `rule.kind-order`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`, `tools/ont-check/format-ontology.mjs` |                                                                                   |
+| `rule.scoped-ids`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `rule.definition-says-what`    | `docs/parts/glossary-and-ids.md`                                                                  | reviewed, not checked                                                             |
+| `rule.concept-with-its-entity` | `docs/parts/glossary-and-ids.md`                                                                  | reviewed, not checked                                                             |
+| `inv.one-definition-row`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `inv.known-classes`            | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `inv.kind-named-once`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`, `tools/ont-check/format-ontology.mjs` |                                                                                   |
+| `inv.field-in-its-entity`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `inv.references-defined`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `inv.concept-referenced`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `inv.concept-tried`            | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `inv.ids-permanent`            | `docs/parts/glossary-and-ids.md`                                                                  | a rule for people; the check sees a changed ID only as a removal plus an addition |
+| `inv.no-restated-definition`   | `docs/parts/glossary-and-ids.md`                                                                  | reviewed, not checked                                                             |
+| `action.add-concept`           | `docs/lifecycle.md`                                                                               | a procedure                                                                       |
+| `action.rename-term`           | `docs/lifecycle.md`                                                                               | a procedure                                                                       |
+| `action.change-id`             | `docs/lifecycle.md`                                                                               | a procedure                                                                       |
+| `action.remove-concept`        | `docs/lifecycle.md`                                                                               | a procedure                                                                       |
 
 ### Retired ID
 
@@ -303,9 +307,12 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `edge.decision.concepts`          | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                   |
 | `edge.decision.supersedes`        | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                   |
 | `derived.in-force`                | `tools/ont-check/ont-check.mjs`                                        |                                                   |
+| `derived.named-by`                | `tools/ont-check/ont-check.mjs`                                        |                                                   |
 | `rule.one-choice`                 | `docs/parts/decision-log.md`                                           | reviewed; the check reports partial supersessions |
 | `rule.cite-decisions`             | `docs/parts/decision-log.md`                                           | reviewed, not checked                             |
 | `rule.product-decisions-only`     | `docs/parts/decision-log.md`                                           | reviewed, not checked                             |
+| `rule.unconfirmed-tentative`      | `docs/parts/decision-log.md`                                           | reviewed, not checked                             |
+| `rule.target-not-tuning`          | `docs/parts/decision-log.md`                                           | reviewed, not checked                             |
 | `inv.accepted-never-edited`       | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                   |
 | `inv.decision-numbers-unique`     | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                   |
 | `inv.decision-references-resolve` | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                   |
@@ -379,6 +386,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `rule.check-in-product-terms`   | `docs/parts/checks-and-tests.md`                           | reviewed, not checked |
 | `rule.unreachable-reported`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked |
 | `rule.manual-evidence-kept`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked |
+| `rule.chosen-value-checked`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked |
 | `inv.check-ids-unique`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
 | `inv.check-in-its-section`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
 | `inv.check-well-formed`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
@@ -482,6 +490,8 @@ None known.
 
 ## Revision history
 
+- 2026-10-24: an implementation row may claim several concepts, `edge.implementation-row.concept` is a list (D-38); `format-ontology.mjs` realises `rule.kind-order` and `inv.kind-named-once` (D-37).
+- 2026-10-24: `derived.named-by` (D-36); `rule.chosen-value-checked` and `rule.target-not-tuning` (D-35); `rule.unconfirmed-tentative` (D-34); a tentative entry is accepted with a line in History (D-33).
 - 2026-10-23: `inv.divergence-names-concepts`, enforced by the check (D-31).
 - 2026-10-23: `rule.partial-noted`: the note names the target concept that adds what is missing (D-29).
 - 2026-10-23: `derived.slice-done` also waits for the slice's own divergences and for listed checks that need a concept outside it; `edge.ticket.checks` is the `Checks:` line (D-28). The ticket's sections the tool does not read are realised by part 8.

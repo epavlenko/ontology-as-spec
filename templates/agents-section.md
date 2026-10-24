@@ -4,16 +4,16 @@ Product meaning lives in `<path>/ontology.md` (one table per entity, then screen
 
 Start every task from the ontology IDs it touches. If a concept you need has no ID, propose its definition row, in its entity's table, before writing code or markup.
 
-| You changed                                        | Also update                                                                                                                           | Verify               |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| A concept, rule, invariant or view in the ontology | regenerate the tooltips and, for a field or relation, the contracts; a revision history line; a decision entry when the reason is new | the check            |
-| A rule, invariant, hook or action in the ontology  | its check in the catalogue, before the code                                                                                           | the check            |
-| The mockup                                         | `data-ont` on every new meaningful element and its map row                                                                            | the check            |
-| Behavior in code                                   | the implementation table and known divergences; a test titled with the tag of the IDs it proves                                       | the check, the tests |
-| Your mind about an earlier decision                | a new dated entry that supersedes the old one, named on its `Supersedes:` line; never edit the old one                                                                 | the check, the guard |
-| A ticket                                           | an `IDs:` line and a `Checks:` line with the checks of the slice; new behavior goes into the catalogue first                          | the check            |
-| A concept becomes implemented                      | tests that implement its automatic checks, titled with the check IDs                                                                  | the check, the tests |
-| A definition row that a help page explains         | reread the sections the check lists, then `stamp-docs.mjs`; regenerate the reference pages                                            | the check            |
+| You changed                                        | Also update                                                                                                                                                      | Verify               |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| A concept, rule, invariant or view in the ontology | run `format-ontology.mjs`; regenerate the tooltips and, for a field or relation, the contracts; a revision history line; a decision entry when the reason is new | the check            |
+| A rule, invariant, hook or action in the ontology  | its check in the catalogue, before the code                                                                                                                      | the check            |
+| The mockup                                         | `data-ont` on every new meaningful element and its map row                                                                                                       | the check            |
+| Behavior in code                                   | the implementation table and known divergences; a test titled with the tag of the IDs it proves                                                                  | the check, the tests |
+| Your mind about an earlier decision                | a new dated entry that supersedes the old one, named on its `Supersedes:` line; never edit the old one                                                           | the check, the guard |
+| A ticket                                           | an `IDs:` line and a `Checks:` line with the checks of the slice; new behavior goes into the catalogue first                                                     | the check            |
+| A concept becomes implemented                      | tests that implement its automatic checks, titled with the check IDs                                                                                             | the check, the tests |
+| A definition row that a help page explains         | reread the sections the check lists, then `stamp-docs.mjs`; regenerate the reference pages                                                                       | the check            |
 
 Generated files are never edited by hand; the check compares them with what the generators write.
 
@@ -23,6 +23,8 @@ Rules the check cannot enforce:
 - Removing a concept is a decision: write the entry and retire the ID; the check then finds every reference left.
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side.
 - What a partial implementation leaves out is a target concept, named in the note of its row. A note alone hides the work from `--gap`.
+- A choice the owner has not explicitly approved, such as a value you picked when asked to tune something, is recorded as tentative; the owner's approval accepts it.
+- A value or a target a decision chose is held by an automatic check. Tuning toward a target the log records needs no new entry.
 - A ticket is a slice of the gap: IDs, checks, out of scope, dependencies, permissions. It does not describe behavior; behavior goes into the catalogue first.
 - A tag on a test is a claim that the test implements the check. Do not tag a test that does not.
 - A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.

@@ -7,11 +7,12 @@ node tools/ont-check/gen-glossary.mjs --config path/to/ont.config.json   # gloss
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json   # ONT_OK, or the drift and exit code 1
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --coverage   # also: what proves each implemented concept
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --gap [ticket.md]   # also: the work left, or one ticket's slice (exit 1 until done)
-node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --decisions   # also: every decision entry, in force, tentative or superseded
+node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --decisions   # also: every decision entry, in force, tentative or superseded, and the later entries that name it
+node tools/ont-check/format-ontology.mjs --config path/to/ont.config.json   # kind order, Kind cells and aligned definition tables
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/gen-reference.mjs --config path/to/ont.config.json   # reference pages from the ontology and the checks
 node tools/ont-check/stamp-docs.mjs  --config path/to/ont.config.json [page.md …]   # after rereading: stamp the anchors
-node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK
+node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK, or GUARD_OFF before the first commit
 ```
 
 Without `--config`, every script looks for `ont.config.json` in the current directory. A ticket path after `--gap` is relative to the current directory. The guard also takes `--file path/to/decisions.md` for a log without a config, and several `--config` and `--file` arguments at once.
@@ -23,6 +24,7 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | `ont-check.mjs`    | the check                                                                         |
 | `guard-decisions.mjs` | fails if an entry accepted in an earlier commit (`--base`, default `HEAD`) was edited or removed; `--staged` reads the staged log |
 | `gen-glossary.mjs` | writes `window.ONT = {...}` from the definition rows                              |
+| `format-ontology.mjs` | writes the kind order, the Kind cells and the alignment of the definition tables |
 | `gen-contracts.mjs` | writes the JSON Schema, one definition per entity, from the Type cells           |
 | `docs.mjs`         | anchors in documentation, stamps, and the reference page renderer                 |
 | `gen-reference.mjs` | writes the reference pages listed under `references`                            |
@@ -72,7 +74,7 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Type cells:** a fifth column, ``| Kind | `id` | Term | Type | Definition |``. Vocabulary: `text`, `number`, `boolean`, `integer` with optional bounds (`integer 0..2`, `integer 1..`), `date`, `datetime`, `one of a, b, c`, ``ref `ent.x` ``, ``refs `ent.x` ``, each optionally followed by `optional`.
 - **Retired IDs:** ``| `old.id` | `new.id` | D-nn |`` under `headings.retired`; a dash instead of the new ID for a removed concept.
 - **IDs in Markdown text:** in backticks; other text is not read as IDs. Doc anchors and test tags, below, have their own forms.
-- **Implementation rows:** ``| `class.name` | `path`, `path` | note |`` inside the implementation section.
+- **Implementation rows:** ``| `class.name` | `path`, `path` | note |`` inside the implementation section. Concepts realised in the same files may share a row: ``| `class.a`, `class.b` | `path` | |``.
 - **Known divergences:** bullets under a heading that starts with `headings.divergences`, by default `### Known divergences`, each naming the concepts involved in backticks; the check fails on a line that names none. `--gap` prints them. With a ticket it prints only those naming its concepts: a line that names only concepts of the slice keeps it open, and one that also names other concepts is shown apart and not counted.
 - **Mockup:** `data-ont="class.name"` attributes, and IDs in single quotes inside scripts (`'view.catalog'`). IDs built from templates are declared in a comment `/* data-ont dynamic: 'class.a','class.b' */`, and the markup must contain `data-ont="class.${`.
 - **Decision entries:** headings matched by `decisions.entry`.

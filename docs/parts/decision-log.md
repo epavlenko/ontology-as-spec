@@ -31,22 +31,25 @@ Write a new entry that supersedes the old one instead of editing it.
 DRIFT: 1
 ```
 
-The guard cannot see a commit made with `--no-verify`, which then fails in CI, or a rewritten history, which removes the commit it compares with.
+The guard cannot see a commit made with `--no-verify`, which then fails in CI, or a rewritten history, which removes the commit it compares with. Before the first commit there is nothing to compare with: the guard prints `GUARD_OFF` and says that accepted entries are not protected yet, rather than failing on every run.
 
-<!-- ont: inv.decision-has-reason@03ecfb, inv.rejected-recorded@b6fb01, rule.cite-decisions@b77959, rule.product-decisions-only@4f3292, inv.supersession-named@bc24b3, inv.meaning-change-decided@641c3e, inv.decision-numbers-unique@ba43af, inv.decision-references-resolve@abba7d, inv.supersedes-older@e84800 -->
+<!-- ont: inv.decision-has-reason@03ecfb, inv.rejected-recorded@b6fb01, rule.cite-decisions@b77959, rule.product-decisions-only@4f3292, inv.supersession-named@bc24b3, inv.meaning-change-decided@641c3e, inv.decision-numbers-unique@ba43af, inv.decision-references-resolve@abba7d, inv.supersedes-older@e84800, rule.unconfirmed-tentative@f4a9a4, rule.target-not-tuning@0430be -->
 ## Reference
 
-A log has four sections: Accepted, Tentative, Open questions and History. The fields of an entry, the rules a log follows and the checks that hold them are in the reference: [Decision](../reference.md#decision).
+A log has four sections: Accepted, Tentative, Open questions and History. History lists only what the entries do not show: when the log was created, when a tentative entry was accepted. A new entry needs no line there, since it carries its date and `--decisions` lists every entry. The fields of an entry, the rules a log follows and the checks that hold them are in the reference: [Decision](../reference.md#decision).
 
 Two of those rules carry the log's purpose. An entry always says why, so that the next reader knows whether there was a deeper reason. It lists the rejected alternatives, because they are what stops an agent from proposing the same alternative again. Both are manual checks: the tool sees that an entry exists, not that its reason is a reason.
 
-One entry answers one question, and the parts of one answer stay together: what was chosen, how it works, its direct consequences. A later entry may add to an earlier one without changing anything in it, and both stay in force. If it contradicts any part, it supersedes the earlier entry whole: it names it on a line of its own, `- Supersedes: D-05`, and restates what still holds, because "supersedes the … part of D-nn" leaves every later reader to work out what of D-nn still applies. The check confirms that every entry named there exists and is older, and `ont-check.mjs --decisions` lists every entry as in force, tentative or superseded by what. The tool also lists, as information, entries replaced only in part in prose ("supersedes the … part of", "no longer applies") until some entry supersedes them whole. Whether an entry answers one question or two, and whether a later entry adds or contradicts, is a reviewer's call.
+One entry answers one question, and the parts of one answer stay together: what was chosen, how it works, its direct consequences. A later entry may add to an earlier one without changing anything in it, and both stay in force. If it contradicts any part, it supersedes the earlier entry whole: it names it on a line of its own, `- Supersedes: D-05`, and restates what still holds, because "supersedes the … part of D-nn" leaves every later reader to work out what of D-nn still applies. The check confirms that every entry named there exists and is older, and `ont-check.mjs --decisions` lists every entry as in force, tentative or superseded by what, and which later entries name it, so that a reader of an old entry finds what came after it in any language. The tool also lists, as information, entries replaced only in part in prose ("supersedes the … part of", "no longer applies") until some entry supersedes them whole. Whether an entry answers one question or two, and whether a later entry adds or contradicts, is a reviewer's call.
+
+An entry the owner has not explicitly approved is tentative. That includes a value an agent picked when it was asked to tune something: the agent chose, the owner did not. The owner accepts the entry by changing its status, and History records when. Values tuned toward a target are a case of their own. The decision is the target, such as "the default scenario reaches the revenue target by month five", and a check holds it ([part 6](checks-and-tests.md#reference)); tuning that keeps the check passing needs no entry. A value gets a short entry of its own when its choice has a reason someone could dispute, such as a price set by a market corridor, so that changing it later supersedes that short entry and not a long one about the structure of the offer.
 
 ## How it fails in practice
 
 - **Decisions recorded as outcomes without the fight.** "We use suspension" without "fines kept people away" is useless the day someone proposes fines again.
 - **The log becomes a changelog.** Not every edit is a decision. A decision is a choice between alternatives that someone could reasonably make differently.
 - **Superseded entries silently edited to match the new state.** That destroys the one thing the log is for.
+- **Numbers inside a long entry.** An entry that fixes the structure of an offer and lists every price and rate has to be superseded whole whenever one of them is tuned, and until then it quotes numbers that no longer hold. Record the target and the reasons; the values live in one place, held by a check.
 
 ## In the example
 

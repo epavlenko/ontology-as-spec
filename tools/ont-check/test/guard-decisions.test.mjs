@@ -68,6 +68,29 @@ for (const [name, label, edit] of refused)
     }
   });
 
+// Before the first commit there is nothing to compare with: the guard says it is off and passes, while
+// a base that was named and is missing stays an error.
+test("[check.decision.guard-off] says GUARD_OFF before the first commit", () => {
+  const dir = mkdtempSync(join(tmpdir(), "guard-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    assert.equal(spawnSync("git", ["init", "-q"], { cwd: dir }).status, 0);
+    const guard = (...extra) => {
+      const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json"), ...extra], { cwd: dir, encoding: "utf8" });
+      return { code: r.status, out: r.stdout + r.stderr };
+    };
+    const off = guard();
+    assert.equal(off.code, 0, off.out);
+    assert.match(off.out, /no commit yet; accepted entries are not protected until the first commit\nGUARD_OFF/);
+    const named = guard("--base", "HEAD");
+    assert.equal(named.code, 1, named.out);
+    assert.match(named.out, /commit HEAD not found/);
+    assert.doesNotMatch(named.out, /Write a new entry/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // A log in another language: the same edit is refused only once decisions.accepted matches its
 // status line.
 const localized = (setting) => (dir) => {
