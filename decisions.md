@@ -273,6 +273,13 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: in a project where every concept was built in the same two files, the table had 164 rows repeating the same paths. Deriving the table from the IDs mentioned in code was suggested instead, but there 13 of the 164 built concepts are not mentioned in the code at all, and a mention is not an implementation. A shared row keeps the claim explicit and the table short.
 - Rejected: deriving the table from the code (both reasons above); an empty Files cell (the claim would lose where to look); one row per entity (an entity often has concepts in different files and in different states).
 
+### D-39 · A section heading in another language carries its key in a code span
+
+- Date: 2026-10-25 · Status: accepted
+- Decision: the key of an ontology or catalogue section, which a check's ID names and by which `--gap` and the reference pages place the checks of an entity, is the code span in its heading when there is one, ``## Préstamo `loan` ``, and otherwise the heading's Latin letters and digits in lowercase, joined by hyphens. A key written in a heading is one code span of lowercase letters, digits and hyphens. The check requires that each ontology section with definition rows has a key of its own and that every catalogue section's key names one of them, and it reports a heading whose code span is not such a key. `--gap` and the reference pages list each check once, and `--gap` lists a check whose key names no section apart instead of leaving it out. Headings without a code span keep their key. A heading that carried a code span as formatting takes it as its key now; to keep the old key, write that key in the span, ``## Loan `loan-renewal` ``. The approach's ontology gets `inv.section-keys-match` and its checks.
+- Why: the key kept only the Latin letters and digits of the heading. A project that writes its ontology in Russian got an empty key for most sections, and two headings that share a Latin word got the same key ("Loan" and "Состояние Loan" both give `loan`), so a check could not name its section, and `--gap` could not list a check that waits or has no test under its entity. Since D-28 a ticket could then close while a check it lists still waits. Two reviews of the first version of this entry found that a key written in one file and not in the other still let such a ticket close without a word, and that two sections with one key counted a check twice; the check now refuses both. D-12 and D-30 fixed the same kind of gap for the accepted status and the divergences heading.
+- Rejected: transliterating the heading (long, unstable IDs that change when the heading is reworded); the entity's ID as the key (sections such as Screens have no entity); a key in the configuration per heading (a second place to keep in step with the headings); taking any code span as it is (two spans, or one with capitals or spaces, gave keys nobody wrote); placing checks by the concepts they name (a check names concepts of several entities).
+
 ### D-40 · A number is held as its role needs: a rule's value and a requirement by a check, a model's assumptions by a snapshot and an entry per change
 
 - Date: 2026-10-25 · Status: accepted
@@ -309,12 +316,7 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
-### D-39 · A section heading in another language carries its key in a code span
-
-- Date: 2026-10-25 · Status: tentative
-- Decision: the key of an ontology or catalogue section, which a check's ID names and by which `--gap` and the reference pages place the checks of an entity, is the code span in its heading when there is one, ``## Préstamo `loan` ``, and otherwise the heading's Latin letters and digits in lowercase, joined by hyphens. A key written in a heading is one code span of lowercase letters, digits and hyphens. The check requires that each ontology section with definition rows has a key of its own and that every catalogue section's key names one of them, and it reports a heading whose code span is not such a key. `--gap` and the reference pages list each check once, and `--gap` lists a check whose key names no section apart instead of leaving it out. Headings without a code span keep their key. A heading that carried a code span as formatting takes it as its key now; to keep the old key, write that key in the span, ``## Loan `loan-renewal` ``. The approach's ontology gets `inv.section-keys-match` and its checks.
-- Why: the key kept only the Latin letters and digits of the heading. A project that writes its ontology in Russian got an empty key for most sections, and two headings that share a Latin word got the same key ("Loan" and "Состояние Loan" both give `loan`), so a check could not name its section, and `--gap` could not list a check that waits or has no test under its entity. Since D-28 a ticket could then close while a check it lists still waits. Two reviews of the first version of this entry found that a key written in one file and not in the other still let such a ticket close without a word, and that two sections with one key counted a check twice; the check now refuses both. D-12 and D-30 fixed the same kind of gap for the accepted status and the divergences heading.
-- Rejected: transliterating the heading (long, unstable IDs that change when the heading is reworded); the entity's ID as the key (sections such as Screens have no entity); a key in the configuration per heading (a second place to keep in step with the headings); taking any code span as it is (two spans, or one with capitals or spaces, gave keys nobody wrote); placing checks by the concepts they name (a check names concepts of several entities).
+None.
 
 ## Open questions
 
@@ -322,6 +324,7 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## History
 
+- 2026-10-26: D-39 accepted by the owner.
 - 2026-10-24: from D-32 on, History lists only events that have no entry of their own (D-33).
 - 2026-10-23: D-31: a known divergence names its concepts.
 - 2026-10-23: D-30: configurable heading of known divergences.
