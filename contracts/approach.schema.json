@@ -446,7 +446,7 @@
     },
     "doc-set": {
       "title": "Doc set",
-      "description": "A set of pages for one audience, and the classes it must explain.",
+      "description": "A set of pages for one audience, and the classes or checks it must explain.",
       "x-ont": "ent.doc-set",
       "type": "object",
       "properties": {
@@ -467,6 +467,11 @@
             "implemented",
             "all"
           ]
+        },
+        "checks": {
+          "description": "The proofs, manual or auto, whose checks the set must name in its anchors, such as the manual ones for a run guide.",
+          "x-ont": "field.doc-set.checks",
+          "type": "string"
         }
       },
       "required": [

@@ -8,7 +8,7 @@ A run on the example:
 
 ```text
 $ node tools/ont-check/ont-check.mjs --config example/ont.config.json
-glossary 40 · retired 6 · mockup 23 · map 23 · implemented 25 · checks 22 · unit 15 · end-to-end 10 · tickets 2 · help 15
+glossary 40 · retired 6 · mockup 23 · map 23 · implemented 25 · checks 22 · unit 15 · end-to-end 10 · tickets 2 · help 15 · verify 1
 ONT_OK
 ```
 
@@ -19,7 +19,7 @@ ERROR · data-ont in the mockup but not in the glossary (1):
   view.counter
 ERROR · data-ont in the mockup but not in the map (1):
   view.counter
-glossary 40 · retired 6 · mockup 24 · map 23 · implemented 25 · checks 22 · unit 15 · end-to-end 10 · tickets 2 · help 15
+glossary 40 · retired 6 · mockup 24 · map 23 · implemented 25 · checks 22 · unit 15 · end-to-end 10 · tickets 2 · help 15 · verify 1
 DRIFT: 2
 ```
 
@@ -53,4 +53,4 @@ What the script cannot see, beyond the manual checks, is meaning and code behavi
 
 ## In the example
 
-`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in fifty-five different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.
+`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in fifty-six different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.

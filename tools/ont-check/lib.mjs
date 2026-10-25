@@ -80,6 +80,8 @@ export function loadConfig(configPath) {
       dir: at(d.dir),
       match: new RegExp(d.match ?? "\\.md$"),
       cover: d.cover ?? [],
+      // Proofs whose checks the set must name, ["manual"] for a run guide (D-41).
+      checks: d.checks ?? [],
       scope: d.scope ?? "implemented",
     })),
     references: (raw.references ?? []).map((r) => ({ ...r, out: at(r.out) })),

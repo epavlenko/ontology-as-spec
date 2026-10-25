@@ -6,7 +6,8 @@
 // --base   the commit to compare with; default HEAD
 // --staged compare the staged version (for a pre-commit hook) instead of the working tree
 // Exit code 1 on any change. Prints GUARD_OK when every accepted entry is intact, and GUARD_OFF when
-// there is no commit yet to compare with: before the first commit nothing is protected.
+// there is no commit yet to compare with: before the first commit nothing is protected. Accepted entries
+// that are not in the commit yet are listed as information, since they are protected only once committed.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
@@ -104,6 +105,12 @@ for (const { file, entry, accepted } of targets) {
       errors.push(label);
       violations += items.length;
     }
+  // An accepted entry the commit does not have yet is not protected until it is committed (D-42).
+  const fresh = [...cur]
+    .filter(([id, b]) => accepted.test(b) && !(old.has(id) && accepted.test(old.get(id))))
+    .map(([id]) => id);
+  if (fresh.length && !staged)
+    console.log(`info · ${name}: accepted entries not in ${base} yet, protected once committed (${fresh.length}): ${fresh.join(", ")}`);
   console.log(`${name}: ${[...old.values()].filter((b) => accepted.test(b)).length} accepted entries in ${base}`);
 }
 

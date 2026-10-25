@@ -91,6 +91,14 @@ test("[check.decision.guard-off] says GUARD_OFF before the first commit", () => 
   }
 });
 
+test("[check.decision.uncommitted-named] names accepted entries that are not committed yet", () => {
+  const [plain, staged] = run((t) => t.replace("## Tentative", "### D-07 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative"));
+  assert.equal(plain.code, 0, plain.out);
+  assert.match(plain.out, /accepted entries not in HEAD yet, protected once committed \(1\): D-07/);
+  assert.match(plain.out, /GUARD_OK/);
+  assert.doesNotMatch(staged.out, /not in HEAD yet/);
+});
+
 // A log in another language: the same edit is refused only once decisions.accepted matches its
 // status line.
 const localized = (setting) => (dir) => {

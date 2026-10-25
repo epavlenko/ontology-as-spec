@@ -498,6 +498,15 @@ for (const d of cfg.docSets) {
     `${d.scope === "all" ? "concepts" : "implemented concepts"} the ${label} do not explain`,
     d.cover.length ? diff(scope, concepts).filter((x) => cover.test(x)) : [],
   );
+  // A run guide covers checks rather than classes (D-41): every check of a listed proof, of implemented
+  // concepts or of all of them, is named in an anchor of the set, so that a manual check has a way to
+  // be run by the time it can be.
+  report(
+    `${d.checks.join(" and ")} checks the ${label} do not explain how to run`,
+    checks
+      .filter((c) => d.checks.includes(c.proof) && (d.scope === "all" || fullyImplemented(c)) && !ids.has(c.id))
+      .map((c) => c.id),
+  );
   report(
     `${label} sections anchored to a definition changed since review (reread, then run stamp-docs.mjs)`,
     stale,

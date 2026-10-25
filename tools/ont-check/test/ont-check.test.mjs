@@ -425,6 +425,8 @@ const cases = [
     (p) => p("ontology.md", "\n## Item\n", "\n## Item `loan`\n")],
   ["[check.check.section-key-malformed] a heading whose code span is not a key", "section headings whose code span is not one key",
     (p) => { p("ontology.md", "\n## Loan\n", "\n## Loan `Loan V2`\n"); p("checks.md", "\n## Loan\n", "\n## Loan `Loan V2`\n"); }],
+  ["[check.doc-set.unguided-check] a manual check of built concepts that no run guide names", "manual checks the verify docs do not explain how to run",
+    (p) => p("verify/overdue.md", "<!-- ont: check.loan.overdue-in-real-time@", "<!-- ont: derived.overdue@")],
   ["[check.ticket.no-ids] a ticket without an IDs line", "tickets without an `IDs:` line",
     (p) => p("issues/0003-serve-the-hold-queue.md", "IDs: `hook.hold-ready`", "Concepts: `hook.hold-ready`")],
   ["[check.doc-set.duplicate-name] two doc sets with the same name", "doc sets with the same name",

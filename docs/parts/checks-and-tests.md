@@ -59,14 +59,21 @@ The suites themselves, how to run them and what they cost, belong to the team's 
 | `edge.loan.item`         |              |      |            |
 ```
 
-<!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@03fc5e, inv.section-keys-match@f8649b, inv.check-well-formed@b9d2a2, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@5cfebe -->
+<!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@03fc5e, inv.section-keys-match@f8649b, inv.check-well-formed@b9d2a2, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@ca73cc -->
 ## Reference
 
 The fields of a check, a test and a test suite, their rules and the checks that hold them are in the reference: [Check](../reference.md#check), [Test](../reference.md#test) and [Test suite](../reference.md#test-suite). A check's ID has the form `check.<section>.<name>`. The section is the key of the catalogue heading: the code span in it when there is one, ``## Préstamo `loan` ``, and otherwise the heading's Latin letters and digits in lowercase, joined by hyphens. A heading with other letters, accented ones included, therefore needs a code span, and the ontology's section of the same entity carries the same key; the tool fails when a catalogue key names no ontology section, or two ontology sections share one. Its cases use concrete data from a fixed sample and the product's words, never a function, a command or a selector.
 
 The tool reads tags; the test command runs the tests. So the tool cannot tell whether the tests pass, whether a tagged test does what its check says, or whether anyone ran a manual check. A manual check that could not be run is reported as not run, and the evidence of those that ran is kept outside the repository, named by check and date.
 
-A value or a target that a decision chose, such as a default, a price or the result a model must reach, is held by an automatic check. Without one, a later edit can move the product away from what the decision promised while every test passes. When values are tuned toward a target, the check holds the target, not each value: that is what was decided ([part 2](decision-log.md#reference)).
+A value that a decision chose, or a target that is a requirement on the product, is held by an automatic check; without one, a later edit can move the product away from what was decided while every test passes. A model whose results inform people, such as a business model, is different. Its assumptions are held by a snapshot of its base scenario: a check that records what the default values produce, so that an unintended change fails and an intended one updates the snapshot together with an entry in the log ([part 2](decision-log.md#reference)). No check requires the model to reach its goal. Whether it does is what the model is for, and a test that demands it would turn an honest gap into a failure that tuning the assumptions makes go away.
+
+<!-- ont: rule.guide-runs-check@eb28c9 -->
+## Running manual checks
+
+A manual check is run by a person or an agent in the product, and the catalogue says what they should see, in the product's terms. How to get there is a different kind of knowledge: where to start, the steps and what shows after each one, what to keep as evidence, and the traps where a run gets lost, such as content that loads late or a notice that covers a button. For an automatic check that knowledge is the test. For a manual check it lives in a run guide, a doc set whose sections anchor the checks they explain ([part 9](documentation.md#how-it-is-written)). A section names its check by ID and does not restate GIVEN, WHEN or THEN, so the catalogue stays the one place that says what must hold; when a check's case changes, its stamp lists the section to reread.
+
+A doc set that lists `"checks": ["manual"]` must name every manual check of implemented concepts, so a manual check without a way to run it fails the check at the moment an automatic check without a test would. The evidence of a run is kept outside the repository, named by the check's ID and the date; the guide says what to keep.
 
 ## How it fails in practice
 
@@ -80,4 +87,4 @@ Earlier versions kept a verification map: a directory of scenario files, one per
 
 ## In the example
 
-[`example/checks.md`](../../example/checks.md): twenty-two checks, two of them manual, for every invariant, rule, hook and action, including the hold queue that is not built yet. Two test suites implement them: unit tests in [`example/app/library.test.mjs`](../../example/app/library.test.mjs) and end-to-end tests in [`example/e2e/cli.test.mjs`](../../example/e2e/cli.test.mjs), which run the command line front end as a separate process.
+[`example/checks.md`](../../example/checks.md): twenty-two checks, two of them manual, for every invariant, rule, hook and action, including the hold queue that is not built yet. The manual check of a built concept has a run guide, [`example/verify/overdue.md`](../../example/verify/overdue.md). Two test suites implement the automatic ones: unit tests in [`example/app/library.test.mjs`](../../example/app/library.test.mjs) and end-to-end tests in [`example/e2e/cli.test.mjs`](../../example/e2e/cli.test.mjs), which run the command line front end as a separate process.

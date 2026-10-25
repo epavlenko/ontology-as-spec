@@ -59,7 +59,7 @@ Start small. The approach pays off before every part is in place.
 
 1. **Ten concepts.** Write the ten concepts people argue about most, with IDs and one-line definitions, in an `ontology.md` with one table per entity.
 2. **Decision log.** Record the last five decisions that someone would otherwise reverse.
-3. **Check.** Copy `tools/ont-check`, write `ont.config.json` with only the ontology and the decisions, and run it and `guard-decisions.mjs` in CI. The config may omit the mockup, map, checks and tickets until they exist.
+3. **Check.** Copy `tools/ont-check`, write `ont.config.json` with only the ontology and the decisions, and run it and `guard-decisions.mjs` in the test command and in CI. The config may omit the mockup, map, checks and tickets until they exist.
 4. **Agent rules.** Add the "what else to update" table to your agent instructions.
 5. **Checks.** Write a check for each invariant and rule, in the product's terms, in `checks.md`.
 6. **Target and reality.** When code exists, add the implementation table and the divergences. Tag the tests with the checks they implement, and add `testSuites` to the config: which suite must prove which kind of concept.

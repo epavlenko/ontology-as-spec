@@ -24,7 +24,8 @@ Rules the check cannot enforce:
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side.
 - What a partial implementation leaves out is a target concept, named in the note of its row. A note alone hides the work from `--gap`.
 - A choice the owner has not explicitly approved, such as a value you picked when asked to tune something, is recorded as tentative; the owner's approval accepts it.
-- A value or a target a decision chose is held by an automatic check. Tuning toward a target the log records needs no new entry.
+- A number is held as its role needs. A rule's value or a requirement is held by a check. A model's assumptions are held by a snapshot of its base scenario, each change of them is a short entry about its topic, and no check requires the model to reach its goal.
 - A ticket is a slice of the gap: IDs, checks, out of scope, dependencies, permissions. It does not describe behavior; behavior goes into the catalogue first.
 - A tag on a test is a claim that the test implements the check. Do not tag a test that does not.
 - A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.
+- A finished task, its checks passing, ends with a commit where the repository lets you commit; otherwise tell the owner which accepted decision entries are not protected yet.

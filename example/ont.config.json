@@ -88,6 +88,15 @@
         "rule"
       ],
       "scope": "implemented"
+    },
+    {
+      "name": "verify",
+      "dir": "verify",
+      "cover": [],
+      "checks": [
+        "manual"
+      ],
+      "scope": "implemented"
     }
   ],
   "references": [

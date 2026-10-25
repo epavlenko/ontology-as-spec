@@ -12,7 +12,7 @@ node tools/ont-check/format-ontology.mjs --config path/to/ont.config.json   # ki
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/gen-reference.mjs --config path/to/ont.config.json   # reference pages from the ontology and the checks
 node tools/ont-check/stamp-docs.mjs  --config path/to/ont.config.json [page.md …]   # after rereading: stamp the anchors
-node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK, or GUARD_OFF before the first commit
+node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK, or GUARD_OFF before the first commit; lists accepted entries not committed yet
 ```
 
 Without `--config`, every script looks for `ont.config.json` in the current directory. A ticket path after `--gap` is relative to the current directory. The guard also takes `--file path/to/decisions.md` for a log without a config, and several `--config` and `--file` arguments at once.
@@ -61,7 +61,7 @@ Paths are relative to the config file.
 | `testSuites` | a list of suites, each `{ "name", "dir", "match", "cover" }`: a unique name such as `unit` or `end-to-end`, where its tests are, a regex for test file paths (default `\.test\.[a-z]+$`), and the classes every implemented ID of which must be named by a test in this suite | no |
 | `tests` | the older form: one suite without a name, with the same `dir`, `match` and `cover` | no |
 | `tickets.dir`, `tickets.match` | where ticket files are, and a regex for their paths (default `\.md$`; `README.md` is skipped) | no |
-| `docSets` | a list of documentation sets, each `{ "name", "dir", "match", "cover", "scope" }`: the classes the set must explain, `implemented` (default) or `all` of their concepts | no |
+| `docSets` | a list of documentation sets, each `{ "name", "dir", "match", "cover", "checks", "scope" }`: the classes the set must explain, the proofs whose checks it must name (`["manual"]` for a run guide), `implemented` (default) or `all` of their concepts and checks | no |
 | `references` | a list of generated pages, each `{ "out", "title", "intro", "classes", "implementedOnly", "ids", "kinds", "types", "checks" }` | no |
 | `external` | other ontologies whose IDs may appear as examples, each `{ "ontology", "checks" }`: their IDs and checks are known but not this ontology's | no |
 | `notYetShown` | classes reported (as information) when a concept has no mockup element yet | no |
