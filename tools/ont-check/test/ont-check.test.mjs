@@ -73,6 +73,24 @@ test("[check.check.section-key] a section heading in another language carries it
   assert.match(gap.out, /GAP · Préstamo `loan`\n(?:  .*\n)*?  check\.loan\.renew-twice  no test yet/);
 });
 
+test("[check.check.section-key-unmatched] --gap still counts a waiting check whose key names no ontology section", () => {
+  const r = run(
+    (p, dir) => {
+      p("ontology.md", "\n## Hold\n", "\n## Reserva\n");
+      p("checks.md", "\n## Hold\n", "\n## Reserva `hold`\n");
+      writeFileSync(
+        join(dir, "issues", "0005-reserved-items-at-the-desk.md"),
+        "# #5 Reserved items at the desk\n\n## Slice\n\nIDs: `action.checkout`.\n\nChecks: `check.hold.reserved-for-holder-only`.\n",
+      );
+    },
+    "--gap",
+    "$DIR/issues/0005-reserved-items-at-the-desk.md",
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /GAP · checks under no ontology section\n {2}check\.hold\.reserved-for-holder-only {2}waits for concept\.reservation/);
+  assert.match(r.out, /SLICE_OPEN: 1/);
+});
+
 test("[check.ticket.slice-open] --gap with a ticket reports the open slice and exits 1", () => {
   const r = run(null, "--gap", "$DIR/issues/0003-serve-the-hold-queue.md");
   assert.equal(r.code, 1, r.out);
@@ -401,6 +419,12 @@ const cases = [
     (p) => p("ontology.md", "| `field.loan.due-date`       | D-06", "| `field.loan.due-on`         | D-06")],
   ["[check.divergence.no-concept] a known divergence that names no concept", "known divergences that name no concept by ID",
     divergence("**Loan.** The desk sees no reason when a renewal is refused.")],
+  ["[check.check.section-key-unmatched] a catalogue section whose key names no ontology section", "catalogue sections whose key names no ontology section",
+    (p) => { p("ontology.md", "\n## Hold\n", "\n## Reserva\n"); p("checks.md", "\n## Hold\n", "\n## Reserva `hold`\n"); }],
+  ["[check.check.section-key-shared] two ontology sections with one key", "ontology sections that share a key",
+    (p) => p("ontology.md", "\n## Item\n", "\n## Item `loan`\n")],
+  ["[check.check.section-key-malformed] a heading whose code span is not a key", "section headings whose code span is not one key",
+    (p) => { p("ontology.md", "\n## Loan\n", "\n## Loan `Loan V2`\n"); p("checks.md", "\n## Loan\n", "\n## Loan `Loan V2`\n"); }],
   ["[check.ticket.no-ids] a ticket without an IDs line", "tickets without an `IDs:` line",
     (p) => p("issues/0003-serve-the-hold-queue.md", "IDs: `hook.hold-ready`", "Concepts: `hook.hold-ready`")],
   ["[check.doc-set.duplicate-name] two doc sets with the same name", "doc sets with the same name",

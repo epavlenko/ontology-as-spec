@@ -53,4 +53,4 @@ What the script cannot see, beyond the manual checks, is meaning and code behavi
 
 ## In the example
 
-`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in fifty-two different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.
+`example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in fifty-five different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.

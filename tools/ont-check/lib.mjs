@@ -174,8 +174,12 @@ export function parseGlossary(md) {
 // implementation; tests implement it and carry its ID in their title.
 export const slug = (heading) => heading.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 // The key of an ontology or catalogue section, which a check's ID names: the code span in the heading,
-// so that a heading in any language can carry one (`## Préstamo \`loan\``), or else the heading itself.
-export const sectionKey = (heading) => slug(heading.match(/`([^`]+)`/)?.[1] ?? heading);
+// so that a heading in any language can carry one (`## Préstamo \`loan\``), or else the Latin letters
+// and digits of the heading. A key written in a heading is one span of lowercase letters, digits and
+// hyphens; the check reports any other.
+export const keySpans = (heading) => [...heading.matchAll(/`([^`]*)`/g)].map((m) => m[1]);
+export const SECTION_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const sectionKey = (heading) => slug(keySpans(heading)[0] ?? heading);
 export function parseChecks(md) {
   const checks = [];
   let heading = "";
@@ -188,6 +192,7 @@ export function parseChecks(md) {
     const [, concepts = "", given = "", when = "", then = "", proof = ""] = cells;
     checks.push({
       id: m[1],
+      heading,
       section: sectionKey(heading),
       concepts: [...concepts.matchAll(/`([^`]+)`/g)].map((x) => x[1]),
       given,

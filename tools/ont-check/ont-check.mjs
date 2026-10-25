@@ -22,7 +22,9 @@ import {
   parseRetired,
   read,
   renderGlossary,
+  SECTION_KEY,
   section,
+  keySpans,
   sectionKey,
   tagIds,
 } from "./lib.mjs";
@@ -307,7 +309,29 @@ if (cfg.checks) {
   );
   report(
     "checks outside their section (check.<section>.<name>)",
-    checks.filter((c) => c.id.split(".")[1] !== c.section).map((c) => `${c.id} in "${c.section}"`),
+    checks
+      .filter((c) => c.id.split(".")[1] !== c.section)
+      .map((c) => `${c.id} under "${c.heading}", whose key is ${c.section ? `"${c.section}"` : "empty"}`),
+  );
+  // Section keys (D-39). --gap and the reference pages place each check under the ontology section its
+  // key names, so a key names one section with definition rows, every catalogue section's key names one
+  // of them, and a key written in a heading is one code span of lowercase letters, digits and hyphens.
+  const ontologySections = groupBy([...new Set(rows.map((r) => r.heading))], sectionKey);
+  const catalogueSections = [...new Set(checks.map((c) => c.heading))];
+  report(
+    "ontology sections that share a key (give each its own key in a code span: ## Préstamo `loan`)",
+    [...ontologySections].filter(([, hs]) => hs.length > 1).map(([k, hs]) => `${k || "(empty)"}: ${hs.join(" / ")}`),
+  );
+  report(
+    "catalogue sections whose key names no ontology section (write the same key in both headings)",
+    catalogueSections.filter((h) => !ontologySections.has(sectionKey(h))).map((h) => `${h} → ${sectionKey(h) || "(empty)"}`),
+  );
+  report(
+    "section headings whose code span is not one key of lowercase letters, digits and hyphens",
+    [...new Set([...ontologySections.values()].flat().concat(catalogueSections))].filter((h) => {
+      const spans = keySpans(h);
+      return spans.length > 1 || (spans.length === 1 && !SECTION_KEY.test(spans[0]));
+    }),
   );
   report(
     "malformed checks: six cells, concepts, GIVEN, WHEN, THEN, auto or manual",
@@ -626,8 +650,27 @@ if (flag("--gap") > 0) {
     ticket?.checks.includes(c.id) && c.proof === "auto" && c.concepts.every((x) => !inScope(x) || implemented.has(x))
       ? c.concepts.filter((x) => !implemented.has(x))
       : [];
+  // Each check is listed once, under the first ontology section its key names. A check whose key names
+  // none is listed apart rather than left out, so that it still counts.
+  const sections = groupBy(rows, (r) => r.heading);
+  const sectionOf = new Map();
+  for (const heading of sections.keys())
+    for (const c of checks) if (!sectionOf.has(c.id) && c.section === sectionKey(heading)) sectionOf.set(c.id, heading);
+  const checkLines = (cs) =>
+    cs.flatMap((c) => {
+      const missing = waitsFor(c);
+      const line =
+        untested(c) && checkInScope(c)
+          ? `  ${c.id}  no test yet`
+          : missing.length
+            ? `  ${c.id}  waits for ${missing.join(", ")}`
+            : null;
+      if (!line) return [];
+      sliceOpen += 1;
+      return [line];
+    });
   const out = [];
-  for (const [heading, rs] of groupBy(rows, (r) => r.heading)) {
+  for (const [heading, rs] of sections) {
     const lines = [];
     for (const r of rs.filter((r) => inScope(r.id))) {
       const cs = checks.filter((c) => c.concepts.includes(r.id) && checkInScope(c));
@@ -636,15 +679,11 @@ if (flag("--gap") > 0) {
         sliceOpen += 1;
       }
     }
-    for (const c of checks.filter((c) => c.section === sectionKey(heading))) {
-      const missing = waitsFor(c);
-      if (untested(c) && checkInScope(c)) lines.push(`  ${c.id}  no test yet`);
-      else if (missing.length) lines.push(`  ${c.id}  waits for ${missing.join(", ")}`);
-      else continue;
-      sliceOpen += 1;
-    }
+    lines.push(...checkLines(checks.filter((c) => sectionOf.get(c.id) === heading)));
     if (lines.length) out.push(`GAP · ${heading}`, ...lines);
   }
+  const loose = checkLines(checks.filter((c) => !sectionOf.has(c.id)));
+  if (loose.length) out.push("GAP · checks under no ontology section", ...loose);
   // With a ticket, a divergence that names only concepts of the slice is the slice's own work and keeps
   // it open until the line is removed. One that also names concepts outside the slice is shown apart:
   // it is closed by a slice that covers all of its concepts.

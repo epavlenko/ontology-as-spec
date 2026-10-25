@@ -83,10 +83,14 @@ export function renderReference(ref, { ONT, rows, checks, implemented, kinds, so
   const wanted = (id) =>
     (!ref.classes || ref.classes.includes(id.split(".")[0])) && (!ref.implementedOnly || implemented.has(id));
   const sections = [...new Set(rows.map((r) => r.heading))];
+  // A check is shown once, under the first section its key names.
+  const owner = new Map();
+  for (const heading of sections)
+    for (const c of checks) if (!owner.has(c.id) && c.section === sectionKey(heading)) owner.set(c.id, heading);
   for (const heading of sections) {
     const rs = rows.filter((r) => r.heading === heading && wanted(r.id));
     const cs = ref.checks
-      ? checks.filter((c) => c.section === sectionKey(heading) && (!ref.implementedOnly || c.concepts.every((x) => implemented.has(x))))
+      ? checks.filter((c) => owner.get(c.id) === heading && (!ref.implementedOnly || c.concepts.every((x) => implemented.has(x))))
       : [];
     if (!rs.length && !cs.length) continue;
     out.push(`## ${heading}`, "");

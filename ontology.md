@@ -137,23 +137,24 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Check
 
-| Kind      | ID                              | Term                    | Type                | Definition                                                                                                                    |
-| --------- | ------------------------------- | ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.check`                     | Check                   |                     | A case with data that must hold for any implementation, in the product's terms.                                               |
-| Field     | `field.check.given`             | GIVEN                   | text                | The state to start from.                                                                                                      |
-|           | `field.check.when`              | WHEN                    | text                | The event.                                                                                                                    |
-|           | `field.check.then`              | THEN                    | text                | The observable result.                                                                                                        |
-|           | `field.check.proof`             | Proof                   | one of auto, manual | `auto` when a test implements it, `manual` when only a person or an agent with the product can.                               |
-| Relation  | `edge.check.concepts`           | Proves                  | refs `ent.concept`  | The concepts the check proves.                                                                                                |
-| Rule      | `rule.check-in-product-terms`   | In the product's terms  |                     | GIVEN, WHEN and THEN use concrete data from a fixed sample and the product's words; no function names, commands or selectors. |
-|           | `rule.unreachable-reported`     | Unreachable reported    |                     | A manual check that could not be run is reported as not run, never verified through another path.                             |
-|           | `rule.manual-evidence-kept`     | Evidence kept           |                     | Evidence of a manual check is kept outside the repository, named by check and date.                                           |
-|           | `rule.chosen-value-checked`     | Chosen values checked   |                     | A value or a target a decision chose is held by an automatic check, so that a later change cannot drop it unnoticed.          |
-| Invariant | `inv.check-ids-unique`          | Unique                  |                     | No check ID is used twice.                                                                                                    |
-|           | `inv.check-in-its-section`      | In its section          |                     | A check's ID names the catalogue section it sits in: the code span in its heading, or else the heading in lowercase.          |
-|           | `inv.check-well-formed`         | Well formed             |                     | A check has concepts, GIVEN, WHEN, THEN and `auto` or `manual`.                                                               |
-|           | `inv.required-concepts-checked` | Checks before code      |                     | Every concept of a required class has a check, built or not.                                                                  |
-|           | `inv.auto-check-tested`         | Automatic checks tested |                     | Every automatic check whose concepts are all implemented has a test.                                                          |
+| Kind      | ID                              | Term                    | Type                | Definition                                                                                                                                                                                                  |
+| --------- | ------------------------------- | ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.check`                     | Check                   |                     | A case with data that must hold for any implementation, in the product's terms.                                                                                                                             |
+| Field     | `field.check.given`             | GIVEN                   | text                | The state to start from.                                                                                                                                                                                    |
+|           | `field.check.when`              | WHEN                    | text                | The event.                                                                                                                                                                                                  |
+|           | `field.check.then`              | THEN                    | text                | The observable result.                                                                                                                                                                                      |
+|           | `field.check.proof`             | Proof                   | one of auto, manual | `auto` when a test implements it, `manual` when only a person or an agent with the product can.                                                                                                             |
+| Relation  | `edge.check.concepts`           | Proves                  | refs `ent.concept`  | The concepts the check proves.                                                                                                                                                                              |
+| Rule      | `rule.check-in-product-terms`   | In the product's terms  |                     | GIVEN, WHEN and THEN use concrete data from a fixed sample and the product's words; no function names, commands or selectors.                                                                               |
+|           | `rule.unreachable-reported`     | Unreachable reported    |                     | A manual check that could not be run is reported as not run, never verified through another path.                                                                                                           |
+|           | `rule.manual-evidence-kept`     | Evidence kept           |                     | Evidence of a manual check is kept outside the repository, named by check and date.                                                                                                                         |
+|           | `rule.chosen-value-checked`     | Chosen values checked   |                     | A value or a target a decision chose is held by an automatic check, so that a later change cannot drop it unnoticed.                                                                                        |
+| Invariant | `inv.check-ids-unique`          | Unique                  |                     | No check ID is used twice.                                                                                                                                                                                  |
+|           | `inv.check-in-its-section`      | In its section          |                     | A check's ID names the key of the catalogue section it sits in: the code span in the heading, or else the heading's Latin letters and digits in lowercase.                                                  |
+|           | `inv.check-well-formed`         | Well formed             |                     | A check has concepts, GIVEN, WHEN, THEN and `auto` or `manual`.                                                                                                                                             |
+|           | `inv.required-concepts-checked` | Checks before code      |                     | Every concept of a required class has a check, built or not.                                                                                                                                                |
+|           | `inv.auto-check-tested`         | Automatic checks tested |                     | Every automatic check whose concepts are all implemented has a test.                                                                                                                                        |
+|           | `inv.section-keys-match`        | Section keys match      |                     | Each ontology section with definition rows has a key of its own, every catalogue section's key names one of them, and a key written in a heading is one code span of lowercase letters, digits and hyphens. |
 
 ## Test
 
@@ -392,6 +393,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `inv.check-well-formed`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
 | `inv.required-concepts-checked` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
 | `inv.auto-check-tested`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
+| `inv.section-keys-match`        | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
 
 ### Test
 
@@ -490,6 +492,7 @@ None known.
 
 ## Revision history
 
+- 2026-10-25: `inv.check-in-its-section` names the section's key, the code span in its heading or else its Latin letters and digits; `inv.section-keys-match` (D-39, tentative).
 - 2026-10-24: an implementation row may claim several concepts, `edge.implementation-row.concept` is a list (D-38); `format-ontology.mjs` realises `rule.kind-order` and `inv.kind-named-once` (D-37).
 - 2026-10-24: `derived.named-by` (D-36); `rule.chosen-value-checked` and `rule.target-not-tuning` (D-35); `rule.unconfirmed-tentative` (D-34); a tentative entry is accepted with a line in History (D-33).
 - 2026-10-23: `inv.divergence-names-concepts`, enforced by the check (D-31).
