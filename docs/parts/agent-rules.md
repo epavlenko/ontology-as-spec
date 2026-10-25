@@ -26,7 +26,7 @@ Rules the check cannot enforce:
 - A choice the owner has not explicitly approved, such as a value you picked when asked to tune something, is recorded as tentative; the owner's approval accepts it.
 - A number is held as its role needs. A rule's value or a requirement is held by a check. A model's assumptions are held by a snapshot of its base scenario, each change of them is a short entry about its topic, and no check requires the model to reach its goal.
 - A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.
-- A finished task, its checks passing, ends with a commit where the repository lets you commit; otherwise tell the owner which accepted decision entries are not protected yet.
+- A finished task, its checks passing, ends with a local commit of its own changes where the repository lets you commit; push only when the owner allows it. Otherwise tell the owner which accepted decision entries are not protected yet.
 
 ## Why a table
 
@@ -34,10 +34,10 @@ Agents follow explicit procedures well and infer side effects badly. "Remember t
 
 The list after the table holds only the rules no check enforces; it exists because some rules have no mechanical check yet. Writing them down is the fallback. When a rule keeps being broken, it should move from the list into the check. Encoding a lesson in structure beats repeating it in prose.
 
-<!-- ont: rule.agent-rules-short@66c9df, rule.agent-rules-point-at-files@13a4c3, rule.start-from-ids@8804d9, rule.findings-mislead@0229fa, rule.commit-finished-work@fa5ae0 -->
+<!-- ont: rule.agent-rules-short@66c9df, rule.agent-rules-point-at-files@13a4c3, rule.start-from-ids@8804d9, rule.findings-mislead@0229fa, rule.commit-finished-work@7636e2 -->
 ## Reference
 
-The rules for the section itself are in the reference: [Agent rules](../reference.md#agent-rules). Keep it short, because it is read at the start of every session and long sections are skimmed. Let every row name a path or a command. Let every task start by naming the IDs it touches: if an agent cannot name them, the task is not about meaning, or the ontology is incomplete. The tool enforces none of this directly; it enforces the consequences, because a skipped row usually fails the check. The same restraint applies to reviews: a consistency review reports what would mislead someone or break a check, not every imperfection it can find. And a finished task ends with a commit where the repository lets agents commit, since the guard protects only accepted entries that are in a commit; where commits are left to the owner, the agent says which accepted entries are not protected yet. A commit after every change is not asked for: it would record states whose checks fail.
+The rules for the section itself are in the reference: [Agent rules](../reference.md#agent-rules). Keep it short, because it is read at the start of every session and long sections are skimmed. Let every row name a path or a command. Let every task start by naming the IDs it touches: if an agent cannot name them, the task is not about meaning, or the ontology is incomplete. The tool enforces none of this directly; it enforces the consequences, because a skipped row usually fails the check. The same restraint applies to reviews: a consistency review reports what would mislead someone or break a check, not every imperfection it can find. And a finished task ends with a commit where the repository lets agents commit, since the guard protects only accepted entries that are in a commit; where commits are left to the owner, the agent says which accepted entries are not protected yet. The commit is local and holds only the task's own changes, since other agents may work in the same checkout; pushing it is the owner's permission to give. A commit after every change is not asked for: it would record states whose checks fail.
 
 ## How it fails in practice
 

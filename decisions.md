@@ -300,6 +300,13 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the guard protects only entries that are in a commit. A project that adopted the approach asked whether agents should commit after every change. That would fight owners who let agents commit only when asked, and a commit in the middle of a change records a state whose checks fail. What the guard needs is narrower: accepted entries reach a commit soon after they are accepted, and until then someone knows they are not protected.
 - Rejected: a commit after every change (it conflicts with repositories that leave commits to the owner, and it records half-done states); leaving it unsaid (new accepted entries stay editable without anyone noticing); failing the guard on accepted entries that are not committed yet (every new entry would fail until its commit, which is the normal course).
 
+### D-43 · The commit that ends a task is local; pushing needs the owner's permission
+
+- Date: 2026-10-26 · Status: accepted
+- Decision: the commit that ends a finished task (D-42) is a local commit of the task's own changes. The guard compares with it, and nothing leaves the machine. Pushing it, or publishing anything, needs the owner's explicit permission, given in the task or by the owner directly. `rule.commit-finished-work` says so. D-42 still holds; this adds to it.
+- Why: the guard needs a commit, not a push, so an owner who keeps publishing for themselves can let agents commit without letting them publish. The owner of several projects that use the approach decided exactly that. Only the task's own changes go into the commit, because several agents may work in one checkout.
+- Rejected: pushing at the end of every task (publishing reaches other people and is the owner's to decide); one permission for committing and pushing together (an owner who withholds pushes would also withhold the local commit the guard needs); committing everything in the working tree (it would take in another agent's unfinished work).
+
 ## Tentative
 
 ### D-39 · A section heading in another language carries its key in a code span

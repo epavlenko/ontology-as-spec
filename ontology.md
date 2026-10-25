@@ -199,14 +199,14 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Agent rules
 
-| Kind   | ID                                | Term                    | Type | Definition                                                                                                                                                                           |
-| ------ | --------------------------------- | ----------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Entity | `ent.agent-rules`                 | Agent rules             |      | The section of the agents' instructions that says what else to update when something changes, and what to run.                                                                       |
-| Rule   | `rule.agent-rules-short`          | Short                   |      | The section is short enough to be read at the start of every session.                                                                                                                |
-|        | `rule.agent-rules-point-at-files` | Points at files         |      | Every row names a path or a command.                                                                                                                                                 |
-|        | `rule.start-from-ids`             | Start from IDs          |      | Every task starts by naming the IDs it touches; a task that cannot is not about meaning, or the ontology is incomplete.                                                              |
-|        | `rule.findings-mislead`           | Findings that matter    |      | A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings. |
-|        | `rule.commit-finished-work`       | Finished work committed |      | A finished task, its checks passing, ends with a commit where the repository lets agents commit; otherwise the agent tells the owner which accepted entries are not protected yet.   |
+| Kind   | ID                                | Term                    | Type | Definition                                                                                                                                                                                                                                           |
+| ------ | --------------------------------- | ----------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity | `ent.agent-rules`                 | Agent rules             |      | The section of the agents' instructions that says what else to update when something changes, and what to run.                                                                                                                                       |
+| Rule   | `rule.agent-rules-short`          | Short                   |      | The section is short enough to be read at the start of every session.                                                                                                                                                                                |
+|        | `rule.agent-rules-point-at-files` | Points at files         |      | Every row names a path or a command.                                                                                                                                                                                                                 |
+|        | `rule.start-from-ids`             | Start from IDs          |      | Every task starts by naming the IDs it touches; a task that cannot is not about meaning, or the ontology is incomplete.                                                                                                                              |
+|        | `rule.findings-mislead`           | Findings that matter    |      | A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.                                                                 |
+|        | `rule.commit-finished-work`       | Finished work committed |      | A finished task, its checks passing, ends with a local commit of its own changes where the repository lets agents commit, pushed only with the owner's permission; otherwise the agent tells the owner which accepted entries are not protected yet. |
 
 ## Contract
 
@@ -506,6 +506,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-10-26: `rule.commit-finished-work`: the commit is local and holds the task's own changes; pushing needs the owner's permission (D-43).
 - 2026-10-25: `rule.commit-finished-work`; the guard names accepted entries that are not committed yet (D-42).
 - 2026-10-25: a doc set may cover checks by proof, `field.doc-set.checks`, for a run guide of manual checks; `rule.guide-runs-check` (D-41).
 - 2026-10-25: `rule.number-by-role` replaces the rule on tuning toward a target, which is retired; `rule.chosen-value-checked`: a model's assumptions are held by a snapshot of its base scenario, never by a check that it reaches its goal (D-40).
