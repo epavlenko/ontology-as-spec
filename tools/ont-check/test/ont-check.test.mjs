@@ -56,6 +56,23 @@ test("accepts the older single tests key as one unnamed suite", () => {
   assert.match(r.out, / tested \d+ /);
 });
 
+test("[check.check.section-key] a section heading in another language carries its key in a code span", () => {
+  const rename = (p, dir) => {
+    p("ontology.md", "\n## Loan\n", "\n## Préstamo `loan`\n");
+    p("checks.md", "\n## Loan\n", "\n## Préstamo `loan`\n");
+    spawnSync("node", [join(TOOLS, "gen-reference.mjs"), "--config", join(dir, "ont.config.json")]);
+  };
+  const ok = run(rename);
+  assert.equal(ok.code, 0, ok.out);
+  assert.match(ok.out, /ONT_OK/);
+  const gap = run((p, dir) => {
+    rename(p, dir);
+    p("app/library.test.mjs", "[check.loan.renew-twice] ", "[rule.renewal] ");
+  }, "--gap");
+  assert.doesNotMatch(gap.out, /checks outside their section/);
+  assert.match(gap.out, /GAP · Préstamo `loan`\n(?:  .*\n)*?  check\.loan\.renew-twice  no test yet/);
+});
+
 test("[check.ticket.slice-open] --gap with a ticket reports the open slice and exits 1", () => {
   const r = run(null, "--gap", "$DIR/issues/0003-serve-the-hold-queue.md");
   assert.equal(r.code, 1, r.out);

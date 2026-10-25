@@ -6,7 +6,7 @@
 // then say which sections to reread after one of them changed. Reference pages, which only restate
 // the ontology and the check catalogue, are generated.
 import { createHash } from "node:crypto";
-import { slug } from "./lib.mjs";
+import { sectionKey } from "./lib.mjs";
 
 const ANCHOR = /<!--\s*ont:\s*([^>]*?)\s*-->/g;
 
@@ -86,7 +86,7 @@ export function renderReference(ref, { ONT, rows, checks, implemented, kinds, so
   for (const heading of sections) {
     const rs = rows.filter((r) => r.heading === heading && wanted(r.id));
     const cs = ref.checks
-      ? checks.filter((c) => c.section === slug(heading) && (!ref.implementedOnly || c.concepts.every((x) => implemented.has(x))))
+      ? checks.filter((c) => c.section === sectionKey(heading) && (!ref.implementedOnly || c.concepts.every((x) => implemented.has(x))))
       : [];
     if (!rs.length && !cs.length) continue;
     out.push(`## ${heading}`, "");

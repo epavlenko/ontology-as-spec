@@ -21,9 +21,9 @@ import {
   parseImplemented,
   parseRetired,
   read,
-  slug,
   renderGlossary,
   section,
+  sectionKey,
   tagIds,
 } from "./lib.mjs";
 import { buildContracts, renderContracts } from "./contracts.mjs";
@@ -636,7 +636,7 @@ if (flag("--gap") > 0) {
         sliceOpen += 1;
       }
     }
-    for (const c of checks.filter((c) => c.section === slug(heading))) {
+    for (const c of checks.filter((c) => c.section === sectionKey(heading))) {
       const missing = waitsFor(c);
       if (untested(c) && checkInScope(c)) lines.push(`  ${c.id}  no test yet`);
       else if (missing.length) lines.push(`  ${c.id}  waits for ${missing.join(", ")}`);

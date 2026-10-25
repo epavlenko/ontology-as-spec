@@ -275,7 +275,12 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
-None.
+### D-39 · A section heading in another language carries its key in a code span
+
+- Date: 2026-10-25 · Status: tentative
+- Decision: the key of an ontology or catalogue section, which a check's ID names and by which `--gap` lists the checks of an entity, is the code span in its heading when there is one, ``## Préstamo `loan` ``, and the heading in lowercase otherwise. Headings without a code span keep their key, so existing catalogues do not change.
+- Why: the key kept only Latin letters and digits of the heading. A project that writes its ontology in Russian got an empty key for most sections and the same key for two of them ("Topic" and "Состояние Topic" both gave `topic`), so a check could not name its section, and `--gap` could not list a check that waits or has no test under its entity. Since D-28 a ticket could then close while a check it lists still waits. D-12 and D-30 fixed the same kind of gap for the accepted status and the divergences heading.
+- Rejected: transliterating the heading (long, unstable IDs that change when the heading is reworded); the entity's ID as the key (sections such as Screens have no entity); a key in the configuration per heading (a second place to keep in step with the headings).
 
 ## Open questions
 

@@ -59,10 +59,10 @@ The suites themselves, how to run them and what they cost, belong to the team's 
 | `edge.loan.item`         |              |      |            |
 ```
 
-<!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@b6ec22, inv.check-well-formed@b9d2a2, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@5cfebe -->
+<!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@2aab30, inv.check-well-formed@b9d2a2, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@5cfebe -->
 ## Reference
 
-The fields of a check, a test and a test suite, their rules and the checks that hold them are in the reference: [Check](../reference.md#check), [Test](../reference.md#test) and [Test suite](../reference.md#test-suite). A check's ID has the form `check.<section>.<name>`, where the section is the catalogue heading in lowercase. Its cases use concrete data from a fixed sample and the product's words, never a function, a command or a selector.
+The fields of a check, a test and a test suite, their rules and the checks that hold them are in the reference: [Check](../reference.md#check), [Test](../reference.md#test) and [Test suite](../reference.md#test-suite). A check's ID has the form `check.<section>.<name>`, where the section is the catalogue heading in lowercase, or the code span in it when the heading is in a language without Latin letters (``## Préstamo `loan` ``); the ontology's section uses the same key. Its cases use concrete data from a fixed sample and the product's words, never a function, a command or a selector.
 
 The tool reads tags; the test command runs the tests. So the tool cannot tell whether the tests pass, whether a tagged test does what its check says, or whether anyone ran a manual check. A manual check that could not be run is reported as not run, and the evidence of those that ran is kept outside the repository, named by check and date.
 
