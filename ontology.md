@@ -103,16 +103,16 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Divergence
 
-| Kind      | ID                              | Term                   | Type               | Definition                                                                                                                                                             |
-| --------- | ------------------------------- | ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.divergence`                | Divergence             |                    | A place where the product does something the target does not want.                                                                                                     |
-| Field     | `field.divergence.description`  | Description            | text               | What the product does instead, and the ticket or decision that will settle it.                                                                                         |
-| Relation  | `edge.divergence.concepts`      | Concepts               | refs `ent.concept` | The concepts involved.                                                                                                                                                 |
-| Rule      | `rule.divergence-contradicts`   | Only contradictions    |                    | A divergence records behavior that contradicts the target; what is not built yet is the gap, not a divergence.                                                         |
-|           | `rule.divergence-becomes-work`  | Becomes work           |                    | Each divergence becomes a ticket, or a decision when the target was what changed.                                                                                      |
-|           | `rule.second-vocabulary`        | Second vocabulary      |                    | A project may keep the vocabulary of what shipped apart from the target's; where they disagree, it is a divergence, never a silent edit of either.                     |
-| Invariant | `inv.divergence-names-concepts` | Concepts named         |                    | Every line under known divergences names at least one concept by ID.                                                                                                   |
-| Action    | `action.walk-blind`             | Walk the product blind |                    | Use the product as a user, from the ontology, the catalogue, the map and the run guides but not the code, and turn each difference into a known divergence or a check. |
+| Kind      | ID                              | Term                   | Type               | Definition                                                                                                                                                                                                                                                       |
+| --------- | ------------------------------- | ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.divergence`                | Divergence             |                    | A place where the product does something the target does not want.                                                                                                                                                                                               |
+| Field     | `field.divergence.description`  | Description            | text               | What the product does instead, and the ticket or decision that will settle it.                                                                                                                                                                                   |
+| Relation  | `edge.divergence.concepts`      | Concepts               | refs `ent.concept` | The concepts involved.                                                                                                                                                                                                                                           |
+| Rule      | `rule.divergence-contradicts`   | Only contradictions    |                    | A divergence records behavior that contradicts the target; what is not built yet is the gap, not a divergence.                                                                                                                                                   |
+|           | `rule.divergence-becomes-work`  | Becomes work           |                    | Each divergence becomes a ticket, or a decision when the target was what changed.                                                                                                                                                                                |
+|           | `rule.second-vocabulary`        | Second vocabulary      |                    | A project may keep the vocabulary of what shipped apart from the target's; where they disagree, it is a divergence, never a silent edit of either.                                                                                                               |
+| Invariant | `inv.divergence-names-concepts` | Concepts named         |                    | Every line under known divergences names at least one concept by ID.                                                                                                                                                                                             |
+| Action    | `action.walk-blind`             | Walk the product blind |                    | Use the product as a user, from the ontology, the catalogue, the map and the run guides but not the code: behavior that contradicts the target becomes a known divergence, a case the catalogue lacks becomes a check, and what is not built is already the gap. |
 
 ## Mockup element
 
@@ -146,7 +146,7 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 | Field     | `field.check.given`             | GIVEN                    | text                        | The state to start from.                                                                                                                                                                                                   |
 |           | `field.check.when`              | WHEN                     | text                        | The event.                                                                                                                                                                                                                 |
 |           | `field.check.then`              | THEN                     | text                        | The observable result.                                                                                                                                                                                                     |
-|           | `field.check.proof`             | Proof                    | one of auto, judged, manual | `auto` when a test implements it, `judged` when a test runs it and a model judges the output against its THEN, `manual` when only a person or an agent with the product can.                                               |
+|           | `field.check.proof`             | Proof                    | one of auto, judged, manual | `auto` when a test implements it, `judged` when a test runs it and a model judges the output against its THEN, `manual` when only a person or an agent with the product can. `auto` and `judged` checks are automatic.     |
 | Relation  | `edge.check.concepts`           | Proves                   | refs `ent.concept`          | The concepts the check proves.                                                                                                                                                                                             |
 | Concept   | `concept.ontology-layer`        | Ontology layer           |                             | What the tool checks in any project: the ontology and the artifacts that refer to it.                                                                                                                                      |
 |           | `concept.product-layer`         | Product layer            |                             | What a project's catalogue and tests check: the product that agents build from the ontology.                                                                                                                               |
@@ -158,7 +158,7 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 |           | `rule.verdict-kept`             | Verdict kept             |                             | The verdict of a judged check is kept outside the repository, named by check and date, like the evidence of a manual check.                                                                                                |
 | Invariant | `inv.check-ids-unique`          | Unique                   |                             | No check ID is used twice.                                                                                                                                                                                                 |
 |           | `inv.check-in-its-section`      | In its section           |                             | A check's ID names the key of the catalogue section it sits in: the code span in the heading, or else the heading's Latin letters and digits in lowercase.                                                                 |
-|           | `inv.check-well-formed`         | Well formed              |                             | A check has concepts, GIVEN, WHEN, THEN and `auto` or `manual`.                                                                                                                                                            |
+|           | `inv.check-well-formed`         | Well formed              |                             | A check has concepts, GIVEN, WHEN, THEN and a proof: `auto`, `judged` or `manual`.                                                                                                                                         |
 |           | `inv.required-concepts-checked` | Checks before code       |                             | Every concept of a required class has a check, built or not.                                                                                                                                                               |
 |           | `inv.auto-check-tested`         | Automatic checks tested  |                             | Every automatic check whose concepts are all implemented has a test.                                                                                                                                                       |
 |           | `inv.section-keys-match`        | Section keys match       |                             | Each ontology section with definition rows has a key of its own, every catalogue section's key names one of them, and a key written in a heading is one code span of lowercase letters, digits and hyphens.                |
@@ -252,7 +252,7 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 | Field     | `field.doc-set.name`       | Name                 | text                    | Unique among the sets.                                                                                                                       |
 |           | `field.doc-set.cover`      | Covers               | text                    | The classes whose concepts the set must explain.                                                                                             |
 |           | `field.doc-set.scope`      | Scope                | one of implemented, all | Whether the set explains what is built or the whole target.                                                                                  |
-|           | `field.doc-set.checks`     | Checks               | text optional           | The proofs, manual or auto, whose checks the set must name in its anchors, such as the manual ones for a run guide.                          |
+|           | `field.doc-set.checks`     | Checks               | text optional           | The proofs whose checks the set must name in its anchors, such as manual for a run guide.                                                    |
 | Invariant | `inv.doc-set-covers`       | Explains its classes |                         | Every concept of a covered class, within the scope, is explained by an anchored section, and every check of a covered proof is named by one. |
 |           | `inv.doc-set-names-unique` | Unique names         |                         | No two doc sets share a name.                                                                                                                |
 
@@ -415,7 +415,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `rule.chosen-value-checked`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked                       |
 | `inv.check-ids-unique`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
 | `inv.check-in-its-section`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
-| `inv.check-well-formed`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `inv.check-well-formed`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` | judged not built: `inv.judged-check-tested` |
 | `inv.required-concepts-checked` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
 | `inv.auto-check-tested`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
 | `inv.section-keys-match`        | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
@@ -445,21 +445,21 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Ticket
 
-| ID                             | Implemented in                  | Note                                         |
-| ------------------------------ | ------------------------------- | -------------------------------------------- |
-| `ent.ticket`                   | `tools/ont-check/ont-check.mjs` |                                              |
-| `field.ticket.why-now`         | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it |
-| `field.ticket.out-of-scope`    | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it |
-| `field.ticket.pre-authorized`  | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it |
-| `edge.ticket.concepts`         | `tools/ont-check/ont-check.mjs` |                                              |
-| `edge.ticket.checks`           | `tools/ont-check/ont-check.mjs` |                                              |
-| `edge.ticket.depends-on`       | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it |
-| `derived.gap`                  | `tools/ont-check/ont-check.mjs` |                                              |
-| `derived.slice-done`           | `tools/ont-check/ont-check.mjs` |                                              |
-| `rule.ticket-without-behavior` | `docs/parts/agent-workflow.md`  | reviewed, not checked                        |
-| `inv.ticket-has-ids`           | `tools/ont-check/ont-check.mjs` |                                              |
-| `inv.ticket-checks-related`    | `tools/ont-check/ont-check.mjs` |                                              |
-| `action.cut-slice`             | `docs/parts/agent-workflow.md`  | a procedure; `--gap` lists what to cut from  |
+| ID                             | Implemented in                  | Note                                                     |
+| ------------------------------ | ------------------------------- | -------------------------------------------------------- |
+| `ent.ticket`                   | `tools/ont-check/ont-check.mjs` |                                                          |
+| `field.ticket.why-now`         | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it             |
+| `field.ticket.out-of-scope`    | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it             |
+| `field.ticket.pre-authorized`  | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it             |
+| `edge.ticket.concepts`         | `tools/ont-check/ont-check.mjs` |                                                          |
+| `edge.ticket.checks`           | `tools/ont-check/ont-check.mjs` |                                                          |
+| `edge.ticket.depends-on`       | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it             |
+| `derived.gap`                  | `tools/ont-check/ont-check.mjs` | judged checks not counted yet: `inv.judged-check-tested` |
+| `derived.slice-done`           | `tools/ont-check/ont-check.mjs` | judged checks not counted yet: `inv.judged-check-tested` |
+| `rule.ticket-without-behavior` | `docs/parts/agent-workflow.md`  | reviewed, not checked                                    |
+| `inv.ticket-has-ids`           | `tools/ont-check/ont-check.mjs` |                                                          |
+| `inv.ticket-checks-related`    | `tools/ont-check/ont-check.mjs` |                                                          |
+| `action.cut-slice`             | `docs/parts/agent-workflow.md`  | a procedure; `--gap` lists what to cut from              |
 
 ### Agent rules
 

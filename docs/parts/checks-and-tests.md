@@ -59,7 +59,7 @@ The suites themselves, how to run them and what they cost, belong to the team's 
 | `edge.loan.item`         |              |      |            |
 ```
 
-<!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@03fc5e, inv.section-keys-match@f8649b, inv.check-well-formed@b9d2a2, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@ca73cc -->
+<!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@03fc5e, inv.section-keys-match@f8649b, inv.check-well-formed@aa846c, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@ca73cc -->
 ## Reference
 
 The fields of a check, a test and a test suite, their rules and the checks that hold them are in the reference: [Check](../reference.md#check), [Test](../reference.md#test) and [Test suite](../reference.md#test-suite). A check's ID has the form `check.<section>.<name>`. The section is the key of the catalogue heading: the code span in it when there is one, ``## Préstamo `loan` ``, and otherwise the heading's Latin letters and digits in lowercase, joined by hyphens. A heading with other letters, accented ones included, therefore needs a code span, and the ontology's section of the same entity carries the same key; the tool fails when a catalogue key names no ontology section, or two ontology sections share one. Its cases use concrete data from a fixed sample and the product's words, never a function, a command or a selector.

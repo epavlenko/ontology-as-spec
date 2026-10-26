@@ -19,21 +19,21 @@ Every product check reaches the ontology the same way. The class of a concept sa
 
 Some values are written by a model: a summary of an event, the claims extracted from an interview, a reply to a member. A test that compares them with an exact text breaks on every harmless change, and a manual check of them is seldom run. A judged check sits between the two. A test runs the product on a fixed sample, and a model reads the output next to the check's THEN and says whether it holds.
 
-The judge reads the check's case and the product's output, never the code or the test, so that it judges the product and not the implementation. Nothing in a product's ontology tells a generated value from another, so the suite that runs judged checks names them; the tool can then require a test for each. A verdict is kept outside the repository, named by the check and the date, like the evidence of a manual check. Judged checks cost a call to a model each, so their suite is one a person or a schedule runs, not every commit.
+The judge reads the check's case and the product's output, never the code or the test, so that it judges the product and not the implementation. Nothing in a product's ontology tells a generated value from another, so the suite that runs judged checks names them; the tool can then require a test for each. A verdict is kept outside the repository, named by the check and the date, like the evidence of a manual check. Judged checks are automatic checks, so they count wherever automatic ones do: in the gap, in a finished slice and in a check a ticket waits for. Each run costs a call to a model, so a project may keep their suite apart and run it on purpose; how often is the project's choice.
 
 <!-- ont: ent.profile@d94262, rule.profile-requires-checkable@e0c6e7 -->
 ## Profiles
 
 A profile is a recipe for a property of the product that its ontology shows. It says what to put in the configuration, what it requires and what it recommends. It is not a key of the configuration: a project follows it by writing the settings it lists and the checks it asks for. What a profile requires must be something the tool can check through the configuration and the catalogue; everything else it lists is a recommendation.
 
-- **Model output**, for products where a model writes values people read: a suite of judged checks that names them, kept apart and run on purpose.
+- **Model output**, for products where a model writes values people read: a suite of judged checks that names them, kept apart if its cost calls for it.
 - **Interface**, for products with views: an end-to-end suite covering actions and views, and, when the product carries `data-ont` labels, a test that every implemented screen shows the elements its map lists.
 - **Model and data scenarios**, for products whose results inform people: the base scenario held by a snapshot, as D-40 describes.
 
-<!-- ont: action.walk-blind@ff4721 -->
+<!-- ont: action.walk-blind@2e8dcb -->
 ## Walking the product blind
 
-Code that behaves differently from the ontology where no test looks passes every check. The cheapest way to find it is to use the product as a person would, knowing what it should do and not how it is built. An agent gets the ontology, the catalogue, the map and the run guides, but not the code, and walks the product before a release. Each difference it finds becomes a known divergence or a new check. In the lending library, a walker reads that renewal is refused while someone waits for the title, places a hold as ben, renews as ana at the desk, and records a divergence if the renewal goes through.
+Code that behaves differently from the ontology where no test looks passes every check. The cheapest way to find it is to use the product as a person would, knowing what it should do and not how it is built. An agent gets the ontology, the catalogue, the map and the run guides, but not the code, and walks the product before a release. A difference is one of three things. Behavior that contradicts the target becomes a known divergence. A case the catalogue does not have becomes a check. What is simply not built yet is already the gap, and adds nothing. In the lending library, a walker reads that renewal is refused while someone waits for the title, places a hold as ben, renews as ana at the desk, and records a divergence if the renewal goes through; finding the hold queue unserved adds nothing, since its concepts are target.
 
 <!-- ont: action.critique-change@79fa01 -->
 ## An independent critic
@@ -43,4 +43,4 @@ A significant change, such as a rule of the approach, a new mechanism or risky c
 <!-- ont: inv.one-concept-per-term@2eb96c, derived.meaning-changed@8d5a8c -->
 ## Checks of the ontology layer still to come
 
-Two gaps of the ontology layer matter most when agents edit the ontology. A definition can change without a decision or a line of history, so its meaning shifts and nobody sees it; a guard over the change can name such a definition. And two concepts can carry one term, so prose that uses the term is ambiguous. A strict rule against shared terms would be wrong: it flagged eight pairs in this repository's own ontology, all legitimate, such as two fields termed Name in different entities and a relation named after the entity it refers to. So the pairs that remain once those are left out are listed as information, for a reviewer to look at.
+Two gaps of the ontology layer matter most when agents edit the ontology. A definition can change without a decision or a line of history, so its meaning shifts and nobody sees it; a guard over the change can name such a definition. And two concepts can carry one term, so prose that uses the term is ambiguous. A strict rule against shared terms would be wrong: in this repository's own ontology it found eight terms shared by twelve pairs of concepts, all legitimate, such as two fields termed Name in different entities and a relation named after the entity it refers to. Leaving those cases out still leaves three legitimate pairs, such as two invariants termed Current, one for contracts and one for reference pages. So shared terms are listed as information, for a reviewer to look at.

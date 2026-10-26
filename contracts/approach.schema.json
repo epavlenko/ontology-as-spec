@@ -268,7 +268,7 @@
           "type": "string"
         },
         "proof": {
-          "description": "auto when a test implements it, judged when a test runs it and a model judges the output against its THEN, manual when only a person or an agent with the product can.",
+          "description": "auto when a test implements it, judged when a test runs it and a model judges the output against its THEN, manual when only a person or an agent with the product can. auto and judged checks are automatic.",
           "x-ont": "field.check.proof",
           "enum": [
             "auto",
@@ -479,7 +479,7 @@
           ]
         },
         "checks": {
-          "description": "The proofs, manual or auto, whose checks the set must name in its anchors, such as the manual ones for a run guide.",
+          "description": "The proofs whose checks the set must name in its anchors, such as manual for a run guide.",
           "x-ont": "field.doc-set.checks",
           "type": "string"
         }
