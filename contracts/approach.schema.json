@@ -268,10 +268,11 @@
           "type": "string"
         },
         "proof": {
-          "description": "auto when a test implements it, manual when only a person or an agent with the product can.",
+          "description": "auto when a test implements it, judged when a test runs it and a model judges the output against its THEN, manual when only a person or an agent with the product can.",
           "x-ont": "field.check.proof",
           "enum": [
             "auto",
+            "judged",
             "manual"
           ]
         },
@@ -335,6 +336,15 @@
           "description": "The classes whose implemented concepts the suite must prove.",
           "x-ont": "field.test-suite.cover",
           "type": "string"
+        },
+        "checks": {
+          "description": "Checks the suite must implement, such as a key scenario end to end or the checks a judge decides.",
+          "x-ont": "edge.test-suite.checks",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ont-ref": "ent.check"
+          }
         }
       },
       "required": [
@@ -484,6 +494,14 @@
       "title": "Reference page",
       "description": "A page that only restates the ontology and the checks, generated, never edited.",
       "x-ont": "ent.reference-page",
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "A recipe for a property of the product that its ontology shows: what to configure, what is required and what is recommended.",
+      "x-ont": "ent.profile",
       "type": "object",
       "properties": {},
       "required": []

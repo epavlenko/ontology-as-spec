@@ -316,7 +316,20 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
-None.
+### D-44 · Verification has two layers, and product checks follow from the ontology through profiles written as recipes
+
+- Date: 2026-10-26 · Status: tentative
+- Decision:
+  - Verification has two layers. The ontology layer is what the tool checks in any project: structure, references, decisions, coverage and the gap. The product layer is what a project's catalogue and tests check: the product that agents build from the ontology. In this repository the tool's own tests are the product layer of the tool and implement checks that are the ontology layer of every other project.
+  - Product checks are bound to the ontology one way. A concept's class says which suite must prove it (D-13), and a suite may also name checks it must implement (`edge.test-suite.checks`). A check's proof says how: `auto`, `judged` or `manual`. The proof says where the result is kept. The tool checks the class, the suite and the proof; where a verdict or evidence is kept is a rule for people (`rule.verdict-kept`, `rule.manual-evidence-kept`).
+  - A judged check is run by a test, and a model judges the output against its THEN without seeing the code. The suite that runs judged checks names them: a product's ontology gains no marker for generated values, and the tool cannot tell a generated value from another.
+  - A profile is a recipe in the documentation for a property of the product. It has no configuration key and no check of its own: what it requires must be checkable through the configuration and the catalogue, and the rest is a recommendation. The profiles for now are model output and interface; the recipe for model and data scenarios is D-40.
+  - The profiles recommend two procedures: a blind walk of the product before a release (`action.walk-blind`), and an independent critic for changes of rules, mechanisms and risky code (`action.critique-change`).
+  - The ontology layer gains two checks: a guard that names a definition changed without a decision entry or a history line (`derived.meaning-changed`), and information on two concepts that share a term (`inv.one-concept-per-term`).
+  - All of these are target concepts in the approach's ontology, described on a draft page of `docs/`. Each mechanism is built under a decision of its own.
+- Why: four projects on the protocol each reinvented part of verifying their product: an ad hoc browser run, a run-guide skill, manual checks of extracted claims, a manual check of a model's verdicts. An outside team's practice showed the cost of proofs that nothing ties to the specification: a key scenario proven only offline, tasks merged while their checks failed. The ontology already shows which properties a product has, so the proofs can follow from it instead of being invented in every project. Writing the proposal as target concepts first showed what its first draft missed. Nothing in a product's ontology tells a generated value apart, so the suite has to name the judged checks. Where a result is kept cannot be checked by the tool. And a strict rule of unique terms would have flagged eight legitimate pairs in the approach's own ontology, so shared terms are information.
+- Rejected: a `profiles` key in the configuration (a second way to say what suites and doc sets already say); a marker for generated values in every product ontology (a new convention in every project, while the suite can name its checks); requiring a quality-assurance methodology of every project (rules the tool cannot check, which D-27 treats as noise); a live-service profile now (no project on the protocol needs it yet); shared terms as an error (eight false alarms in this repository's own ontology).
+
 
 ## Open questions
 

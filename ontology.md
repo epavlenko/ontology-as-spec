@@ -38,6 +38,7 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 |           | `inv.concept-tried`            | Tried                   |                            | Every concept has a mockup element, a ticket or an implementation. Reported as information.                                                                           |
 |           | `inv.ids-permanent`            | IDs are permanent       |                            | Renaming a term changes its row's text, never its ID.                                                                                                                 |
 |           | `inv.no-restated-definition`   | No restated definition  |                            | Notes under a table add detail and never restate a definition.                                                                                                        |
+|           | `inv.one-concept-per-term`     | One concept per term    |                            | A term names one concept, apart from fields and relations of different entities and a relation named after the entity it refers to. Reported as information.          |
 | Action    | `action.add-concept`           | Add a concept           |                            | Write its definition row first, in its entity's section; then its checks, map row, mockup element and anchors.                                                        |
 |           | `action.rename-term`           | Rename a term           |                            | Change the term and definition, keep the ID, regenerate, reread anchored sections.                                                                                    |
 |           | `action.change-id`             | Change an ID            |                            | Replace it everywhere but the decision log and retire the old one, with a decision.                                                                                   |
@@ -70,6 +71,7 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 |           | `edge.decision.supersedes`        | Supersedes                 | refs `ent.decision` optional | Earlier entries this one replaces, each whole, named on a `Supersedes:` line.                                                                                                                                                                            |
 | Derived   | `derived.in-force`                | In force                   |                              | An entry that no `Supersedes:` line names.                                                                                                                                                                                                               |
 |           | `derived.named-by`                | Named by                   |                              | The later entries that mention an entry by its number.                                                                                                                                                                                                   |
+|           | `derived.meaning-changed`         | Meaning changed silently   |                              | A definition row whose term, type or definition changed since the base commit while no decision entry or revision history line of the change names its ID.                                                                                               |
 | Rule      | `rule.one-choice`                 | One question               |                              | An entry answers one question; the parts of one answer, its mechanism and its direct consequences, stay together.                                                                                                                                        |
 |           | `rule.cite-decisions`             | Cite by number             |                              | The ontology refers to a decision by number where a rule would otherwise look arbitrary.                                                                                                                                                                 |
 |           | `rule.product-decisions-only`     | Product decisions only     |                              | The log holds what someone working on the product needs; personal and strategic decisions live elsewhere.                                                                                                                                                |
@@ -101,15 +103,16 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Divergence
 
-| Kind      | ID                              | Term                | Type               | Definition                                                                                                                                         |
-| --------- | ------------------------------- | ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.divergence`                | Divergence          |                    | A place where the product does something the target does not want.                                                                                 |
-| Field     | `field.divergence.description`  | Description         | text               | What the product does instead, and the ticket or decision that will settle it.                                                                     |
-| Relation  | `edge.divergence.concepts`      | Concepts            | refs `ent.concept` | The concepts involved.                                                                                                                             |
-| Rule      | `rule.divergence-contradicts`   | Only contradictions |                    | A divergence records behavior that contradicts the target; what is not built yet is the gap, not a divergence.                                     |
-|           | `rule.divergence-becomes-work`  | Becomes work        |                    | Each divergence becomes a ticket, or a decision when the target was what changed.                                                                  |
-|           | `rule.second-vocabulary`        | Second vocabulary   |                    | A project may keep the vocabulary of what shipped apart from the target's; where they disagree, it is a divergence, never a silent edit of either. |
-| Invariant | `inv.divergence-names-concepts` | Concepts named      |                    | Every line under known divergences names at least one concept by ID.                                                                               |
+| Kind      | ID                              | Term                   | Type               | Definition                                                                                                                                                             |
+| --------- | ------------------------------- | ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.divergence`                | Divergence             |                    | A place where the product does something the target does not want.                                                                                                     |
+| Field     | `field.divergence.description`  | Description            | text               | What the product does instead, and the ticket or decision that will settle it.                                                                                         |
+| Relation  | `edge.divergence.concepts`      | Concepts               | refs `ent.concept` | The concepts involved.                                                                                                                                                 |
+| Rule      | `rule.divergence-contradicts`   | Only contradictions    |                    | A divergence records behavior that contradicts the target; what is not built yet is the gap, not a divergence.                                                         |
+|           | `rule.divergence-becomes-work`  | Becomes work           |                    | Each divergence becomes a ticket, or a decision when the target was what changed.                                                                                      |
+|           | `rule.second-vocabulary`        | Second vocabulary      |                    | A project may keep the vocabulary of what shipped apart from the target's; where they disagree, it is a divergence, never a silent edit of either.                     |
+| Invariant | `inv.divergence-names-concepts` | Concepts named         |                    | Every line under known divergences names at least one concept by ID.                                                                                                   |
+| Action    | `action.walk-blind`             | Walk the product blind |                    | Use the product as a user, from the ontology, the catalogue, the map and the run guides but not the code, and turn each difference into a known divergence or a check. |
 
 ## Mockup element
 
@@ -137,24 +140,31 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Check
 
-| Kind      | ID                              | Term                    | Type                | Definition                                                                                                                                                                                                                 |
-| --------- | ------------------------------- | ----------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.check`                     | Check                   |                     | A case with data that must hold for any implementation, in the product's terms.                                                                                                                                            |
-| Field     | `field.check.given`             | GIVEN                   | text                | The state to start from.                                                                                                                                                                                                   |
-|           | `field.check.when`              | WHEN                    | text                | The event.                                                                                                                                                                                                                 |
-|           | `field.check.then`              | THEN                    | text                | The observable result.                                                                                                                                                                                                     |
-|           | `field.check.proof`             | Proof                   | one of auto, manual | `auto` when a test implements it, `manual` when only a person or an agent with the product can.                                                                                                                            |
-| Relation  | `edge.check.concepts`           | Proves                  | refs `ent.concept`  | The concepts the check proves.                                                                                                                                                                                             |
-| Rule      | `rule.check-in-product-terms`   | In the product's terms  |                     | GIVEN, WHEN and THEN use concrete data from a fixed sample and the product's words; no function names, commands or selectors.                                                                                              |
-|           | `rule.unreachable-reported`     | Unreachable reported    |                     | A manual check that could not be run is reported as not run, never verified through another path.                                                                                                                          |
-|           | `rule.manual-evidence-kept`     | Evidence kept           |                     | Evidence of a manual check is kept outside the repository, named by check and date.                                                                                                                                        |
-|           | `rule.chosen-value-checked`     | Chosen values checked   |                     | A value a decision chose, or a target that is a requirement, is held by an automatic check; a model's assumptions are held by a snapshot of its base scenario's results, never by a check that the model reaches its goal. |
-| Invariant | `inv.check-ids-unique`          | Unique                  |                     | No check ID is used twice.                                                                                                                                                                                                 |
-|           | `inv.check-in-its-section`      | In its section          |                     | A check's ID names the key of the catalogue section it sits in: the code span in the heading, or else the heading's Latin letters and digits in lowercase.                                                                 |
-|           | `inv.check-well-formed`         | Well formed             |                     | A check has concepts, GIVEN, WHEN, THEN and `auto` or `manual`.                                                                                                                                                            |
-|           | `inv.required-concepts-checked` | Checks before code      |                     | Every concept of a required class has a check, built or not.                                                                                                                                                               |
-|           | `inv.auto-check-tested`         | Automatic checks tested |                     | Every automatic check whose concepts are all implemented has a test.                                                                                                                                                       |
-|           | `inv.section-keys-match`        | Section keys match      |                     | Each ontology section with definition rows has a key of its own, every catalogue section's key names one of them, and a key written in a heading is one code span of lowercase letters, digits and hyphens.                |
+| Kind      | ID                              | Term                     | Type                        | Definition                                                                                                                                                                                                                 |
+| --------- | ------------------------------- | ------------------------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.check`                     | Check                    |                             | A case with data that must hold for any implementation, in the product's terms.                                                                                                                                            |
+| Field     | `field.check.given`             | GIVEN                    | text                        | The state to start from.                                                                                                                                                                                                   |
+|           | `field.check.when`              | WHEN                     | text                        | The event.                                                                                                                                                                                                                 |
+|           | `field.check.then`              | THEN                     | text                        | The observable result.                                                                                                                                                                                                     |
+|           | `field.check.proof`             | Proof                    | one of auto, judged, manual | `auto` when a test implements it, `judged` when a test runs it and a model judges the output against its THEN, `manual` when only a person or an agent with the product can.                                               |
+| Relation  | `edge.check.concepts`           | Proves                   | refs `ent.concept`          | The concepts the check proves.                                                                                                                                                                                             |
+| Concept   | `concept.ontology-layer`        | Ontology layer           |                             | What the tool checks in any project: the ontology and the artifacts that refer to it.                                                                                                                                      |
+|           | `concept.product-layer`         | Product layer            |                             | What a project's catalogue and tests check: the product that agents build from the ontology.                                                                                                                               |
+| Rule      | `rule.check-in-product-terms`   | In the product's terms   |                             | GIVEN, WHEN and THEN use concrete data from a fixed sample and the product's words; no function names, commands or selectors.                                                                                              |
+|           | `rule.unreachable-reported`     | Unreachable reported     |                             | A manual check that could not be run is reported as not run, never verified through another path.                                                                                                                          |
+|           | `rule.manual-evidence-kept`     | Evidence kept            |                             | Evidence of a manual check is kept outside the repository, named by check and date.                                                                                                                                        |
+|           | `rule.chosen-value-checked`     | Chosen values checked    |                             | A value a decision chose, or a target that is a requirement, is held by an automatic check; a model's assumptions are held by a snapshot of its base scenario's results, never by a check that the model reaches its goal. |
+|           | `rule.judge-sees-the-check`     | The judge sees the check |                             | A judge gets the check's GIVEN, WHEN and THEN and the product's output, not the code or the test.                                                                                                                          |
+|           | `rule.verdict-kept`             | Verdict kept             |                             | The verdict of a judged check is kept outside the repository, named by check and date, like the evidence of a manual check.                                                                                                |
+| Invariant | `inv.check-ids-unique`          | Unique                   |                             | No check ID is used twice.                                                                                                                                                                                                 |
+|           | `inv.check-in-its-section`      | In its section           |                             | A check's ID names the key of the catalogue section it sits in: the code span in the heading, or else the heading's Latin letters and digits in lowercase.                                                                 |
+|           | `inv.check-well-formed`         | Well formed              |                             | A check has concepts, GIVEN, WHEN, THEN and `auto` or `manual`.                                                                                                                                                            |
+|           | `inv.required-concepts-checked` | Checks before code       |                             | Every concept of a required class has a check, built or not.                                                                                                                                                               |
+|           | `inv.auto-check-tested`         | Automatic checks tested  |                             | Every automatic check whose concepts are all implemented has a test.                                                                                                                                                       |
+|           | `inv.section-keys-match`        | Section keys match       |                             | Each ontology section with definition rows has a key of its own, every catalogue section's key names one of them, and a key written in a heading is one code span of lowercase letters, digits and hyphens.                |
+|           | `inv.judged-check-tested`       | Judged checks tested     |                             | Every judged check whose concepts are all implemented has a test that runs it with a judge.                                                                                                                                |
+
+- `concept.ontology-layer` and `concept.product-layer` meet in this repository: the tool's own tests are the product layer of the tool, and the checks they implement are the ontology layer of every other project.
 
 ## Test
 
@@ -170,14 +180,16 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Test suite
 
-| Kind      | ID                         | Term               | Type | Definition                                                                               |
-| --------- | -------------------------- | ------------------ | ---- | ---------------------------------------------------------------------------------------- |
-| Entity    | `ent.test-suite`           | Test suite         |      | A kind of test the team runs, such as unit or end-to-end, and the classes it must prove. |
-| Field     | `field.test-suite.name`    | Name               | text | Unique among the suites.                                                                 |
-|           | `field.test-suite.cover`   | Covers             | text | The classes whose implemented concepts the suite must prove.                             |
-| Invariant | `inv.suite-names-unique`   | Unique names       |      | No two suites share a name.                                                              |
-|           | `inv.suite-not-empty`      | Not empty          |      | Every suite has test files.                                                              |
-|           | `inv.suite-covers-classes` | Covers its classes |      | Every implemented concept of a covered class is proven by a test of the suite.           |
+| Kind      | ID                            | Term                  | Type                      | Definition                                                                                        |
+| --------- | ----------------------------- | --------------------- | ------------------------- | ------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.test-suite`              | Test suite            |                           | A kind of test the team runs, such as unit or end-to-end, and the classes it must prove.          |
+| Field     | `field.test-suite.name`       | Name                  | text                      | Unique among the suites.                                                                          |
+|           | `field.test-suite.cover`      | Covers                | text                      | The classes whose implemented concepts the suite must prove.                                      |
+| Relation  | `edge.test-suite.checks`      | Checks                | refs `ent.check` optional | Checks the suite must implement, such as a key scenario end to end or the checks a judge decides. |
+| Invariant | `inv.suite-names-unique`      | Unique names          |                           | No two suites share a name.                                                                       |
+|           | `inv.suite-not-empty`         | Not empty             |                           | Every suite has test files.                                                                       |
+|           | `inv.suite-covers-classes`    | Covers its classes    |                           | Every implemented concept of a covered class is proven by a test of the suite.                    |
+|           | `inv.suite-implements-checks` | Implements its checks |                           | Every check a suite names, of implemented concepts, is implemented by a test of that suite.       |
 
 ## Ticket
 
@@ -207,6 +219,7 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 |        | `rule.start-from-ids`             | Start from IDs          |      | Every task starts by naming the IDs it touches; a task that cannot is not about meaning, or the ontology is incomplete.                                                                                                                              |
 |        | `rule.findings-mislead`           | Findings that matter    |      | A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.                                                                 |
 |        | `rule.commit-finished-work`       | Finished work committed |      | A finished task, its checks passing, ends with a local commit of its own changes where the repository lets agents commit, pushed only with the owner's permission; otherwise the agent tells the owner which accepted entries are not protected yet. |
+| Action | `action.critique-change`          | Critique a change       |      | Review a significant change as an agent that did not write it, from the diff and the IDs it touches, without the author's conclusions.                                                                                                               |
 
 ## Contract
 
@@ -249,6 +262,15 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 | --------- | ----------------------- | -------------- | ---- | ------------------------------------------------------------------------------- |
 | Entity    | `ent.reference-page`    | Reference page |      | A page that only restates the ontology and the checks, generated, never edited. |
 | Invariant | `inv.reference-current` | Current        |      | A reference page equals what the generator writes now.                          |
+
+## Profile
+
+| Kind   | ID                                | Term                          | Type | Definition                                                                                                                              |
+| ------ | --------------------------------- | ----------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity | `ent.profile`                     | Profile                       |      | A recipe for a property of the product that its ontology shows: what to configure, what is required and what is recommended.            |
+| Rule   | `rule.profile-requires-checkable` | Requires only what is checked |      | A profile requires only what the tool checks through the configuration and the catalogue; everything else it lists is a recommendation. |
+
+- `ent.profile` is realised by a page of `docs/`, like a procedure. It has no configuration key: a project follows a profile by putting its settings in the configuration and writing its checks with the proof it asks for.
 
 ## Implementation status
 
@@ -379,24 +401,24 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Check
 
-| ID                              | Implemented in                                             | Note                  |
-| ------------------------------- | ---------------------------------------------------------- | --------------------- |
-| `ent.check`                     | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `field.check.given`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `field.check.when`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `field.check.then`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `field.check.proof`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `edge.check.concepts`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `rule.check-in-product-terms`   | `docs/parts/checks-and-tests.md`                           | reviewed, not checked |
-| `rule.unreachable-reported`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked |
-| `rule.manual-evidence-kept`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked |
-| `rule.chosen-value-checked`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked |
-| `inv.check-ids-unique`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `inv.check-in-its-section`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `inv.check-well-formed`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `inv.required-concepts-checked` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `inv.auto-check-tested`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `inv.section-keys-match`        | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
+| ID                              | Implemented in                                             | Note                                        |
+| ------------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
+| `ent.check`                     | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `field.check.given`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `field.check.when`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `field.check.then`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `field.check.proof`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` | judged not built: `inv.judged-check-tested` |
+| `edge.check.concepts`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `rule.check-in-product-terms`   | `docs/parts/checks-and-tests.md`                           | reviewed, not checked                       |
+| `rule.unreachable-reported`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked                       |
+| `rule.manual-evidence-kept`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked                       |
+| `rule.chosen-value-checked`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked                       |
+| `inv.check-ids-unique`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `inv.check-in-its-section`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `inv.check-well-formed`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `inv.required-concepts-checked` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `inv.auto-check-tested`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| `inv.section-keys-match`        | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
 
 ### Test
 
@@ -506,6 +528,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-10-26: target concepts of verification in two layers (D-44, tentative): `concept.ontology-layer`, `concept.product-layer`, the judged proof with `inv.judged-check-tested`, `rule.judge-sees-the-check` and `rule.verdict-kept`, `edge.test-suite.checks` with `inv.suite-implements-checks`, `ent.profile` with `rule.profile-requires-checkable`, `action.walk-blind`, `action.critique-change`, `derived.meaning-changed` and `inv.one-concept-per-term`.
 - 2026-10-26: `rule.commit-finished-work`: the commit is local and holds the task's own changes; pushing needs the owner's permission (D-43).
 - 2026-10-25: `rule.commit-finished-work`; the guard names accepted entries that are not committed yet (D-42).
 - 2026-10-25: a doc set may cover checks by proof, `field.doc-set.checks`, for a run guide of manual checks; `rule.guide-runs-check` (D-41).

@@ -16,4 +16,6 @@ Nine parts. The first three hold meaning, the next three tie artifacts to it, th
 
 Each file explains one part: what it is, why, how it works, and how it fails in practice. Its Reference section points to the generated [reference](../reference.md), which holds the part's concepts, their fields and rules, and the checks that hold them: automatic ones the tool enforces, manual ones a reviewer does. The [example](../../example/README.md) has a working instance of every part.
 
+A draft of the target, not built yet: [verification in two layers](../drafts/verification.md), described by D-44, which is tentative.
+
 A smaller adoption works. Parts 1, 2 and 5 alone already pay off. Add part 3 when code exists, part 4 when there is a mockup, part 6 as soon as there are invariants and rules to check, and part 9 when there is documentation for people.
