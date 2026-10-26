@@ -314,6 +314,20 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the guard needs a commit, not a push, so an owner who keeps publishing for themselves can let agents commit without letting them publish. The owner of several projects that use the approach decided exactly that. Only the task's own changes go into the commit, because several agents may work in one checkout.
 - Rejected: pushing at the end of every task (publishing reaches other people and is the owner's to decide); one permission for committing and pushing together (an owner who withholds pushes would also withhold the local commit the guard needs); committing everything in the working tree (it would take in another agent's unfinished work).
 
+### D-45 · The source project is not named, also after publication
+
+- Date: 2026-10-26 · Status: accepted
+- Decision: the repository does not name the project the approach came from, also once the repository is public. The README keeps saying that the approach took shape in a product project developed largely by coding agents. This answers the question D-02 left for publication, and the open question "When to name the source project" closes. D-02 still holds; this adds to it.
+- Why: the product is not public, so its name would give a reader nothing to open or check. What a reader can check is the approach itself: the example, the tool and its tests. A name would also draw questions to a product this repository does not document (D-01).
+- Rejected: naming it with a link (the product is not public); naming it without a link (a name the reader cannot follow adds nothing they can check); keeping the question open until the product is public (a question that waits for an outside event stays open for months, and a new entry can name the product then).
+
+### D-46 · The repository is published as an early version, and outside contributions are not accepted yet
+
+- Date: 2026-10-26 · Status: accepted
+- Decision: when the repository becomes public, it is published as an early version in active development, and the commit published is tagged `v0.1`. The README opens with the status and where to start, and says that pull requests are not accepted yet; questions and reports of errors are welcome as GitHub issues. Accepting outside contributions is a later decision.
+- Why: the rules change every few days; D-28 to D-44 were written in four days. A reader who arrives from a link should see at once that the approach is early and where to begin, and a tag gives readers a fixed version to cite. Reviewing outside contributions takes time the approach itself needs, and while the rules move this fast a patch would be outdated before it was reviewed.
+- Rejected: publishing without a status (a reader takes a moving draft for a settled method); waiting until a team outside the author's projects has used the approach (the approach is useful to readers now, and an outside team is more likely to try a public repository); accepting pull requests from the start (no process to review them yet, and the rules change faster than a review would take).
+
 ## Tentative
 
 ### D-44 · Verification has two layers, and product checks follow from the ontology through profiles written as recipes
@@ -332,8 +346,6 @@ The approach applied to itself: decisions about how the approach is described an
 
 
 ## Open questions
-
-- When to name the source project.
 
 ## History
 

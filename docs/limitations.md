@@ -1,6 +1,6 @@
 # Limitations and open questions
 
-What the approach does not do, what has not been tested, and what could make it stronger. Much of the tool was added after the project the approach came from; those additions are listed under "Implemented, not yet tried in a real project". No proposal is open.
+What the approach does not do, what has not been tested, and what could make it stronger. Much of the tool was added after the project the approach came from; [Added after the source project](#added-after-the-source-project) lists those additions and says which of them projects have used. One proposal is open, under [Proposed strengthening](#proposed-strengthening).
 
 ## Weaknesses
 
@@ -38,7 +38,7 @@ A generated reference page shows each concept's definition, which describes the 
 
 ### Small, homegrown tooling
 
-The check parses Markdown tables and HTML attributes with regular expressions. It assumes a particular table layout and backticked IDs. The generic version in this repository is its first version. It has been exercised on the example and on the approach's own ontology, and derived from a check that ran for weeks in one project; it has not been used in a second real product yet.
+The check parses Markdown tables and HTML attributes with regular expressions. It assumes a particular table layout and backticked IDs. The generic version in this repository is its first version, derived from a check that ran for weeks in one project. Since then four private projects have used it, that project among them. Each keeps a copy of the tool pinned to a commit of this repository and runs it in a commit hook or in CI; all four write their ontology and decision log in Russian, and their tests that name checks are written in TypeScript, JavaScript and Ruby. All four are projects its author works on; no other team has used it yet.
 
 ### No per-change process
 
@@ -52,9 +52,11 @@ There is no equivalent of Spec Kit's clarify and analyze commands or OpenSpec's 
 - **Two languages.** The target model can be written in the team's language while code and user documentation use another. The approach handles this as two vocabularies with recorded divergences. Whether that holds up with a larger team is untested.
 - **Versioning.** Should the ontology be versioned against releases, or is the decision log enough history?
 
-## Implemented, not yet tried in a real project
+## Added after the source project
 
-The first six were proposals until [D-08 to D-11](../decisions.md); later additions name their decision. They work on the example and are covered by the check's tests. None has been used in a real project.
+The first six were proposals until [D-08 to D-11](../decisions.md); later additions name their decision. All of them work on the example and are covered by the check's tests. Since then four private projects have used the approach (see [Small, homegrown tooling](#small-homegrown-tooling)). A mechanism counts as used when at least one of them runs it; a refinement added later under a decision of its own may not have been tried there yet.
+
+### Used in projects
 
 - **Tests linked to IDs.** A test title starts with the IDs it proves, now the IDs of checks: `test("[check.item.one-open-loan] an item cannot be on two loans")`. The check requires a tagged test for every implemented concept of the classes a test suite covers, and refuses a tag on something not implemented. See [part 6](parts/checks-and-tests.md#tests-that-name-checks).
 - **Test suites per kind of concept.** The configuration lists the test suites (unit, integration, end-to-end, or whatever the team runs) and the classes each must cover, and the check names the suite a missing test belongs to. `--coverage` prints what proves each implemented concept. Added with [D-13](../decisions.md). See [part 6](parts/checks-and-tests.md#test-suites).
@@ -67,15 +69,25 @@ The first six were proposals until [D-08 to D-11](../decisions.md); later additi
 - **Contracts from fields, independent of the implementation language.** Field and relation rows carry a type in a neutral vocabulary (`text`, `integer 0..2`, `date`, `one of good, worn, damaged`, `ref ent.title`, `optional`). `gen-contracts.mjs` generates a JSON Schema per entity with the concept ID on every property, and the check requires a valid type on every field and relation and a current schema. How the code follows the schema is the project's choice; the example compares its constants with it in a tagged test. See [part 1](parts/glossary-and-ids.md#types-and-contracts).
 - **One question per entry.** A decision log entry answers one question; a later entry adds to an earlier one or supersedes it whole. The check reports, as information, entries replaced only in part. Added with [D-17](../decisions.md), refined in [D-26](../decisions.md). See [part 2](parts/decision-log.md#reference).
 - **Documentation anchored to the ontology.** Pages for people carry anchors naming the concepts each section explains; doc sets in the configuration say which classes each set must explain; a stamp marks sections to reread after a definition changed; reference pages are generated; doc set names are unique; a stamp also covers the notes that name a concept. Added with [D-18](../decisions.md), [D-22](../decisions.md) and [D-23](../decisions.md). See [part 9](parts/documentation.md).
-- **The approach described with itself.** `ontology.md` and `checks.md` at the root of the repository hold the approach's concepts, rules and checks; the tool's tests implement the checks; the check runs on them like on any product. Manual checks are what the tool cannot enforce. Added with [D-19](../decisions.md).
-- **`docs/` as a doc set of the approach's ontology.** The rules, formats and "what the check enforces / cannot enforce" lists of the parts moved into the approach's ontology and check catalogue; the parts explain and point to the generated [reference](reference.md). Added with [D-20](../decisions.md).
 - **Accepted status, the divergences heading and section keys in any language.** The guard reads the line that marks an entry accepted from the configuration, so a log written in another language is guarded too; `--gap` reads the heading of known divergences from it as well. A section heading whose words are not plain Latin carries the key that check IDs name in a code span, and the check requires the keys of the ontology and the catalogue to match. Added with [D-12](../decisions.md), [D-30](../decisions.md) and [D-39](../decisions.md).
 - **Supersession on a line of its own.** An entry names the entries it replaces on a `Supersedes:` line; the check confirms they exist and are older, `--decisions` lists every entry as in force, tentative or superseded, and the hint about partial replacement also reads "no longer applies". Added with [D-25](../decisions.md). The hint knows English phrases only; in a log in another language, `--decisions` shows which later entries name an entry, added with [D-36](../decisions.md).
 - **Guarded decisions.** `tools/ont-check/guard-decisions.mjs` compares every accepted entry with an earlier commit and fails if one changed or disappeared. It runs in the pre-commit hook and in CI. Before the first commit it prints `GUARD_OFF` instead of failing, since [D-32](../decisions.md), and it lists accepted entries that are not committed yet, since [D-42](../decisions.md). See [part 2](parts/decision-log.md#the-guard).
 - **A formatter for definition tables.** `format-ontology.mjs` writes the kind order, the Kind cells and the alignment of the definition tables; the check still reports them and names the formatter. Added with [D-37](../decisions.md).
 - **Run guides for manual checks.** A doc set may list `checks: ["manual"]`; then every manual check of implemented concepts must be named in one of its anchors, which say how to run it. Added with [D-41](../decisions.md). See [part 6](parts/checks-and-tests.md#running-manual-checks).
+
+### Not yet used in a project
+
 - **Shared implementation rows.** Concepts realised in the same files may share a row of the implementation table; a concept realised in part keeps its own row and note. Added with [D-38](../decisions.md).
+
+### Used only in this repository
+
+How this repository applies the approach to itself; they are not mechanisms a project adopts.
+
+- **The approach described with itself.** `ontology.md` and `checks.md` at the root of the repository hold the approach's concepts, rules and checks; the tool's tests implement the checks; the check runs on them like on any product. Manual checks are what the tool cannot enforce. Added with [D-19](../decisions.md).
+- **`docs/` as a doc set of the approach's ontology.** The rules, formats and "what the check enforces / cannot enforce" lists of the parts moved into the approach's ontology and check catalogue; the parts explain and point to the generated [reference](reference.md). Added with [D-20](../decisions.md).
 
 ## Proposed strengthening
 
-None open. The six proposals of the first version are implemented, in the form listed above (D-08 to D-11), and none of them has been used in a real project yet.
+The six proposals of the first version are implemented, in the form listed above (D-08 to D-11), and the projects use all six.
+
+One proposal is open: verification in two layers, in which a project's product checks follow from its ontology through profiles written as recipes. It is tentative, under [D-44](../decisions.md). Its concepts are target concepts of the approach's ontology, explained on a [draft page](drafts/verification.md), and nothing of it is built.
