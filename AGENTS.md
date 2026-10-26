@@ -16,7 +16,8 @@ This repository describes an approach to product development: product meaning ke
 - **English only** (D-03).
 - **Nothing from the source project.** Do not copy content, names, concepts, decisions or screens from the product where the approach emerged, and do not name it (D-01, D-02). Examples use the fictional lending library or generic placeholders. No personal data, no names of partners or contractors.
 - **New mechanisms need a decision.** A new check, generator or format rule is recorded in `decisions.md` before it is implemented, and listed in `docs/limitations.md` as not yet tried in a real project (D-24).
-- **Unapproved is tentative.** A choice the owner has not explicitly approved is recorded as tentative; the owner's approval accepts it (D-34).
+- **Unapproved is tentative.** A choice the owner has not explicitly approved is recorded as tentative; the owner's approval accepts it (D-34). A question with a recommendation is written as a tentative entry, and the owner's answer accepts it (D-48).
+- **Sources.** From D-47 on, every accepted entry names its source on a `- Source:` line: the owner's answer or message that decided it (D-47). What is put off gets a `- Return when:` line (D-49).
 - **Accepted decisions are never edited**, here or in the example. Write a superseding entry; `npm run guard` refuses the edit. One entry answers one question; a later entry adds to it or supersedes it whole (D-26).
 - **Finished work.** A finished task, its checks passing, ends with a local commit of its own changes where the owner lets agents commit, and is pushed only with the owner's explicit approval; otherwise say which accepted entries are not protected yet (D-42, D-43).
 - **Findings that matter.** A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings. (D-27)

@@ -282,6 +282,33 @@ test("[check.decision.in-force-report] --decisions lists each entry as in force,
   assert.match(r.out, /\| D-07 +\| Entry 07 +\| in force +\|/);
 });
 
+test("[check.decision.waiting-listed] lists a tentative entry as waiting for the owner's answer", () => {
+  const r = run();
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /info · tentative entries, waiting for the owner's answer \(1\):\n {2}D-05 · A reserved item waits three days\n/);
+  const accepted = run((p) => p("decisions.md", "Status: tentative", "Status: accepted"));
+  assert.equal(accepted.code, 0, accepted.out);
+  assert.doesNotMatch(accepted.out, /waiting for the owner's answer/);
+});
+
+test("[check.decision.deferrals-listed] lists the deferrals in force with their conditions", () => {
+  const e = (n, lines) => entry(n, lines).replace("\n\n## Tentative", "");
+  const r = run((p) =>
+    p(
+      "decisions.md",
+      "## Tentative",
+      [
+        e("07", ["Return when: a second branch opens", "Decision: one branch for now."]),
+        e("08", ["Return when: members ask for text messages", "Decision: reminders by e-mail only."]),
+        e("09", ["Supersedes: D-08", "Decision: reminders by e-mail and text message."]),
+        "## Tentative",
+      ].join("\n\n"),
+    ),
+  );
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /info · deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-07: a second branch opens\n/);
+});
+
 test("[check.doc-section.reread-after-change] a changed definition marks the sections to reread, and stamping clears it", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-docs-"));
   try {

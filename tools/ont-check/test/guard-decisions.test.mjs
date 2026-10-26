@@ -99,6 +99,29 @@ test("[check.decision.uncommitted-named] names accepted entries that are not com
   assert.doesNotMatch(staged.out, /not in HEAD yet/);
 });
 
+// Once a log names a source, every entry accepted since the base names its own: a new one, and a
+// tentative one accepted now. A log that names no source is not asked for one.
+const sourced = (dir) => {
+  const log = join(dir, "decisions.md");
+  const entry = "### D-07 · A sourced rule\n\n- Date: 2026-10-26 · Status: accepted\n- Source: the owner's message of 2026-10-26\n- Decision: x.\n\n";
+  writeFileSync(log, readFileSync(log, "utf8").replace("## Tentative", `${entry}## Tentative`));
+};
+const another = (source) => (t) =>
+  t.replace("## Tentative", `### D-08 · Another rule\n\n- Date: 2026-10-26 · Status: accepted\n${source}- Decision: y.\n\n## Tentative`);
+test("[check.decision.unsourced-acceptance] refuses an entry accepted without a source once the log names sources", () => {
+  for (const r of run(another(""), sourced)) {
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /entries accepted since HEAD without a source, while the log names sources \(1\): D-08/);
+    assert.match(r.out, /Name on a Source line where each was decided/);
+  }
+  for (const r of run((t) => t.replace("Status: tentative", "Status: accepted"), sourced)) {
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /without a source, while the log names sources \(1\): D-05/);
+  }
+  for (const r of run(another("- Source: the owner's answer of 2026-10-26\n"), sourced)) assert.equal(r.code, 0, r.out);
+  for (const r of run(another(""))) assert.equal(r.code, 0, r.out);
+});
+
 // A log in another language: the same edit is refused only once decisions.accepted matches its
 // status line.
 const localized = (setting) => (dir) => {

@@ -1,6 +1,6 @@
 # Limitations and open questions
 
-What the approach does not do, what has not been tested, and what could make it stronger. Much of the tool was added after the project the approach came from; [Added after the source project](#added-after-the-source-project) lists those additions and says which of them projects have used. One proposal is open, under [Proposed strengthening](#proposed-strengthening).
+What the approach does not do, what has not been tested, and what could make it stronger. Much of the tool was added after the project the approach came from; [Added after the source project](#added-after-the-source-project) lists those additions and says which of them projects have used. Two proposals are open and one is deferred, under [Proposed strengthening](#proposed-strengthening).
 
 ## Weaknesses
 
@@ -26,7 +26,7 @@ The check confirms that the files named in the table exist, not that they implem
 
 ### The decision guard compares text with one earlier commit
 
-`guard-decisions.mjs` refuses an edit or removal of an accepted entry, comparing with `HEAD` before a commit and with the base of a push or pull request in CI. It sees text, not intent: a typo fix in an accepted entry is refused too, by design. `git commit --no-verify` skips the hook, and only CI catches that. A rewritten history removes the base it compares with. It does not check that a new entry which replaces an older one names it on its `Supersedes:` line; it checks only that the entries named there exist and are older. Before the first commit it has nothing to compare with and says `GUARD_OFF`: until then, accepted entries are protected by review only.
+`guard-decisions.mjs` refuses an edit or removal of an accepted entry, comparing with `HEAD` before a commit and with the base of a push or pull request in CI. It sees text, not intent: a typo fix in an accepted entry is refused too, by design. `git commit --no-verify` skips the hook, and only CI catches that. A rewritten history removes the base it compares with. It does not check that a new entry which replaces an older one names it on its `Supersedes:` line; it checks only that the entries named there exist and are older. Before the first commit it has nothing to compare with and says `GUARD_OFF`: until then, accepted entries are protected by review only. It sees that an entry accepted since its base has a `Source:` line, not that the line names where the decision was really made.
 
 ### Test tags are read anywhere in a test file
 
@@ -78,6 +78,9 @@ The first six were proposals until [D-08 to D-11](../decisions.md); later additi
 ### Not yet used in a project
 
 - **Shared implementation rows.** Concepts realised in the same files may share a row of the implementation table; a concept realised in part keeps its own row and note. Added with [D-38](../decisions.md).
+- **Sources and their precedence.** An entry names where it was decided on a `Source:` line, and when sources disagree the owner's latest word wins. Once a log names a source, the guard fails on an entry accepted since its base without one. Added with [D-47](../decisions.md). See [part 2](parts/decision-log.md#sources).
+- **Questions as tentative entries.** A question with a recommendation is written as a tentative entry, and the owner's answer accepts it; the check lists the tentative entries on every run. Added with [D-48](../decisions.md). See [part 2](parts/decision-log.md#questions-and-tentative-entries).
+- **Deferrals with a condition.** What is put off is put off by an entry with a `Return when:` line, and the check lists the deferrals in force with their conditions. Added with [D-49](../decisions.md). See [part 2](parts/decision-log.md#deferrals).
 
 ### Used only in this repository
 
@@ -90,4 +93,8 @@ How this repository applies the approach to itself; they are not mechanisms a pr
 
 The six proposals of the first version are implemented, in the form listed above (D-08 to D-11), and the projects use all six.
 
-One proposal is open: verification in two layers, in which a project's product checks follow from its ontology through profiles written as recipes. It is tentative, under [D-44](../decisions.md). Its concepts are target concepts of the approach's ontology, explained on a [draft page](drafts/verification.md), and nothing of it is built.
+Two proposals are open, and one is deferred. The open ones are target concepts of the approach's ontology, explained on a [draft page](drafts/verification.md); nothing of the three is built.
+
+- **Verification in two layers**, in which a project's product checks follow from its ontology through profiles written as recipes. It is tentative, under [D-44](../decisions.md).
+- **A complete catalogue**: every value of every axis along which behavior diverges covered by a check, and a blind derivation that tests whether the catalogue suffices. Accepted as a target in [D-50](../decisions.md), it is built together with the judged checks of D-44.
+- **Forbidden terms**: words a decision retired, searched for in the doc sets. Deferred in [D-51](../decisions.md) until one project has piloted them.

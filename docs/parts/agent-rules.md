@@ -24,6 +24,9 @@ Rules the check cannot enforce:
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side.
 - What a partial implementation leaves out is a target concept, named in the note of its row. A note alone hides the work from `--gap`.
 - A choice the owner has not explicitly approved, such as a value you picked when asked to tune something, is recorded as tentative; the owner's approval accepts it.
+- A question you can recommend an answer to is a tentative entry, not a line under open questions: your recommendation is its decision, the other options are rejected. When the owner answers, the entry names the answer on its `Source:` line.
+- Name where a decision was made on its `Source:` line. When sources disagree, follow the owner's latest word; an answer someone gave for the owner keeps the entry tentative.
+- What you put off outside any slice gets an entry with a `Return when:` line, not a note that nobody will read again.
 - A number is held as its role needs. A rule's value or a requirement is held by a check. A model's assumptions are held by a snapshot of its base scenario, each change of them is a short entry about its topic, and no check requires the model to reach its goal.
 - A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.
 - A finished task, its checks passing, ends with a local commit of its own changes where the repository lets you commit; push only when the owner allows it. Otherwise tell the owner which accepted decision entries are not protected yet.

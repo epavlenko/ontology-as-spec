@@ -8,10 +8,11 @@
 // Exit code 1 on any change. Prints GUARD_OK when every accepted entry is intact, and GUARD_OFF when
 // there is no commit yet to compare with: before the first commit nothing is protected. Accepted entries
 // that are not in the commit yet are listed as information, since they are protected only once committed.
+// Once the log names a source on a Source line, every entry accepted since the base must name one.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
-import { DEFAULT_ACCEPTED, loadConfig, read } from "./lib.mjs";
+import { DEFAULT_ACCEPTED, DEFAULT_SOURCE, loadConfig, read } from "./lib.mjs";
 
 const argv = process.argv.slice(2);
 const values = (flag) => argv.flatMap((a, i) => (argv[i - 1] === flag ? [a] : []));
@@ -27,13 +28,14 @@ const targets = [
   ...configs.map((c) => {
     const cfg = loadConfig(c);
     if (!cfg.decisions) throw new Error(`${c}: no decisions file in the config`);
-    const { file, entry, accepted } = cfg.decisions;
-    return { file, entry: entry.source, accepted };
+    const { file, entry, accepted, sourceLine } = cfg.decisions;
+    return { file, entry: entry.source, accepted, sourceLine };
   }),
   ...files.map((f) => ({
     file: resolve(f),
     entry: DEFAULT_ENTRY,
     accepted: new RegExp(DEFAULT_ACCEPTED, "im"),
+    sourceLine: new RegExp(DEFAULT_SOURCE, "im"),
   })),
 ];
 
@@ -56,7 +58,8 @@ const entries = (text, entry) => {
 const errors = [];
 const off = [];
 let violations = 0;
-for (const { file, entry, accepted } of targets) {
+let unsourcedCount = 0;
+for (const { file, entry, accepted, sourceLine } of targets) {
   const cwd = dirname(file);
   const path = `./${basename(file)}`;
   const name = relative(process.cwd(), file);
@@ -111,11 +114,22 @@ for (const { file, entry, accepted } of targets) {
     .map(([id]) => id);
   if (fresh.length && !staged)
     console.log(`info · ${name}: accepted entries not in ${base} yet, protected once committed (${fresh.length}): ${fresh.join(", ")}`);
+  // Once the log names a source, every entry accepted since the base names its own (D-47): where it
+  // was decided, or the owner's answer that accepted it. Older entries cannot be edited to add one.
+  const unsourced = [...cur.values()].some((b) => sourceLine.test(b))
+    ? fresh.filter((id) => !sourceLine.test(cur.get(id)))
+    : [];
+  if (unsourced.length) {
+    console.log(`ERROR · ${name}: entries accepted since ${base} without a source, while the log names sources (${unsourced.length}): ${unsourced.join(", ")}`);
+    errors.push("unsourced");
+    unsourcedCount += unsourced.length;
+  }
   console.log(`${name}: ${[...old.values()].filter((b) => accepted.test(b)).length} accepted entries in ${base}`);
 }
 
 if (errors.length) {
   if (violations) console.log("Write a new entry that supersedes the old one instead of editing it.");
+  if (unsourcedCount) console.log("Name on a Source line where each was decided, or the owner's answer that accepted it.");
   console.log(`DRIFT: ${errors.length}`);
   process.exit(1);
 }

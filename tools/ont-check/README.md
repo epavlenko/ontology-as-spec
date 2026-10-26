@@ -22,7 +22,7 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | File               | What it does                                                                      |
 | ------------------ | --------------------------------------------------------------------------------- |
 | `ont-check.mjs`    | the check                                                                         |
-| `guard-decisions.mjs` | fails if an entry accepted in an earlier commit (`--base`, default `HEAD`) was edited or removed; `--staged` reads the staged log |
+| `guard-decisions.mjs` | fails if an entry accepted in an earlier commit (`--base`, default `HEAD`) was edited or removed, or if an entry accepted since then names no source while the log names sources; `--staged` reads the staged log |
 | `gen-glossary.mjs` | writes `window.ONT = {...}` from the definition rows                              |
 | `format-ontology.mjs` | writes the kind order, the Kind cells and the alignment of the definition tables |
 | `gen-contracts.mjs` | writes the JSON Schema, one definition per entity, from the Type cells           |
@@ -51,6 +51,8 @@ Paths are relative to the config file.
 | `decisions.entry` | regex for an entry heading with the number in group 1; default `^### (D-\d+) · .+$` | no |
 | `decisions.ref` | regex for a reference to an entry; default `\bD-\d+\b` | no |
 | `decisions.supersedes` | regex for the line that names the entries an entry supersedes, with the list in group 1; default `^- Supersedes:\s*(.+)$`, case-insensitive | no |
+| `decisions.source` | regex for the line that names where an entry was decided, with the source in group 1; default `^- Source:[ \t]*(\S.*)$`, case-insensitive. Once the log has one, the guard requires it on every entry accepted since its base | no |
+| `decisions.returnWhen` | regex for the line that makes an entry a deferral, with the condition in group 1; default `^- Return when:[ \t]*(\S.*)$`, case-insensitive | no |
 | `decisions.accepted` | regex for the line that marks an entry accepted, for the guard; default `^- Date:.*Status:\s*accepted\b`, case-insensitive; set it for a log in another language | no |
 | `glossaryOut` | the generated tooltip file | no |
 | `contracts.out`, `contracts.classes`, `contracts.propertyCase` | the generated JSON Schema; the classes that carry a type (default `["field", "edge"]`); property names from the ID's last part as `camel` (default), `snake` or `kebab` | no |
@@ -84,7 +86,9 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Tickets:** an `IDs:` or `Ontology IDs:` line, and a `Checks:` line with the checks of the slice in backticks. A check named elsewhere in a ticket must exist but is not part of the slice. Older tickets may have a `## Scenarios` section whose bullets read `- [id, id] GIVEN … WHEN … THEN …`.
 - **Doc anchors:** `<!-- ont: id, id@stamp -->` in pages of a doc set; IDs are concepts or checks, stamps are optional and written by `stamp-docs.mjs`.
 - **Supersession:** an entry that replaces older ones names them on a line matched by `decisions.supersedes`, by default `- Supersedes: D-05, D-07`.
-- **Decision status (guard):** an entry is accepted when one of its lines matches `decisions.accepted`, by default a `- Date:` line containing `Status: accepted`.
+- **Decision status (guard):** an entry is accepted when one of its lines matches `decisions.accepted`, by default a `- Date:` line containing `Status: accepted`. The check lists the entries that are not, as waiting for the owner's answer.
+- **Sources (guard):** a line matched by `decisions.source`, by default `- Source: call of 2026-10-24, 00:41`. Once any entry has one, the guard fails on an entry accepted since its base without one, new or accepted from tentative.
+- **Deferrals:** a line matched by `decisions.returnWhen`, by default `- Return when: a second branch opens`. The check lists every deferral in force with its condition, as information.
 
 ## Hooks
 

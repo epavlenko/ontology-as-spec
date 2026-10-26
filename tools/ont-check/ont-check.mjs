@@ -283,6 +283,21 @@ if (cfg.decisions) {
     ),
     false,
   );
+  // A question with a recommendation is written as a tentative entry, and the owner's answer accepts
+  // it (D-48). Listed while it waits, so that the question stays in sight.
+  const open = log.filter((e) => !supersededBy.has(e.id));
+  report(
+    "tentative entries, waiting for the owner's answer",
+    open.filter((e) => !cfg.decisions.accepted.test(e.body)).map((e) => `${e.id} · ${e.title}`),
+    false,
+  );
+  // A deferral names what must happen before the thing it put off is taken up again (D-49). Listed
+  // while it is in force, so that what was put off is not forgotten.
+  report(
+    "deferrals in force, each with the condition for taking it up again",
+    open.filter((e) => cfg.decisions.returnWhen.test(e.body)).map((e) => `${e.id}: ${e.body.match(cfg.decisions.returnWhen)[1]}`),
+    false,
+  );
   decisionLog.push(
     ...log.map((e) => ({
       ...e,

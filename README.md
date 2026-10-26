@@ -37,7 +37,7 @@ These tables, one per entity with short notes under each, are the "ontology". It
 
 Then everything that touches meaning refers to the IDs:
 
-- **Decisions.** Each decision is logged with its date, its reason, the rejected alternatives and the IDs it affects. Old entries are never edited; a new entry replaces them, and a guard refuses edits to accepted entries.
+- **Decisions.** Each decision is logged with its date, where it was made, its reason, the rejected alternatives and the IDs it affects; what is put off is logged with the condition for taking it up again. Old entries are never edited; a new entry replaces them, and a guard refuses edits to accepted entries.
 - **The UI.** Each meaningful element of the interface mockup carries `data-ont="action.renew"`, and its tooltip comes from the definition. A map records what each element shows and what it deliberately does not do.
 - **The code.** A table says which concepts are already implemented and in which files, and a list says where the code still disagrees with the agreed target. Fields and relations have types in a neutral vocabulary, and a JSON Schema per entity is generated from them, so any language can check its data or generate its types from the same source.
 - **Checks and tests.** A catalogue of checks says what must hold, as GIVEN/WHEN/THEN cases in the product's terms, for any implementation. Each test names the check it implements: `test("[check.loan.renew-while-held] renewal is refused while someone waits")`. The configuration says which test suite must prove which kind of concept: rules by unit tests, actions by end-to-end tests.

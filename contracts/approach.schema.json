@@ -115,6 +115,16 @@
           "x-ont": "field.decision.title",
           "type": "string"
         },
+        "source": {
+          "description": "Where the choice was made: a call with the time of the passage, a message with its date, the owner's answer to a question, a document by its path; named on a Source: line.",
+          "x-ont": "field.decision.source",
+          "type": "string"
+        },
+        "returnWhen": {
+          "description": "What must happen before what the entry puts off is taken up again; named on a Return when: line, it makes the entry a deferral.",
+          "x-ont": "field.decision.return-when",
+          "type": "string"
+        },
         "concepts": {
           "description": "The concepts the choice touches.",
           "x-ont": "edge.decision.concepts",

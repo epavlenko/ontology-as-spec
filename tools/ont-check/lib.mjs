@@ -10,6 +10,10 @@ export const read = (path) => readFileSync(path, "utf8");
 export const DEFAULT_ACCEPTED = "^- Date:.*Status:\\s*accepted\\b";
 // An entry that replaces older ones names them on a line of its own; group 1 holds the list.
 export const DEFAULT_SUPERSEDES = "^- Supersedes:\\s*(.+)$";
+// Where a decision was stated: a call with the time of the passage, a message, the owner's answer.
+export const DEFAULT_SOURCE = "^- Source:[ \\t]*(\\S.*)$";
+// A deferral names what must happen before the deferred thing is taken up again; group 1 holds it.
+export const DEFAULT_RETURN_WHEN = "^- Return when:[ \\t]*(\\S.*)$";
 
 // Loads ont.config.json and resolves every path against the config file's directory.
 export function loadConfig(configPath) {
@@ -43,6 +47,8 @@ export function loadConfig(configPath) {
       ref: new RegExp(raw.decisions.ref ?? "\\bD-\\d+\\b", "g"),
       accepted: new RegExp(raw.decisions.accepted ?? DEFAULT_ACCEPTED, "im"),
       supersedes: new RegExp(raw.decisions.supersedes ?? DEFAULT_SUPERSEDES, "im"),
+      sourceLine: new RegExp(raw.decisions.source ?? DEFAULT_SOURCE, "im"),
+      returnWhen: new RegExp(raw.decisions.returnWhen ?? DEFAULT_RETURN_WHEN, "im"),
     },
     glossaryOut: at(raw.glossaryOut),
     contracts: raw.contracts && {
