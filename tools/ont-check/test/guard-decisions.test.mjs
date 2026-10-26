@@ -122,6 +122,48 @@ test("[check.decision.unsourced-acceptance] refuses an entry accepted without a 
   for (const r of run(another(""))) assert.equal(r.code, 0, r.out);
 });
 
+// When the first source comes after the base, the guard cannot tell which entries were accepted before
+// it, and asks a source only of the entries numbered after it.
+test("[check.decision.unsourced-acceptance] asks a source only after the first one when the log adopts sources", () => {
+  const src = "- Source: the owner's message of 2026-10-26\n";
+  const two = (a, b) => (t) =>
+    t.replace(
+      "## Tentative",
+      `### D-07 · One\n\n- Date: 2026-10-26 · Status: accepted\n${a}- Decision: x.\n\n### D-08 · Two\n\n- Date: 2026-10-26 · Status: accepted\n${b}- Decision: y.\n\n## Tentative`,
+    );
+  for (const r of run(two("", src))) assert.equal(r.code, 0, r.out);
+  for (const r of run(two(src, ""))) {
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /without a source, while the log names sources \(1\): D-08/);
+  }
+});
+
+// A log the base does not have yet: nothing to protect, but its accepted entries still need sources.
+test("[check.decision.unsourced-acceptance] checks the sources of a log that is not in the base", () => {
+  const dir = mkdtempSync(join(tmpdir(), "guard-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    const log = join(dir, "decisions.md");
+    const text = readFileSync(log, "utf8");
+    rmSync(log);
+    for (const args of [["init", "-q"], ["add", "."], ["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base"]])
+      assert.equal(spawnSync("git", args, { cwd: dir }).status, 0);
+    writeFileSync(
+      log,
+      text.replace(
+        "## Tentative",
+        "### D-07 · One\n\n- Date: 2026-10-26 · Status: accepted\n- Source: the owner's message of 2026-10-26\n- Decision: x.\n\n### D-08 · Two\n\n- Date: 2026-10-26 · Status: accepted\n- Decision: y.\n\n## Tentative",
+      ),
+    );
+    const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json")], { cwd: dir, encoding: "utf8" });
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(r.stdout, /not in HEAD, no accepted entry to protect yet/);
+    assert.match(r.stdout, /without a source, while the log names sources \(1\): D-08/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // A log in another language: the same edit is refused only once decisions.accepted matches its
 // status line.
 const localized = (setting) => (dir) => {

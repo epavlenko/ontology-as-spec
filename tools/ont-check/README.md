@@ -87,8 +87,8 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Doc anchors:** `<!-- ont: id, id@stamp -->` in pages of a doc set; IDs are concepts or checks, stamps are optional and written by `stamp-docs.mjs`.
 - **Supersession:** an entry that replaces older ones names them on a line matched by `decisions.supersedes`, by default `- Supersedes: D-05, D-07`.
 - **Decision status (guard):** an entry is accepted when one of its lines matches `decisions.accepted`, by default a `- Date:` line containing `Status: accepted`. The check lists the entries that are not, as waiting for the owner's answer.
-- **Sources (guard):** a line matched by `decisions.source`, by default `- Source: call of 2026-10-24, 00:41`. Once any entry has one, the guard fails on an entry accepted since its base without one, new or accepted from tentative.
-- **Deferrals:** a line matched by `decisions.returnWhen`, by default `- Return when: a second branch opens`. The check lists every deferral in force with its condition, as information.
+- **Sources (guard):** a line matched by `decisions.source`, by default `- Source: call of 2026-10-24, 00:41`. Once any entry has one, the guard fails on an entry accepted since its base without one, new or accepted from tentative; when the first source is newer than the base, only entries numbered after it are asked.
+- **Deferrals:** a line matched by `decisions.returnWhen`, by default `- Return when: a second branch opens`. The check lists every accepted deferral in force with its condition, as information.
 
 ## Hooks
 

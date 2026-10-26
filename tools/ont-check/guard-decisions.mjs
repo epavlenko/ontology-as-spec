@@ -8,7 +8,7 @@
 // Exit code 1 on any change. Prints GUARD_OK when every accepted entry is intact, and GUARD_OFF when
 // there is no commit yet to compare with: before the first commit nothing is protected. Accepted entries
 // that are not in the commit yet are listed as information, since they are protected only once committed.
-// Once the log names a source on a Source line, every entry accepted since the base must name one.
+// Once the log names a source on a Source line, every entry accepted after the first source must name one.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
@@ -80,12 +80,10 @@ for (const { file, entry, accepted, sourceLine } of targets) {
     continue;
   }
   const before = git(cwd, "show", `${base}:${path}`);
-  if (before.status !== 0) {
-    console.log(`info · ${name}: not in ${base}, nothing to guard`);
-    continue;
-  }
+  // A log the base does not have yet protects nothing, but the entries it accepts still need sources.
+  if (before.status !== 0) console.log(`info · ${name}: not in ${base}, no accepted entry to protect yet`);
   const now = staged ? git(cwd, "show", `:${path}`).stdout : existsSync(file) ? read(file) : "";
-  const old = entries(before.stdout, entry);
+  const old = before.status !== 0 ? new Map() : entries(before.stdout, entry);
   const cur = entries(now, entry);
   const changed = [];
   const removed = [];
@@ -114,11 +112,17 @@ for (const { file, entry, accepted, sourceLine } of targets) {
     .map(([id]) => id);
   if (fresh.length && !staged)
     console.log(`info · ${name}: accepted entries not in ${base} yet, protected once committed (${fresh.length}): ${fresh.join(", ")}`);
-  // Once the log names a source, every entry accepted since the base names its own (D-47): where it
-  // was decided, or the owner's answer that accepted it. Older entries cannot be edited to add one.
-  const unsourced = [...cur.values()].some((b) => sourceLine.test(b))
-    ? fresh.filter((id) => !sourceLine.test(cur.get(id)))
-    : [];
+  // Once the log names a source, every entry accepted after that names its own (D-47): where it was
+  // decided, or the owner's answer that accepted it. If the base already named sources, that is every
+  // entry accepted since the base. If the first source came later, the guard cannot tell which entries
+  // were accepted before it, and asks only entries numbered after the first one with a source; those
+  // before it were accepted earlier or are older entries, which cannot be edited to add one.
+  const number = (id) => (/\d/.test(id) ? Number(id.replace(/\D+/g, "")) : null);
+  const adopted = [...old.values()].some((b) => sourceLine.test(b));
+  const first = Math.min(...[...cur].filter(([, b]) => sourceLine.test(b)).map(([id]) => number(id) ?? Infinity));
+  const unsourced = fresh.filter(
+    (id) => !sourceLine.test(cur.get(id)) && (adopted || (number(id) !== null && number(id) > first)),
+  );
   if (unsourced.length) {
     console.log(`ERROR · ${name}: entries accepted since ${base} without a source, while the log names sources (${unsourced.length}): ${unsourced.join(", ")}`);
     errors.push("unsourced");

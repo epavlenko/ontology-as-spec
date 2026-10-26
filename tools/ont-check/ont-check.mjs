@@ -292,10 +292,13 @@ if (cfg.decisions) {
     false,
   );
   // A deferral names what must happen before the thing it put off is taken up again (D-49). Listed
-  // while it is in force, so that what was put off is not forgotten.
+  // while it is in force, so that what was put off is not forgotten; a tentative deferral is not in
+  // force and waits with the other tentative entries.
   report(
     "deferrals in force, each with the condition for taking it up again",
-    open.filter((e) => cfg.decisions.returnWhen.test(e.body)).map((e) => `${e.id}: ${e.body.match(cfg.decisions.returnWhen)[1]}`),
+    open
+      .filter((e) => cfg.decisions.accepted.test(e.body) && cfg.decisions.returnWhen.test(e.body))
+      .map((e) => `${e.id}: ${e.body.match(cfg.decisions.returnWhen)[1]}`),
     false,
   );
   decisionLog.push(

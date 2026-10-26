@@ -301,12 +301,15 @@ test("[check.decision.deferrals-listed] lists the deferrals in force with their 
         e("07", ["Return when: a second branch opens", "Decision: one branch for now."]),
         e("08", ["Return when: members ask for text messages", "Decision: reminders by e-mail only."]),
         e("09", ["Supersedes: D-08", "Decision: reminders by e-mail and text message."]),
+        e("10", ["Return when: a third branch opens", "Decision: no mobile app."]).replace("Status: accepted", "Status: tentative"),
         "## Tentative",
       ].join("\n\n"),
     ),
   );
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /info · deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-07: a second branch opens\n/);
+  // A tentative deferral is not in force: it waits with the other tentative entries.
+  assert.match(r.out, /waiting for the owner's answer \(2\):\n {2}D-10 · Entry 10\n {2}D-05 · /);
 });
 
 test("[check.doc-section.reread-after-change] a changed definition marks the sections to reread, and stamping clears it", () => {
