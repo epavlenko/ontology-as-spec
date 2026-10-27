@@ -135,7 +135,7 @@
           }
         },
         "supersedes": {
-          "description": "Earlier entries this one replaces, each whole, named on a Supersedes: line.",
+          "description": "Earlier entries this one replaces, each whole, named on a Supersedes: line; they are replaced once this entry is accepted.",
           "x-ont": "edge.decision.supersedes",
           "type": "array",
           "items": {

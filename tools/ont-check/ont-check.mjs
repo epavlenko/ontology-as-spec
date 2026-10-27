@@ -232,7 +232,8 @@ if (cfg.decisions) {
     entries.filter((x, i) => entries.indexOf(x) !== i),
   );
   // Supersession is written on a line of its own: "- Supersedes: D-05". Every entry named there exists
-  // and is older than the entry naming it; an entry no such line names is in force.
+  // and is older than the entry naming it. The line takes effect when its entry is accepted (D-52): an
+  // entry that no accepted entry names there is in force, since a tentative one only proposes the change.
   const heads = [...dec.matchAll(cfg.decisions.entry)];
   // An entry runs to the next heading of level 1 to 3, as in the guard, so that the last entry does not
   // take in the open questions and the history after it.
@@ -255,7 +256,7 @@ if (cfg.decisions) {
       if (!entries.includes(old)) badSupersedes.push(`${e.id} names ${old}, which has no entry`);
       else if (number(old) !== null && number(e.id) !== null && number(old) >= number(e.id))
         badSupersedes.push(`${e.id} names ${old}, which is not older`);
-      else supersededBy.set(old, [...(supersededBy.get(old) ?? []), e.id]);
+      else if (cfg.decisions.accepted.test(e.body)) supersededBy.set(old, [...(supersededBy.get(old) ?? []), e.id]);
     }
   }
   report("Supersedes lines that name no older entry", badSupersedes);

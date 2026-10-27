@@ -282,6 +282,30 @@ test("[check.decision.in-force-report] --decisions lists each entry as in force,
   assert.match(r.out, /\| D-07 +\| Entry 07 +\| in force +\|/);
 });
 
+test("[check.decision.tentative-supersedes-nothing] a tentative entry's Supersedes line takes effect when it is accepted", () => {
+  const proposal = entry("07", ["Supersedes: D-04", "Decision: renewal is shown differently."]).replace("Status: accepted", "Status: tentative");
+  const before = run((p) => p("decisions.md", "## Tentative", proposal), "--decisions");
+  assert.equal(before.code, 0, before.out);
+  assert.match(before.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| in force +\| D-07 +\|/);
+  assert.match(before.out, /\| D-07 +\| Entry 07 +\| tentative +\|/);
+  const after = run((p) => p("decisions.md", "## Tentative", proposal.replace("Status: tentative", "Status: accepted")), "--decisions");
+  assert.match(after.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| superseded by D-07 +\|/);
+  // A deferral that a tentative entry would supersede stays on the list of deferrals.
+  const e = (n, lines) => entry(n, lines).replace("\n\n## Tentative", "");
+  const deferral = run((p) =>
+    p(
+      "decisions.md",
+      "## Tentative",
+      [
+        e("07", ["Return when: a second branch opens", "Decision: one branch for now."]),
+        e("08", ["Supersedes: D-07", "Decision: a second branch now."]).replace("Status: accepted", "Status: tentative"),
+        "## Tentative",
+      ].join("\n\n"),
+    ),
+  );
+  assert.match(deferral.out, /deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-07: a second branch opens\n/);
+});
+
 test("[check.decision.waiting-listed] lists a tentative entry as waiting for the owner's answer", () => {
   const r = run();
   assert.equal(r.code, 0, r.out);
