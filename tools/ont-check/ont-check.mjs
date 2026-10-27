@@ -15,12 +15,14 @@ import {
   backtickIds,
   idPattern,
   listFiles,
+  loadApproach,
   loadConfig,
   parseChecks,
   parseGlossary,
   parseImplemented,
   parseRetired,
   read,
+  renderApproach,
   renderGlossary,
   SECTION_KEY,
   section,
@@ -71,6 +73,15 @@ const external = new Set(
   ]),
 );
 const ours = (set) => new Set([...set].filter((x) => glossary.has(x) || !external.has(x)));
+
+// The approach's own IDs, copied with the tool (D-53): agent instructions and process entries of a
+// project name rules of the approach, which its ontology does not define.
+const approach = loadApproach();
+// File names such as `action.yml` or `view.tsx` look like IDs of the approach's classes and are not.
+const FILE_NAME = /\.(md|mdx|txt|json|jsonc|ya?ml|toml|ini|lock|m?js|cjs|jsx|tsx?|html?|css|scss|py|rb|go|rs|java|kt|swift|sh|sql|csv|svg|png|jpe?g)$/;
+const anyIds = (text) =>
+  backtickIds(text, [...new Set([...classes, ...(approach?.classes ?? [])])]).filter((x) => !FILE_NAME.test(x));
+const ofApproach = (x) => Boolean(approach?.ids.has(x) || approach?.retired.has(x));
 
 // The glossary is the only source of IDs: everything that refers to a concept must find it there.
 // A retired ID resolves in the decision log, which is never edited; anywhere else it is drift.
@@ -178,6 +189,15 @@ if (cfg.contracts) {
   }
 }
 
+// The approach's own repository writes its IDs next to the tool, and they match its ontology (D-53).
+if (cfg.approachIds) {
+  const actual = existsSync(cfg.approachIds.out) ? read(cfg.approachIds.out) : "";
+  report(
+    "generated approach IDs differ from the ontology (run gen-approach.mjs)",
+    actual === renderApproach(ONT, retired) ? [] : [relative(cfg.base, cfg.approachIds.out)],
+  );
+}
+
 // Mockup: data-ont attributes plus quoted IDs in scripts ('view.catalog').
 const classAlt = classes.join("|");
 const html = cfg.mockup.map(read).join("\n");
@@ -222,7 +242,12 @@ if (cfg.map) {
 const decisionLog = [];
 if (cfg.decisions) {
   const dec = read(cfg.decisions.file);
-  unknown("IDs in the decision log but not in the glossary", "the decision log", new Set(ids(dec)), true);
+  unknown(
+    "IDs in the decision log but not in the glossary",
+    "the decision log",
+    new Set(ids(dec).filter((x) => glossary.has(x) || !ofApproach(x))),
+    true,
+  );
   const entries = [...dec.matchAll(cfg.decisions.entry)].map((m) => m[1]);
   const refSources = [md, cfg.map ? read(cfg.map.file) : ""].join("\n");
   const refs = new Set([...refSources.matchAll(cfg.decisions.ref)].map((m) => m[0]));
@@ -302,6 +327,28 @@ if (cfg.decisions) {
       .map((e) => `${e.id}: ${e.body.match(cfg.decisions.returnWhen)[1]}`),
     false,
   );
+  // A project departs from a rule of the approach only by a process entry (D-53): its Extends or
+  // Overrides line names concepts the approach defines and has not retired, and it says Layer: process.
+  const departures = [];
+  const every = (re, text) =>
+    [...text.matchAll(new RegExp(re.source, re.flags.includes("g") ? re.flags : `${re.flags}g`))].map((m) => m[1] ?? "");
+  for (const e of log) {
+    const lines = [...every(cfg.decisions.extends, e.body), ...every(cfg.decisions.overrides, e.body)];
+    if (!lines.length) continue;
+    if (!cfg.decisions.processLayer.test(e.body)) departures.push(`${e.id}: no Layer: process line`);
+    // A superseded entry is history and cannot be edited: it may name a rule the approach has retired since.
+    const history = supersededBy.has(e.id);
+    for (const line of lines) {
+      const named = anyIds(line);
+      if (!named.length) departures.push(`${e.id}: an Extends or Overrides line that names no rule of the approach`);
+      for (const x of named)
+        if (approach?.retired.has(x)) {
+          if (!history) departures.push(`${e.id}: ${x} is retired, now ${approach.retired.get(x) ?? "removed"}`);
+        } else if (!approach?.ids.has(x)) departures.push(`${e.id}: ${x} is not a concept of the approach`);
+    }
+  }
+  if (departures.length && !approach) departures.push("approach.json is missing next to the tool: copy it with the tool");
+  report("process entries that extend or override the approach wrongly", departures);
   decisionLog.push(
     ...log.map((e) => ({
       ...e,
@@ -313,6 +360,40 @@ if (cfg.decisions) {
           : "tentative",
     })),
   );
+}
+
+// Agent instructions (D-53): every concept ID they mention is defined, in the project's ontology or the
+// approach's, and not retired; every entry they cite exists and is in force. In them D-nn is an entry of
+// the project's log. Whether a line is a process rule that should name its source, and whether it is
+// stricter or looser than the approach, is for a reviewer.
+if (cfg.agentInstructions.length) {
+  const where = (f) => relative(cfg.base, f);
+  report("agent instruction files that do not exist", cfg.agentInstructions.filter((f) => !existsSync(f)).map(where));
+  if (!approach) report("approach.json is missing next to the tool: copy it with the tool", ["approach.json"]);
+  const state = new Map(decisionLog.map((e) => [e.id, e.state]));
+  const undefinedIds = [];
+  const retiredIds = [];
+  const missingEntries = [];
+  const supersededEntries = [];
+  for (const f of cfg.agentInstructions.filter((x) => existsSync(x))) {
+    const text = read(f);
+    // The project's own IDs come first: one it retired stays retired where the approach has the same ID.
+    for (const x of new Set(anyIds(text))) {
+      if (glossary.has(x) || external.has(x)) continue;
+      if (retired.has(x)) retiredIds.push(`${where(f)}: ${x}, now ${retired.get(x) ?? "removed"}`);
+      else if (approach?.ids.has(x)) continue;
+      else if (approach?.retired.has(x)) retiredIds.push(`${where(f)}: ${x}, now ${approach.retired.get(x) ?? "removed"}`);
+      else undefinedIds.push(`${where(f)}: ${x}`);
+    }
+    if (!cfg.decisions) continue;
+    for (const d of new Set([...text.matchAll(new RegExp(cfg.decisions.ref.source, "g"))].map((m) => m[0])))
+      if (!state.has(d)) missingEntries.push(`${where(f)}: ${d}`);
+      else if (state.get(d).startsWith("superseded")) supersededEntries.push(`${where(f)}: ${d}, ${state.get(d)}`);
+  }
+  report("IDs in the agent instructions that neither the ontology nor the approach defines", undefinedIds);
+  report("retired IDs in the agent instructions", retiredIds);
+  report("decision entries the agent instructions cite that the log does not have", missingEntries);
+  report("superseded decision entries the agent instructions cite (cite the entry in force)", supersededEntries);
 }
 
 // Check catalogue: what must hold, in product terms, for any implementation. One row per check,

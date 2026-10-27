@@ -4,7 +4,7 @@
 
 Product meaning lives in `ontology.md` (one table per entity, then screens; every concept is one definition row, grouped by kind, and those rows are the only definitions) and `decisions.md` (every product decision with its reason). The mockup, the UI-to-ontology map, the check catalogue, the tickets, the test titles and the help pages refer to concepts by permanent ID. `tools/ont-check/ont-check.mjs --config example/ont.config.json` cross-checks all of them, and `tools/ont-check/guard-decisions.mjs` refuses edits to accepted decisions; both run on commit and in CI.
 
-Start every task from the ontology IDs it touches. If a concept you need has no ID, the ontology is incomplete: propose its definition row, in its entity's table, before writing code or markup.
+Start every task from the ontology IDs it touches (`rule.start-from-ids`). If a concept you need has no ID, the ontology is incomplete: propose its definition row, in its entity's table, before writing code or markup.
 
 | You changed                                        | Also update                                                                                                                                                                                                                                                                      | Verify                                 |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
@@ -22,13 +22,14 @@ Generated files (`mockup/ontology.js`, `contracts/`, `help/terms.md`) are never 
 
 Rules the check cannot enforce:
 
-- IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it.
-- Removing a concept is a decision: write the entry saying why and retire the ID; the check then finds every reference left.
-- The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side.
-- What a partial implementation leaves out is a target concept, named in the note of its row. A note alone hides the work from `--gap`.
-- A choice the owner has not explicitly approved, such as a value you picked when asked to tune something, is recorded as tentative; the owner's approval accepts it.
-- A number is held as its role needs. A rule's value or a requirement is held by a check. A model's assumptions are held by a snapshot of its base scenario, each change of them is a short entry about its topic, and no check requires the model to reach its goal.
-- A ticket is a slice of the gap: IDs, checks, out of scope, dependencies, permissions. It does not describe behavior; behavior goes into `checks.md` first.
-- A tag on a test is a claim that the test implements the check. Do not tag a test that does not.
-- A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.
-- A finished task, its checks passing, ends with a local commit of its own changes where the repository lets you commit; push only when the owner allows it. Otherwise tell the owner which accepted decision entries are not protected yet.
+- IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it (`inv.ids-permanent`, `action.change-id`).
+- Removing a concept is a decision: write the entry saying why and retire the ID; the check then finds every reference left (`action.remove-concept`).
+- The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side (`rule.divergence-becomes-work`).
+- What a partial implementation leaves out is a target concept, named in the note of its row. A note alone hides the work from `--gap` (`rule.partial-noted`).
+- A choice the owner has not explicitly approved, such as a value you picked when asked to tune something, is recorded as tentative; the owner's approval accepts it (`rule.unconfirmed-tentative`).
+- A number is held as its role needs. A rule's value or a requirement is held by a check. A model's assumptions are held by a snapshot of its base scenario, each change of them is a short entry about its topic, and no check requires the model to reach its goal (`rule.number-by-role`, `rule.chosen-value-checked`).
+- A ticket is a slice of the gap: IDs, checks, out of scope, dependencies, permissions. It does not describe behavior; behavior goes into `checks.md` first (`rule.ticket-without-behavior`, `action.cut-slice`).
+- A tag on a test is a claim that the test implements the check. Do not tag a test that does not (`inv.test-does-what-check-says`).
+- A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings (`rule.findings-mislead`).
+- A finished task, its checks passing, ends with a local commit of its own changes where the repository lets you commit; push only when the owner allows it. Otherwise tell the owner which accepted decision entries are not protected yet (`rule.commit-finished-work`).
+- A rule here that comes from a rule of the approach or from a decision names it, by ID or entry; a rule that departs from the approach cites the process entry of the log that decided it (`rule.agent-rule-source`, `rule.departure-by-entry`).

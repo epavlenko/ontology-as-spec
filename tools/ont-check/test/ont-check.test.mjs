@@ -306,6 +306,121 @@ test("[check.decision.tentative-supersedes-nothing] a tentative entry's Supersed
   assert.match(deferral.out, /deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-07: a second branch opens\n/);
 });
 
+// Agent instructions name rules of the approach and entries of the project's log (D-53).
+test("[check.agent-rules.unknown-id] fails on an ID in the agent instructions that nothing defines", () => {
+  // A file name such as `action.yml` looks like an ID of the approach's classes and is not one.
+  const r = run((p) => p("AGENTS.md", "(`rule.start-from-ids`)", "(`rule.start-from-ids`, `rule.start-from-idz`, `action.yml`)"));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /IDs in the agent instructions that neither the ontology nor the approach defines \(1\):\n {2}AGENTS\.md: rule\.start-from-idz\n/);
+});
+
+test("[check.agent-rules.retired-id] fails on an ID in the agent instructions that the project or the approach retired", () => {
+  const r = run((p) => p("AGENTS.md", "(`rule.start-from-ids`)", "(`rule.start-from-ids`, `field.due-date`, `rule.target-not-tuning`)"));
+  assert.equal(r.code, 1, r.out);
+  assert.match(
+    r.out,
+    /retired IDs in the agent instructions \(2\):\n {2}AGENTS\.md: field\.due-date, now field\.loan\.due-date\n {2}AGENTS\.md: rule\.target-not-tuning, now rule\.number-by-role\n/,
+  );
+});
+
+test("[check.agent-rules.retired-id] a retired ID of the project stays retired where the approach has the same ID", () => {
+  const r = run((p) => {
+    p(
+      "ontology.md",
+      "| `edge.waits-for`       | `edge.hold.waits-for`       | D-06     |",
+      "| `edge.waits-for`       | `edge.hold.waits-for`       | D-06     |\n| `ent.ticket` | — | D-06 |",
+    );
+    p("AGENTS.md", "(`rule.start-from-ids`)", "(`rule.start-from-ids`, `ent.ticket`)");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /retired IDs in the agent instructions \(1\):\n {2}AGENTS\.md: ent\.ticket, now removed\n/);
+});
+
+test("[check.agent-rules.unknown-entry] fails on an entry the agent instructions cite that is missing or superseded", () => {
+  const r = run((p) => {
+    p("AGENTS.md", "(`rule.start-from-ids`)", "(`rule.start-from-ids`, D-63, D-04)");
+    p("decisions.md", "## Tentative", entry("07", ["Supersedes: D-04", "Decision: renewal is shown differently."]));
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /decision entries the agent instructions cite that the log does not have \(1\):\n {2}AGENTS\.md: D-63\n/);
+  assert.match(r.out, /superseded decision entries the agent instructions cite \(cite the entry in force\) \(1\):\n {2}AGENTS\.md: D-04, superseded by D-07\n/);
+});
+
+test("[check.decision.departure-malformed] fails on an entry that extends or overrides the approach wrongly", () => {
+  const ok = run((p) =>
+    p("decisions.md", "## Tentative", entry("07", ["Layer: process", "Overrides: `rule.commit-finished-work`", "Decision: agents leave commits to the owner."])),
+  );
+  assert.equal(ok.code, 0, ok.out);
+  const e = (n, lines) => entry(n, lines).replace("\n\n## Tentative", "");
+  const bad = run((p) =>
+    p(
+      "decisions.md",
+      "## Tentative",
+      [
+        e("07", ["Layer: process", "Overrides: `rule.commit-unfinished-work`", "Decision: x."]),
+        e("08", ["Extends: `rule.commit-finished-work`", "Decision: y."]),
+        "## Tentative",
+      ].join("\n\n"),
+    ),
+  );
+  assert.equal(bad.code, 1, bad.out);
+  assert.match(
+    bad.out,
+    /process entries that extend or override the approach wrongly \(2\):\n {2}D-07: rule\.commit-unfinished-work is not a concept of the approach\n {2}D-08: no Layer: process line\n/,
+  );
+});
+
+test("[check.decision.departure-malformed] checks every Extends and Overrides line; a superseded entry may name a retired rule", () => {
+  const e = (n, lines) => entry(n, lines).replace("\n\n## Tentative", "");
+  const r = run((p) =>
+    p(
+      "decisions.md",
+      "## Tentative",
+      [
+        e("07", ["Layer: process", "Overrides: `rule.number-by-role`", "Overrides: `rule.target-not-tuning`", "Decision: x."]),
+        e("08", ["Layer: product", "Overrides:", "Decision: y."]),
+        "## Tentative",
+      ].join("\n\n"),
+    ),
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(
+    r.out,
+    /wrongly \(3\):\n {2}D-07: rule\.target-not-tuning is retired, now rule\.number-by-role\n {2}D-08: no Layer: process line\n {2}D-08: an Extends or Overrides line that names no rule of the approach\n/,
+  );
+  const history = run((p) =>
+    p(
+      "decisions.md",
+      "## Tentative",
+      [
+        e("07", ["Layer: process", "Overrides: `rule.target-not-tuning`", "Decision: x."]),
+        e("08", ["Supersedes: D-07", "Layer: process", "Overrides: `rule.number-by-role`", "Decision: y."]),
+        "## Tentative",
+      ].join("\n\n"),
+    ),
+  );
+  assert.equal(history.code, 0, history.out);
+});
+
+test("[check.agent-rules.approach-ids-stale] the approach IDs next to the tool match the approach's ontology", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ont-approach-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    const cfg = join(dir, "ont.config.json");
+    writeFileSync(cfg, readFileSync(cfg, "utf8").replace('"root":', '"approachIds": { "out": "approach-ids.json" },\n  "root":'));
+    writeFileSync(join(dir, "approach-ids.json"), "{}\n");
+    const node = (script) => spawnSync("node", [join(TOOLS, script), "--config", cfg], { encoding: "utf8" });
+    const stale = node("ont-check.mjs");
+    assert.equal(stale.status, 1, stale.stdout);
+    assert.match(stale.stdout, /generated approach IDs differ from the ontology \(run gen-approach\.mjs\) \(1\):\n {2}approach-ids\.json\n/);
+    assert.match(node("gen-approach.mjs").stdout, /approach-ids\.json: 40 IDs/);
+    const fresh = node("ont-check.mjs");
+    assert.equal(fresh.status, 0, fresh.stdout);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("[check.decision.waiting-listed] lists a tentative entry as waiting for the owner's answer", () => {
   const r = run();
   assert.equal(r.code, 0, r.out);

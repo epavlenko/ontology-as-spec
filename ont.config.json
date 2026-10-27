@@ -21,6 +21,10 @@
     "retired": "## Retired IDs"
   },
   "root": ".",
+  "agentInstructions": ["AGENTS.md", "CLAUDE.md"],
+  "approachIds": {
+    "out": "tools/ont-check/approach.json"
+  },
   "decisions": {
     "file": "decisions.md"
   },

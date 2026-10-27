@@ -1,6 +1,6 @@
 # ont-check
 
-The drift check, the decision guard, and the generators of tooltips, contracts and reference pages. Node 20 or later, no dependencies. What it checks and why is described in [part 5](../../docs/parts/drift-check.md).
+The drift check, the decision guard, and the generators of tooltips, contracts and reference pages. Node 20 or later, no dependencies. Copy the whole directory into a project, `approach.json` included: it holds the approach's own IDs, which agent instructions and process entries name. What it checks and why is described in [part 5](../../docs/parts/drift-check.md).
 
 ```bash
 node tools/ont-check/gen-glossary.mjs --config path/to/ont.config.json   # glossary → generated tooltips
@@ -11,6 +11,7 @@ node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --decisio
 node tools/ont-check/format-ontology.mjs --config path/to/ont.config.json   # kind order, Kind cells and aligned definition tables
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/gen-reference.mjs --config path/to/ont.config.json   # reference pages from the ontology and the checks
+node tools/ont-check/gen-approach.mjs  --config ont.config.json   # in the approach's own repository: approach.json from its ontology
 node tools/ont-check/stamp-docs.mjs  --config path/to/ont.config.json [page.md …]   # after rereading: stamp the anchors
 node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK, or GUARD_OFF before the first commit; lists accepted entries not committed yet
 ```
@@ -32,6 +33,8 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | `contracts.mjs`    | the type vocabulary and the schema builder, shared by the generator and the check |
 | `lib.mjs`          | the one parser every script uses, and the config loader                            |
 | `ont-tooltips.js`  | browser runtime for the mockup: sets `title` from `window.ONT` on `[data-ont]` elements |
+| `approach.json`    | the approach's concept IDs and retired IDs, which agent instructions and process entries of a project may name; generated, copy it with the tool |
+| `gen-approach.mjs` | writes `approach.json` from the approach's ontology, in the approach's own repository |
 | `test/`            | copies the example, breaks it one way at a time, asserts the check names the break; runs the guard in a throwaway repository |
 
 ## Configuration
@@ -47,11 +50,15 @@ Paths are relative to the config file.
 | `headings.implementation` | heading of the implementation table; default `## Implementation status`; `null` until code exists | no |
 | `headings.divergences` | the start of the heading of the known divergences; default `### Known divergences`; the section may be absent | no |
 | `root` | base directory for paths in the implementation table; default the config's directory | no |
+| `agentInstructions` | the files of the agents' instructions, such as `["AGENTS.md"]`; the check resolves the IDs and the entries they mention | no |
+| `approachIds.out` | only in the approach's own repository: where `gen-approach.mjs` writes the approach's IDs | no |
 | `decisions.file` | the decision log | no |
 | `decisions.entry` | regex for an entry heading with the number in group 1; default `^### (D-\d+) · .+$` | no |
 | `decisions.ref` | regex for a reference to an entry; default `\bD-\d+\b` | no |
 | `decisions.supersedes` | regex for the line that names the entries an entry supersedes, with the list in group 1; default `^- Supersedes:\s*(.+)$`, case-insensitive | no |
 | `decisions.source` | regex for the line that names where an entry was decided, with the source in group 1; default `^- Source:[ \t]*(\S.*)$`, case-insensitive. Once the log has one, the guard requires it on every entry accepted since its base | no |
+| `decisions.processLayer` | regex for the line that marks an entry about how agents work; default `^- Layer:[ \t]*process\b`, case-insensitive | no |
+| `decisions.extends`, `decisions.overrides` | regexes for the lines that name the rules of the approach a process entry extends or overrides, in group 1; defaults `^- Extends:[ \t]*(\S.*)$` and `^- Overrides:[ \t]*(\S.*)$` | no |
 | `decisions.returnWhen` | regex for the line that makes an entry a deferral, with the condition in group 1; default `^- Return when:[ \t]*(\S.*)$`, case-insensitive | no |
 | `decisions.accepted` | regex for the line that marks an entry accepted, for the guard; default `^- Date:.*Status:\s*accepted\b`, case-insensitive; set it for a log in another language | no |
 | `glossaryOut` | the generated tooltip file | no |
@@ -88,6 +95,8 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Supersession:** an entry that replaces older ones names them on a line matched by `decisions.supersedes`, by default `- Supersedes: D-05, D-07`. The line of a tentative entry takes effect when the entry is accepted.
 - **Decision status (guard):** an entry is accepted when one of its lines matches `decisions.accepted`, by default a `- Date:` line containing `Status: accepted`. The check lists the entries that are not, as waiting for the owner's answer.
 - **Sources (guard):** a line matched by `decisions.source`, by default `- Source: call of 2026-10-24, 00:41`. Once any entry has one, the guard fails on an entry accepted since its base without one, new or accepted from tentative; when the first source is newer than the base, only entries numbered after it are asked.
+- **Agent instructions:** IDs in backticks, of the project's ontology or of the approach, and entries of the project's log by the pattern of `decisions.ref`. In them `D-nn` is always an entry of the project's log; a rule of the approach is named by its ID. The project's retired IDs come first, and file names such as `action.yml` are not IDs.
+- **Process entries:** `- Layer: process`, and `- Extends:` or `- Overrides:` with the IDs of the rules of the approach in backticks. Every such line is checked, and an empty one fails; a superseded entry may name a rule the approach has retired since.
 - **Deferrals:** a line matched by `decisions.returnWhen`, by default `- Return when: a second branch opens`. The check lists every accepted deferral in force with its condition, as information.
 
 ## Hooks

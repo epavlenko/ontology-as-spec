@@ -125,6 +125,14 @@
           "x-ont": "field.decision.return-when",
           "type": "string"
         },
+        "layer": {
+          "description": "Product by default; process for an entry about how agents work rather than about the product, marked by a Layer: process line.",
+          "x-ont": "field.decision.layer",
+          "enum": [
+            "product",
+            "process"
+          ]
+        },
         "concepts": {
           "description": "The concepts the choice touches.",
           "x-ont": "edge.decision.concepts",
@@ -141,6 +149,24 @@
           "items": {
             "type": "string",
             "x-ont-ref": "ent.decision"
+          }
+        },
+        "extends": {
+          "description": "Rules of the approach that a process entry adds to for the project, named on an Extends: line.",
+          "x-ont": "edge.decision.extends",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ont-ref": "ent.concept"
+          }
+        },
+        "overrides": {
+          "description": "Rules of the approach that a process entry changes for the project, named on an Overrides: line.",
+          "x-ont": "edge.decision.overrides",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ont-ref": "ent.concept"
           }
         }
       },
@@ -421,8 +447,16 @@
       "description": "The section of the agents' instructions that says what else to update when something changes, and what to run.",
       "x-ont": "ent.agent-rules",
       "type": "object",
-      "properties": {},
-      "required": []
+      "properties": {
+        "files": {
+          "description": "The files that hold the agents' instructions, listed in the configuration under agentInstructions; the check reads the IDs and entries they mention.",
+          "x-ont": "field.agent-rules.files",
+          "type": "string"
+        }
+      },
+      "required": [
+        "files"
+      ]
     },
     "contract": {
       "title": "Contract",

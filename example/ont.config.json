@@ -17,6 +17,7 @@
     "retired": "## Retired IDs"
   },
   "root": ".",
+  "agentInstructions": ["AGENTS.md"],
   "decisions": {
     "file": "decisions.md",
     "entry": "^### (D-\\d+) \u00b7 .+$",

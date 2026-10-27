@@ -19,17 +19,18 @@ Generated files are never edited by hand; the check compares them with what the 
 
 Rules the check cannot enforce:
 
-- IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it.
-- Removing a concept is a decision: write the entry and retire the ID; the check then finds every reference left.
-- The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side.
-- What a partial implementation leaves out is a target concept, named in the note of its row. A note alone hides the work from `--gap`.
-- A choice the owner has not explicitly approved, such as a value you picked when asked to tune something, is recorded as tentative; the owner's approval accepts it.
-- A question you can recommend an answer to is a tentative entry, not a line under open questions: your recommendation is its decision, the other options are rejected. The entry gives you no permission to act on the recommendation; your task or the owner does. When the owner answers, the entry names the answer on its `Source:` line.
-- Name where a decision was made on its `Source:` line. When sources disagree, follow the owner's latest word; an answer someone gave for the owner keeps the entry tentative.
-- What you put off outside any slice gets an entry with a `Return when:` line, not a note that nobody will read again.
-- A number is held as its role needs. A rule's value or a requirement is held by a check. A model's assumptions are held by a snapshot of its base scenario, each change of them is a short entry about its topic, and no check requires the model to reach its goal.
-- A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings.
-- A finished task, its checks passing, ends with a local commit of its own changes where the repository lets you commit; push only when the owner allows it. Otherwise tell the owner which accepted decision entries are not protected yet.
+- IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it (`inv.ids-permanent`, `action.change-id`).
+- Removing a concept is a decision: write the entry and retire the ID; the check then finds every reference left (`action.remove-concept`).
+- The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side (`rule.divergence-becomes-work`).
+- What a partial implementation leaves out is a target concept, named in the note of its row. A note alone hides the work from `--gap` (`rule.partial-noted`).
+- A choice the owner has not explicitly approved, such as a value you picked when asked to tune something, is recorded as tentative; the owner's approval accepts it (`rule.unconfirmed-tentative`).
+- A question you can recommend an answer to is a tentative entry, not a line under open questions: your recommendation is its decision, the other options are rejected. The entry gives you no permission to act on the recommendation; your task or the owner does. When the owner answers, the entry names the answer on its `Source:` line (`rule.question-as-tentative`, `action.answer-tentative`).
+- Name where a decision was made on its `Source:` line. When sources disagree, follow the owner's latest word; an answer someone gave for the owner keeps the entry tentative (`rule.source-precedence`).
+- What you put off outside any slice gets an entry with a `Return when:` line, not a note that nobody will read again (`rule.deferral-returns`).
+- A number is held as its role needs. A rule's value or a requirement is held by a check. A model's assumptions are held by a snapshot of its base scenario, each change of them is a short entry about its topic, and no check requires the model to reach its goal (`rule.number-by-role`, `rule.chosen-value-checked`).
+- A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings (`rule.findings-mislead`).
+- A finished task, its checks passing, ends with a local commit of its own changes where the repository lets you commit; push only when the owner allows it. Otherwise tell the owner which accepted decision entries are not protected yet (`rule.commit-finished-work`).
+- A rule here that comes from a rule of the approach or from a decision names it, by ID or entry; a rule that departs from the approach cites the process entry of the log that decided it (`rule.agent-rule-source`, `rule.departure-by-entry`).
 
 ## Why a table
 
@@ -42,10 +43,45 @@ The list after the table holds only the rules no check enforces; it exists becau
 
 The rules for the section itself are in the reference: [Agent rules](../reference.md#agent-rules). Keep it short, because it is read at the start of every session and long sections are skimmed. Let every row name a path or a command. Let every task start by naming the IDs it touches: if an agent cannot name them, the task is not about meaning, or the ontology is incomplete. The tool enforces none of this directly; it enforces the consequences, because a skipped row usually fails the check. The same restraint applies to reviews: a consistency review reports what would mislead someone or break a check, not every imperfection it can find. And a finished task ends with a commit where the repository lets agents commit, since the guard protects only accepted entries that are in a commit; where commits are left to the owner, the agent says which accepted entries are not protected yet. The commit is local and holds only the task's own changes, since other agents may work in the same checkout; pushing it is the owner's permission to give. A commit after every change is not asked for: it would record states whose checks fail.
 
+<!-- ont: rule.agent-rule-source@695801, rule.departure-by-entry@4fa94e, inv.agent-rule-references-resolve@8ed1db, inv.departure-well-formed@706f17, inv.approach-ids-current@195640 -->
+## Where a rule comes from
+
+A project's ontology is about its product. How its agents work is described by the approach's own ontology: the rules of this part and of the decision log are concepts of the approach, with IDs like any product's. So a process rule in a project's agent instructions, one that says how agents work rather than what the product is, names where it comes from: the rule of the approach it follows, by ID, or the entry of the project's log that decided it.
+
+```markdown
+- A finished task, its checks passing, ends with a local commit of its own changes (`rule.commit-finished-work`).
+```
+
+In the instructions, `D-nn` always means an entry of the project's own log; a rule of the approach is cited by its ID, never by the approach's entry numbers. The files stay prose, and commands and matters of style name nothing.
+
+A project may depart from a rule of the approach, more strictly or more loosely, but only by an entry of its log that says so. A `Layer: process` line marks the entry as one about how agents work, and an `Extends:` or `Overrides:` line names the rule; the instruction that departs cites the entry. In one project that uses the approach, the agent instructions said by default not to commit and not to open a pull request. That narrowed `rule.commit-finished-work`, and nothing said so: an agent that knew the approach could not tell whether the project meant it, or why. Written as a departure, it is an entry:
+
+```markdown
+### D-63 · Agents leave commits and pull requests to the owner
+
+- Date: 2026-10-27 · Status: accepted
+- Source: the owner's message of 2026-10-27
+- Layer: process
+- Overrides: `rule.commit-finished-work`
+- Decision: agents do not commit or open a pull request unless the task asks; a finished task ends with a list of the accepted entries that are not protected yet.
+- Why: …
+```
+
+and an instruction that cites it:
+
+```markdown
+- Do not commit or open a pull request unless the task asks; say which accepted entries are not protected yet (`rule.commit-finished-work`, overridden by D-63).
+```
+
+The configuration lists the instruction files under `agentInstructions`. The check fails on a concept ID they mention that neither the project's ontology nor the approach defines, or that is retired, and on an entry they cite that the log does not have or that a later entry supersedes. It also fails on an entry with an `Extends:` or `Overrides:` line that lacks `Layer: process`, or on such a line that is empty or names something the approach does not define; while the entry is in force, a rule the approach has retired fails too, and a superseded entry, which is history, may still name one. A retired ID of the project stays retired where the approach has the same ID, and file names such as `action.yml` are not read as IDs. The approach's IDs travel with the tool, in `tools/ont-check/approach.json`, which the approach generates from its own ontology; a project copies it with the other files of the tool.
+
+What the tool cannot tell is which lines are process rules, and whether a rule written in prose is stricter or looser than the approach. A reviewer reads the instructions for that: a process rule that names no source is a finding, and so is a departure without an entry.
+
 ## How it fails in practice
 
 - **The table describes an older layout of the repository.** When paths move, update the table in the same change. Include the agent instructions file in the paths that trigger the check.
 - **Rules that should be checks stay rules forever.** Review the list from time to time and ask which item could be a check.
+- **Instructions that quietly differ from the approach.** A project's rule says less or more than the rule of the approach it replaces, and nothing records the choice. Write the departure as a process entry and cite it from the instruction.
 - **Reviews that list everything.** A finding that misleads no one costs the reader's attention and teaches agents that the list is noise. Report what would mislead a reader or an agent, or would break a check, and leave style and completeness alone.
 
 ## In the example
