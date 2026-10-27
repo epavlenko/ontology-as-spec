@@ -94,12 +94,12 @@ The approach took shape in 2026 in a product project developed largely by coding
 
 Since then the generic check in `tools/ont-check` has been used in four private projects, that product among them. All four are projects the author works on; no other team has used the approach yet. In three of them tests name the checks they implement, and those tests are how the check sees what the code does: product behavior that no tagged test exercises stays invisible to it. [Added after the source project](docs/limitations.md#added-after-the-source-project) lists which mechanisms the projects have used and which only the example has, and [Limitations](docs/limitations.md) lists what remains weak.
 
-Questions and reports of errors are welcome as GitHub issues; pull requests are not accepted yet. Maintained by Jevgenijs Pavlenko.
+Questions and reports of errors are welcome as GitHub issues; pull requests are not accepted yet ([CONTRIBUTING.md](CONTRIBUTING.md)). Maintained by Jevgenijs Pavlenko.
 
 ## License
 
 Copyright © 2026 Jevgenijs Pavlenko.
 
-- The text in `README.md`, `AGENTS.md`, `decisions.md`, `ontology.md`, `checks.md` and `docs/` is licensed under [Creative Commons Attribution 4.0 International](LICENSE-CC-BY-4.0) (CC BY 4.0). You may copy, adapt and use it for any purpose, including commercially, as long as you credit the author and link the source.
+- The text in `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `decisions.md`, `ontology.md`, `checks.md` and `docs/` is licensed under [Creative Commons Attribution 4.0 International](LICENSE-CC-BY-4.0) (CC BY 4.0). You may copy, adapt and use it for any purpose, including commercially, as long as you credit the author and link the source.
 - The tool in `tools/`, the templates in `templates/` and the example in `example/` are licensed under the [MIT License](LICENSE). Copy them into your own repositories freely; keep the copyright notice with the tool.
 - Everything else, the configuration (`ont.config.json`, `package.json`), the generated contract in `contracts/`, the hook in `.githooks/` and the CI in `.github/`, is licensed under the [MIT License](LICENSE) too.
