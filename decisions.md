@@ -471,6 +471,14 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: D-14 allowed two proofs, a test or a person, and values a model writes fit neither: an exact expected text breaks on every harmless change, and a manual check of them is seldom run (D-44). A judged check keeps the case in the product's terms and leaves the judging to a model that sees only the case and the output. Nothing in a product's ontology tells a generated value apart, so the suite names its judged checks, which also lets a suite require a key scenario end to end. The example shows one judged check: a refusal at the borrow limit, judged by whatever command the project sets, and skipped without one.
 - Rejected: an expected text for generated values (it breaks on harmless changes); a marker for generated values in the ontology (D-44); a judge that reads the code or the test (it would judge the implementation, not the product); verdicts kept in the repository (every run would change it, and a verdict is evidence, kept like the evidence of a manual check); a judge built into the tool (it would tie the approach to one model and one provider).
 
+### D-61 · The two layers, the profiles, the blind walk and the critic are built as documentation
+
+- Date: 2026-10-28 · Status: accepted
+- Source: the owner's message of 2026-10-28: "build everything that is not built, except what is deferred" (translated from Russian). This builds the concepts of D-44 that people follow rather than the tool.
+- Decision: part 6 explains the two layers (`concept.ontology-layer`, `concept.product-layer`). `docs/profiles.md` holds the profiles as recipes, for model output, for an interface, and for model and data scenarios: each says what to configure, what that requires, which the tool checks, and what it only recommends (`ent.profile`, `rule.profile-requires-checkable`). Part 3 describes the blind walk (`action.walk-blind`) and part 7 the independent critic (`action.critique-change`), both recommended, each with a manual check. They leave the draft page.
+- Why: D-44 gave profiles no configuration key and no check of their own, so a profile can require only what the configuration and the catalogue already check, and the rest is advice. The blind walk and the critic are things people and agents do. For such concepts the approach's ontology counts a page of `docs/` that states them as their implementation.
+- Rejected: a `profiles` key in the configuration (D-44); a check that a blind walk or a critique took place (nothing records either, and a check of compliance that changes nothing is noise, D-27); making the two procedures required (D-44 recommends them).
+
 ## Tentative
 
 ## Open questions

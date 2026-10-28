@@ -412,15 +412,16 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Divergence
 
-| ID                              | Implemented in                     | Note                  |
-| ------------------------------- | ---------------------------------- | --------------------- |
-| `ent.divergence`                | `tools/ont-check/ont-check.mjs`    |                       |
-| `field.divergence.description`  | `tools/ont-check/ont-check.mjs`    |                       |
-| `edge.divergence.concepts`      | `tools/ont-check/ont-check.mjs`    |                       |
-| `rule.divergence-contradicts`   | `docs/parts/target-and-reality.md` | reviewed, not checked |
-| `rule.divergence-becomes-work`  | `docs/parts/target-and-reality.md` | reviewed, not checked |
-| `rule.second-vocabulary`        | `docs/parts/target-and-reality.md` | reviewed, not checked |
-| `inv.divergence-names-concepts` | `tools/ont-check/ont-check.mjs`    |                       |
+| ID                              | Implemented in                     | Note                                      |
+| ------------------------------- | ---------------------------------- | ----------------------------------------- |
+| `ent.divergence`                | `tools/ont-check/ont-check.mjs`    |                                           |
+| `field.divergence.description`  | `tools/ont-check/ont-check.mjs`    |                                           |
+| `edge.divergence.concepts`      | `tools/ont-check/ont-check.mjs`    |                                           |
+| `rule.divergence-contradicts`   | `docs/parts/target-and-reality.md` | reviewed, not checked                     |
+| `rule.divergence-becomes-work`  | `docs/parts/target-and-reality.md` | reviewed, not checked                     |
+| `rule.second-vocabulary`        | `docs/parts/target-and-reality.md` | reviewed, not checked                     |
+| `inv.divergence-names-concepts` | `tools/ont-check/ont-check.mjs`    |                                           |
+| `action.walk-blind`             | `docs/parts/target-and-reality.md` | a procedure, recommended before a release |
 
 ### Mockup element
 
@@ -456,6 +457,8 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `field.check.then`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
 | `field.check.proof`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
 | `edge.check.concepts`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `concept.ontology-layer`        | `docs/parts/checks-and-tests.md`                              |                                                                                                            |
+| `concept.product-layer`         | `docs/parts/checks-and-tests.md`                              |                                                                                                            |
 | `rule.check-in-product-terms`   | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
 | `rule.unreachable-reported`     | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
 | `rule.manual-evidence-kept`     | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
@@ -518,20 +521,21 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Agent rules
 
-| ID                                  | Implemented in                                                | Note                                             |
-| ----------------------------------- | ------------------------------------------------------------- | ------------------------------------------------ |
-| `ent.agent-rules`                   | `docs/parts/agent-rules.md`                                   |                                                  |
-| `rule.agent-rules-short`            | `docs/parts/agent-rules.md`                                   |                                                  |
-| `rule.agent-rules-point-at-files`   | `docs/parts/agent-rules.md`                                   |                                                  |
-| `rule.start-from-ids`               | `docs/parts/agent-rules.md`                                   |                                                  |
-| `rule.findings-mislead`             | `docs/parts/agent-rules.md`                                   | reviewed, not checked                            |
-| `rule.commit-finished-work`         | `docs/parts/agent-rules.md`                                   | reviewed, not checked                            |
-| `field.agent-rules.files`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                  |
-| `concept.approach-ids`              | `tools/ont-check/gen-approach.mjs`, `tools/ont-check/lib.mjs` |                                                  |
-| `rule.agent-rule-source`            | `docs/parts/agent-rules.md`                                   | reviewed; the check resolves what the rules name |
-| `rule.departure-by-entry`           | `docs/parts/agent-rules.md`                                   | reviewed; the check confirms the process entries |
-| `inv.agent-rule-references-resolve` | `tools/ont-check/ont-check.mjs`                               |                                                  |
-| `inv.approach-ids-current`          | `tools/ont-check/ont-check.mjs`                               |                                                  |
+| ID                                  | Implemented in                                                | Note                                                                     |
+| ----------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `ent.agent-rules`                   | `docs/parts/agent-rules.md`                                   |                                                                          |
+| `rule.agent-rules-short`            | `docs/parts/agent-rules.md`                                   |                                                                          |
+| `rule.agent-rules-point-at-files`   | `docs/parts/agent-rules.md`                                   |                                                                          |
+| `rule.start-from-ids`               | `docs/parts/agent-rules.md`                                   |                                                                          |
+| `rule.findings-mislead`             | `docs/parts/agent-rules.md`                                   | reviewed, not checked                                                    |
+| `rule.commit-finished-work`         | `docs/parts/agent-rules.md`                                   | reviewed, not checked                                                    |
+| `action.critique-change`            | `docs/parts/agent-rules.md`                                   | a procedure, recommended for changes of rules, mechanisms and risky code |
+| `field.agent-rules.files`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                          |
+| `concept.approach-ids`              | `tools/ont-check/gen-approach.mjs`, `tools/ont-check/lib.mjs` |                                                                          |
+| `rule.agent-rule-source`            | `docs/parts/agent-rules.md`                                   | reviewed; the check resolves what the rules name                         |
+| `rule.departure-by-entry`           | `docs/parts/agent-rules.md`                                   | reviewed; the check confirms the process entries                         |
+| `inv.agent-rule-references-resolve` | `tools/ont-check/ont-check.mjs`                               |                                                                          |
+| `inv.approach-ids-current`          | `tools/ont-check/ont-check.mjs`                               |                                                                          |
 
 ### Contract
 
@@ -574,6 +578,13 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | ----------------------- | --------------------------------------------------------------- | ---- |
 | `ent.reference-page`    | `tools/ont-check/docs.mjs`, `tools/ont-check/gen-reference.mjs` |      |
 | `inv.reference-current` | `tools/ont-check/docs.mjs`, `tools/ont-check/gen-reference.mjs` |      |
+
+### Profile
+
+| ID                                | Implemented in     | Note                  |
+| --------------------------------- | ------------------ | --------------------- |
+| `ent.profile`                     | `docs/profiles.md` |                       |
+| `rule.profile-requires-checkable` | `docs/profiles.md` | reviewed, not checked |
 
 ### Known divergences between code and ontology
 

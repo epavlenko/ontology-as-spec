@@ -2,27 +2,6 @@
 
 > Draft. This page describes the targets of D-44 and D-50, both accepted. Nothing on it is built yet: the concepts it explains are target concepts of the approach's ontology, and each mechanism is built under a decision of its own.
 
-<!-- ont: concept.ontology-layer@0c2853, concept.product-layer@4e4ce9 -->
-## Two layers
-
-A project made with the approach is checked twice. The tool checks the ontology and the artifacts that refer to it: that every ID is defined and used, that the mockup and the map agree, that accepted decisions stay as they were, that the gap is computed. That is the ontology layer, and it is the same in every project. The catalogue and the tests check something else: the product that agents build from the ontology, whether it behaves as the checks say. That is the product layer, and it depends on what the product is.
-
-The two meet in this repository. The tool is the approach's product, so its own tests are the product layer of the tool, and the checks they implement are the ontology layer of every other project.
-
-<!-- ont: ent.profile@d94262, rule.profile-requires-checkable@e0c6e7 -->
-## Profiles
-
-A profile is a recipe for a property of the product that its ontology shows. It says what to put in the configuration, what it requires and what it recommends. It is not a key of the configuration: a project follows it by writing the settings it lists and the checks it asks for. What a profile requires must be something the tool can check through the configuration and the catalogue; everything else it lists is a recommendation.
-
-- **Model output**, for products where a model writes values people read: a suite of judged checks that names them, kept apart if its cost calls for it.
-- **Interface**, for products with views: an end-to-end suite covering actions and views, and, when the product carries `data-ont` labels, a test that every implemented screen shows the elements its map lists.
-- **Model and data scenarios**, for products whose results inform people: the base scenario held by a snapshot, as D-40 describes.
-
-<!-- ont: action.walk-blind@2e8dcb -->
-## Walking the product blind
-
-Code that behaves differently from the ontology where no test looks passes every check. The cheapest way to find it is to use the product as a person would, knowing what it should do and not how it is built. An agent gets the ontology, the catalogue, the map and the run guides, but not the code, and walks the product before a release. A difference is one of three things. Behavior that contradicts the target becomes a known divergence. A case the catalogue does not have becomes a check. What is simply not built yet is already the gap, and adds nothing. In the lending library, a walker reads that renewal is refused while someone waits for the title, places a hold as ben, renews as ana at the desk, and records a divergence if the renewal goes through; finding the hold queue unserved adds nothing, since its concepts are target.
-
 <!-- ont: concept.completeness-axis@a17be3, inv.axis-values-covered@3a3db0, rule.check-not-redundant@2f43b8, action.derive-blind@73594f -->
 ## When the catalogue is complete
 
@@ -33,8 +12,3 @@ More checks are not better. Two checks whose cases differ only in the data, anot
 Whether the catalogue suffices is tested by deriving blind. Someone who sees only the ontology and the catalogue, not the code, says what should happen in a case the catalogue does not hold, and the answer is compared with the owner's. A match means the case follows from what is written. A mismatch means a check is missing, or that the owner does not know the answer either, which is an open question. Until judged checks are built, the owner compares. With them, a model derives and a judge compares its answer with answers the owner wrote and kept outside the catalogue, where neither the model nor the agents that build the product see them.
 
 D-50 records this target. It is built together with judged checks, under a decision of its own, which also decides how a check names the value it covers.
-
-<!-- ont: action.critique-change@79fa01 -->
-## An independent critic
-
-A significant change, such as a rule of the approach, a new mechanism or risky code, is reviewed by an agent that did not write it. The critic gets the diff, the IDs it touches and their checks, and not the author's summary, since a reviewer handed the author's conclusions tends to confirm them. It reports what would mislead a reader or an agent, or break a check, as part 7 asks of every review.

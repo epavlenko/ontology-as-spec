@@ -25,6 +25,13 @@ The ontology states an invariant in a sentence. A test proves it in the terms of
 
 The catalogue is that missing layer. It is the split behavior-driven development tools make between scenarios in the language of the product and the code that runs them. In Cucumber's words, "A Step Definition is a method with an expression that links it to one or more Gherkin steps" ([Cucumber, Step definitions](https://cucumber.io/docs/cucumber/step-definitions/)). A check is written before the code, from the ontology; a test is written by whoever implements the check, a person or an agent, the way code is written from the ontology.
 
+<!-- ont: concept.ontology-layer@0c2853, concept.product-layer@4e4ce9 -->
+## Two layers
+
+A project made with the approach is checked twice. The tool checks the ontology and the artifacts that refer to it: that every ID is defined and used, that the mockup and the map agree, that accepted decisions stay as they were, that the gap is computed. That is the ontology layer, and it is the same in every project. The catalogue and the tests check something else: the product that agents build from the ontology, whether it behaves as the checks say. That is the product layer, and it depends on what the product is.
+
+The two meet in this repository. The tool is the approach's product, so its own tests are the product layer of the tool, and the checks they implement are the ontology layer of every other project.
+
 <!-- ont: ent.test@af89b6, inv.test-names-known-checks@1384c7, inv.test-only-implemented@059c2e, inv.no-manual-tested@46671b -->
 ## Tests that name checks
 

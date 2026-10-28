@@ -78,6 +78,11 @@ The configuration lists the instruction files under `agentInstructions`. The che
 
 What the tool cannot tell is which lines are process rules, and whether a rule written in prose is stricter or looser than the approach. A reviewer reads the instructions for that: a process rule that names no source is a finding, and so is a departure without an entry.
 
+<!-- ont: action.critique-change@79fa01 -->
+## An independent critic
+
+A significant change, such as a rule of the approach, a new mechanism or risky code, is reviewed by an agent that did not write it. The critic gets the diff, the IDs it touches and their checks, and not the author's summary, since a reviewer handed the author's conclusions tends to confirm them. It reports what would mislead a reader or an agent, or break a check, as part 7 asks of every review. It is recommended for changes of rules, mechanisms and risky code; it is not required, since nothing records that it happened.
+
 ## How it fails in practice
 
 - **The table describes an older layout of the repository.** When paths move, update the table in the same change. Include the agent instructions file in the paths that trigger the check.

@@ -51,6 +51,13 @@ The comment has the form of a doc anchor without the HTML around it, so it works
 
 The check reads these names in the files of the implementation table and in the code directories the configuration lists under `code`. It fails on a name the ontology does not define or has retired, and lists, as information, implemented concepts that the files of their row do not name. `--coverage` shows, for each implemented concept, the files that name it. Only `ont:` comments are read, so a property path in code that looks like an ID is not mistaken for one. A name is not an implementation: the table still says where a concept is built, and what the code does is proven by the tests that name its checks.
 
+<!-- ont: action.walk-blind@2e8dcb -->
+## Walking the product blind
+
+Code that behaves differently from the ontology where no test looks passes every check. The cheapest way to find it is to use the product as a person would, knowing what it should do and not how it is built. An agent gets the ontology, the catalogue, the map and the run guides, but not the code, and walks the product before a release. A difference is one of three things. Behavior that contradicts the target becomes a known divergence. A case the catalogue does not have becomes a check. What is simply not built yet is already the gap, and adds nothing. In the lending library, a walker reads that renewal is refused while someone waits for the title, places a hold as ben, renews as ana at the desk, and records a divergence if the renewal goes through; finding the hold queue unserved adds nothing, since its concepts are target.
+
+A blind walk is recommended before a release; it is not required, since nothing records that it happened.
+
 ## How it fails in practice
 
 - **The table stops being updated** because nothing fails when it is stale in the "not yet listed" direction. Tie the update to the ticket's Done when.
