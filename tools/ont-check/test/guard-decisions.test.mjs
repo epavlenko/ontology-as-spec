@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -195,6 +195,55 @@ test("[check.decision.meaning-changed] fails on a definition changed with no dec
     assert.equal(guard().code, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("[check.decision.meaning-changed] compares a renamed ontology with its old path, and says when it compares nothing", () => {
+  const dirs = [];
+  const repo = (files) => {
+    const dir = mkdtempSync(join(tmpdir(), "guard-"));
+    dirs.push(dir);
+    cpSync(EXAMPLE, dir, { recursive: true });
+    for (const args of [["init", "-q"], ["add", ...files], ["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base"]])
+      assert.equal(spawnSync("git", args, { cwd: dir }).status, 0, args.join(" "));
+    return dir;
+  };
+  const guard = (dir, ...extra) => {
+    const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json"), ...extra], { cwd: dir, encoding: "utf8" });
+    return { code: r.status, out: r.stdout + r.stderr };
+  };
+  const point = (dir, path) => {
+    const config = join(dir, "ont.config.json");
+    writeFileSync(config, readFileSync(config, "utf8").replace(/"ontology": "[^"]*"/, `"ontology": "${path}"`));
+  };
+  const text = readFileSync(join(EXAMPLE, "ontology.md"), "utf8");
+  const changed = text.replace("Up to 2 renewals per loan, each adds 14 days", "Up to 3 renewals per loan, each adds 14 days");
+  try {
+    // Renamed in the same change as a definition: the base's configuration names the old path.
+    const dir = repo(["."]);
+    rmSync(join(dir, "ontology.md"));
+    writeFileSync(join(dir, "model.md"), changed);
+    point(dir, "model.md");
+    const worktree = guard(dir);
+    assert.equal(spawnSync("git", ["add", "-A"], { cwd: dir }).status, 0);
+    for (const r of [worktree, guard(dir, "--staged")]) {
+      assert.equal(r.code, 1, r.out);
+      assert.match(r.out, /model\.md: definitions changed since HEAD with no decision entry or history line naming them \(1\): rule\.renewal/);
+    }
+    // An ontology outside any repository, or one the base does not have, is compared with nothing, and the guard says so.
+    const outside = mkdtempSync(join(tmpdir(), "guard-outside-"));
+    dirs.push(outside);
+    writeFileSync(join(outside, "ontology.md"), changed);
+    point(dir, `../${basename(outside)}/ontology.md`);
+    const away = guard(dir);
+    assert.equal(away.code, 0, away.out);
+    assert.match(away.out, /info · \S*ontology\.md: not in a git repository, so no definition is compared/);
+    const fresh = repo(["decisions.md", "ont.config.json"]);
+    const none = guard(fresh);
+    assert.equal(none.code, 0, none.out);
+    assert.match(none.out, /info · ontology\.md: not in HEAD, so no definition is compared/);
+  } finally {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
   }
 });
 

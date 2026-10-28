@@ -13,7 +13,7 @@
 // ont: inv.accepted-never-edited, field.decision.source, inv.sourced-since-first
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { basename, dirname, relative, resolve } from "node:path";
+import { basename, dirname, relative, resolve, sep } from "node:path";
 import { backtickIds, DEFAULT_ACCEPTED, DEFAULT_SOURCE, loadConfig, parseGlossary, read, section } from "./lib.mjs";
 
 const argv = process.argv.slice(2);
@@ -31,7 +31,7 @@ const targets = [
     const cfg = loadConfig(c);
     if (!cfg.decisions) throw new Error(`${c}: no decisions file in the config`);
     const { file, entry, accepted, sourceLine } = cfg.decisions;
-    return { file, entry: entry.source, accepted, sourceLine, ontology: cfg.ontology, history: cfg.headings.history, classes: cfg.classes };
+    return { file, entry: entry.source, accepted, sourceLine, ontology: cfg.ontology, history: cfg.headings.history, classes: cfg.classes, config: cfg.file };
   }),
   ...files.map((f) => ({
     file: resolve(f),
@@ -62,7 +62,7 @@ const off = [];
 let violations = 0;
 let unsourcedCount = 0;
 let silentCount = 0;
-for (const { file, entry, accepted, sourceLine, ontology, history, classes } of targets) {
+for (const { file, entry, accepted, sourceLine, ontology, history, classes, config } of targets) {
   const cwd = dirname(file);
   const path = `./${basename(file)}`;
   const name = relative(process.cwd(), file);
@@ -134,27 +134,60 @@ for (const { file, entry, accepted, sourceLine, ontology, history, classes } of 
   // A definition whose term, type or definition changed since the base is named by a decision entry
   // added or changed since then, or by a line added to the revision history (D-59). New and removed
   // rows follow their own rules; the Kind cell and the alignment are formatting, not meaning.
+  // The ontology at the base is found under its path now, else under the path the base's configuration
+  // names, else under the path git finds it renamed from; when there is none, the guard says that it
+  // compared no definition.
   // ont: derived.meaning-changed
   if (ontology) {
-    const ontPath = `./${basename(ontology)}`;
-    const was = git(dirname(ontology), "show", `${base}:${ontPath}`);
-    if (was.status === 0) {
-      const is = staged ? git(dirname(ontology), "show", `:${ontPath}`).stdout : existsSync(ontology) ? read(ontology) : "";
-      const meaning = (md) => {
-        const { ONT, rows } = parseGlossary(md);
-        const norm = (t) => (t ?? "").replace(/\s+/g, " ").trim();
-        return new Map(rows.map((r) => [r.id, [ONT[r.id].name, r.type, ONT[r.id].def].map(norm).join(" | ")]));
+    const label = relative(process.cwd(), ontology);
+    const top = git(dirname(ontology), "rev-parse", "--show-toplevel");
+    const root = top.status === 0 ? top.stdout.trim() : null;
+    const inRepo = (p) => relative(root, p).split(sep).join("/");
+    const show = (p) => git(root, "show", `${base}:${p}`);
+    const prior = () => {
+      const now = inRepo(ontology);
+      const paths = [now];
+      const cfgThen = config ? show(inRepo(config)) : null;
+      if (cfgThen?.status === 0)
+        try {
+          const then = JSON.parse(cfgThen.stdout).ontology;
+          if (then) paths.push(inRepo(resolve(dirname(config), then)));
+        } catch {}
+      for (const l of git(root, "diff", "--name-status", "-M", ...(staged ? ["--cached"] : []), base).stdout.split("\n")) {
+        const [status, from, to] = l.split("\t");
+        if (status?.startsWith("R") && to === now) paths.push(from);
+      }
+      for (const p of paths) {
+        const r = show(p);
+        if (r.status === 0) return r.stdout;
+      }
+      return null;
+    };
+    const was = root ? prior() : null;
+    if (was === null) console.log(`info · ${label}: ${root ? `not in ${base}` : "not in a git repository"}, so no definition is compared`);
+    else {
+      const is = staged ? git(root, "show", `:${inRepo(ontology)}`).stdout : existsSync(ontology) ? read(ontology) : "";
+      // A version whose glossary cannot be read has no definitions to compare; the check reports the current one.
+      const meaning = (md, at) => {
+        try {
+          const { ONT, rows } = parseGlossary(md);
+          const norm = (t) => (t ?? "").replace(/\s+/g, " ").trim();
+          return new Map(rows.map((r) => [r.id, [ONT[r.id].name, r.type, ONT[r.id].def].map(norm).join(" | ")]));
+        } catch (e) {
+          console.log(`info · ${label}: the definitions ${at} cannot be read (${e.message}), so none is compared`);
+          return new Map();
+        }
       };
-      const [before, after] = [meaning(was.stdout), meaning(is)];
+      const [before, after] = [meaning(was, `in ${base}`), meaning(is, staged ? "staged" : "now")];
       const historyLines = (md) => new Set(md.includes(history) ? section(md, history).split("\n").filter((l) => l.trim()) : []);
-      const oldHistory = historyLines(was.stdout);
+      const oldHistory = historyLines(was);
       const named = new Set([
         ...[...cur].filter(([id, b]) => old.get(id) !== b).flatMap(([, b]) => backtickIds(b, classes)),
         ...[...historyLines(is)].filter((l) => !oldHistory.has(l)).flatMap((l) => backtickIds(l, classes)),
       ]);
       const silent = [...after].filter(([id, m]) => before.has(id) && before.get(id) !== m && !named.has(id)).map(([id]) => id);
       if (silent.length) {
-        console.log(`ERROR · ${relative(process.cwd(), ontology)}: definitions changed since ${base} with no decision entry or history line naming them (${silent.length}): ${silent.join(", ")}`);
+        console.log(`ERROR · ${label}: definitions changed since ${base} with no decision entry or history line naming them (${silent.length}): ${silent.join(", ")}`);
         errors.push("silent");
         silentCount += silent.length;
       }
