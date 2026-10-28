@@ -487,6 +487,14 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: D-50 left open how a check names the value it covers. A last, optional cell keeps every existing catalogue valid, and a value written as a word reads in any language. Silence and some refusals cannot happen in a given product, so the catalogue says why rather than carrying a check that proves nothing. The tool does not turn the outcome axis on by itself: every existing catalogue would fail at once, and a project turns it on when it is ready to cover its actions. In the example, looking for the outcome error of a checkout showed that the command line front end crashed on a state file it could not read; it now stops with a message and changes nothing.
 - Rejected: the value in the check's ID or in its THEN (neither is read reliably); the outcome axis on for every project at once (every existing catalogue would fail); a check that finds checks differing only in data (it needs to know what the behavior is); a blind derivation by a reviewer who has seen the code (it would test what the reviewer knows, not what the catalogue says).
 
+### D-63 · A string that holds the ont: marker counts as a name
+
+- Date: 2026-10-28 · Status: accepted
+- Source: the owner's answer of 2026-10-28 to the question whether code names should be read only after the start of a comment: "a", keep reading them as text (translated from Russian).
+- Decision: the check keeps reading the `ont:` marker as text wherever it stands in the files it reads for names (D-57), so a string that holds the marker and an ID counts as a name: an ID that does not resolve fails the check (`inv.code-names-resolve`), and one that resolves counts as named (`derived.named-in-code`). Code that needs such a string, such as the tests of a tool that reads the marker, builds it from parts. In Markdown, code blocks and inline code are examples and are not read. The limitations state this together with the same limit of test tags.
+- Why: a string that holds the marker occurs in code that works with the marker itself, not in a product's code; a name that does not resolve fails with its file; and building a fixture from parts takes one line.
+- Rejected: reading the marker only after the start of a comment, `//`, `#`, `/*`, `*`, `--` or `<!--` (comments that start with `;`, `%`, `'`, `"` or `!` would no longer count, adding `'` and `"` would count strings again, and a string that holds `// ont:` would still count); telling strings from comments by the syntax of each language (a parser per language, D-11, D-57).
+
 ## Tentative
 
 ## Open questions
