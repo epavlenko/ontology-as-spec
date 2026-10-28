@@ -23,7 +23,6 @@ This repository describes an approach to product development: product meaning ke
 - **Findings that matter.** A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings (`rule.findings-mislead`, D-27).
 - **Cite primary sources.** A claim about another tool or practice links to its primary source; quotes are verbatim.
 - **Keep the example consistent.** It follows its own rules in `example/AGENTS.md`. After editing the example's definition rows, run `npm run format` and `npm run generate` to regenerate the tooltips, the contracts and the reference pages (D-04).
-- **No publishing.** In this repository a remote, a push or a publication waits for the owner's explicit approval; the approach leaves such approvals to each user (D-54).
 - **Rules name their source.** A process rule here that comes from a rule of the approach or from a decision names it, by ID or entry; a departure from the approach is a process entry with `Extends:` or `Overrides:`. `npm run check` fails on an ID or entry named in this file that does not exist, is retired or is superseded (`rule.agent-rule-source`, `rule.departure-by-entry`, D-53).
 
 ## Verify
