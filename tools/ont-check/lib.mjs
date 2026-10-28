@@ -178,18 +178,22 @@ export const backtickIds = (text, classes) => {
     .filter((x) => isId.test(x));
 };
 
+// Fenced code blocks and inline code in Markdown show anchors and names as examples; they are not the
+// page's own.
+export const FENCE = /^```[\s\S]*?^```/gm;
+export const withoutExamples = (md) => md.replace(FENCE, "").replace(/`[^`\n]*`/g, "");
+
 // Code names the concepts it implements in a comment, "// ont: rule.renewal, inv.within-limit", the
-// form of a doc anchor without the HTML comment (D-57). Only IDs of the given classes count, and a
-// stamp after @ is dropped, so a doc anchor in a file of the implementation table names its concepts too.
+// form of a doc anchor without the HTML comment (D-57). The marker is read as text, without a parser
+// per language, so any comment syntax works. Every name after it counts, whatever its class, so that
+// a misspelled class fails like a misspelled name. A stamp after @ is dropped, so a doc anchor in a file
+// of the implementation table names its concepts too; in Markdown, examples are not read.
 // ont: derived.named-in-code, inv.code-names-resolve
 const ID_REF = "[a-z][a-z0-9-]*(?:\\.[a-z0-9-]+)+(?:@[0-9a-f]+)?";
-export const codeNames = (text, classes) => {
-  const isId = idPattern(classes);
-  return [...text.matchAll(new RegExp(`\\bont:[ \\t]*(${ID_REF}(?:[ \\t]*,[ \\t]*${ID_REF})*)`, "g"))]
+export const codeNames = (text, markdown = false) =>
+  [...(markdown ? withoutExamples(text) : text).matchAll(new RegExp(`\\bont:[ \\t]*(${ID_REF}(?:[ \\t]*,[ \\t]*${ID_REF})*)`, "g"))]
     .flatMap((m) => m[1].split(","))
-    .map((x) => x.trim().replace(/@.*$/, ""))
-    .filter((x) => isId.test(x));
-};
+    .map((x) => x.trim().replace(/@.*$/, ""));
 
 // A section runs from its heading to the next heading of the same or a higher level.
 export function section(md, heading) {

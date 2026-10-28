@@ -28,9 +28,9 @@ The check confirms that the files named in the table exist and which of them nam
 
 `guard-decisions.mjs` refuses an edit or removal of an accepted entry, comparing with `HEAD` before a commit and with the base of a push or pull request in CI. It sees text, not intent: a typo fix in an accepted entry is refused too, by design. `git commit --no-verify` skips the hook, and only CI catches that. A rewritten history removes the base it compares with. It does not check that a new entry which replaces an older one names it on its `Supersedes:` line; it checks only that the entries named there exist and are older. Before the first commit it has nothing to compare with and says `GUARD_OFF`: until then, accepted entries are protected by review only. It sees that an entry accepted since its base has a `Source:` line, not that the line names where the decision was really made. When the first source arrives within the commits it compares, it asks a source only of the entries numbered after that one, so an older tentative entry accepted in the same commits goes unasked.
 
-### Test tags are read anywhere in a test file
+### Test tags and code names are read anywhere in a file
 
-The tool cannot parse the syntax of every test framework, so it reads a tag wherever it appears in a test file, not only in a title. A fixture string that looks like a tag counts as one: an invalid one fails the check, a valid one claims proof the test does not give. Fixtures that need such strings build them from parts.
+The tool cannot parse the syntax of every language and test framework, so it reads a tag wherever it appears in a test file, not only in a title, and an `ont:` name wherever it appears in a file it reads for names, not only in a comment. A fixture string that looks like a tag or a name counts as one: an invalid one fails the check, a valid one claims a proof or a name the code does not give. Fixtures that need such strings build them from parts. Only in Markdown are code blocks and inline code left out, as examples.
 
 ### Readiness reads names, not intent
 

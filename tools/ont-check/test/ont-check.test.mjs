@@ -423,6 +423,26 @@ test("[check.implementation-row.code-name-unknown] fails on an ID named in code 
   assert.match(r.out, /IDs named in code that the ontology does not define \(1\):\n {2}app\/library\.mjs: derived\.overdew\n/);
 });
 
+test("[check.implementation-row.code-name-unknown] fails on a name whose class the ontology does not have", () => {
+  const r = run((p) => p("app/library.mjs", "// ont: derived.overdue\n", "// ont: derived.overdue, deriveds.overdue\n"));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /IDs named in code that the ontology does not define \(1\):\n {2}app\/library\.mjs: deriveds\.overdue\n/);
+});
+
+test("[check.implementation-row.code-name-unknown] does not read examples in a Markdown file, only its anchors", () => {
+  const fence = "`".repeat(3);
+  const r = run((p, dir) => {
+    p("ontology.md", "| `derived.overdue`        | `app/library.mjs` |", "| `derived.overdue`        | `app/library.mjs`, `app/overdue.md` |");
+    p("app/library.mjs", "// ont: derived.overdue\n", "");
+    writeFileSync(
+      join(dir, "app", "overdue.md"),
+      ["# Overdue", "", "<!-- ont: derived.overdue -->", "", "A name reads `// on" + "t: derived.overdew`.", "", fence, "<!-- on" + "t: derived.overdew -->", fence, ""].join("\n"),
+    );
+  });
+  assert.equal(r.code, 0, r.out);
+  assert.doesNotMatch(r.out, /do not name/);
+});
+
 test("[check.implementation-row.code-name-unknown] reads the code directories under code, nested ones too", () => {
   // The default pattern matches every path, and a directory is not read as a file.
   const r = run((p, dir) => {
