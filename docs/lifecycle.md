@@ -53,13 +53,25 @@ Write a new decision entry that supersedes the old one whole, names it on a `- S
 
 Code disagrees with the ontology. Do not change either side silently. Add a line to known divergences with the IDs involved. Then either open a ticket to bring the code to the target, or, if the code is right and the target was wrong, write a decision and change the ontology.
 
+<!-- ont: ent.tool-copy@cea475, action.update-copy@32bd58, inv.copy-matches-pin@0599d6 -->
+## Updating the copy of the tool
+
+A project keeps a copy of `tools/ont-check` in a directory of its own, pinned to one commit of the approach, and does not edit it: a fix to the tool is made in the approach and reaches the project with its next copy. `pin.mjs`, which ships with the tool, makes the copy and checks it.
+
+```bash
+node ../ontology-as-spec/tools/ont-check/pin.mjs update --dir tools/ontology-as-spec --pin tools/ontology-as-spec.upstream.json
+node tools/ontology-as-spec/pin.mjs verify --pin tools/ontology-as-spec.upstream.json
+```
+
+The update copies the tool of the clone's `HEAD`, or of `--ref`, without its tests and with the approach's LICENSE, deletes the files the approach removed since the old pin, and writes the pin: the commit, its date, the last decision of the approach and the hash of every file. It lists the decisions since the old pin, which the project reads and carries into its own rules, and the files in the directory that no pin names, which it leaves in place. The verification runs with the check, and fails on a file that is missing or changed and on any file in the directory that the pin does not name. A note the project keeps beside the copy is listed under `own` in the pin.
+
 ## Adopting the approach
 
 Start small. The approach pays off before every part is in place.
 
 1. **Ten concepts.** Write the ten concepts people argue about most, with IDs and one-line definitions, in an `ontology.md` with one table per entity.
 2. **Decision log.** Record the last five decisions that someone would otherwise reverse.
-3. **Check.** Copy `tools/ont-check`, write `ont.config.json` with only the ontology and the decisions, and run it and `guard-decisions.mjs` in the test command and in CI. The config may omit the mockup, map, checks and tickets until they exist.
+3. **Check.** Copy `tools/ont-check` with `pin.mjs update` (see above), write `ont.config.json` with only the ontology and the decisions, and run it and `guard-decisions.mjs` in the test command and in CI. The config may omit the mockup, map, checks and tickets until they exist.
 4. **Agent rules.** Add the "what else to update" table to your agent instructions.
 5. **Checks.** Write a check for each invariant and rule, in the product's terms, in `checks.md`.
 6. **Target and reality.** When code exists, add the implementation table and the divergences. Tag the tests with the checks they implement, and add `testSuites` to the config: which suite must prove which kind of concept.

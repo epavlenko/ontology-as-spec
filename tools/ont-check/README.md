@@ -1,6 +1,6 @@
 # ont-check
 
-The drift check, the decision guard, and the generators of tooltips, contracts and reference pages. Node 20 or later, no dependencies. Copy the whole directory into a project, `approach.json` included: it holds the approach's own IDs, which agent instructions and process entries name. What it checks and why is described in [part 5](../../docs/parts/drift-check.md).
+The drift check, the decision guard, and the generators of tooltips, contracts and reference pages. Node 20 or later, no dependencies. Copy the directory into a project with `pin.mjs update`, `approach.json` included: it holds the approach's own IDs, which agent instructions and process entries name. What it checks and why is described in [part 5](../../docs/parts/drift-check.md).
 
 ```bash
 node tools/ont-check/gen-glossary.mjs --config path/to/ont.config.json   # glossary → generated tooltips
@@ -37,6 +37,7 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | `ont-tooltips.js`  | browser runtime for the mockup: sets `title` from `window.ONT` on `[data-ont]` elements |
 | `approach.json`    | the approach's concept IDs and retired IDs, which agent instructions and process entries of a project may name; generated, copy it with the tool |
 | `gen-approach.mjs` | writes `approach.json` from the approach's ontology, in the approach's own repository |
+| `pin.mjs`          | `update` copies the tool from a commit of the approach into a project, deletes the files the approach removed and writes the pin; `verify` fails on a file of the copy that is missing, changed or not in the pin ([lifecycle](../../docs/lifecycle.md#updating-the-copy-of-the-tool)) |
 | `test/`            | copies the example, breaks it one way at a time, asserts the check names the break; runs the guard in a throwaway repository |
 
 ## Configuration

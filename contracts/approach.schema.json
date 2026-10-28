@@ -549,6 +549,22 @@
       "type": "object",
       "properties": {},
       "required": []
+    },
+    "tool-copy": {
+      "title": "Tool copy",
+      "description": "A project's copy of tools/ont-check, without its tests, and of the approach's LICENSE, from one commit of the approach, in a directory of its own.",
+      "x-ont": "ent.tool-copy",
+      "type": "object",
+      "properties": {
+        "pin": {
+          "description": "The file that names the commit of the copy, its date, the last decision of the approach at that commit and the hash of every file, and lists the files the project keeps in the copy's directory as its own.",
+          "x-ont": "field.tool-copy.pin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pin"
+      ]
     }
   }
 }

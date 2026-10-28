@@ -301,6 +301,17 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 - `ent.profile` is realised by a page of `docs/`, like a procedure. It has no configuration key: a project follows a profile by putting its settings in the configuration and writing its checks with the proof it asks for.
 
+## Tool copy
+
+| Kind      | ID                     | Term             | Type | Definition                                                                                                                                                                                                   |
+| --------- | ---------------------- | ---------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Entity    | `ent.tool-copy`        | Tool copy        |      | A project's copy of `tools/ont-check`, without its tests, and of the approach's LICENSE, from one commit of the approach, in a directory of its own.                                                         |
+| Field     | `field.tool-copy.pin`  | Pin              | text | The file that names the commit of the copy, its date, the last decision of the approach at that commit and the hash of every file, and lists the files the project keeps in the copy's directory as its own. |
+| Invariant | `inv.copy-matches-pin` | Copy matches pin |      | Every file the pin names is in the copy with its hash, and the copy's directory holds no other file but the pin and the project's own.                                                                       |
+| Action    | `action.update-copy`   | Update the copy  |      | Copy the tool from a commit of the approach, delete the files of the old pin that the commit no longer has, and write the pin.                                                                               |
+
+A fix to the tool is made in the approach and reaches a project with its next copy; a copy is never edited in place.
+
 ## Implementation status
 
 Where each concept is realised. Tool files enforce or generate; pages of `docs/` state the rules people follow and the procedures they carry out.
@@ -590,6 +601,15 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `ent.profile`                     | `docs/profiles.md` |                       |
 | `rule.profile-requires-checkable` | `docs/profiles.md` | reviewed, not checked |
 
+### Tool copy
+
+| ID | Implemented in | Note |
+| -- | -------------- | ---- |
+| `ent.tool-copy` | `tools/ont-check/pin.mjs`, `docs/lifecycle.md` | |
+| `field.tool-copy.pin` | `tools/ont-check/pin.mjs` | |
+| `inv.copy-matches-pin` | `tools/ont-check/pin.mjs` | |
+| `action.update-copy` | `tools/ont-check/pin.mjs`, `docs/lifecycle.md` | |
+
 ### Known divergences between code and ontology
 
 None known.
@@ -604,6 +624,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-10-28: a project's copy of the tool and its pin: `ent.tool-copy`, `field.tool-copy.pin`, `inv.copy-matches-pin` and `action.update-copy` (D-64).
 - 2026-10-28: what each target waits for and the next slice: `derived.readiness`, `derived.next-slice` and `rule.take-ready` (D-58).
 - 2026-10-28: code names its concepts in `ont:` comments: `rule.code-names-concepts`, `inv.code-names-resolve` and `derived.named-in-code` (D-57).
 - 2026-10-28: `rule.commit-finished-work`: every change ends with a commit of its own files; who approves a commit or a push is the user's choice (D-54).
