@@ -180,32 +180,47 @@ export const backtickIds = (text, classes) => {
 };
 
 // Code blocks and inline code in Markdown show anchors and names as examples; they are not the page's
-// own. A code block is fenced by three or more backticks or tildes, indented by up to three spaces and
-// closed by a fence of the same character at least as long, or else it runs to the end; or it is indented
-// by four spaces or a tab, where it does not continue a paragraph or a list item. markdownRuns returns
-// the text in runs, [{ code, text }], which joined give the text back.
+// own. A code block is fenced by three or more backticks or tildes, at the start of a line or of a list
+// item, and closed by a fence of the same character at least as long, indented by up to three spaces
+// more than the fence's list item; or else it runs to the end of that item or of the page. Or it is
+// indented by four spaces or a tab more than the list item it is in, where it does not continue a
+// paragraph. Block quotes are not followed: a fence inside one is read as text. markdownRuns returns the
+// text in runs, [{ code, text }], which joined give the text back.
 export const markdownRuns = (md) => {
   const runs = [];
+  // The open fence: its run of backticks or tildes, and the column where its list item's content starts,
+  // 0 outside a list.
   let fence = null;
   // Whether an indented line starts or continues a code block here: at the start, and after a blank line,
   // a heading, a fenced block or an indented block; not after a line of text.
   let indentable = true;
+  // The column where the content of the list item the text is in starts, 0 outside a list. A line
+  // indented less ends the item after a blank line.
+  let item = 0;
+  let blank = true;
   for (const line of md.split(/(?<=\n)/)) {
     const body = line.replace(/\r?\n$/, "");
+    const indent = body.match(/^ */)[0].length;
+    if (fence?.column && body.trim() && indent < fence.column) fence = null;
+    if (!fence && body.trim() && indent < item && blank) item = 0;
+    const marker = fence ? null : body.match(/^ {0,3}(?:[-+*]|\d{1,9}[.)]) {1,4}(?=\S)/);
+    if (marker) item = marker[0].length;
     let code = true;
-    const open = fence ? null : body.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    const open = fence ? null : body.match(/^( {0,3}(?:(?:[-+*]|\d{1,9}[.)]) {1,4})?)( {0,3})(`{3,}|~{3,})(.*)$/);
     if (fence) {
-      const m = body.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
-      if (m && m[1][0] === fence[0] && m[1].length >= fence.length) fence = null;
+      const m = body.match(/^( *)(`{3,}|~{3,})[ \t]*$/);
+      if (m && m[1].length - fence.column <= 3 && m[2][0] === fence.run[0] && m[2].length >= fence.run.length) fence = null;
       indentable = true;
-    } else if (open && !(open[1][0] === "`" && open[2].includes("`"))) fence = open[1];
+    } else if (open && !(open[3][0] === "`" && open[4].includes("`")))
+      fence = { run: open[3], column: /[-+*.)] +$/.test(open[1]) ? open[1].length : 0 };
     else if (!body.trim()) {
       code = false;
       indentable = true;
-    } else if (!(indentable && /^( {4}|\t)/.test(body))) {
+    } else if (!(indentable && (indent >= item + 4 || (!item && /^\t/.test(body))))) {
       code = false;
       indentable = /^ {0,3}#{1,6}(?:[ \t]|$)/.test(body);
     }
+    blank = !body.trim();
     if (runs.at(-1)?.code === code) runs.at(-1).text += line;
     else runs.push({ code, text: line });
   }

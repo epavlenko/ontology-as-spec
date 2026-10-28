@@ -11,10 +11,11 @@ import { markdownRuns, sectionKey, withoutExamples } from "./lib.mjs";
 
 const ANCHOR = /<!--\s*ont:\s*([^>]*?)\s*-->/g;
 
-// Code blocks show anchors as examples; they are not anchors of the page.
-const outsideFences = (text, f) =>
+// Code blocks and inline code show anchors as examples; they are not anchors of the page, and they are
+// kept as they are written.
+const outsideExamples = (text, f) =>
   markdownRuns(text)
-    .map((r) => (r.code ? r.text : f(r.text)))
+    .map((r) => (r.code ? r.text : r.text.split(/(`[^`\n]*`)/).map((part, i) => (i % 2 ? part : f(part))).join("")))
     .join("");
 
 // Every anchor in a text, outside code blocks and inline code: [{ index, raw, refs: [{ id, stamp }] }].
@@ -49,7 +50,7 @@ export const stampOf = (id, ONT, rows, checkById, notes = new Map()) => {
 
 // Rewrites every anchor with the current stamps: what a person runs after rereading the sections.
 export const stampAnchors = (text, stamp) =>
-  outsideFences(text, (part) => part.replace(ANCHOR, (_, inner) => {
+  outsideExamples(text, (part) => part.replace(ANCHOR, (_, inner) => {
     const refs = inner
       .split(",")
       .map((x) => x.trim().split("@")[0])

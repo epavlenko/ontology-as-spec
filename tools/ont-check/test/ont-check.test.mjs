@@ -686,7 +686,12 @@ test("[check.doc-section.reread-after-change] a changed definition marks the sec
     const before = node("ont-check.mjs");
     assert.equal(before.status, 0, before.stdout);
     assert.match(before.stdout, /help docs sections anchored to a definition changed since review[^\n]*\n {2}help\/borrowing\.md: action\.return/);
+    // An example of an anchor in inline code is kept as it is written, stale stamp and all.
+    const page = join(dir, "help", "borrowing.md");
+    const example = "A stale anchor reads `<!-- ont: action.return@000000 -->`.\n";
+    writeFileSync(page, readFileSync(page, "utf8") + example);
     node("stamp-docs.mjs");
+    assert.ok(readFileSync(page, "utf8").endsWith(example));
     const after = node("ont-check.mjs");
     assert.equal(after.status, 0, after.stdout);
     assert.doesNotMatch(after.stdout, /changed since review/);
@@ -695,10 +700,42 @@ test("[check.doc-section.reread-after-change] a changed definition marks the sec
   }
 });
 
+test("finds code blocks in Markdown as CommonMark does, apart from block quotes", async () => {
+  const { markdownRuns, withoutExamples } = await import("../lib.mjs");
+  const f = "`".repeat(3);
+  const a = "<!-- on" + "t: x.a -->";
+  // Each case holds the example a; it is code where the value is true.
+  const cases = {
+    [`${f}\n${a}\n${f}\n`]: true,
+    [`~~~\n${a}\n~~~\n`]: true,
+    [`   ${f}\n${a}\n   ${f}\n`]: true,
+    [`${f}${f[0]}\n${f}\n${a}\n${f}${f[0]}\n`]: true,
+    [`- ${f}html\n  ${a}\n  ${f}\n`]: true,
+    [`- ${f}js\n  ${a}\n- next\n`]: true,
+    [`para\n\n    ${a}\n`]: true,
+    [`## H\n    ${a}\n`]: true,
+    [`1. Step\n\n   - sub\n\n         ${a}\n`]: true,
+    [`text \`${a}\` more\n`]: true,
+    [`${f}\r\n${a}\r\n${f}\r\n`]: true,
+    [`para\n    ${a}\n`]: false,
+    [`- item\n\n    ${a}\n`]: false,
+    [`- item\nlazy\n\n    ${a}\n`]: false,
+    [`> ${f}\n> ${a}\n> ${f}\n`]: false,
+  };
+  for (const [md, code] of Object.entries(cases)) {
+    const page = `${md}\n<!-- on` + `t: x.b -->\n`;
+    assert.equal(markdownRuns(page).map((r) => r.text).join(""), page);
+    assert.equal(!withoutExamples(page).includes(a), code, md);
+    assert.ok(withoutExamples(page).includes("x.b -->"), md);
+  }
+});
+
 test("anchors inside code are examples, not anchors", () => {
-  const r = run((p) =>
-    p("help/holds.md", "# Waiting for a title\n", "# Waiting for a title\n\n```markdown\n<!-- ont: action.unknown -->\n```\n\nAn inline `<!-- ont: action.unknown -->` too.\n"),
-  );
+  const r = run((p) => {
+    p("help/holds.md", "# Waiting for a title\n", "# Waiting for a title\n\n```markdown\n<!-- ont: action.unknown -->\n```\n\nAn inline `<!-- ont: action.unknown -->` too.\n");
+    // A fence that opens in a list item closes in it, and the page's own anchors after it still count.
+    p("help/borrowing.md", "# Borrowing and returning\n", "# Borrowing and returning\n\n- ```html\n  <!-- ont: action.unknown -->\n  ```\n");
+  });
   assert.equal(r.code, 0, r.out);
 });
 
