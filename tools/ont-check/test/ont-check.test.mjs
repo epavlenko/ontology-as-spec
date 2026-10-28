@@ -427,7 +427,11 @@ test("[check.ticket.next-slice] --next says what the gap still holds when no tar
   const dir = mkdtempSync(join(tmpdir(), "ont-check-"));
   try {
     const write = (file, lines) => writeFileSync(join(dir, file), lines.join("\n"));
-    write("ont.config.json", [JSON.stringify({ classes: { ent: "Entity", action: "Action" }, ontology: "ontology.md", checks: { file: "checks.md", require: ["action"] } })]);
+    write("ont.config.json", [JSON.stringify({ classes: { ent: "Entity", action: "Action" }, ontology: "ontology.md", checks: { file: "checks.md", require: ["action"] }, decisions: { file: "decisions.md" } })]);
+    const log = (deferral) => [
+      "# Decisions", "",
+      ...(deferral ? ["### D-01 · One language for now", "", "- Date: 2026-10-28 · Status: accepted", "- Return when: a second language is requested", "- Decision: the item list stays in one language.", ""] : []),
+    ];
     write("app.mjs", ["// ont: ent.item, action.lend", ""]);
     const ontology = (divergence) => [
       "# Ontology", "", "## Item", "",
@@ -450,9 +454,12 @@ test("[check.ticket.next-slice] --next says what the gap still holds when no tar
     const next = () => spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), "--next"], { encoding: "utf8" }).stdout;
     write("ontology.md", ontology(true));
     write("checks.md", catalogue("auto"));
-    assert.match(next(), /NEXT · no target concept left, but the gap still holds 1 known divergence and 1 automatic check without a test \(--gap lists them\)\n/);
+    write("decisions.md", log(true));
+    assert.match(next(), /NEXT · no target concept left, but the gap still holds 1 known divergence and 1 automatic check without a test \(--gap lists them\); deferred: D-01\n/);
     write("ontology.md", ontology(false));
     write("checks.md", catalogue("manual"));
+    assert.match(next(), /NEXT · nothing left to build except what is deferred: D-01\n/);
+    write("decisions.md", log(false));
     assert.match(next(), /NEXT · nothing left to build\n/);
   } finally {
     rmSync(dir, { recursive: true, force: true });

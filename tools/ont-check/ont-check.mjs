@@ -942,6 +942,10 @@ const dependsOn = new Map();
   }
   for (const r of targets) if (!readiness.has(r.id)) readiness.set(r.id, { kind: "ready", text: "ready" });
 }
+// A deferral that names no target concept is work put off too; --gap and --next show it apart.
+const deferredApart = decisionLog.filter(
+  (e) => e.state === "in force" && cfg.decisions.returnWhen.test(e.body) && !ids(e.body).some((x) => readiness.has(x)),
+);
 
 // --gap: the work left, computed rather than listed by hand. Target concepts by section with their
 // checks, automatic checks of implemented concepts that still lack a test, and the known
@@ -1015,21 +1019,17 @@ if (flag("--gap") > 0) {
   if (ownLines.length) out.push("GAP · known divergences", ...ownLines.map((l) => `  ${l}`));
   if (sharedLines.length)
     out.push("GAP · known divergences partly outside the slice (not counted)", ...sharedLines.map((l) => `  ${l}`));
-  // A deferral that names no target concept is work put off too; without a ticket it is shown here.
-  if (!ticket) {
-    const put = decisionLog.filter(
-      (e) => e.state === "in force" && cfg.decisions.returnWhen.test(e.body) && !ids(e.body).some((x) => readiness.has(x)),
-    );
-    if (put.length) out.push("GAP · deferred, with no concept yet", ...put.map((e) => `  ${e.id}: ${e.body.match(cfg.decisions.returnWhen)[1]}`));
-  }
+  // Without a ticket, the deferrals that name no target concept are shown too.
+  if (!ticket && deferredApart.length)
+    out.push("GAP · deferred, with no concept yet", ...deferredApart.map((e) => `  ${e.id}: ${e.body.match(cfg.decisions.returnWhen)[1]}`));
   console.log(out.length ? out.join("\n") : "GAP · nothing open");
   if (ticket) console.log(sliceOpen ? `SLICE_OPEN: ${sliceOpen}` : "SLICE_DONE");
 }
 
 // --next: the next slice to build, for a ticket: the ready targets of the first ontology section that
 // has any, the ready targets they depend on, and the checks whose concepts the slice and the code
-// cover. With nothing ready, what the targets wait for; with no target left, what else the gap holds,
-// so that the end of the targets is not taken for the end of the work.
+// cover. With nothing ready, what the targets wait for; with no target left, what else the gap holds
+// and what is deferred, so that the end of the targets is not taken for the end of the work.
 // ont: derived.next-slice
 if (flag("--next") > 0) {
   const ready = rows.filter((r) => readiness.get(r.id)?.kind === "ready");
@@ -1044,12 +1044,15 @@ if (flag("--next") > 0) {
       ...(divergenceLines.length ? [count(divergenceLines.length, "known divergence", "known divergences")] : []),
       ...(untested ? [count(untested, "automatic check without a test", "automatic checks without a test")] : []),
     ];
+    const deferred = deferredApart.map((e) => e.id).join(", ");
     console.log(
       readiness.size
         ? `NEXT · nothing ready: ${[...waiting].map(([t, xs]) => `${xs.length} ${t}`).join("; ")}`
         : rest.length
-          ? `NEXT · no target concept left, but the gap still holds ${rest.join(" and ")} (--gap lists them)`
-          : "NEXT · nothing left to build",
+          ? `NEXT · no target concept left, but the gap still holds ${rest.join(" and ")} (--gap lists them)${deferred ? `; deferred: ${deferred}` : ""}`
+          : deferred
+            ? `NEXT · nothing left to build except what is deferred: ${deferred}`
+            : "NEXT · nothing left to build",
     );
   } else {
     const slice = new Set(ready.filter((r) => r.heading === ready[0].heading).map((r) => r.id));
