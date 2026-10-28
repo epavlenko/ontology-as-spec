@@ -179,10 +179,41 @@ export const backtickIds = (text, classes) => {
     .filter((x) => isId.test(x));
 };
 
-// Fenced code blocks and inline code in Markdown show anchors and names as examples; they are not the
-// page's own.
-export const FENCE = /^```[\s\S]*?^```/gm;
-export const withoutExamples = (md) => md.replace(FENCE, "").replace(/`[^`\n]*`/g, "");
+// Code blocks and inline code in Markdown show anchors and names as examples; they are not the page's
+// own. A code block is fenced by three or more backticks or tildes, indented by up to three spaces and
+// closed by a fence of the same character at least as long, or else it runs to the end; or it is indented
+// by four spaces or a tab after a blank line. markdownRuns returns the text in runs, [{ code, text }],
+// which joined give the text back.
+export const markdownRuns = (md) => {
+  const runs = [];
+  let fence = null;
+  let blank = true;
+  let indented = false;
+  for (const line of md.split(/(?<=\n)/)) {
+    const body = line.replace(/\r?\n$/, "");
+    let code = false;
+    if (fence) {
+      code = true;
+      const m = body.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+      if (m && m[1][0] === fence[0] && m[1].length >= fence.length) fence = null;
+    } else {
+      const m = body.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+      if (m && !(m[1][0] === "`" && m[2].includes("`"))) {
+        fence = m[1];
+        code = true;
+      } else if (body.trim() && /^( {4}|\t)/.test(body) && (blank || indented)) code = indented = true;
+      else if (body.trim()) indented = false;
+    }
+    blank = !body.trim();
+    if (runs.at(-1)?.code === code) runs.at(-1).text += line;
+    else runs.push({ code, text: line });
+  }
+  return runs;
+};
+export const withoutExamples = (md) =>
+  markdownRuns(md)
+    .map((r) => (r.code ? "" : r.text.replace(/`[^`\n]*`/g, "")))
+    .join("");
 
 // Code names the concepts it implements in a comment, "// ont: rule.renewal, inv.within-limit", the
 // form of a doc anchor without the HTML comment (D-57). The marker is read as text, without a parser

@@ -477,16 +477,23 @@ test("[check.implementation-row.code-name-unknown] fails on a name whose class t
 
 test("[check.implementation-row.code-name-unknown] does not read examples in a Markdown file, only its anchors", () => {
   const fence = "`".repeat(3);
-  const r = run((p, dir) => {
+  const example = "<!-- on" + "t: derived.overdew -->";
+  const page = (anchor) => (p, dir) => {
     p("ontology.md", "| `derived.overdue`        | `app/library.mjs` |", "| `derived.overdue`        | `app/library.mjs`, `app/overdue.md` |");
     p("app/library.mjs", "// ont: derived.overdue\n", "");
+    // Examples in inline code, in fences of backticks and of tildes, in an indented fence and in an
+    // indented block; the page's own anchors name a concept and a check of the catalogue.
     writeFileSync(
       join(dir, "app", "overdue.md"),
-      ["# Overdue", "", "<!-- ont: derived.overdue -->", "", "A name reads `// on" + "t: derived.overdew`.", "", fence, "<!-- on" + "t: derived.overdew -->", fence, ""].join("\n"),
+      ["# Overdue", "", "<!-- ont: derived.overdue -->", "", "A name reads `// on" + "t: derived.overdew`.", "", fence, example, fence, "", "~~~js", example, "~~~", "", "   " + fence, example, "   " + fence, "", "    " + example, "", anchor, ""].join("\n"),
     );
-  });
+  };
+  const r = run(page("<!-- ont: check.loan.overdue-in-real-time -->"));
   assert.equal(r.code, 0, r.out);
   assert.doesNotMatch(r.out, /do not name/);
+  const typo = run(page("<!-- ont: check.loan.overdue-in-real-tim -->"));
+  assert.equal(typo.code, 1, typo.out);
+  assert.match(typo.out, /IDs named in code that the ontology does not define \(1\):\n {2}app\/overdue\.md: check\.loan\.overdue-in-real-tim\n/);
 });
 
 test("[check.implementation-row.code-name-unknown] reads the code directories under code, nested ones too", () => {

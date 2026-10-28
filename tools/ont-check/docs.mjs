@@ -7,20 +7,15 @@
 // the ontology and the check catalogue, are generated.
 // ont: ent.reference-page, inv.reference-current
 import { createHash } from "node:crypto";
-import { FENCE, sectionKey, withoutExamples } from "./lib.mjs";
+import { markdownRuns, sectionKey, withoutExamples } from "./lib.mjs";
 
 const ANCHOR = /<!--\s*ont:\s*([^>]*?)\s*-->/g;
 
-// Fenced code blocks show anchors as examples; they are not anchors of the page.
-const outsideFences = (text, f) => {
-  let out = "";
-  let last = 0;
-  for (const m of text.matchAll(FENCE)) {
-    out += f(text.slice(last, m.index)) + m[0];
-    last = m.index + m[0].length;
-  }
-  return out + f(text.slice(last));
-};
+// Code blocks show anchors as examples; they are not anchors of the page.
+const outsideFences = (text, f) =>
+  markdownRuns(text)
+    .map((r) => (r.code ? r.text : f(r.text)))
+    .join("");
 
 // Every anchor in a text, outside code blocks and inline code: [{ index, raw, refs: [{ id, stamp }] }].
 export const parseAnchors = (text) =>

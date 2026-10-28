@@ -176,11 +176,13 @@ const namedIn = new Map();
   ]);
   const undefinedNames = [];
   const retiredNames = [];
+  // A doc anchor in such a file may name a check of the catalogue, as anchors do (D-41).
+  const catalogue = new Set(cfg.checks ? parseChecks(read(cfg.checks.file)).map((c) => c.id) : []);
   for (const f of files) {
     const rel = relative(cfg.root, f);
     for (const x of new Set(codeNames(read(f), /\.(md|markdown)$/i.test(f)))) {
       if (glossary.has(x)) namedIn.set(x, [...(namedIn.get(x) ?? []), rel]);
-      else if (external.has(x)) continue;
+      else if (external.has(x) || catalogue.has(x)) continue;
       else if (retired.has(x)) retiredNames.push(`${rel}: ${x}, now ${retired.get(x) ?? "removed"}`);
       else undefinedNames.push(`${rel}: ${x}`);
     }
