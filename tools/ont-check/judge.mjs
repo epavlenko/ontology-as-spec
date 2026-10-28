@@ -4,8 +4,8 @@
 // and the date, when JUDGE_VERDICTS names a directory; every run of a day is kept in that file.
 //   const { pass, verdict } = judge({ checks: "checks.md", id: "check.member.limit-refusal-explained", output });
 // The judge is a command the project chooses, set in JUDGE: it reads the prompt on stdin and answers
-// with PASS or FAIL as its first word, then why. An answer that starts otherwise, or whose first line
-// holds both words, is not a verdict: judge() fails rather than guess.
+// with PASS or FAIL, in capitals, as its first word, then why. An answer that starts otherwise, or whose
+// first line holds both words, is not a verdict: judge() fails rather than guess.
 // ont: rule.judge-sees-the-check, rule.verdict-kept
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -50,10 +50,11 @@ export const blindPrompt = ({ ontology, catalogue, given, when }) =>
     "Say what should happen, in the product's terms, in one or two sentences.",
   ].join("\n");
 
-// PASS or FAIL, from the first word of the answer; null when the answer is not a verdict.
+// PASS or FAIL, from the first word of the answer; null when the answer is not a verdict. Only the words
+// in capitals count, as the prompt asks, so that "Pass, Fail" is no more a verdict than "PASS, FAIL".
 export const verdictOf = (answer) => {
   const first = answer.split("\n")[0].replace(/\*\*/g, "").trim();
-  const word = first.match(/^(PASS|FAIL)(?=$|[\s.,:;—–-])/i)?.[1].toUpperCase();
+  const word = first.match(/^(PASS|FAIL)(?=$|[\s.,:;—–-])/)?.[1];
   return word && !(/\bPASS\b/.test(first) && /\bFAIL\b/.test(first)) ? word : null;
 };
 

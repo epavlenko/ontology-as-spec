@@ -66,8 +66,8 @@ test("judge() takes the verdict from the first word of the answer, and fails on 
     const verdict = (answer) => judge({ checks, id: "check.member.limit-explained", output: "x", command: command(answer) }).pass;
     assert.equal(verdict("PASS"), true);
     assert.equal(verdict("**PASS** — it names the limit"), true);
-    assert.equal(verdict("Fail: no limit named"), false);
-    for (const answer of ["PASS/FAIL: FAIL", "PASS? No, FAIL.", "PASSED", "It passes", "PASS, FAIL"])
+    assert.equal(verdict("FAIL: no limit named"), false);
+    for (const answer of ["PASS/FAIL: FAIL", "PASS? No, FAIL.", "PASSED", "It passes", "PASS, FAIL", "Pass, Fail", "Pass"])
       assert.throws(() => verdict(answer), /did not answer with PASS or FAIL first/, answer);
   } finally {
     rmSync(dir, { recursive: true, force: true });
