@@ -76,7 +76,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | [docs/lifecycle.md](docs/lifecycle.md) | how a change travels: new concept, rename, removal, superseded decision, implementation, adoption |
 | [docs/comparison.md](docs/comparison.md) | spec-driven development tools and older practices, with links to primary sources |
 | [docs/why-not-spec-as-source.md](docs/why-not-spec-as-source.md) | why the ontology does not generate the product |
-| [docs/limitations.md](docs/limitations.md) | weaknesses, open questions, and the mechanisms added after the source project, marked by whether projects have used them |
+| [docs/limitations.md](docs/limitations.md) | weaknesses, open questions and open proposals |
 | [templates/](templates/README.md) | starting files for every artifact |
 | [tools/ont-check/](tools/ont-check/README.md) | the check, the decision guard, and the generators of tooltips, contracts and reference pages; Node, no dependencies |
 | [ontology.md](ontology.md), [checks.md](checks.md) | the approach described with itself: its concepts, rules and checks, checked like any product |
@@ -92,7 +92,7 @@ This is an early version, v0.1, in active development. Each change to a rule of 
 
 The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks its ontology grew to roughly 150 concepts, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product or name it. The example is fictional.
 
-Since then the generic check in `tools/ont-check` has been used in four private projects, that product among them. All four are projects the author works on; no other team has used the approach yet. In three of them tests name the checks they implement, and those tests are how the check sees what the code does: product behavior that no tagged test exercises stays invisible to it. [Added after the source project](docs/limitations.md#added-after-the-source-project) lists which mechanisms the projects have used and which only the example has, and [Limitations](docs/limitations.md) lists what remains weak.
+Since then the generic check in `tools/ont-check` has been used in four private projects, that product among them. All four are projects the author works on; no other team has used the approach yet. In three of them tests name the checks they implement, and those tests are how the check sees what the code does: product behavior that no tagged test exercises stays invisible to it. [Limitations](docs/limitations.md) lists what remains weak.
 
 Questions and reports of errors are welcome as GitHub issues, and changes as pull requests; the owner decides what to merge ([CONTRIBUTING.md](CONTRIBUTING.md)). Maintained by Jevgenijs Pavlenko.
 

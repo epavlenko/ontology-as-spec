@@ -409,6 +409,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the owner wants users to take part in developing the approach, and merging stays the owner's choice, so a pull request commits the owner to nothing. D-46 kept pull requests out because there was no process to review them and the rules moved too fast. The process is the approach's own: a change starts in the ontology and the catalogue, the check and the tests say whether it holds, and its entry stays tentative until the owner accepts it. The licenses already allow any use, the owner's included, so an agreement would add work for contributors and protect nothing the owner needs.
 - Rejected: keeping pull requests out for now (it turns away the users the owner wants to involve); a contributor license agreement (the licenses already allow any use, and an agreement keeps casual contributors away); an issue before every pull request (a small fix would wait for a discussion nobody needs).
 
+### D-56 · A new mechanism is decided before it is built; limitations do not track what projects have used
+
+- Date: 2026-10-28 · Status: accepted
+- Source: the owner's message of 2026-10-28: "remove from limitations what was used and what was not used in projects" (translated from Russian).
+- Supersedes: D-24
+- Decision: a new mechanism, such as a check, a generator or a format rule, is recorded as a decision before it is implemented. `docs/limitations.md` lists what the approach does not do, the open questions and the open proposals; it no longer lists the mechanisms added after the source project, nor which of them projects have used. What still holds of D-24: D-05 no longer holds, since the six proposals it kept back are implemented (D-08 to D-11).
+- Why: the list of mechanisms and their use in projects is a record of adoption, not a limitation. It grew with every decision, repeated what the reference and the log already say, and went out of date whenever a project adopted a mechanism, while nothing in this repository can see what private projects use.
+- Rejected: keeping the list without the marks of use (a second changelog next to the decision log); keeping the marks up to date (it needs reading private projects, which this repository cannot do and must not name).
+
 ## Tentative
 
 ### D-44 · Verification has two layers, and product checks follow from the ontology through profiles written as recipes

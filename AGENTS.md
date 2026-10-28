@@ -15,7 +15,7 @@ This repository describes an approach to product development: product meaning ke
 
 - **English only** (D-03).
 - **Nothing from the source project.** Do not copy content, names, concepts, decisions or screens from the product where the approach emerged, and do not name it (D-01, D-02, D-45). Examples use the fictional lending library or generic placeholders. No personal data, no names of partners or contractors.
-- **New mechanisms need a decision.** A new check, generator or format rule is recorded in `decisions.md` before it is implemented, and listed in `docs/limitations.md` as not yet tried in a real project (D-24).
+- **New mechanisms need a decision.** A new check, generator or format rule is recorded in `decisions.md` before it is implemented (D-56).
 - **Unapproved is tentative.** A choice the owner has not explicitly approved is recorded as tentative; the owner's approval accepts it (`rule.unconfirmed-tentative`, D-34). A question with a recommendation is written as a tentative entry, and the owner's answer accepts it (`rule.question-as-tentative`, D-48).
 - **Sources.** From D-47 on, every accepted entry names its source on a `- Source:` line: the owner's answer or message that decided it (`inv.sourced-since-first`, `rule.source-precedence`, D-47). What is put off gets a `- Return when:` line (`rule.deferral-returns`, D-49).
 - **Accepted decisions are never edited**, here or in the example. Write a superseding entry; `npm run guard` refuses the edit (`inv.accepted-never-edited`). One entry answers one question; a later entry adds to it or supersedes it whole (`rule.one-choice`, D-26).

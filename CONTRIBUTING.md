@@ -16,7 +16,7 @@ The approach is described with itself, so a change to one of its rules travels l
 
 1. Start in [ontology.md](ontology.md) and [checks.md](checks.md): the definition rows of the concepts the change adds or changes, in the section of their entity, and their checks, in the product's terms.
 2. Add an entry to [decisions.md](decisions.md), under Tentative, with the decision, why, and the alternatives you rejected, and `Status: tentative` on its date line. The owner accepts it when merging and names the pull request on its `Source:` line. An accepted entry is never edited: to change one, write a new entry that supersedes it whole.
-3. Explain the change in `docs/`, under an anchor that names its concepts, and list a new mechanism in [docs/limitations.md](docs/limitations.md) as not yet used in a project.
+3. Explain the change in `docs/`, under an anchor that names its concepts.
 4. If the tool changes, implement it in `tools/ont-check`, with tests whose titles start with the IDs of the checks they implement.
 5. Keep the example and the templates consistent, and add a line to the revision history of the ontology.
 

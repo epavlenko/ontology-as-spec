@@ -93,4 +93,4 @@ The objection is right about specifications that are frozen. This approach answe
 - The tooling is small and generic only in its first version. The tools above are products.
 - There is no formal per-change process comparable to Spec Kit's clarify and analyze, or OpenSpec's deltas.
 
-[Limitations](limitations.md) lists these, with what has been added since.
+[Limitations](limitations.md) lists these.
