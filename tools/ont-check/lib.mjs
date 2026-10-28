@@ -106,6 +106,8 @@ export function loadConfig(configPath) {
         dir: at(t.dir),
         match: new RegExp(t.match ?? "\\.test\\.[a-z]+$"),
         cover: t.cover ?? [],
+        // Checks the suite must implement, such as the checks it runs with a judge (D-60).
+        checks: t.checks ?? [],
       }),
     ),
     checks: raw.checks && {

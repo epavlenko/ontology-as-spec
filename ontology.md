@@ -448,24 +448,27 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Check
 
-| ID                              | Implemented in                                             | Note                                        |
-| ------------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
-| `ent.check`                     | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
-| `field.check.given`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
-| `field.check.when`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
-| `field.check.then`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
-| `field.check.proof`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` | judged not built: `inv.judged-check-tested` |
-| `edge.check.concepts`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
-| `rule.check-in-product-terms`   | `docs/parts/checks-and-tests.md`                           | reviewed, not checked                       |
-| `rule.unreachable-reported`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked                       |
-| `rule.manual-evidence-kept`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked                       |
-| `rule.chosen-value-checked`     | `docs/parts/checks-and-tests.md`                           | reviewed, not checked                       |
-| `inv.check-ids-unique`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
-| `inv.check-in-its-section`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
-| `inv.check-well-formed`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` | judged not built: `inv.judged-check-tested` |
-| `inv.required-concepts-checked` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
-| `inv.auto-check-tested`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
-| `inv.section-keys-match`        | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                             |
+| ID                              | Implemented in                                                | Note                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `ent.check`                     | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `field.check.given`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `field.check.when`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `field.check.then`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `field.check.proof`             | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `edge.check.concepts`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `rule.check-in-product-terms`   | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
+| `rule.unreachable-reported`     | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
+| `rule.manual-evidence-kept`     | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
+| `rule.chosen-value-checked`     | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
+| `inv.check-ids-unique`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `inv.check-in-its-section`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `inv.check-well-formed`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `inv.required-concepts-checked` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `inv.auto-check-tested`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `inv.section-keys-match`        | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
+| `inv.judged-check-tested`       | `tools/ont-check/ont-check.mjs`                               |                                                                                                            |
+| `rule.judge-sees-the-check`     | `tools/ont-check/judge.mjs`, `docs/parts/checks-and-tests.md` | the helper gives the judge the case and the output only; a test that calls a judge another way is reviewed |
+| `rule.verdict-kept`             | `tools/ont-check/judge.mjs`, `docs/parts/checks-and-tests.md` | the helper writes the verdict where `JUDGE_VERDICTS` points; that it is outside the repository is reviewed |
 
 ### Test
 
@@ -481,14 +484,16 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Test suite
 
-| ID                         | Implemented in                                             | Note |
-| -------------------------- | ---------------------------------------------------------- | ---- |
-| `ent.test-suite`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
-| `field.test-suite.name`    | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
-| `field.test-suite.cover`   | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
-| `inv.suite-names-unique`   | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
-| `inv.suite-not-empty`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
-| `inv.suite-covers-classes` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| ID                            | Implemented in                                             | Note |
+| ----------------------------- | ---------------------------------------------------------- | ---- |
+| `ent.test-suite`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `field.test-suite.name`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `field.test-suite.cover`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `inv.suite-names-unique`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `inv.suite-not-empty`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `inv.suite-covers-classes`    | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `edge.test-suite.checks`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
+| `inv.suite-implements-checks` | `tools/ont-check/ont-check.mjs`                            |      |
 
 ### Ticket
 
@@ -501,8 +506,8 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `edge.ticket.concepts`         | `tools/ont-check/ont-check.mjs` |                                                          |
 | `edge.ticket.checks`           | `tools/ont-check/ont-check.mjs` |                                                          |
 | `edge.ticket.depends-on`       | `docs/parts/agent-workflow.md`  | written by people; the tool does not read it             |
-| `derived.gap`                  | `tools/ont-check/ont-check.mjs` | judged checks not counted yet: `inv.judged-check-tested` |
-| `derived.slice-done`           | `tools/ont-check/ont-check.mjs` | judged checks not counted yet: `inv.judged-check-tested` |
+| `derived.gap`                  | `tools/ont-check/ont-check.mjs` | |
+| `derived.slice-done`           | `tools/ont-check/ont-check.mjs` | |
 | `derived.readiness`            | `tools/ont-check/ont-check.mjs` |                                                          |
 | `derived.next-slice`           | `tools/ont-check/ont-check.mjs` |                                                          |
 | `rule.take-ready`              | `docs/parts/agent-workflow.md`  | reviewed; `--gap` and `--next` show what is ready        |

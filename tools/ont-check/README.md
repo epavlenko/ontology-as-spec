@@ -33,6 +33,7 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | `stamp-docs.mjs`   | rewrites anchors with the current stamps                                          |
 | `contracts.mjs`    | the type vocabulary and the schema builder, shared by the generator and the check |
 | `lib.mjs`          | the one parser every script uses, and the config loader                            |
+| `judge.mjs`        | runs a judged check: gives the command in `JUDGE` the check's case and the product's output, and writes the verdict where `JUDGE_VERDICTS` points |
 | `ont-tooltips.js`  | browser runtime for the mockup: sets `title` from `window.ONT` on `[data-ont]` elements |
 | `approach.json`    | the approach's concept IDs and retired IDs, which agent instructions and process entries of a project may name; generated, copy it with the tool |
 | `gen-approach.mjs` | writes `approach.json` from the approach's ontology, in the approach's own repository |
@@ -70,7 +71,7 @@ Paths are relative to the config file.
 | `map.file`, `map.idColumn` | the UI-to-ontology map and the 1-based column holding IDs; default 2 | no |
 | `checks.file`, `checks.require` | the check catalogue, and the classes every concept of which must have a check (default `["inv", "rule"]`) | no |
 | `features.dir`, `features.cover` | the older verification map: scenario files with an `IDs:` line; still read, superseded by `checks` | no |
-| `testSuites` | a list of suites, each `{ "name", "dir", "match", "cover" }`: a unique name such as `unit` or `end-to-end`, where its tests are, a regex for test file paths (default `\.test\.[a-z]+$`), and the classes every implemented ID of which must be named by a test in this suite | no |
+| `testSuites` | a list of suites, each `{ "name", "dir", "match", "cover", "checks" }`: a unique name such as `unit` or `end-to-end`, where its tests are, a regex for test file paths (default `\.test\.[a-z]+$`), the classes every implemented ID of which must be named by a test in this suite, and the checks the suite must implement, such as the judged checks it runs with a judge | no |
 | `tests` | the older form: one suite without a name, with the same `dir`, `match` and `cover` | no |
 | `tickets.dir`, `tickets.match` | where ticket files are, and a regex for their paths (default `\.md$`; `README.md` is skipped) | no |
 | `docSets` | a list of documentation sets, each `{ "name", "dir", "match", "cover", "checks", "scope" }`: the classes the set must explain, the proofs whose checks it must name (`["manual"]` for a run guide), `implemented` (default) or `all` of their concepts and checks | no |
@@ -90,7 +91,7 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Known divergences:** bullets under a heading that starts with `headings.divergences`, by default `### Known divergences`, each naming the concepts involved in backticks; the check fails on a line that names none. `--gap` prints them. With a ticket it prints only those naming its concepts: a line that names only concepts of the slice keeps it open, and one that also names other concepts is shown apart and not counted.
 - **Mockup:** `data-ont="class.name"` attributes, and IDs in single quotes inside scripts (`'view.catalog'`). IDs built from templates are declared in a comment `/* data-ont dynamic: 'class.a','class.b' */`, and the markup must contain `data-ont="class.${`.
 - **Decision entries:** headings matched by `decisions.entry`.
-- **Checks:** ``| `check.section.name` | `id`, `id` | GIVEN | WHEN | THEN | auto or manual |`` under `## Section` headings; the second part of the ID is the section's key: the code span in the heading (``## Préstamo `loan` ``), one span of lowercase letters, digits and hyphens, or else the heading's Latin letters and digits in lowercase, joined by hyphens. Each ontology section with definition rows needs a key of its own, and every catalogue section's key must name one of them.
+- **Checks:** ``| `check.section.name` | `id`, `id` | GIVEN | WHEN | THEN | auto, judged or manual |`` under `## Section` headings; the second part of the ID is the section's key: the code span in the heading (``## Préstamo `loan` ``), one span of lowercase letters, digits and hyphens, or else the heading's Latin letters and digits in lowercase, joined by hyphens. Each ontology section with definition rows needs a key of its own, and every catalogue section's key must name one of them.
 - **Scenario files (older):** an `IDs:` line at the start of a line.
 - **Test tags:** IDs in square brackets anywhere in a test file, normally at the start of a test title: `test("[check.loan.renew-while-held] …")`, or a concept for what is not a product check, `test("[field.loan.renewals] …")`. Only `check` and configured classes are read, so `[0]` or `[x.y]` is not a tag.
 - **Tickets:** an `IDs:` or `Ontology IDs:` line, and a `Checks:` line with the checks of the slice in backticks. A check named elsewhere in a ticket must exist but is not part of the slice. Older tickets may have a `## Scenarios` section whose bullets read `- [id, id] GIVEN … WHEN … THEN …`.

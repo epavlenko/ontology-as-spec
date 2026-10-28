@@ -489,7 +489,7 @@ if (cfg.checks) {
     }),
   );
   report(
-    "malformed checks: six cells, concepts, GIVEN, WHEN, THEN, auto or manual",
+    "malformed checks: six cells, concepts, GIVEN, WHEN, THEN, auto, judged or manual",
     checks
       .filter(
         (c) =>
@@ -498,7 +498,7 @@ if (cfg.checks) {
           !c.given ||
           !c.when ||
           !c.then ||
-          !["auto", "manual"].includes(c.proof),
+          !["auto", "judged", "manual"].includes(c.proof),
       )
       .map((c) => c.id),
   );
@@ -537,7 +537,7 @@ for (const t of cfg.testSuites) {
     [...own].filter((x) => !checkById.has(x)).sort(),
   );
   report(
-    `manual checks tagged in ${suiteName(t)}tests (mark them auto)`,
+    `manual checks tagged in ${suiteName(t)}tests (mark them auto or judged)`,
     [...own].filter((x) => checkById.get(x)?.proof === "manual").sort(),
   );
   report(
@@ -548,6 +548,17 @@ for (const t of cfg.testSuites) {
   report(
     `IDs in ${suiteName(t)}tests but not in the implementation table`,
     diff(ids, implemented).filter((x) => glossary.has(x)),
+  );
+  // A suite may name checks it must implement, such as the checks it runs with a judge (D-60).
+  // ont: edge.test-suite.checks, inv.suite-implements-checks
+  report(`checks the ${suiteName(t)}suite names that the catalogue does not have`, t.checks.filter((x) => !checkById.has(x)));
+  report(
+    `manual checks the ${suiteName(t)}suite names (a manual check has no test)`,
+    t.checks.filter((x) => checkById.get(x)?.proof === "manual"),
+  );
+  report(
+    `checks the ${suiteName(t)}suite names, of implemented concepts, that none of its tests implements`,
+    t.checks.filter((x) => checkById.has(x) && fullyImplemented(checkById.get(x)) && !own.has(x)),
   );
   const proven = new Set([...ids, ...[...own].flatMap((x) => checkById.get(x)?.concepts ?? [])]);
   bySuite.set(t.name, proven);
@@ -563,6 +574,15 @@ if (cfg.checks && cfg.testSuites.length)
     "automatic checks of implemented concepts without a test",
     checks
       .filter((c) => c.proof === "auto" && fullyImplemented(c) && !checksTested.has(c.id))
+      .map((c) => c.id),
+  );
+// A judged check runs in a suite that names it, so that the tool knows which test runs a judge (D-60).
+// ont: inv.judged-check-tested
+if (cfg.checks)
+  report(
+    "judged checks of implemented concepts that no test suite names (the suite that runs a judge lists them under checks)",
+    checks
+      .filter((c) => c.proof === "judged" && fullyImplemented(c) && !cfg.testSuites.some((t) => t.checks.includes(c.id)))
       .map((c) => c.id),
   );
 
@@ -886,12 +906,13 @@ if (flag("--gap") > 0) {
   }
   const inScope = (x) => !ticket || ticket.own.has(x);
   const checkInScope = (c) => !ticket || ticket.checks.includes(c.id) || c.concepts.some((x) => ticket.own.has(x));
-  const untested = (c) => c.proof === "auto" && fullyImplemented(c) && !checksTested.has(c.id);
+  const automatic = (c) => c.proof === "auto" || c.proof === "judged";
+  const untested = (c) => automatic(c) && fullyImplemented(c) && !checksTested.has(c.id);
   // An automatic check the ticket lists cannot be tested while it needs a concept outside the slice
   // that is not built; it waits for it. Shown once the slice's own concepts of the check are built,
   // since until then they are listed as target with the check.
   const waitsFor = (c) =>
-    ticket?.checks.includes(c.id) && c.proof === "auto" && c.concepts.every((x) => !inScope(x) || implemented.has(x))
+    ticket?.checks.includes(c.id) && automatic(c) && c.concepts.every((x) => !inScope(x) || implemented.has(x))
       ? c.concepts.filter((x) => !implemented.has(x))
       : [];
   // Each check is listed once, under the first ontology section its key names. A check whose key names

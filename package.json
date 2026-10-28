@@ -11,6 +11,6 @@
     "generate": "node tools/ont-check/gen-approach.mjs --config ont.config.json && node tools/ont-check/gen-contracts.mjs --config ont.config.json && node tools/ont-check/gen-reference.mjs --config ont.config.json && for c in example templates; do node tools/ont-check/gen-glossary.mjs --config $c/ont.config.json && node tools/ont-check/gen-contracts.mjs --config $c/ont.config.json && node tools/ont-check/gen-reference.mjs --config $c/ont.config.json || exit 1; done",
     "gap": "node tools/ont-check/ont-check.mjs --config ont.config.json --gap",
     "next": "node tools/ont-check/ont-check.mjs --config ont.config.json --next",
-    "test": "npm run check && npm run --silent guard && node --test 'tools/ont-check/test/*.test.mjs' 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'"
+    "test": "npm run check && npm run --silent guard && node --test 'tools/ont-check/test/*.test.mjs' 'example/app/*.test.mjs' 'example/e2e/*.test.mjs' 'example/judged/*.judged.mjs'"
   }
 }

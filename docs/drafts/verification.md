@@ -9,18 +9,6 @@ A project made with the approach is checked twice. The tool checks the ontology 
 
 The two meet in this repository. The tool is the approach's product, so its own tests are the product layer of the tool, and the checks they implement are the ontology layer of every other project.
 
-<!-- ont: inv.suite-implements-checks@a2592f -->
-## How a product check is bound to the ontology
-
-Every product check reaches the ontology the same way. The class of a concept says which suite must prove it, as part 6 describes: actions and views end to end, rules and invariants in unit tests. A suite may also name checks it must implement, which covers what classes cannot: a key scenario that runs through several actions must be proven end to end as a whole, not only action by action. The proof of a check says how it is proven, and the proof says where the result is kept. The tool can check the class, the suite and the proof; where a result is kept outside the repository stays a rule for people.
-
-<!-- ont: inv.judged-check-tested@39910a, rule.judge-sees-the-check@2d7cba, rule.verdict-kept@10793d -->
-## Checks a model judges
-
-Some values are written by a model: a summary of an event, the claims extracted from an interview, a reply to a member. A test that compares them with an exact text breaks on every harmless change, and a manual check of them is seldom run. A judged check sits between the two. A test runs the product on a fixed sample, and a model reads the output next to the check's THEN and says whether it holds.
-
-The judge reads the check's case and the product's output, never the code or the test, so that it judges the product and not the implementation. Nothing in a product's ontology tells a generated value from another, so the suite that runs judged checks names them; the tool can then require a test for each. A verdict is kept outside the repository, named by the check and the date, like the evidence of a manual check. Judged checks are automatic checks, so they count wherever automatic ones do: in the gap, in a finished slice and in a check a ticket waits for. Each run costs a call to a model, so a project may keep their suite apart and run it on purpose; how often is the project's choice.
-
 <!-- ont: ent.profile@d94262, rule.profile-requires-checkable@e0c6e7 -->
 ## Profiles
 

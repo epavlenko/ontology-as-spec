@@ -306,6 +306,39 @@ test("[check.decision.tentative-supersedes-nothing] a tentative entry's Supersed
   assert.match(deferral.out, /deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-07: a second branch opens\n/);
 });
 
+// Checks a model judges run in the suites that name them (D-60).
+const rowOf = (id) => new RegExp(`^\\| \`${id.replace(/\./g, "\\.")}\` .*$`, "m").exec(readFileSync(join(EXAMPLE, "checks.md"), "utf8"))[0];
+const judgedRow = (id) => rowOf(id).replace(/\| auto( *)\|$/, "| judged$1|");
+
+test("[check.check.judged-untested] fails on a judged check of implemented concepts that no suite runs with a judge", () => {
+  const r = run((p) => p("checks.md", rowOf("check.loan.renew-twice"), judgedRow("check.loan.renew-twice")));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /judged checks of implemented concepts that no test suite names[^\n]*\(1\):\n {2}check\.loan\.renew-twice\n/);
+});
+
+test("[check.test-suite.unimplemented-check] fails on a check a suite names and none of its tests implements", () => {
+  const r = run((p) => p("ont.config.json", '"dir": "e2e",', '"dir": "e2e",\n      "checks": ["check.loan.renew-twice"],'));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /checks the end-to-end suite names, of implemented concepts, that none of its tests implements \(1\):\n {2}check\.loan\.renew-twice\n/);
+});
+
+test("[check.ticket.judged-check-waits] a listed judged check that needs a concept of another slice keeps the ticket open", () => {
+  const r = run(
+    (p, dir) => {
+      p("checks.md", rowOf("check.hold.reserved-for-holder-only"), judgedRow("check.hold.reserved-for-holder-only"));
+      writeFileSync(
+        join(dir, "issues", "0005-reserved-items-at-the-desk.md"),
+        "# #5 Reserved items at the desk\n\n## Slice\n\nIDs: `action.checkout`.\n\nChecks: `check.hold.reserved-for-holder-only`.\n",
+      );
+    },
+    "--gap",
+    "$DIR/issues/0005-reserved-items-at-the-desk.md",
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /check\.hold\.reserved-for-holder-only {2}waits for concept\.reservation/);
+  assert.match(r.out, /SLICE_OPEN: 1/);
+});
+
 // The ontology layer lists terms that name more than one concept (D-59).
 test("[check.concept.term-shared] lists a term that two concepts share as information", () => {
   const r = run((p, dir) => {

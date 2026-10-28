@@ -16,6 +16,7 @@ A library lends books, games and tools. Members borrow items, wait in a queue fo
 | [help/](./help/README.md)                              | help for members, anchored to concepts, and the generated terms page |
 | [verify/](./verify/)                                   | run guides: how to run the manual checks of what is built |
 | [app/](./app/)                                         | the code: a small domain module, a command line front end, and unit tests whose titles name the checks they implement |
+| [judged/](./judged/)                                   | a test that a model judges: the library refuses a checkout at the limit, and a judge in `JUDGE` reads the refusal next to its check; skipped without one |
 | [e2e/](./e2e/)                                         | end-to-end tests that run the command line front end as a user does, also named by check |
 | [contracts/ontology.schema.json](./contracts/ontology.schema.json) | the contracts: JSON Schema generated from the types of fields and relations |
 | [ont.config.json](./ont.config.json)                   | the check's configuration for this example                 |

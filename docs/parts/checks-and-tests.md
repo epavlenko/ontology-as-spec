@@ -59,6 +59,27 @@ The suites themselves, how to run them and what they cost, belong to the team's 
 | `edge.loan.item`         |              |      |            |
 ```
 
+<!-- ont: edge.test-suite.checks@44582d, inv.suite-implements-checks@a2592f -->
+## Checks a suite must implement
+
+Classes say which suite proves a kind of concept. A suite may also name checks it must implement, which covers what classes cannot: a key scenario that runs through several actions must be proven end to end as a whole, not action by action. The configuration lists them on the suite, `"checks": ["check.loan.renew-while-held"]`, and the check fails on a named check of implemented concepts that none of the suite's tests implements, on one the catalogue does not have, and on a manual one, which has no test.
+
+<!-- ont: inv.judged-check-tested@39910a, rule.judge-sees-the-check@2d7cba, rule.verdict-kept@10793d -->
+## Checks a model judges
+
+Some values are written by a model: a summary of an event, the claims extracted from an interview, a reply to a member. A test that compares them with an exact text breaks on every harmless change, and a manual check of them is seldom run. A judged check sits between the two: its proof is `judged`, a test runs the product on a fixed sample, and a model reads the output next to the check's THEN and says whether it holds.
+
+```js
+import { judge } from "../tools/ont-check/judge.mjs";
+test("[check.member.limit-refusal-explained] a refusal at the borrow limit says why", () => {
+  const output = refusalFor("ana", "dune-6");
+  const { pass, verdict } = judge({ checks: "checks.md", id: "check.member.limit-refusal-explained", output });
+  assert.ok(pass, verdict);
+});
+```
+
+The judge reads the check's case and the product's output, never the code, the test or an expected text, so that it judges the product and not the implementation; `judge.mjs` builds exactly that prompt and runs the command in `JUDGE`, which the project chooses. The verdict is kept outside the repository, named by the check and the date, like the evidence of a manual check: the helper writes it where `JUDGE_VERDICTS` points. Nothing in a product's ontology tells a generated value from another, so the suite that runs judged checks names them, and the check fails on a judged check of implemented concepts that no suite names. Judged checks are automatic, so they count wherever automatic ones do: in the gap, in a finished slice and in a check a ticket waits for. Each run costs a call to a model, so a project may keep their suite apart and run it on purpose, and a test may skip itself when no judge is set.
+
 <!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@03fc5e, inv.section-keys-match@f8649b, inv.check-well-formed@aa846c, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@ca73cc -->
 ## Reference
 

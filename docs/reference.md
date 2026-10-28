@@ -315,12 +315,12 @@ Every concept of the approach, its type and definition, and the checks that hold
 | Invariant | Covers its classes    | `inv.suite-covers-classes`    |                         | Every implemented concept of a covered class is proven by a test of the suite.                    |
 | Invariant | Implements its checks | `inv.suite-implements-checks` |                         | Every check a suite names, of implemented concepts, is implemented by a test of that suite.       |
 
-| Check                                  | Concepts                                                | GIVEN                                                                                         | WHEN           | THEN                                          | Proof |
-| -------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------- | --------------------------------------------- | ----- |
-| `check.test-suite.uncovered-concept`   | `inv.suite-covers-classes`                              | an implemented invariant has no test in the unit suite                                        | the check runs | it names the concept and the suite, and fails | auto  |
-| `check.test-suite.unimplemented-check` | `inv.suite-implements-checks`, `edge.test-suite.checks` | the end-to-end suite names `check.loan.renew-while-held`, and none of its tests implements it | the check runs | it names the check and the suite, and fails   | auto  |
-| `check.test-suite.duplicate-name`      | `inv.suite-names-unique`                                | two suites are named unit                                                                     | the check runs | it names the suite and fails                  | auto  |
-| `check.test-suite.empty`               | `inv.suite-not-empty`                                   | a suite's directory has no test files                                                         | the check runs | it names the suite and fails                  | auto  |
+| Check                                  | Concepts                                                | GIVEN                                                                                    | WHEN           | THEN                                          | Proof |
+| -------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------- | --------------------------------------------- | ----- |
+| `check.test-suite.uncovered-concept`   | `inv.suite-covers-classes`                              | an implemented invariant has no test in the unit suite                                   | the check runs | it names the concept and the suite, and fails | auto  |
+| `check.test-suite.unimplemented-check` | `inv.suite-implements-checks`, `edge.test-suite.checks` | the end-to-end suite names `check.loan.renew-twice`, and none of its tests implements it | the check runs | it names the check and the suite, and fails   | auto  |
+| `check.test-suite.duplicate-name`      | `inv.suite-names-unique`                                | two suites are named unit                                                                | the check runs | it names the suite and fails                  | auto  |
+| `check.test-suite.empty`               | `inv.suite-not-empty`                                   | a suite's directory has no test files                                                    | the check runs | it names the suite and fails                  | auto  |
 
 ## Ticket
 
