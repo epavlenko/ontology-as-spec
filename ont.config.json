@@ -32,6 +32,9 @@
     "out": "contracts/approach.schema.json",
     "propertyCase": "camel"
   },
+  "tickets": {
+    "dir": "issues"
+  },
   "checks": {
     "file": "checks.md",
     "require": [

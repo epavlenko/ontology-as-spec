@@ -6,7 +6,8 @@ The drift check, the decision guard, and the generators of tooltips, contracts a
 node tools/ont-check/gen-glossary.mjs --config path/to/ont.config.json   # glossary → generated tooltips
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json   # ONT_OK, or the drift and exit code 1
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --coverage   # also: what proves each implemented concept
-node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --gap [ticket.md]   # also: the work left, or one ticket's slice (exit 1 until done)
+node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --gap [ticket.md]   # also: the work left and what each target waits for, or one ticket's slice (exit 1 until done)
+node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --next   # also: the next slice of what is ready, as IDs: and Checks: lines for a ticket
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --decisions   # also: every decision entry, in force, tentative or superseded, and the later entries that name it
 node tools/ont-check/format-ontology.mjs --config path/to/ont.config.json   # kind order, Kind cells and aligned definition tables
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema

@@ -2,10 +2,12 @@
 // contracts and reference pages, the mockup and its map, the decision log, the implementation table,
 // the check catalogue, the tests, the tickets, the documentation, and the older verification map.
 // Usage: node tools/ont-check/ont-check.mjs [--config path/to/ont.config.json] [--coverage]
-//          [--gap [path/to/ticket.md]] [--decisions]
+//          [--gap [path/to/ticket.md]] [--next] [--decisions]
 // --coverage also prints which checks and test suites prove each implemented concept, and where code names it.
 // --gap also prints the work left: target concepts with their checks, untested checks, divergences;
-//   with a ticket, only its slice, and the exit code is 1 until the slice is done.
+//   with a ticket, only its slice, and the exit code is 1 until the slice is done. Without one, each
+//   target says what it waits for: a ticket, a deferral, the owner, another target, or nothing (ready).
+// --next also prints the next slice to build, as IDs: and Checks: lines for a ticket.
 // --decisions also prints every entry of the decision log: in force, tentative or superseded by what,
 //   and the later entries that name it.
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
@@ -793,6 +795,61 @@ if (flag("--decisions") > 0) {
   );
 }
 
+// Readiness (D-58): what each target concept waits for. A ticket that takes it has it in hand. An
+// accepted deferral in force that names it puts it off until its condition. The owner holds it while
+// only tentative entries name it, or while an accepted entry that names it names a tentative entry.
+// It waits for another target that its definition row or one of its checks names and that is not ready
+// itself. The rest is ready to build, and --next proposes the next slice of it.
+// ont: derived.readiness
+const readiness = new Map();
+const dependsOn = new Map();
+{
+  const targets = rows.filter((r) => !implemented.has(r.id));
+  const isTarget = new Set(targets.map((r) => r.id));
+  const live = decisionLog.filter((e) => !e.state.startsWith("superseded"));
+  const tentative = new Set(live.filter((e) => e.state === "tentative").map((e) => e.id));
+  const named = new Map(live.map((e) => [e.id, new Set(ids(e.body))]));
+  const refsIn = (e) => [...e.body.matchAll(new RegExp(cfg.decisions.ref.source, "g"))].map((m) => m[0]);
+  for (const r of targets) {
+    const x = r.id;
+    dependsOn.set(x, [
+      ...new Set([
+        ...ids(r.line.replace(`\`${x}\``, "")),
+        ...checks.filter((c) => c.concepts.includes(x)).flatMap((c) => c.concepts),
+      ]),
+    ].filter((y) => y !== x && isTarget.has(y)));
+    const ticket = tickets.find((t) => t.own.has(x));
+    if (ticket) {
+      readiness.set(x, { kind: "ticket", text: `in ticket ${relative(cfg.base, ticket.file)}` });
+      continue;
+    }
+    const naming = live.filter((e) => named.get(e.id).has(x));
+    const deferral = naming.find((e) => e.state === "in force" && cfg.decisions.returnWhen.test(e.body));
+    if (deferral) {
+      readiness.set(x, { kind: "deferred", text: `deferred until ${deferral.body.match(cfg.decisions.returnWhen)[1]} (${deferral.id})` });
+      continue;
+    }
+    const accepted = naming.filter((e) => e.state === "in force");
+    const pending = accepted.length
+      ? [...new Set(accepted.flatMap((e) => refsIn(e).filter((d) => d !== e.id && tentative.has(d))))]
+      : naming.map((e) => e.id);
+    if (pending.length) readiness.set(x, { kind: "owner", text: `waits for the owner (${pending.join(", ")})` });
+  }
+  // Waiting spreads along the dependencies until nothing changes; a target in a ticket is not built yet either.
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const r of targets)
+      if (!readiness.has(r.id)) {
+        const blocker = dependsOn.get(r.id).find((y) => readiness.has(y));
+        if (blocker) {
+          readiness.set(r.id, { kind: "target", text: `waits for ${blocker}` });
+          changed = true;
+        }
+      }
+  }
+  for (const r of targets) if (!readiness.has(r.id)) readiness.set(r.id, { kind: "ready", text: "ready" });
+}
+
 // --gap: the work left, computed rather than listed by hand. Target concepts by section with their
 // checks, automatic checks of implemented concepts that still lack a test, and the known
 // divergences. --gap path/to/ticket narrows it to the ticket's slice and exits 1 until nothing of
@@ -844,7 +901,8 @@ if (flag("--gap") > 0) {
     for (const r of rs.filter((r) => inScope(r.id))) {
       const cs = checks.filter((c) => c.concepts.includes(r.id) && checkInScope(c));
       if (!implemented.has(r.id)) {
-        lines.push(`  ${r.id}  target${cs.length ? ` · checks: ${cs.map((c) => c.id).join(", ")}` : ""}`);
+        const status = ticket ? "" : `, ${readiness.get(r.id).text}`;
+        lines.push(`  ${r.id}  target${status}${cs.length ? ` · checks: ${cs.map((c) => c.id).join(", ")}` : ""}`);
         sliceOpen += 1;
       }
     }
@@ -863,8 +921,54 @@ if (flag("--gap") > 0) {
   if (ownLines.length) out.push("GAP · known divergences", ...ownLines.map((l) => `  ${l}`));
   if (sharedLines.length)
     out.push("GAP · known divergences partly outside the slice (not counted)", ...sharedLines.map((l) => `  ${l}`));
+  // A deferral that names no target concept is work put off too; without a ticket it is shown here.
+  if (!ticket) {
+    const put = decisionLog.filter(
+      (e) => e.state === "in force" && cfg.decisions.returnWhen.test(e.body) && !ids(e.body).some((x) => readiness.has(x)),
+    );
+    if (put.length) out.push("GAP · deferred, with no concept yet", ...put.map((e) => `  ${e.id}: ${e.body.match(cfg.decisions.returnWhen)[1]}`));
+  }
   console.log(out.length ? out.join("\n") : "GAP · nothing open");
   if (ticket) console.log(sliceOpen ? `SLICE_OPEN: ${sliceOpen}` : "SLICE_DONE");
+}
+
+// --next: the next slice to build, for a ticket: the ready targets of the first ontology section that
+// has any, the ready targets they depend on, and the checks whose concepts the slice and the code
+// cover. With nothing ready, what the targets wait for.
+// ont: derived.next-slice
+if (flag("--next") > 0) {
+  const ready = rows.filter((r) => readiness.get(r.id)?.kind === "ready");
+  if (!ready.length) {
+    const waiting = groupBy(
+      [...readiness.values()].map((s) => (s.kind === "target" ? "wait for other targets" : s.kind === "ticket" ? "are in tickets" : s.text.replace(/^waits/, "wait").replace(/^deferred/, "are deferred"))),
+      (t) => t,
+    );
+    console.log(
+      readiness.size
+        ? `NEXT · nothing ready: ${[...waiting].map(([t, xs]) => `${xs.length} ${t}`).join("; ")}`
+        : "NEXT · nothing left to build",
+    );
+  } else {
+    const slice = new Set(ready.filter((r) => r.heading === ready[0].heading).map((r) => r.id));
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const x of [...slice])
+        for (const y of dependsOn.get(x) ?? [])
+          if (!slice.has(y) && readiness.get(y)?.kind === "ready") {
+            slice.add(y);
+            grew = true;
+          }
+    }
+    const ordered = rows.map((r) => r.id).filter((x) => slice.has(x));
+    const sliceChecks = checks.filter((c) => c.concepts.some((x) => slice.has(x)) && c.concepts.every((x) => slice.has(x) || implemented.has(x)));
+    console.log(
+      [
+        `NEXT · ${ready[0].heading}`,
+        `IDs: ${ordered.map((x) => `\`${x}\``).join(", ")}`,
+        `Checks: ${sliceChecks.map((c) => `\`${c.id}\``).join(", ") || "none yet"}`,
+      ].join("\n"),
+    );
+  }
 }
 
 console.log(

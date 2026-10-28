@@ -4,7 +4,7 @@
 
 How implementation work is framed for agents so that it stays inside the ontology and can run without supervision. Four habits:
 
-1. **Start from the gap.** What is left to build is computed, not listed by hand: target concepts without an implementation, automatic checks without a test, known divergences. `ont-check.mjs --gap` prints it.
+1. **Start from the gap.** What is left to build is computed, not listed by hand: target concepts without an implementation, automatic checks without a test, known divergences. `ont-check.mjs --gap` prints it and says what each target waits for; `--next` proposes the next slice of what is ready.
 2. **Cut a slice.** A ticket takes a part of the gap: the concepts and checks to build now, what to leave, what it depends on, what the agent may do. What the slice means is already in the ontology and the check catalogue; the ticket does not repeat it.
 3. **Finish on commands.** The finish condition is derived: `--gap` with the ticket prints `SLICE_DONE`, and the tests pass. That block is the finish condition, for the agent and for any loop that runs the agent until done.
 4. **Deliver in slices, each closed by a test.** Slices are ordered by dependency, and each ends with a control test that shows it works before the next one builds on it.
@@ -46,6 +46,35 @@ Pre-authorized lines answer in advance the permissions an agent would otherwise 
 What a ticket no longer carries: expected behavior (it is in the check catalogue, written before the ticket and kept after it closes), the files to touch (the agent finds them), and a hand-written finish condition (it is derived). If a slice needs a check the catalogue lacks, the check is added to the catalogue first.
 
 Not every ticket is a slice. Refactoring, infrastructure, performance and dependency updates do not change meaning and are ordinary tickets without IDs. With an external contractor, a ticket is also the agreement about what is delivered and accepted; the ontology does not replace that.
+
+<!-- ont: rule.take-ready@38f877, derived.readiness@346c38, derived.next-slice@187668 -->
+## Ready, waiting and deferred
+
+Not every target can be built now. `--gap` says what each one waits for:
+
+- a ticket that already takes it;
+- a condition, when an accepted deferral in force names it;
+- the owner, when only tentative entries name it, or when an accepted entry that names it names a tentative one;
+- another target that its definition row or one of its checks names, while that one is not ready;
+- nothing: it is ready.
+
+```text
+GAP · Hold
+  rule.pickup-window  target, in ticket issues/0003-serve-the-hold-queue.md · checks: …
+  action.cancel-hold  target, ready · checks: check.hold.cancel
+```
+
+Work is taken from what is ready. `--next` proposes the next slice: the ready targets of the first ontology section that has any, the ready targets they depend on, and the checks whose concepts the slice and the code cover, written as the `IDs:` and `Checks:` lines of a ticket.
+
+```text
+NEXT · Member
+IDs: `action.set-borrow-limit`
+Checks: `check.member.set-borrow-limit`
+```
+
+With nothing ready, it says what the targets wait for, such as `NEXT · nothing ready: 3 wait for the owner (D-07)`. The tool learns that a target waits from the decision log, so an entry names the concepts it decides by ID: a tentative entry that describes a concept without naming it leaves that concept looking ready.
+
+A loop can watch it. A job runs `--next` on a timer and, when a new slice appears, wakes an agent that cuts the ticket and builds it until `SLICE_DONE`. A job that only compares the output with its previous run costs nothing while nothing changes. What the agent may commit, push or merge stays the owner's choice.
 
 ## Why commands
 

@@ -32,6 +32,10 @@ The check confirms that the files named in the table exist and which of them nam
 
 The tool cannot parse the syntax of every test framework, so it reads a tag wherever it appears in a test file, not only in a title. A fixture string that looks like a tag counts as one: an invalid one fails the check, a valid one claims proof the test does not give. Fixtures that need such strings build them from parts.
 
+### Readiness reads names, not intent
+
+The tool learns that a target waits from the decision log, by the entries that name it. A tentative entry that describes a concept without its ID leaves the concept looking ready, and an accepted entry that mentions a concept in passing counts as naming it. A target that no entry names counts as agreed, since the ontology is the agreed target.
+
 ### Reference pages show the target
 
 A generated reference page shows each concept's definition, which describes the target. A page limited to implemented concepts still shows the target definition of a concept that is only partly built: the example's terms page says the borrow limit is set by staff, while the code fixes it at five. The note column of the implementation table is not on the page.

@@ -306,6 +306,45 @@ test("[check.decision.tentative-supersedes-nothing] a tentative entry's Supersed
   assert.match(deferral.out, /deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-07: a second branch opens\n/);
 });
 
+// What each target waits for, and the next slice to build (D-58).
+test("[check.ticket.gap-readiness] --gap says what each target waits for", () => {
+  const r = run((p) => {
+    p(
+      "decisions.md",
+      "## Tentative",
+      [
+        "### D-07 · Entry 07\n\n- Date: 2026-10-22 · Status: tentative\n- Decision: reminders by text message too, `hook.due-reminder`.",
+        "### D-08 · Entry 08\n\n- Date: 2026-10-22 · Status: accepted\n- Return when: a second branch opens\n- Decision: the catalogue screen waits, `view.catalog`.",
+        "## Tentative",
+      ].join("\n\n"),
+    );
+    p("checks.md", "| `check.screens.refusal-understandable` | `view.desk`, `action.checkout` |", "| `check.screens.refusal-understandable` | `view.desk`, `action.checkout`, `view.catalog` |");
+  }, "--gap");
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /\n {2}action\.cancel-hold {2}target, ready · checks: check\.hold\.cancel\n/);
+  assert.match(r.out, /\n {2}rule\.pickup-window {2}target, in ticket issues\/0003-serve-the-hold-queue\.md · /);
+  assert.match(r.out, /\n {2}hook\.due-reminder {2}target, waits for the owner \(D-07\) · /);
+  assert.match(r.out, /\n {2}view\.catalog {2}target, deferred until a second branch opens \(D-08\) · /);
+  assert.match(r.out, /\n {2}view\.desk {2}target, waits for view\.catalog · /);
+});
+
+test("[check.ticket.next-slice] --next proposes the next slice, or says what the targets wait for", () => {
+  const r = run(null, "--next");
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /NEXT · Member\nIDs: `action\.set-borrow-limit`\nChecks: `check\.member\.set-borrow-limit`\n/);
+  const none = run(
+    (p) =>
+      p(
+        "decisions.md",
+        "## Tentative",
+        "### D-07 · Entry 07\n\n- Date: 2026-10-22 · Status: accepted\n- Return when: a second branch opens\n- Decision: later: `action.set-borrow-limit`, `field.item.condition`, `hook.due-reminder`, `action.cancel-hold`, `view.catalog`, `view.title.page`, `view.desk`.\n\n## Tentative",
+      ),
+    "--next",
+  );
+  assert.equal(none.code, 0, none.out);
+  assert.match(none.out, /NEXT · nothing ready: 8 are in tickets; 7 are deferred until a second branch opens \(D-07\)\n/);
+});
+
 // Code names the concepts it implements in ont: comments (D-57).
 test("[check.implementation-row.code-name-unknown] fails on an ID named in code that the ontology does not define", () => {
   // A property path such as action.type is code, not a name: only ont: comments are read.
