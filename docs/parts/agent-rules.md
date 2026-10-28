@@ -10,7 +10,7 @@ A section in the repository's agent instructions (`AGENTS.md` or its equivalent)
 | A concept, rule, invariant or view in the ontology | run `format-ontology.mjs`; regenerate the tooltips; a revision history line; a decision entry when the reason is new | the check                       |
 | A rule, invariant, hook or action in the ontology  | its check in the catalogue, before the code                                                                          | the check                       |
 | The mockup                                         | `data-ont` on every new meaningful element and its map row                                                           | the check, a browser smoke test |
-| Behavior in code                                   | the implementation table and known divergences                                                                       | the check, the tests            |
+| Behavior in code                                   | an `ont:` comment naming the concepts the code implements; the implementation table and known divergences           | the check, the tests            |
 | Your mind about an earlier decision                | a new dated entry that supersedes the old one                                                                        | the check                       |
 | A concept becomes implemented                      | tests that implement its automatic checks, titled with the check IDs                                                 | the check, the tests            |
 | A definition row that a help page explains         | reread the sections the check lists, then `stamp-docs.mjs`; regenerate the reference pages                           | the check                       |
@@ -22,6 +22,7 @@ Rules the check cannot enforce:
 - IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it (`inv.ids-permanent`, `action.change-id`).
 - Removing a concept is a decision: write the entry and retire the ID; the check then finds every reference left (`action.remove-concept`).
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side (`rule.divergence-becomes-work`).
+- Code that implements a concept names its ID next to it in a comment, `// ont: rule.renewal` (`rule.code-names-concepts`).
 - What a partial implementation leaves out is a target concept, named in the note of its row. A note alone hides the work from `--gap` (`rule.partial-noted`).
 - A choice the owner has not explicitly approved, such as a value you picked when asked to tune something, is recorded as tentative; the owner's approval accepts it (`rule.unconfirmed-tentative`).
 - A question you can recommend an answer to is a tentative entry, not a line under open questions: your recommendation is its decision, the other options are rejected. The entry gives you no permission to act on the recommendation; your task or the owner does. When the owner answers, the entry names the answer on its `Source:` line (`rule.question-as-tentative`, `action.answer-tentative`).

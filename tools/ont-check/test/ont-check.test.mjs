@@ -306,6 +306,30 @@ test("[check.decision.tentative-supersedes-nothing] a tentative entry's Supersed
   assert.match(deferral.out, /deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-07: a second branch opens\n/);
 });
 
+// Code names the concepts it implements in ont: comments (D-57).
+test("[check.implementation-row.code-name-unknown] fails on an ID named in code that the ontology does not define", () => {
+  // A property path such as action.type is code, not a name: only ont: comments are read.
+  const r = run((p) =>
+    p("app/library.mjs", "// ont: derived.overdue\n", "// ont: derived.overdue, derived.overdew\nconst kindOf = (action) => action.type;\n"),
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /IDs named in code that the ontology does not define \(1\):\n {2}app\/library\.mjs: derived\.overdew\n/);
+});
+
+test("[check.implementation-row.code-name-retired] fails on a retired ID named in code", () => {
+  const r = run((p) => p("app/library.mjs", "// ont: derived.overdue\n", "// ont: derived.overdue, field.due-date\n"));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /retired IDs named in code \(1\):\n {2}app\/library\.mjs: field\.due-date, now field\.loan\.due-date\n/);
+});
+
+test("[check.implementation-row.unnamed-in-code] lists an implemented concept its files do not name, and --coverage shows where each is named", () => {
+  const r = run((p) => p("app/library.mjs", "// ont: derived.queue-position\n", ""), "--coverage");
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /info · implemented concepts that the files of their row do not name \(1\):\n {2}derived\.queue-position\n/);
+  assert.match(r.out, /\| `derived\.overdue` +\|[^\n]*\| app\/library\.mjs +\|/);
+  assert.match(r.out, / named in code 24 /);
+});
+
 // Agent instructions name rules of the approach and entries of the project's log (D-53).
 test("[check.agent-rules.unknown-id] fails on an ID in the agent instructions that nothing defines", () => {
   // A file name such as `action.yml` looks like an ID of the approach's classes and is not one.

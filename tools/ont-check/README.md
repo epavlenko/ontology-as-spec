@@ -50,6 +50,7 @@ Paths are relative to the config file.
 | `headings.implementation` | heading of the implementation table; default `## Implementation status`; `null` until code exists | no |
 | `headings.divergences` | the start of the heading of the known divergences; default `### Known divergences`; the section may be absent | no |
 | `root` | base directory for paths in the implementation table; default the config's directory | no |
+| `code` | code directories whose `ont:` names the check also reads, besides the files of the implementation table: `[{"dir": "src", "match": "\\.ts$"}]` | no |
 | `agentInstructions` | the files of the agents' instructions, such as `["AGENTS.md"]`; the check resolves the IDs and the entries they mention | no |
 | `approachIds.out` | only in the approach's own repository: where `gen-approach.mjs` writes the approach's IDs | no |
 | `decisions.file` | the decision log | no |
@@ -95,6 +96,7 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Supersession:** an entry that replaces older ones names them on a line matched by `decisions.supersedes`, by default `- Supersedes: D-05, D-07`. The line of a tentative entry takes effect when the entry is accepted.
 - **Decision status (guard):** an entry is accepted when one of its lines matches `decisions.accepted`, by default a `- Date:` line containing `Status: accepted`. The check lists the entries that are not, as waiting for the owner's answer.
 - **Sources (guard):** a line matched by `decisions.source`, by default `- Source: call of 2026-10-24, 00:41`. Once any entry has one, the guard fails on an entry accepted since its base without one, new or accepted from tentative; when the first source is newer than the base, only entries numbered after it are asked.
+- **Code names:** `ont: id, id` in a comment of the code that implements the concepts, `// ont: rule.renewal`, in the files of the implementation table and of the directories under `code`. A stamp after `@` is ignored, so a doc anchor in such a file names its concepts too. Only these comments are read: a property path in code that looks like an ID is not one.
 - **Agent instructions:** IDs in backticks, of the project's ontology or of the approach, and entries of the project's log by the pattern of `decisions.ref`. In them `D-nn` is always an entry of the project's log; a rule of the approach is named by its ID. The project's retired IDs come first, and file names such as `action.yml` are not IDs.
 - **Process entries:** `- Layer: process`, and `- Extends:` or `- Overrides:` with the IDs of the rules of the approach in backticks. Every such line is checked, and an empty one fails; a superseded entry may name a rule the approach has retired since.
 - **Deferrals:** a line matched by `decisions.returnWhen`, by default `- Return when: a second branch opens`. The check lists every accepted deferral in force with its condition, as information.

@@ -14,7 +14,7 @@ Agents and people edit the mockup and the code by hand. Nothing that carries beh
 
 ## "The human never touches the code" no longer distinguishes anything
 
-When agents write nearly all the code, no human touches it in any of the three levels. The useful question moves from "who edits the code?" to "what is the code checked against, and how?". For this approach, the answer is that interface, decisions, implementation status and verification are checked against concepts, and code is checked against tests. The link between code and concepts is the [weakest part](limitations.md#code-does-not-refer-to-ids).
+When agents write nearly all the code, no human touches it in any of the three levels. The useful question moves from "who edits the code?" to "what is the code checked against, and how?". For this approach, the answer is that interface, decisions, implementation status and verification are checked against concepts, and code is checked against tests. Code names the concepts it implements, and the check confirms the names; what the code does, the tests prove ([limitations](limitations.md#the-check-reads-names-in-code-not-what-code-does)).
 
 ## A narrow step toward spec-as-source
 

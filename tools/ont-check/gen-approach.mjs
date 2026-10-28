@@ -2,6 +2,7 @@
 // that they travel with the tool and a project's check can resolve the rules of the approach that its
 // agent instructions and process entries name. Run in the approach's own repository.
 // Usage: node tools/ont-check/gen-approach.mjs [--config ont.config.json]
+// ont: concept.approach-ids
 import { writeFileSync } from "node:fs";
 import { relative } from "node:path";
 import { loadConfig, parseGlossary, parseRetired, read, renderApproach } from "./lib.mjs";

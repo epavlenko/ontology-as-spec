@@ -9,6 +9,7 @@
 // there is no commit yet to compare with: before the first commit nothing is protected. Accepted entries
 // that are not in the commit yet are listed as information, since they are protected only once committed.
 // Once the log names a source on a Source line, every entry accepted after the first source must name one.
+// ont: inv.accepted-never-edited, field.decision.source, inv.sourced-since-first
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";

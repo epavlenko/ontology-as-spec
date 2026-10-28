@@ -418,6 +418,14 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the list of mechanisms and their use in projects is a record of adoption, not a limitation. It grew with every decision, repeated what the reference and the log already say, and went out of date whenever a project adopted a mechanism, while nothing in this repository can see what private projects use.
 - Rejected: keeping the list without the marks of use (a second changelog next to the decision log); keeping the marks up to date (it needs reading private projects, which this repository cannot do and must not name).
 
+### D-57 · Code names the concepts it implements, and the check reads the names
+
+- Date: 2026-10-28 · Status: accepted
+- Source: the owner's message of 2026-10-28, on the options for "product code does not refer to IDs": "do it now: the same, plus the rule that code names the concepts it implements" (translated from Russian).
+- Decision: code that implements a concept names its ID next to it in a comment, `// ont: inv.no-renew-when-held`, the form of a doc anchor without the HTML around it, so any comment syntax works (`rule.code-names-concepts`). The check reads these names in the files of the implementation table and in the code directories the configuration lists under `code`. It fails on a name the ontology does not define or has retired (`inv.code-names-resolve`); it lists, as information, implemented concepts that the files of their row do not name; and `--coverage` shows the files that name each concept (`derived.named-in-code`). A name is not an implementation: the implementation table still says where a concept is built (D-38), and what the code does is still proven by tests. The tool's own code and the example name their concepts. The documentation no longer says that product code does not refer to concept IDs: that was an observation of the project the approach came from, not a rule of the approach.
+- Why: tying code to the concepts it realises is the point of the approach, and the documentation described its absence as if it were a property of the approach. In one project the code already names 151 of its 164 built concepts (D-38). A comment is plain text in any language, so the check reads it without a parser per language (D-11), and an agent that changes a concept finds its code by searching for the ID.
+- Rejected: IDs anywhere in code without a marker (property paths such as action.type look like IDs); square brackets, as in test tags (array indexes look the same); failing on a concept that its files do not name (a name is not an implementation, and some concepts have no single place in code, D-38); deriving the implementation table from the names (D-38).
+
 ## Tentative
 
 ### D-44 · Verification has two layers, and product checks follow from the ontology through profiles written as recipes

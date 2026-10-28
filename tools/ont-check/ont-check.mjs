@@ -3,7 +3,7 @@
 // the check catalogue, the tests, the tickets, the documentation, and the older verification map.
 // Usage: node tools/ont-check/ont-check.mjs [--config path/to/ont.config.json] [--coverage]
 //          [--gap [path/to/ticket.md]] [--decisions]
-// --coverage also prints which checks and test suites prove each implemented concept.
+// --coverage also prints which checks and test suites prove each implemented concept, and where code names it.
 // --gap also prints the work left: target concepts with their checks, untested checks, divergences;
 //   with a ticket, only its slice, and the exit code is 1 until the slice is done.
 // --decisions also prints every entry of the decision log: in force, tentative or superseded by what,
@@ -13,6 +13,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import {
   backtickIds,
+  codeNames,
   idPattern,
   listFiles,
   loadApproach,
@@ -42,9 +43,10 @@ const { classes } = cfg;
 const ids = (text) => backtickIds(text, classes);
 const diff = (a, b) => [...a].filter((x) => !b.has(x)).sort();
 const errors = [];
-const report = (label, items, fatal = true) => {
+const report = (label, items, fatal = true, limit = Infinity) => {
   if (!items.length) return;
-  console.log(`${fatal ? "ERROR" : "info"} · ${label} (${items.length}):\n  ${items.join("\n  ")}`);
+  const shown = items.length > limit ? [...items.slice(0, limit), `… ${items.length - limit} more`] : items;
+  console.log(`${fatal ? "ERROR" : "info"} · ${label} (${items.length}):\n  ${shown.join("\n  ")}`);
   if (fatal) errors.push(label);
 };
 
@@ -85,6 +87,7 @@ const ofApproach = (x) => Boolean(approach?.ids.has(x) || approach?.retired.has(
 
 // The glossary is the only source of IDs: everything that refers to a concept must find it there.
 // A retired ID resolves in the decision log, which is never edited; anywhere else it is drift.
+// ont: inv.references-defined, inv.known-classes, ent.retired-id, edge.retired-id.replaced-by, edge.retired-id.decision, inv.retired-not-defined, inv.retired-only-in-log, inv.replacement-exists
 const retiredUse = [];
 const unknown = (label, where, set, allowRetired = false) => {
   const missing = diff(ours(set), glossary);
@@ -110,6 +113,7 @@ report(
 
 // Definition tables: kinds in the configured order, the kind named on the first row of each group,
 // and a field or relation in the table of the entity its ID names (field.loan.due-date → ent.loan).
+// ont: ent.concept, field.concept.id, field.concept.kind, field.concept.term, field.concept.type, field.concept.definition, edge.concept.entity, rule.kind-order, rule.scoped-ids, inv.one-definition-row, inv.kind-named-once, inv.field-in-its-entity
 const cls = (id) => id.split(".")[0];
 const tables = groupBy(rows, (r) => r.table);
 const outOfOrder = [];
@@ -145,6 +149,7 @@ report("definition tables with more than one entity", twoEntities);
 
 // Implementation status: | `id` | `path`, `path` | note |. Files must exist; completeness is a human call.
 // Set "implementation": null under headings until there is code.
+// ont: ent.implementation-row, field.implementation-row.files, field.implementation-row.note, edge.implementation-row.concept, inv.implementation-files-exist, derived.implemented, derived.target
 const implRows = parseImplemented(md, cfg.headings.implementation);
 const implemented = new Set(implRows.map(([id]) => id));
 const implFiles = [...new Set(implRows.flatMap(([, files]) => files))];
@@ -154,8 +159,43 @@ report(
   implFiles.filter((f) => !existsSync(resolve(cfg.root, f))),
 );
 
+// Code names the concepts it implements in a comment, "// ont: rule.renewal" (D-57). The names in the
+// files of the implementation table and of the configured code directories resolve; an implemented
+// concept that the files of its row do not name is listed as information, since a name is not an
+// implementation and the table still says where a concept is built (D-38).
+// ont: derived.named-in-code, inv.code-names-resolve
+const namedIn = new Map();
+{
+  const files = new Set([
+    ...implFiles.map((f) => resolve(cfg.root, f)).filter((f) => existsSync(f)),
+    ...cfg.code.flatMap((c) => listFiles(c.dir, c.match)),
+  ]);
+  const undefinedNames = [];
+  const retiredNames = [];
+  for (const f of files) {
+    const rel = relative(cfg.root, f);
+    for (const x of new Set(codeNames(read(f), classes))) {
+      if (glossary.has(x)) namedIn.set(x, [...(namedIn.get(x) ?? []), rel]);
+      else if (external.has(x)) continue;
+      else if (retired.has(x)) retiredNames.push(`${rel}: ${x}, now ${retired.get(x) ?? "removed"}`);
+      else undefinedNames.push(`${rel}: ${x}`);
+    }
+  }
+  report("IDs named in code that the ontology does not define", undefinedNames);
+  report("retired IDs named in code", retiredNames);
+  const rowFiles = new Map();
+  for (const [id, fs] of implRows) rowFiles.set(id, [...(rowFiles.get(id) ?? []), ...fs]);
+  report(
+    "implemented concepts that the files of their row do not name",
+    [...rowFiles].filter(([id, fs]) => glossary.has(id) && !fs.some((f) => namedIn.get(id)?.includes(f))).map(([id]) => id),
+    false,
+    20,
+  );
+}
+
 // Known divergences: bullets under the configured heading, each naming the concepts involved.
 // --gap matches a divergence to a ticket by those IDs, so a line that names none belongs to no slice.
+// ont: ent.divergence, field.divergence.description, edge.divergence.concepts, inv.divergence-names-concepts
 const divHeading = cfg.headings.divergences
   ? md.split("\n").find((l) => l.startsWith(cfg.headings.divergences))
   : null;
@@ -166,6 +206,7 @@ report(
 );
 
 // Generated tooltips are compared whole: catches both a forgotten regeneration and a hand edit.
+// ont: inv.tooltips-generated
 if (cfg.glossaryOut) {
   const expected = renderGlossary(ONT, relative(cfg.base, cfg.ontology));
   const actual = existsSync(cfg.glossaryOut) ? read(cfg.glossaryOut) : "";
@@ -190,6 +231,7 @@ if (cfg.contracts) {
 }
 
 // The approach's own repository writes its IDs next to the tool, and they match its ontology (D-53).
+// ont: inv.approach-ids-current
 if (cfg.approachIds) {
   const actual = existsSync(cfg.approachIds.out) ? read(cfg.approachIds.out) : "";
   report(
@@ -199,6 +241,7 @@ if (cfg.approachIds) {
 }
 
 // Mockup: data-ont attributes plus quoted IDs in scripts ('view.catalog').
+// ont: ent.mockup-element, edge.mockup-element.concept, inv.dynamic-ids-declared
 const classAlt = classes.join("|");
 const html = cfg.mockup.map(read).join("\n");
 const used = new Set([
@@ -223,6 +266,7 @@ if (cfg.mockup.length) {
 }
 
 // Map: the ID column of every table row. The map and the mockup describe the same set of elements.
+// ont: ent.map-row, field.map-row.shows, field.map-row.does-not-do, edge.map-row.concept, inv.mockup-matches-map
 let mapped = new Set();
 if (cfg.map) {
   const map = read(cfg.map.file);
@@ -239,6 +283,7 @@ if (cfg.map) {
 }
 
 // Decision log: IDs exist, references point at real entries, entries are not duplicated.
+// ont: ent.decision, field.decision.number, field.decision.status, field.decision.date, field.decision.choice, field.decision.why, field.decision.rejected, field.decision.title, edge.decision.concepts, inv.decision-numbers-unique, inv.decision-references-resolve
 const decisionLog = [];
 if (cfg.decisions) {
   const dec = read(cfg.decisions.file);
@@ -259,6 +304,7 @@ if (cfg.decisions) {
   // Supersession is written on a line of its own: "- Supersedes: D-05". Every entry named there exists
   // and is older than the entry naming it. The line takes effect when its entry is accepted (D-52): an
   // entry that no accepted entry names there is in force, since a tentative one only proposes the change.
+  // ont: edge.decision.supersedes, derived.in-force, inv.supersedes-older
   const heads = [...dec.matchAll(cfg.decisions.entry)];
   // An entry runs to the next heading of level 1 to 3, as in the guard, so that the last entry does not
   // take in the open questions and the history after it.
@@ -287,6 +333,7 @@ if (cfg.decisions) {
   report("Supersedes lines that name no older entry", badSupersedes);
   // Later entries that mention an entry by number, whatever language the log is in: where a reader of
   // an older entry looks for what came after it.
+  // ont: derived.named-by
   const namedBy = new Map();
   for (const e of log)
     for (const old of new Set(refIn(e.body)))
@@ -295,6 +342,7 @@ if (cfg.decisions) {
   // One entry, one choice: an entry that replaces only part of another, in prose, shows the older one
   // bundled several choices. Information, because the older entry can no longer be edited; it leaves
   // the list once some entry supersedes the older one whole.
+  // ont: inv.superseded-whole
   const ref = cfg.decisions.ref.source;
   const partly = [
     new RegExp(`\\b(?:supersedes|replaces)\\s+(?:the\\s+)?[\\w\\s,-]*?\\bpart\\s+of\\s+(${ref})`, "gi"),
@@ -311,6 +359,7 @@ if (cfg.decisions) {
   );
   // A question with a recommendation is written as a tentative entry, and the owner's answer accepts
   // it (D-48). Listed while it waits, so that the question stays in sight.
+  // ont: derived.waiting-for-owner
   const open = log.filter((e) => !supersededBy.has(e.id));
   report(
     "tentative entries, waiting for the owner's answer",
@@ -320,6 +369,7 @@ if (cfg.decisions) {
   // A deferral names what must happen before the thing it put off is taken up again (D-49). Listed
   // while it is in force, so that what was put off is not forgotten; a tentative deferral is not in
   // force and waits with the other tentative entries.
+  // ont: field.decision.return-when, derived.deferral-in-force
   report(
     "deferrals in force, each with the condition for taking it up again",
     open
@@ -329,6 +379,7 @@ if (cfg.decisions) {
   );
   // A project departs from a rule of the approach only by a process entry (D-53): its Extends or
   // Overrides line names concepts the approach defines and has not retired, and it says Layer: process.
+  // ont: field.decision.layer, edge.decision.extends, edge.decision.overrides, inv.departure-well-formed
   const departures = [];
   const every = (re, text) =>
     [...text.matchAll(new RegExp(re.source, re.flags.includes("g") ? re.flags : `${re.flags}g`))].map((m) => m[1] ?? "");
@@ -366,6 +417,7 @@ if (cfg.decisions) {
 // approach's, and not retired; every entry they cite exists and is in force. In them D-nn is an entry of
 // the project's log. Whether a line is a process rule that should name its source, and whether it is
 // stricter or looser than the approach, is for a reviewer.
+// ont: field.agent-rules.files, inv.agent-rule-references-resolve
 if (cfg.agentInstructions.length) {
   const where = (f) => relative(cfg.base, f);
   report("agent instruction files that do not exist", cfg.agentInstructions.filter((f) => !existsSync(f)).map(where));
@@ -398,6 +450,7 @@ if (cfg.agentInstructions.length) {
 
 // Check catalogue: what must hold, in product terms, for any implementation. One row per check,
 // under the section of the entity it belongs to; every concept of a required class has a check.
+// ont: ent.check, field.check.given, field.check.when, field.check.then, field.check.proof, edge.check.concepts, inv.check-ids-unique, inv.check-in-its-section, inv.check-well-formed, inv.required-concepts-checked, inv.section-keys-match
 const checks = cfg.checks ? parseChecks(read(cfg.checks.file)) : [];
 const checkById = new Map(checks.map((c) => [c.id, c]));
 const checkConcepts = new Set(checks.flatMap((c) => c.concepts));
@@ -460,6 +513,7 @@ if (cfg.checks) {
 // A test may only prove what is implemented. Each suite (unit, end-to-end, …) names the classes it
 // must cover: every implemented concept of those classes needs a test in that suite, directly or
 // through a check that names it.
+// ont: ent.test, edge.test.checks, edge.test.suite, inv.test-names-known-checks, inv.test-only-implemented, inv.no-manual-tested, inv.auto-check-tested, ent.test-suite, field.test-suite.name, field.test-suite.cover, inv.suite-names-unique, inv.suite-not-empty, inv.suite-covers-classes
 let tested = new Set();
 const bySuite = new Map();
 const checksTested = new Set();
@@ -515,6 +569,7 @@ if (cfg.checks && cfg.testSuites.length)
 // elsewhere in the ticket, such as under out of scope, must exist but is not part of the slice.
 // Older tickets may still carry tagged one-line scenarios under "## Scenarios"; those are validated
 // as before.
+// ont: ent.ticket, edge.ticket.concepts, edge.ticket.checks, inv.ticket-has-ids, inv.ticket-checks-related
 let ticketIds = new Set();
 const tickets = [];
 if (cfg.tickets) {
@@ -559,6 +614,7 @@ if (cfg.tickets) {
 // Documentation: hand-written pages carry anchors naming the concepts and checks they explain. Each
 // doc set must explain every concept of its classes (the implemented ones, or all of them); a stamp
 // older than the definition marks a section to reread. Reference pages are generated and compared.
+// ont: ent.doc-section, field.doc-section.stamp, edge.doc-section.explains, edge.doc-section.set, derived.to-reread, inv.anchors-resolve, ent.doc-set, field.doc-set.name, field.doc-set.cover, field.doc-set.scope, field.doc-set.checks, inv.doc-set-covers, inv.doc-set-names-unique
 const anchored = new Set();
 const bySet = new Map();
 const setDupes = cfg.docSets.map((d) => d.name).filter((n, i, a) => a.indexOf(n) !== i);
@@ -630,6 +686,7 @@ for (const ref of cfg.references) {
 }
 
 // A concept nobody refers to is a dead glossary row.
+// ont: inv.concept-referenced
 report(
   "glossary concepts nobody refers to",
   diff(
@@ -675,6 +732,7 @@ if (cfg.features) {
 
 // Informational: concepts nothing has tried yet. A concept arrives with feedback: a mockup element,
 // a ticket or code. One that has none of them is a review item, not an error.
+// ont: inv.concept-tried
 report(
   "concepts with no mockup element, ticket or implementation yet",
   diff(glossary, new Set([...used, ...ticketIds, ...implemented])),
@@ -693,7 +751,7 @@ if (cfg.mockup.length && cfg.notYetShown.length) {
 report("retired IDs still in use outside the decision log", retiredUse);
 
 // --coverage: what proves each implemented concept: the checks that name it, one column per test
-// suite, and the scenarios of the older verification map.
+// suite, the scenarios of the older verification map, and the files that name it in code.
 const flag = (name) => process.argv.indexOf(name);
 if (flag("--coverage") > 0) {
   const checksOf = (x) => checks.filter((c) => c.concepts.includes(x));
@@ -707,6 +765,7 @@ if (flag("--coverage") > 0) {
       : []),
     ...cfg.testSuites.map((t) => [t.name || "tests", (x) => (bySuite.get(t.name).has(x) ? "yes" : "")]),
     ...(cfg.features ? [["scenarios", (x) => (featureIds.has(x) ? "yes" : "")]] : []),
+    ["named in", (x) => (namedIn.get(x) ?? []).join(", ")],
   ];
   const head = ["concept", ...cols.map(([n]) => n)];
   const body = Object.keys(ONT)
@@ -739,6 +798,7 @@ if (flag("--decisions") > 0) {
 // divergences. --gap path/to/ticket narrows it to the ticket's slice and exits 1 until nothing of
 // the slice is left: every concept implemented, every automatic check of the slice tested, no check
 // the ticket lists waiting for a concept outside the slice, no divergence that names only its concepts.
+// ont: derived.gap, derived.slice-done
 let sliceOpen = 0;
 let gapTicket = null;
 if (flag("--gap") > 0) {
@@ -814,6 +874,7 @@ console.log(
     ...(cfg.mockup.length ? [`mockup ${used.size}`] : []),
     ...(cfg.map ? [`map ${mapped.size}`] : []),
     `implemented ${implemented.size}`,
+    `named in code ${[...implemented].filter((x) => namedIn.has(x)).length}`,
     ...(cfg.checks ? [`checks ${checks.length}`] : []),
     ...(cfg.features ? [`scenarios ${featureIds.size}`] : []),
     ...cfg.testSuites.map((t) => `${t.name || "tested"} ${bySuite.get(t.name).size}`),

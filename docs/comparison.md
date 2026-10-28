@@ -71,7 +71,7 @@ Hartwig Grabowski, [The Spec Growth Engine: Spec-Anchored, Code-Coupled, Drift-E
 
 - **Problem size.** In her test, Kiro turned a small bug into 4 "user stories" with "a total of 16 acceptance criteria". This approach does not produce documents per change. A small change touches the glossary only if it changes meaning. A bug fix often touches nothing but code and the implementation note.
 - **Verbosity and review burden.** "I'd rather review code than all these markdown files." Partly applies. The ontology is long. But it is reviewed once per concept, not once per feature, and the glossary keeps the per-concept unit to one line. Reviewing a change to meaning means reading a few rows and a decision entry.
-- **False sense of control.** She asks whether agents follow the spec, and saw them ignore and over-apply instructions. This applies fully. The check guarantees that the artifacts agree with each other. It does not guarantee that code agrees with them. See [limitations](limitations.md#code-does-not-refer-to-ids).
+- **False sense of control.** She asks whether agents follow the spec, and saw them ignore and over-apply instructions. This applies fully. The check guarantees that the artifacts agree with each other. It does not guarantee that code agrees with them. See [limitations](limitations.md#the-check-reads-names-in-code-not-what-code-does).
 - **The model-driven development parallel.** She warns that spec-as-source may combine "the downsides of both MDD and LLMs: Inflexibility and non-determinism." This approach avoids the parallel by not generating code from the ontology. It generates one thing, a JSON Schema for stored fields, which is deterministic and leaves the code to the project.
 
 ## The objection from learning
@@ -86,11 +86,9 @@ The objection is right about specifications that are frozen. This approach answe
 - The boundary between target, implemented and divergent is explicit and maintained.
 - Interface elements are bound to concepts, and the map records what each element deliberately does not do. No tool reviewed here does either.
 
-## Where it is weaker
+## What the check does not see
 
-- Product code does not refer to IDs; test titles and the generated contracts do. Code that contradicts the ontology where no test looks passes the check. The Spec Growth Engine's drift gate, which reads code, does better here.
-- The check catalogue keeps acceptance cases after the change, as OpenSpec's scenarios do, and tests carry their IDs. But the check cannot tell whether a test does what its check says, and Kiro's EARS requirements are more precise as statements.
-- The tooling is small and generic only in its first version. The tools above are products.
-- There is no formal per-change process comparable to Spec Kit's clarify and analyze, or OpenSpec's deltas.
+- The check reads the names that code gives its concepts, not what the code does: code that contradicts the ontology where no test looks passes the check. The Spec Growth Engine's drift gate reads code structure instead.
+- The check catalogue keeps acceptance cases after the change, as OpenSpec's scenarios do, and tests carry their IDs. The check cannot tell whether a test does what its check says.
 
 [Limitations](limitations.md) lists these.

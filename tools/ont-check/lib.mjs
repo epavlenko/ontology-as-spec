@@ -81,6 +81,8 @@ export function loadConfig(configPath) {
     },
     // Files of the agents' instructions, such as AGENTS.md, whose IDs and entries the check resolves.
     agentInstructions: (raw.agentInstructions ?? []).map(at),
+    // Directories of code whose "ont:" names the check reads, besides the files of the implementation table.
+    code: (raw.code ?? []).map((c) => ({ dir: at(c.dir), match: new RegExp(c.match ?? ".") })),
     // Set only in the approach's own repository: where gen-approach.mjs writes the approach's IDs.
     approachIds: raw.approachIds && { out: at(raw.approachIds.out) },
     glossaryOut: at(raw.glossaryOut),
@@ -157,6 +159,19 @@ export const backtickIds = (text, classes) => {
   const isId = idPattern(classes);
   return [...text.matchAll(/`([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)`/g)]
     .map((m) => m[1])
+    .filter((x) => isId.test(x));
+};
+
+// Code names the concepts it implements in a comment, "// ont: rule.renewal, inv.within-limit", the
+// form of a doc anchor without the HTML comment (D-57). Only IDs of the given classes count, and a
+// stamp after @ is dropped, so a doc anchor in a file of the implementation table names its concepts too.
+// ont: derived.named-in-code, inv.code-names-resolve
+const ID_REF = "[a-z][a-z0-9-]*(?:\\.[a-z0-9-]+)+(?:@[0-9a-f]+)?";
+export const codeNames = (text, classes) => {
+  const isId = idPattern(classes);
+  return [...text.matchAll(new RegExp(`\\bont:[ \\t]*(${ID_REF}(?:[ \\t]*,[ \\t]*${ID_REF})*)`, "g"))]
+    .flatMap((m) => m[1].split(","))
+    .map((x) => x.trim().replace(/@.*$/, ""))
     .filter((x) => isId.test(x));
 };
 

@@ -103,16 +103,19 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Implementation row
 
-| Kind      | ID                                | Term                  | Type               | Definition                                                                                                                       |
-| --------- | --------------------------------- | --------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.implementation-row`          | Implementation row    |                    | A claim that one or more concepts exist in the product, with the files and a note on what is partial.                            |
-| Field     | `field.implementation-row.files`  | Files                 | text               | Paths of the files that realise the concept.                                                                                     |
-|           | `field.implementation-row.note`   | Note                  | text optional      | What is partial or missing.                                                                                                      |
-| Relation  | `edge.implementation-row.concept` | Concepts              | refs `ent.concept` | The concepts the row claims; concepts realised in the same files may share a row.                                                |
-| Rule      | `rule.table-with-code`            | Updated with the code |                    | A change to behavior updates the implementation table in the same change.                                                        |
-|           | `rule.partial-noted`              | Partial noted         |                    | The note of a partial row names the target concept that adds what is missing; no note means complete as far as the author knows. |
-| Invariant | `inv.implementation-files-exist`  | Files exist           |                    | Every file the table names exists.                                                                                               |
-|           | `inv.implementation-true`         | Row is true           |                    | The files a row names do realise the concept.                                                                                    |
+| Kind      | ID                                | Term                    | Type               | Definition                                                                                                                                                                                                                                                            |
+| --------- | --------------------------------- | ----------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.implementation-row`          | Implementation row      |                    | A claim that one or more concepts exist in the product, with the files and a note on what is partial.                                                                                                                                                                 |
+| Field     | `field.implementation-row.files`  | Files                   | text               | Paths of the files that realise the concept.                                                                                                                                                                                                                          |
+|           | `field.implementation-row.note`   | Note                    | text optional      | What is partial or missing.                                                                                                                                                                                                                                           |
+| Relation  | `edge.implementation-row.concept` | Concepts                | refs `ent.concept` | The concepts the row claims; concepts realised in the same files may share a row.                                                                                                                                                                                     |
+| Derived   | `derived.named-in-code`           | Named in code           |                    | The files that name a concept in an `ont:` comment: those of the implementation table and of the code directories the configuration lists; `--coverage` shows them, and the check lists implemented concepts that the files of their row do not name, as information. |
+| Rule      | `rule.code-names-concepts`        | Code names its concepts |                    | Code that implements a concept names its ID next to it in a comment, `// ont: inv.no-renew-when-held`; a name is not an implementation, so the implementation table still says where a concept is built.                                                              |
+|           | `rule.table-with-code`            | Updated with the code   |                    | A change to behavior updates the implementation table in the same change.                                                                                                                                                                                             |
+|           | `rule.partial-noted`              | Partial noted           |                    | The note of a partial row names the target concept that adds what is missing; no note means complete as far as the author knows.                                                                                                                                      |
+| Invariant | `inv.code-names-resolve`          | Code names resolve      |                    | Every ID that code names in an `ont:` comment is defined and not retired.                                                                                                                                                                                             |
+|           | `inv.implementation-files-exist`  | Files exist             |                    | Every file the table names exists.                                                                                                                                                                                                                                    |
+|           | `inv.implementation-true`         | Row is true             |                    | The files a row names do realise the concept.                                                                                                                                                                                                                         |
 
 ## Divergence
 
@@ -388,16 +391,19 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Implementation row
 
-| ID                                | Implemented in                                             | Note                  |
-| --------------------------------- | ---------------------------------------------------------- | --------------------- |
-| `ent.implementation-row`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `field.implementation-row.files`  | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `field.implementation-row.note`   | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `edge.implementation-row.concept` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `rule.table-with-code`            | `docs/parts/target-and-reality.md`                         | reviewed, not checked |
-| `rule.partial-noted`              | `docs/parts/target-and-reality.md`                         | reviewed, not checked |
-| `inv.implementation-files-exist`  | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                       |
-| `inv.implementation-true`         | `docs/parts/target-and-reality.md`                         | reviewed, not checked |
+| ID                                | Implemented in                                             | Note                                |
+| --------------------------------- | ---------------------------------------------------------- | ----------------------------------- |
+| `ent.implementation-row`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                     |
+| `field.implementation-row.files`  | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                     |
+| `field.implementation-row.note`   | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                     |
+| `edge.implementation-row.concept` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                     |
+| `rule.table-with-code`            | `docs/parts/target-and-reality.md`                         | reviewed, not checked               |
+| `derived.named-in-code`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                     |
+| `rule.code-names-concepts`        | `docs/parts/target-and-reality.md`                         | reviewed; the check reads the names |
+| `inv.code-names-resolve`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                     |
+| `rule.partial-noted`              | `docs/parts/target-and-reality.md`                         | reviewed, not checked               |
+| `inv.implementation-files-exist`  | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |                                     |
+| `inv.implementation-true`         | `docs/parts/target-and-reality.md`                         | reviewed, not checked               |
 
 ### Divergence
 
@@ -570,6 +576,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-10-28: code names its concepts in `ont:` comments: `rule.code-names-concepts`, `inv.code-names-resolve` and `derived.named-in-code` (D-57).
 - 2026-10-28: `rule.commit-finished-work`: every change ends with a commit of its own files; who approves a commit or a push is the user's choice (D-54).
 - 2026-10-27: agent instructions name their sources: `rule.agent-rule-source`, `rule.departure-by-entry`, `inv.agent-rule-references-resolve` and `field.agent-rules.files`, with the approach's IDs copied with the tool, `concept.approach-ids` and `inv.approach-ids-current`; process entries depart from the approach with `field.decision.layer`, `edge.decision.extends`, `edge.decision.overrides` and `inv.departure-well-formed` (D-53).
 - 2026-10-27: `derived.in-force` and `edge.decision.supersedes`: a tentative entry supersedes nothing until it is accepted (D-52).

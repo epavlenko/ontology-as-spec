@@ -1,12 +1,12 @@
 # Limitations and open questions
 
-What the approach does not do, what has not been tested, and what could make it stronger. Two proposals are open and one is deferred, under [Proposed strengthening](#proposed-strengthening).
+What the approach does not do, the open questions, and what could make it stronger. Two proposals are open and one is deferred, under [Proposed strengthening](#proposed-strengthening).
 
 ## Weaknesses
 
-### Code does not refer to IDs
+### The check reads names in code, not what code does
 
-The check reads the ontology, the mockup, the map, the decision log, the implementation table, the check catalogue, the tickets, the anchors in documentation and the tags in tests. It does not read product code, and product code does not mention concept IDs. A tagged test ties a concept to behavior only as far as the test goes. The generated contracts carry IDs, but whether the code follows them is up to the project's own checks. Code that behaves differently from the ontology in a way no test exercises passes. The implementation table and the list of divergences are maintained by hand. In the project where the approach took shape, this is partly a matter of timing: most of the target model had not reached code yet. In general it is a real gap. The [Spec Growth Engine](comparison.md#the-spec-growth-engine) closes a version of it by reading code structure.
+Code names the concepts it implements in `ont:` comments, and the check confirms that every name resolves and lists implemented concepts that the files of their row do not name. It does not read what the code does. A tagged test ties a concept to behavior as far as the test goes, so code that behaves differently from the ontology where no test looks passes. The generated contracts carry IDs, and whether the code follows them is up to the project's own checks. The [Spec Growth Engine](comparison.md#the-spec-growth-engine) reads code structure instead.
 
 ### A tag says what a test implements, not that it does
 
@@ -22,7 +22,7 @@ A mockup shows a state: overdue, reserved, suspended. It cannot show a loan beco
 
 ### The implementation table trusts its author
 
-The check confirms that the files named in the table exist, not that they implement the concept. For the classes that tests must cover, a tagged test is required as well, which is a mechanical counterpart, though a weak one (see above). For the other classes, "implemented" still means "someone said so".
+The check confirms that the files named in the table exist and which of them name the concept in an `ont:` comment, not that they implement it. For the classes that tests must cover, a tagged test is required as well. For the other classes, a row is a claim that a reviewer confirms.
 
 ### The decision guard compares text with one earlier commit
 
@@ -36,20 +36,12 @@ The tool cannot parse the syntax of every test framework, so it reads a tag wher
 
 A generated reference page shows each concept's definition, which describes the target. A page limited to implemented concepts still shows the target definition of a concept that is only partly built: the example's terms page says the borrow limit is set by staff, while the code fixes it at five. The note column of the implementation table is not on the page.
 
-### Small, homegrown tooling
-
-The check parses Markdown tables and HTML attributes with regular expressions. It assumes a particular table layout and backticked IDs. The generic version in this repository is its first version, derived from a check that ran for weeks in one project. Since then four private projects have used it, that project among them. Each keeps a copy of the tool pinned to a commit of this repository and runs it in a commit hook or in CI; all four write their ontology and decision log in Russian, and their tests that name checks are written in TypeScript, JavaScript and Ruby. All four are projects its author works on; no other team has used it yet.
-
-### No per-change process
-
-There is no equivalent of Spec Kit's clarify and analyze commands or OpenSpec's delta specs. Changes to meaning are reviewed as ordinary diffs of the ontology and the decision log, which works while the ontology is small and one person owns it.
-
 ## Open questions
 
 - **Scale.** One ontology file with about 150 concepts was workable. At what size should it split, and along which lines: by bounded context, by product surface?
 - **Several products sharing concepts.** When a word means different things in two neighbouring products, one ontology with namespaces, or two ontologies with a mapping?
 - **How much behavior belongs in the ontology.** Too little, and agents guess. Too much, and the ontology becomes the verbose spec that Böckeler criticizes. Where is the line?
-- **Two languages.** The target model can be written in the team's language while code and user documentation use another. The approach handles this as two vocabularies with recorded divergences. Whether that holds up with a larger team is untested.
+- **Two languages.** The target model can be written in the team's language while code and user documentation use another. The approach handles this as two vocabularies with recorded divergences. Does it hold up with a larger team?
 - **Versioning.** Should the ontology be versioned against releases, or is the decision log enough history?
 
 ## Proposed strengthening

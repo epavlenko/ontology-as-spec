@@ -1,6 +1,7 @@
 // Contracts from the ontology: a JSON Schema per entity, built from the Type cells of its field and
 // relation rows. JSON Schema is the neutral format: any stack can validate data against it or
 // generate types from it, and the approach does not prescribe which.
+// ont: ent.contract, inv.typed-fields, inv.contract-current
 //
 // Type vocabulary (one per Type cell, "optional" may follow any of them):
 //   text · integer · integer 0..2 · integer 1.. · number · boolean · date · datetime

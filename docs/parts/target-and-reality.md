@@ -35,7 +35,21 @@ It also gives agents a precise instruction. An agent implementing a ticket build
 
 `ont-check.mjs --gap` reads the table the other way round: every concept not in it is target, and together with untested checks and the known divergences that is the work left. Divergences therefore list only code that contradicts the target; what is simply not built yet comes from the table. For the same reason a note cannot hold work: a concept with a row counts as built, whatever its note says is missing. The note of a partial row names the target concept that adds what is missing, and when no concept covers it, one is added with its check. In the example, the borrow limit is fixed at five until staff can set it, and setting it is a target action with its own check.
 
-The fields of an implementation row and of a divergence, their rules and their checks are in the reference: [Implementation row](../reference.md#implementation-row) and [Divergence](../reference.md#divergence). The tool confirms that the files a row names exist, not that they realise the concept; that, and keeping the table current with the code, are manual checks. It also fails on a divergence that names no concept: `--gap` matches divergences to tickets by their IDs, and a line without them would belong to no slice.
+The fields of an implementation row and of a divergence, their rules and their checks are in the reference: [Implementation row](../reference.md#implementation-row) and [Divergence](../reference.md#divergence). The tool confirms that the files a row names exist and, through the names in the code, which of them name the concept; that the files realise it, and that the table stays current with the code, are manual checks. It also fails on a divergence that names no concept: `--gap` matches divergences to tickets by their IDs, and a line without them would belong to no slice.
+
+<!-- ont: rule.code-names-concepts@701aa5, inv.code-names-resolve@052349, derived.named-in-code@9f8511 -->
+## Code names its concepts
+
+Code that implements a concept names its ID next to it, in a comment:
+
+```js
+// ont: rule.renewal, inv.no-renew-when-held
+export function renew(state, { item, today }) {
+```
+
+The comment has the form of a doc anchor without the HTML around it, so it works in any language: `# ont: …` in Python or Ruby, `-- ont: …` in SQL, `<!-- ont: … -->` in markup. A reader of the code sees which concepts it realises, and an agent that changes a concept finds its code by searching for the ID.
+
+The check reads these names in the files of the implementation table and in the code directories the configuration lists under `code`. It fails on a name the ontology does not define or has retired, and lists, as information, implemented concepts that the files of their row do not name. `--coverage` shows, for each implemented concept, the files that name it. Only `ont:` comments are read, so a property path in code that looks like an ID is not mistaken for one. A name is not an implementation: the table still says where a concept is built, and what the code does is proven by the tests that name its checks.
 
 ## How it fails in practice
 

@@ -39,25 +39,30 @@ try {
     case "seed":
       console.log("seeded: members ana, ben, carl; items dune-1, dune-2, drill-1");
       break;
+    // ont: action.checkout
     case "checkout": {
       const loan = checkout(state, { item: a, member: b, today });
       console.log(`checked out ${a} to ${b}, due ${loan.due}`);
       break;
     }
+    // ont: action.return
     case "return":
       returnItem(state, { item: a, today });
       console.log(`returned ${a}`);
       break;
+    // ont: action.renew
     case "renew": {
       const loan = renew(state, { item: a, today });
       console.log(`renewed ${a}, due ${loan.due}, renewals ${loan.renewals}`);
       break;
     }
+    // ont: action.place-hold
     case "hold": {
       const hold = placeHold(state, { title: a, member: b, today });
       console.log(`hold ${hold.id} on ${a} for ${b}`);
       break;
     }
+    // ont: view.member.loans
     case "loans": {
       const v = memberView(state, a, today);
       for (const l of v.loans)

@@ -1,6 +1,7 @@
 // Lending library domain: pure functions over a plain state object. Dates are ISO days (YYYY-MM-DD).
 // A refused action throws Refusal with the reason a person reads at the desk.
 
+// ont: rule.loan-period, rule.renewal, field.member.borrow-limit
 export const LOAN_DAYS = 21;
 export const RENEW_DAYS = 14;
 export const MAX_RENEWALS = 2;
@@ -13,6 +14,7 @@ const DAY = 86_400_000;
 export const addDays = (iso, n) => new Date(Date.parse(iso) + n * DAY).toISOString().slice(0, 10);
 const daysBetween = (from, to) => Math.round((Date.parse(to) - Date.parse(from)) / DAY);
 
+// ont: ent.member, ent.title, ent.item, edge.item.copy-of, ent.loan, ent.hold
 export const emptyState = () => ({ members: {}, titles: {}, items: {}, loans: [], holds: [] });
 
 const openLoans = (state) => state.loans.filter((l) => !l.returned);
@@ -20,9 +22,11 @@ const openLoanOf = (state, item) => openLoans(state).find((l) => l.item === item
 const waitingHolds = (state, title) =>
   state.holds.filter((h) => h.title === title && !h.closed).sort((a, b) => (a.placed < b.placed ? -1 : 1));
 
+// ont: derived.overdue
 export const isOverdue = (loan, today) => !loan.returned && today > loan.due;
 export const isAvailable = (state, item) => !openLoanOf(state, item);
 
+// ont: inv.one-loan-per-item, inv.within-limit, edge.loan.item, edge.loan.member, field.loan.due-date, field.loan.renewals
 export function checkout(state, { item, member, today }) {
   if (!state.items[item]) throw new Refusal(`No item ${item}`);
   if (!state.members[member]) throw new Refusal(`No member ${member}`);
@@ -52,6 +56,7 @@ export function returnItem(state, { item, today }) {
   return loan;
 }
 
+// ont: rule.renewal, inv.no-renew-when-held
 export function renew(state, { item, today }) {
   const loan = openLoanOf(state, item);
   if (!loan) throw new Refusal(`Item ${item} is not on loan`);
@@ -64,6 +69,7 @@ export function renew(state, { item, today }) {
   return loan;
 }
 
+// ont: edge.hold.waits-for, edge.hold.member
 export function placeHold(state, { title, member, today }) {
   if (!state.titles[title]) throw new Refusal(`No title ${title}`);
   const copies = Object.entries(state.items).filter(([, it]) => it.title === title);
@@ -73,6 +79,7 @@ export function placeHold(state, { title, member, today }) {
   return hold;
 }
 
+// ont: derived.queue-position
 export function memberView(state, member, today) {
   const loans = openLoans(state)
     .filter((l) => l.member === member)
