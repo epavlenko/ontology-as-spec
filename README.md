@@ -2,7 +2,7 @@
 
 A way to specify a product for AI coding agents: one model of the product's concepts that the UI, the decisions and the code all refer to, kept consistent by an automatic check.
 
-**Status.** An early version, v0.1, in active development: the rules still change every few days, and each change is an entry in [decisions.md](decisions.md). Four private projects use it. Pull requests are not accepted yet. More under [Status and origin](#status-and-origin).
+**Status.** An early version, v0.1, in active development: the rules still change every few days, and each change is an entry in [decisions.md](decisions.md). Four private projects use it. Issues and pull requests are welcome ([CONTRIBUTING.md](CONTRIBUTING.md)). More under [Status and origin](#status-and-origin).
 
 **Where to start.** Read the [summary](#summary) and [the idea](#the-idea), run [the example](#try-it-in-two-minutes), then read [Adopting the approach](docs/lifecycle.md#adopting-the-approach). Every rule and check is listed in [docs/reference.md](docs/reference.md).
 
@@ -94,12 +94,13 @@ The approach took shape in 2026 in a product project developed largely by coding
 
 Since then the generic check in `tools/ont-check` has been used in four private projects, that product among them. All four are projects the author works on; no other team has used the approach yet. In three of them tests name the checks they implement, and those tests are how the check sees what the code does: product behavior that no tagged test exercises stays invisible to it. [Added after the source project](docs/limitations.md#added-after-the-source-project) lists which mechanisms the projects have used and which only the example has, and [Limitations](docs/limitations.md) lists what remains weak.
 
-Questions and reports of errors are welcome as GitHub issues; pull requests are not accepted yet ([CONTRIBUTING.md](CONTRIBUTING.md)). Maintained by Jevgenijs Pavlenko.
+Questions and reports of errors are welcome as GitHub issues, and changes as pull requests; the owner decides what to merge ([CONTRIBUTING.md](CONTRIBUTING.md)). Maintained by Jevgenijs Pavlenko.
 
 ## License
 
 Copyright © 2026 Jevgenijs Pavlenko.
 
-- The text in `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `decisions.md`, `ontology.md`, `checks.md` and `docs/` is licensed under [Creative Commons Attribution 4.0 International](LICENSE-CC-BY-4.0) (CC BY 4.0). You may copy, adapt and use it for any purpose, including commercially, as long as you credit the author and link the source.
+- The text in `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `decisions.md`, `ontology.md`, `checks.md` and `docs/` is licensed under [Creative Commons Attribution 4.0 International](LICENSE-CC-BY-4.0) (CC BY 4.0). You may copy, adapt and use it for any purpose, including commercially, as long as you credit the authors and link the source.
 - The tool in `tools/`, the templates in `templates/` and the example in `example/` are licensed under the [MIT License](LICENSE). Copy them into your own repositories freely; keep the copyright notice with the tool.
 - Everything else, the configuration (`ont.config.json`, `package.json`), the generated contract in `contracts/`, the hook in `.githooks/` and the CI in `.github/`, is licensed under the [MIT License](LICENSE) too.
+- A contribution is licensed under the license of the file it changes, with no contributor license agreement ([CONTRIBUTING.md](CONTRIBUTING.md#license-of-contributions)).
