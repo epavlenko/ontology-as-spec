@@ -98,6 +98,8 @@ A check names the values it covers in a seventh column, Covers: `refusal`, or `t
 - Cannot occur: `action.return` refusal — no rule refuses a return; an item that is not on loan is nothing to act on.
 ```
 
+A line that names no concept rules the value out for every concept, `- Cannot occur: silence — the product calls no other service`. A line without a value, or without a reason after the dash, rules nothing out, and the check fails on it.
+
 The configuration lists the axes under `checks.axes`: `"outcome"` for the outcome axis of every action, or `{ "name": "time", "values": ["at once", "days later"] }` for an axis of the project's own, with `"each"` naming the classes whose every concept must cover it. The check then fails on a value that no check covers and no line rules out, and on a value that no axis has. The example lists the outcome axis, and its catalogue covers the five outcomes of each of its six actions: looking for the outcome error of a checkout is how it found that the command line front end crashed on a state file it could not read.
 
 More checks are not better. Two checks whose cases differ only in the data, another member and another title with the same behavior, are one: a check whose removal loses no value or combination of values that the others cover goes.

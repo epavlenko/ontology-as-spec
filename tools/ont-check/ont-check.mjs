@@ -516,9 +516,12 @@ if (cfg.checks) {
       return axes.get(a)?.values.includes(value) ? `${a}: ${value}` : null;
     };
     const strange = [];
+    // Values covered or ruled out in the whole catalogue, values ruled out for every concept by a line
+    // that names none, and values covered or ruled out per concept.
     const whole = new Set();
+    const everywhere = new Set();
     const of = new Map();
-    const add = (ids, key) => (ids.length ? ids.forEach((x) => of.set(x, new Set([...(of.get(x) ?? []), key]))) : whole.add(key));
+    const add = (ids, key) => ids.forEach((x) => of.set(x, new Set([...(of.get(x) ?? []), key])));
     for (const c of checks)
       for (const v of c.covers) {
         const key = valid(v);
@@ -528,18 +531,25 @@ if (cfg.checks) {
           add(c.concepts, key);
         }
       }
-    for (const r of ruledOut)
+    // A line rules a value out only when it says why, after a dash.
+    const unexplained = ruledOut.filter((r) => !r.values.length || !r.reason);
+    for (const r of ruledOut.filter((r) => !unexplained.includes(r)))
       for (const v of r.values) {
         const key = valid(v);
         if (!key) strange.push(`Cannot occur: ${v}`);
-        else add(r.ids, key);
+        else if (r.ids.length) add(r.ids, key);
+        else {
+          whole.add(key);
+          everywhere.add(key);
+        }
       }
+    report("Cannot occur lines without a value, or without a reason after a dash", unexplained.map((r) => r.line));
     report("axis values that no configured axis has", strange);
     unknown("IDs in Cannot occur lines but not in the glossary", "the check catalogue", new Set(ruledOut.flatMap((r) => r.ids)));
     report(
       "axis values that no check covers and no Cannot occur line rules out",
       [...axes.values()].flatMap((a) => {
-        const lack = (have) => a.values.filter((v) => !have.has(`${a.name}: ${v}`));
+        const lack = (have) => a.values.filter((v) => !have.has(`${a.name}: ${v}`) && !everywhere.has(`${a.name}: ${v}`));
         if (!a.each.length) return lack(whole).length ? [`${a.name}: ${lack(whole).join(", ")}`] : [];
         const isOf = new RegExp(`^(?:${a.each.join("|")})\\.`);
         return [...glossary].filter((x) => isOf.test(x) && lack(of.get(x) ?? new Set()).length).map((x) => `${x}: ${lack(of.get(x) ?? new Set()).join(", ")}`);

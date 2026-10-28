@@ -270,7 +270,8 @@ export const axisValue = (v) => {
 // for the whole catalogue.
 export const parseCannotOccur = (md, prefix) =>
   [...md.matchAll(new RegExp(`${prefix}[ \\t]*(.*)$`, "gm"))].map((m) => {
-    const [head, reason = ""] = m[1].split(/\s+[—-]\s+/);
+    const dash = m[1].match(/\s+[—-]\s+/);
+    const [head, reason] = dash ? [m[1].slice(0, dash.index), m[1].slice(dash.index + dash[0].length)] : [m[1], ""];
     const ids = [...head.matchAll(/`([^`]+)`/g)].map((x) => x[1]);
     const values = head.replace(/`[^`]+`,?/g, "").split(",").map((v) => v.trim()).filter(Boolean);
     return { ids, values, reason: reason.trim(), line: m[0] };

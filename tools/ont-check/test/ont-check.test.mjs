@@ -362,6 +362,16 @@ test("[check.check.axis-value-uncovered] fails on an outcome of an action that n
   assert.match(strange.out, /axis values that no configured axis has \(1\):\n {2}check\.member\.set-borrow-limit: maybe\n/);
 });
 
+test("[check.check.axis-value-uncovered] a Cannot occur line without concepts rules a value out for every action, and one without a reason rules nothing out", () => {
+  const silence = "- Cannot occur: `action.checkout`, `action.return`, `action.renew`, `action.place-hold`, `action.cancel-hold`, `action.set-borrow-limit` silence — ";
+  const everywhere = run((p) => p("checks.md", silence, "- Cannot occur: silence — "));
+  assert.equal(everywhere.code, 0, everywhere.out);
+  const unexplained = run((p) => p("checks.md", "- Cannot occur: `action.return` refusal — no rule refuses a return; an item that is not on loan is nothing to act on.", "- Cannot occur: `action.return` refusal"));
+  assert.equal(unexplained.code, 1, unexplained.out);
+  assert.match(unexplained.out, /Cannot occur lines without a value, or without a reason after a dash \(1\):\n {2}- Cannot occur: `action\.return` refusal\n/);
+  assert.match(unexplained.out, /axis values that no check covers and no Cannot occur line rules out \(1\):\n {2}action\.return: refusal\n/);
+});
+
 // The ontology layer lists terms that name more than one concept (D-59).
 test("[check.concept.term-shared] lists a term that two concepts share as information", () => {
   const r = run((p, dir) => {
