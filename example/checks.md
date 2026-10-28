@@ -66,6 +66,7 @@ Outcomes: the checks of every action cover success, refusal, empty, error and si
 | `check.hold.expiry-passes-on`          | `hook.hold-expire`, `rule.pickup-window`        | `dune-1` was reserved for ana on 2026-10-10 and carl waits next | the day 2026-10-14 is processed                              | ana's hold is closed as expired and `dune-1` is reserved for carl                    | auto  |                  |
 | `check.hold.cancel`                    | `action.cancel-hold`, `derived.queue-position`  | ana and carl wait for Dune, in that order                       | ana cancels her hold                                         | she leaves the queue and carl is at position 1                                       | auto  | success          |
 | `check.hold.nothing-to-act-on`         | `action.place-hold`, `action.cancel-hold`       | no title has the code `atlas`, and ben has no hold on Dune      | ana places a hold on `atlas`, and ben cancels a hold on Dune | each is refused with a message that names the title, and nothing changes             | auto  | empty            |
+| `check.hold.unknown-member`            | `action.place-hold`                             | no member is called `zoe`, and both copies of Dune are out      | zoe places a hold on Dune                                    | it is refused with a message that names the member, and nothing changes              | auto  | empty            |
 | `check.hold.staff-cancel-needs-reason` | `action.cancel-hold`                            | ana waits for Dune                                              | the desk cancels her hold without a reason                   | refused, and the desk is asked for the reason                                        | auto  | refusal          |
 | `check.hold.state-unreadable`          | `action.cancel-hold`, `action.set-borrow-limit` | the state file holds something that is not the library's state  | the desk cancels a hold or sets a borrow limit               | it stops with a message that the state cannot be read, and leaves the file as it was | auto  | error            |
 
@@ -77,6 +78,7 @@ Outcomes: the checks of every action cover success, refusal, empty, error and si
 
 ## History
 
+- 2026-10-28: `check.hold.unknown-member`: a hold, like a loan, is placed only for a member the library has.
 - 2026-10-23: `check.member.set-borrow-limit` for `action.set-borrow-limit`, the staff action the borrow limit's definition already implied.
 - 2026-10-22: `check.member.suspended-cannot-hold`, so that ticket #4 Suspend borrowing instead of fines covers both halves of the invariant.
 - 2026-10-22: catalogue created from the scenario files and ticket #3 Serve the hold queue: reservation on return and the pickup window (D-14 of the approach).

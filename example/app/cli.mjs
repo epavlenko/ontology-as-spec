@@ -32,10 +32,12 @@ const seed = () => {
 };
 // A state file that is not the library's state stops every command before it changes anything. The
 // state is the library's when its collections have the right shape, every loan and hold names an item,
-// a title and a member it holds, and its dates are days.
+// a title and a member it holds, and its dates are days of the calendar.
 const isObject = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 const has = (o, k) => typeof k === "string" && Object.hasOwn(o, k) && isObject(o[k]);
-const isDay = (x) => typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x) && !Number.isNaN(Date.parse(x));
+// Date.parse moves 2026-02-30 to March, so a day is valid only when it comes back unchanged.
+const isDay = (x) =>
+  typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x) && !Number.isNaN(Date.parse(x)) && new Date(Date.parse(x)).toISOString().slice(0, 10) === x;
 const isLibrary = (s) =>
   isObject(s) &&
   [s.members, s.titles, s.items].every(isObject) &&

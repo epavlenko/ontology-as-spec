@@ -72,6 +72,7 @@ export function renew(state, { item, today }) {
 // ont: edge.hold.waits-for, edge.hold.member
 export function placeHold(state, { title, member, today }) {
   if (!state.titles[title]) throw new Refusal(`No title ${title}`);
+  if (!state.members[member]) throw new Refusal(`No member ${member}`);
   const copies = Object.entries(state.items).filter(([, it]) => it.title === title);
   if (copies.some(([id]) => isAvailable(state, id))) throw new Refusal(`An item of ${title} is available`);
   const hold = { id: `H${state.holds.length + 1}`, title, member, placed: today, closed: null };

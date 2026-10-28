@@ -78,6 +78,7 @@ test("[check.loan.state-unreadable] a command stops when the state cannot be rea
     JSON.stringify({ ...sample, loans: [null] }),
     JSON.stringify({ ...sample, loans: [{ ...sample.loans[0], item: "dune-9" }] }),
     JSON.stringify({ ...sample, loans: [{ ...sample.loans[0], due: "soon" }] }),
+    JSON.stringify({ ...sample, loans: [{ ...sample.loans[0], due: "2026-02-30" }] }),
     JSON.stringify({ ...sample, holds: [{ id: "H1", title: "dune", member: "bob", placed: "2026-10-02", closed: null }] }),
   ];
   for (const text of broken) {

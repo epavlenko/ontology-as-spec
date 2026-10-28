@@ -33,6 +33,15 @@ test("[check.loan.nothing-to-act-on] an unknown item, or one not on loan, is ref
   assert.equal(JSON.stringify(s), before);
 });
 
+test("[check.hold.unknown-member] a hold for a member the library does not have is refused by name", () => {
+  const s = library();
+  checkout(s, { item: "dune-1", member: "ana", today: "2026-10-01" });
+  checkout(s, { item: "dune-2", member: "ben", today: "2026-10-01" });
+  const before = JSON.stringify(s);
+  assert.throws(() => placeHold(s, { title: "dune", member: "zoe", today: "2026-10-02" }), /No member zoe/);
+  assert.equal(JSON.stringify(s), before);
+});
+
 test("[check.loan.due-in-21-days] a loan is due 21 days after checkout", () => {
   const loan = checkout(library(), { item: "dune-1", member: "ana", today: "2026-10-01" });
   assert.equal(loan.due, "2026-10-22");
