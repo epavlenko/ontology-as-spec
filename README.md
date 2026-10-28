@@ -88,7 +88,7 @@ Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/ex
 
 ## Status and origin
 
-This is an early version, v0.1, in active development. Each change to a rule of the approach is an entry in [decisions.md](decisions.md); an entry marked tentative is a proposal, not yet a rule. A [draft page](docs/drafts/verification.md) describes the target of one such entry; nothing on it is built.
+This is an early version, v0.1, in active development. Each change to a rule of the approach is an entry in [decisions.md](decisions.md); an entry marked tentative is a proposal, not yet a rule. A [draft page](docs/drafts/verification.md) describes targets that are agreed and not built yet.
 
 The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks its ontology grew to roughly 150 concepts, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product or name it. The example is fictional.
 

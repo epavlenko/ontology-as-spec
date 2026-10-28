@@ -1,6 +1,6 @@
 # Draft: verification in two layers
 
-> Draft. This page describes the targets of D-44, which is tentative, and of D-50, which is accepted. Nothing on it is built yet: the concepts it explains are target concepts of the approach's ontology, and each mechanism is built under a decision of its own.
+> Draft. This page describes the targets of D-44 and D-50, both accepted. Nothing on it is built yet: the concepts it explains are target concepts of the approach's ontology, and each mechanism is built under a decision of its own.
 
 <!-- ont: concept.ontology-layer@0c2853, concept.product-layer@4e4ce9 -->
 ## Two layers
