@@ -72,7 +72,7 @@ IDs: `action.set-borrow-limit`, `action.cancel-hold`
 Checks: `check.member.set-borrow-limit`, `check.member.set-limit-unknown-member`, `check.hold.cancel`, …
 ```
 
-With nothing ready, it says what the targets wait for, such as `NEXT · nothing ready: 3 wait for the owner (D-07)`. The tool learns that a target waits from the decision log, so an entry names the concepts it decides by ID: a tentative entry that describes a concept without naming it leaves that concept looking ready.
+With nothing ready, it says what the targets wait for, such as `NEXT · nothing ready: 3 wait for the owner (D-07)`. With no target left, it says what else the gap holds, such as `NEXT · no target concept left, but the gap still holds 1 known divergence (--gap lists them)`, and `NEXT · nothing left to build` only when nothing is open. The tool learns that a target waits from the decision log, so an entry names the concepts it decides by ID: a tentative entry that describes a concept without naming it leaves that concept looking ready.
 
 A loop can watch it. A job runs `--next` on a timer and, when a new slice appears, wakes an agent that cuts the ticket and builds it until `SLICE_DONE`. A job that only compares the output with its previous run costs nothing while nothing changes. What the agent may commit, push or merge stays the owner's choice.
 

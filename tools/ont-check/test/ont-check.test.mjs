@@ -423,6 +423,42 @@ test("[check.ticket.next-slice] --next proposes the next slice, or says what the
   assert.match(none.out, /NEXT · nothing ready: 8 are in tickets; 7 are deferred until a second branch opens \(D-07\)\n/);
 });
 
+test("[check.ticket.next-slice] --next says what the gap still holds when no target is left", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ont-check-"));
+  try {
+    const write = (file, lines) => writeFileSync(join(dir, file), lines.join("\n"));
+    write("ont.config.json", [JSON.stringify({ classes: { ent: "Entity", action: "Action" }, ontology: "ontology.md", checks: { file: "checks.md", require: ["action"] } })]);
+    write("app.mjs", ["// ont: ent.item, action.lend", ""]);
+    const ontology = (divergence) => [
+      "# Ontology", "", "## Item", "",
+      "| Kind   | ID            | Term | Definition    |",
+      "| ------ | ------------- | ---- | ------------- |",
+      "| Entity | `ent.item`    | Item | A thing lent. |",
+      "| Action | `action.lend` | Lend | Lend an item. |", "",
+      "## Implementation status", "",
+      "| Concept                   | Files     | Note |",
+      "| ------------------------- | --------- | ---- |",
+      "| `ent.item`, `action.lend` | `app.mjs` |      |", "",
+      "### Known divergences", "", ...(divergence ? ["- `action.lend` lends for 14 days, not 21."] : []), "",
+    ];
+    const catalogue = (proof) => [
+      "## Item", "",
+      "| Check | Concepts | GIVEN | WHEN | THEN | Proof |",
+      "| ----- | -------- | ----- | ---- | ---- | ----- |",
+      `| \`check.item.lend\` | \`action.lend\` | an item on the shelf | a member borrows it | it is lent | ${proof} |`, "",
+    ];
+    const next = () => spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), "--next"], { encoding: "utf8" }).stdout;
+    write("ontology.md", ontology(true));
+    write("checks.md", catalogue("auto"));
+    assert.match(next(), /NEXT · no target concept left, but the gap still holds 1 known divergence and 1 automatic check without a test \(--gap lists them\)\n/);
+    write("ontology.md", ontology(false));
+    write("checks.md", catalogue("manual"));
+    assert.match(next(), /NEXT · nothing left to build\n/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // Code names the concepts it implements in ont: comments (D-57).
 test("[check.implementation-row.code-name-unknown] fails on an ID named in code that the ontology does not define", () => {
   // A property path such as action.type is code, not a name: only ont: comments are read.

@@ -1026,7 +1026,8 @@ if (flag("--gap") > 0) {
 
 // --next: the next slice to build, for a ticket: the ready targets of the first ontology section that
 // has any, the ready targets they depend on, and the checks whose concepts the slice and the code
-// cover. With nothing ready, what the targets wait for.
+// cover. With nothing ready, what the targets wait for; with no target left, what else the gap holds,
+// so that the end of the targets is not taken for the end of the work.
 // ont: derived.next-slice
 if (flag("--next") > 0) {
   const ready = rows.filter((r) => readiness.get(r.id)?.kind === "ready");
@@ -1035,10 +1036,18 @@ if (flag("--next") > 0) {
       [...readiness.values()].map((s) => (s.kind === "target" ? "wait for other targets" : s.kind === "ticket" ? "are in tickets" : s.text.replace(/^waits/, "wait").replace(/^deferred/, "are deferred"))),
       (t) => t,
     );
+    const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const untested = checks.filter((c) => (c.proof === "auto" || c.proof === "judged") && fullyImplemented(c) && !checksTested.has(c.id)).length;
+    const rest = [
+      ...(divergenceLines.length ? [count(divergenceLines.length, "known divergence", "known divergences")] : []),
+      ...(untested ? [count(untested, "automatic check without a test", "automatic checks without a test")] : []),
+    ];
     console.log(
       readiness.size
         ? `NEXT · nothing ready: ${[...waiting].map(([t, xs]) => `${xs.length} ${t}`).join("; ")}`
-        : "NEXT · nothing left to build",
+        : rest.length
+          ? `NEXT · no target concept left, but the gap still holds ${rest.join(" and ")} (--gap lists them)`
+          : "NEXT · nothing left to build",
     );
   } else {
     const slice = new Set(ready.filter((r) => r.heading === ready[0].heading).map((r) => r.id));
