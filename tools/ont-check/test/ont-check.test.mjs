@@ -310,7 +310,7 @@ test("[check.decision.tentative-supersedes-nothing] a tentative entry's Supersed
 
 // Checks a model judges run in the suites that name them (D-60).
 const rowOf = (id) => new RegExp(`^\\| \`${id.replace(/\./g, "\\.")}\` .*$`, "m").exec(readFileSync(join(EXAMPLE, "checks.md"), "utf8"))[0];
-const judgedRow = (id) => rowOf(id).replace(/\| auto( *)\|$/, "| judged$1|");
+const judgedRow = (id) => rowOf(id).replace(/\| auto( *)\|/, "| judged$1|");
 
 test("[check.check.judged-untested] fails on a judged check of implemented concepts that no suite runs with a judge", () => {
   const r = run((p) => p("checks.md", rowOf("check.loan.renew-twice"), judgedRow("check.loan.renew-twice")));
@@ -341,6 +341,27 @@ test("[check.ticket.judged-check-waits] a listed judged check that needs a conce
   assert.match(r.out, /SLICE_OPEN: 1/);
 });
 
+// A complete catalogue covers every outcome of every action, or rules one out (D-62).
+test("[check.check.axis-value-uncovered] fails on an outcome of an action that no check covers and nothing rules out", () => {
+  const without = (p) => {
+    // The Cannot occur line of silence comes first in the file, then the two checks of the Loan section.
+    p("checks.md", "`action.return`, `action.renew`, `action.place-hold`, `action.cancel-hold`", "`action.return`, `action.place-hold`, `action.cancel-hold`");
+    p("checks.md", "`action.checkout`, `action.return`, `action.renew`, `action.place-hold`", "`action.checkout`, `action.return`, `action.place-hold`");
+    p("checks.md", "`action.checkout`, `action.return`, `action.renew`", "`action.checkout`, `action.return`");
+  };
+  const r = run(without);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /axis values that no check covers and no Cannot occur line rules out \(1\):\n {2}action\.renew: empty, error, silence\n/);
+  const ruled = run((p) => {
+    without(p);
+    p("checks.md", "\n## Member\n", "\n- Cannot occur: `action.renew` empty, error, silence — a fixture.\n\n## Member\n");
+  });
+  assert.equal(ruled.code, 0, ruled.out);
+  const strange = run((p) => p("checks.md", "| success, refusal |", "| success, maybe |"));
+  assert.equal(strange.code, 1, strange.out);
+  assert.match(strange.out, /axis values that no configured axis has \(1\):\n {2}check\.member\.set-borrow-limit: maybe\n/);
+});
+
 // The ontology layer lists terms that name more than one concept (D-59).
 test("[check.concept.term-shared] lists a term that two concepts share as information", () => {
   const r = run((p, dir) => {
@@ -367,7 +388,7 @@ test("[check.ticket.gap-readiness] --gap says what each target waits for", () =>
     p("checks.md", "| `check.screens.refusal-understandable` | `view.desk`, `action.checkout` |", "| `check.screens.refusal-understandable` | `view.desk`, `action.checkout`, `view.catalog` |");
   }, "--gap");
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /\n {2}action\.cancel-hold {2}target, ready · checks: check\.hold\.cancel\n/);
+  assert.match(r.out, /\n {2}action\.cancel-hold {2}target, ready · checks: check\.hold\.cancel, /);
   assert.match(r.out, /\n {2}rule\.pickup-window {2}target, in ticket issues\/0003-serve-the-hold-queue\.md · /);
   assert.match(r.out, /\n {2}hook\.due-reminder {2}target, waits for the owner \(D-07\) · /);
   assert.match(r.out, /\n {2}view\.catalog {2}target, deferred until a second branch opens \(D-08\) · /);
@@ -377,7 +398,8 @@ test("[check.ticket.gap-readiness] --gap says what each target waits for", () =>
 test("[check.ticket.next-slice] --next proposes the next slice, or says what the targets wait for", () => {
   const r = run(null, "--next");
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /NEXT · Member\nIDs: `action\.set-borrow-limit`\nChecks: `check\.member\.set-borrow-limit`\n/);
+  // A check that names both brings the cancel-hold action into the slice of the borrow limit.
+  assert.match(r.out, /NEXT · Member\nIDs: `action\.set-borrow-limit`, `action\.cancel-hold`\nChecks: `check\.member\.set-borrow-limit`, `check\.member\.set-limit-unknown-member`, [^\n]*`check\.hold\.state-unreadable`\n/);
   const none = run(
     (p) =>
       p(
@@ -647,7 +669,10 @@ const cases = [
   ["[check.test.proves-unbuilt] a test that proves a concept the table does not list", "IDs in unit tests but not in the implementation table",
     (p) => p("app/library.test.mjs", "[field.loan.renewals, field.member.borrow-limit]", "[field.loan.renewals, field.item.condition]")],
   ["[check.test-suite.uncovered-concept] an implemented action with no end-to-end test", "implemented concepts without a test in the end-to-end suite",
-    (p) => p("e2e/cli.test.mjs", "[check.loan.renew-while-held] ", "")],
+    (p) => {
+      p("e2e/cli.test.mjs", "[check.loan.renew-while-held] ", "");
+      p("e2e/cli.test.mjs", "[check.loan.state-unreadable] ", "");
+    }],
   ["[check.test-suite.duplicate-name] two test suites with the same name", "test suites with the same name",
     (p) => p("ont.config.json", '"name": "end-to-end"', '"name": "unit"')],
   ["[check.test-suite.empty] a test suite whose directory has no tests", "no end-to-end test files found",

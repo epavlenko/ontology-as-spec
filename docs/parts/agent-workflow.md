@@ -61,15 +61,15 @@ Not every target can be built now. `--gap` says what each one waits for:
 ```text
 GAP · Hold
   rule.pickup-window  target, in ticket issues/0003-serve-the-hold-queue.md · checks: …
-  action.cancel-hold  target, ready · checks: check.hold.cancel
+  action.cancel-hold  target, ready · checks: check.hold.cancel, check.hold.nothing-to-act-on, …
 ```
 
-Work is taken from what is ready. `--next` proposes the next slice: the ready targets of the first ontology section that has any, the ready targets they depend on, and the checks whose concepts the slice and the code cover, written as the `IDs:` and `Checks:` lines of a ticket.
+Work is taken from what is ready. `--next` proposes the next slice: the ready targets of the first ontology section that has any, the ready targets they depend on, and the checks whose concepts the slice and the code cover, written as the `IDs:` and `Checks:` lines of a ticket. In the example, a check of the state file names both the borrow limit and the cancelling of a hold, so the two are built together.
 
 ```text
 NEXT · Member
-IDs: `action.set-borrow-limit`
-Checks: `check.member.set-borrow-limit`
+IDs: `action.set-borrow-limit`, `action.cancel-hold`
+Checks: `check.member.set-borrow-limit`, `check.member.set-limit-unknown-member`, `check.hold.cancel`, …
 ```
 
 With nothing ready, it says what the targets wait for, such as `NEXT · nothing ready: 3 wait for the owner (D-07)`. The tool learns that a target waits from the decision log, so an entry names the concepts it decides by ID: a tentative entry that describes a concept without naming it leaves that concept looking ready.

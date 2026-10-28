@@ -1,6 +1,6 @@
 # Limitations and open questions
 
-What the approach does not do, the open questions, and what could make it stronger. What is agreed and not built yet is under [Agreed, not built yet](#agreed-not-built-yet).
+What the approach does not do, the open questions, and what could make it stronger. What is deferred is under [Deferred](#deferred).
 
 ## Weaknesses
 
@@ -48,10 +48,6 @@ A generated reference page shows each concept's definition, which describes the 
 - **Two languages.** The target model can be written in the team's language while code and user documentation use another. The approach handles this as two vocabularies with recorded divergences. Does it hold up with a larger team?
 - **Versioning.** Should the ontology be versioned against releases, or is the decision log enough history?
 
-## Agreed, not built yet
+## Deferred
 
-Two strengthenings are agreed and not built, and one is deferred. The agreed ones are target concepts of the approach's ontology, explained on a [draft page](drafts/verification.md); `npm run next` proposes the next slice of them.
-
-- **Verification in two layers**, in which a project's product checks follow from its ontology through profiles written as recipes, with checks that a model judges ([D-44](../decisions.md)).
-- **A complete catalogue**: every value of every axis along which behavior diverges covered by a check, and a blind derivation that tests whether the catalogue suffices ([D-50](../decisions.md)), built together with the judged checks of D-44.
 - **Forbidden terms**: words a decision retired, searched for in the doc sets. Deferred in [D-51](../decisions.md) until one project has piloted them.

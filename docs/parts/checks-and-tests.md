@@ -87,6 +87,23 @@ test("[check.member.limit-refusal-explained] a refusal at the borrow limit says 
 
 The judge reads the check's case and the product's output, never the code, the test or an expected text, so that it judges the product and not the implementation; `judge.mjs` builds exactly that prompt and runs the command in `JUDGE`, which the project chooses. The verdict is kept outside the repository, named by the check and the date, like the evidence of a manual check: the helper writes it where `JUDGE_VERDICTS` points. Nothing in a product's ontology tells a generated value from another, so the suite that runs judged checks names them, and the check fails on a judged check of implemented concepts that no suite names. Judged checks are automatic, so they count wherever automatic ones do: in the gap, in a finished slice and in a check a ticket waits for. Each run costs a call to a model, so a project may keep their suite apart and run it on purpose, and a test may skip itself when no judge is set.
 
+<!-- ont: concept.completeness-axis@a17be3, inv.axis-values-covered@3a3db0, rule.check-not-redundant@2f43b8, action.derive-blind@73594f -->
+## When the catalogue is complete
+
+A catalogue with a check for every concept can still miss what matters: a renewal checked only for success says nothing about the refusal a member meets when someone waits for the title. Completeness is measured by forks, not by the number of checks. The forks are the axes along which behavior diverges, each with its values. Every action has one axis, its outcome: success, refusal, empty when there is nothing to act on, error, and silence when no answer comes back. A product adds axes of its own, such as who acts first or how much time passes. Every value of every axis is covered by a check, and each action's outcomes by its own checks, unless the catalogue says why a value cannot occur.
+
+A check names the values it covers in a seventh column, Covers: `refusal`, or `time: days later` for an axis of the project's own. A value that cannot happen is ruled out on a line of the catalogue, with the reason after a dash:
+
+```markdown
+- Cannot occur: `action.return` refusal — no rule refuses a return; an item that is not on loan is nothing to act on.
+```
+
+The configuration lists the axes under `checks.axes`: `"outcome"` for the outcome axis of every action, or `{ "name": "time", "values": ["at once", "days later"] }` for an axis of the project's own, with `"each"` naming the classes whose every concept must cover it. The check then fails on a value that no check covers and no line rules out, and on a value that no axis has. The example lists the outcome axis, and its catalogue covers the five outcomes of each of its six actions: looking for the outcome error of a checkout is how it found that the command line front end crashed on a state file it could not read.
+
+More checks are not better. Two checks whose cases differ only in the data, another member and another title with the same behavior, are one: a check whose removal loses no value or combination of values that the others cover goes.
+
+Whether the catalogue suffices is tested by deriving blind. The owner writes cases the catalogue does not hold as judged checks in a file outside the repository, with the answer the owner expects as their THEN. A model gets the ontology, the catalogue and a case's GIVEN and WHEN, and nothing else, through `blindPrompt` in `judge.mjs`, and says what should happen; `judge` compares its answer with the owner's. A match means the case follows from what is written. A mismatch means a check is missing, or that the owner does not know the answer either, which is an open question. A reviewer, who sees the code, cannot run this test: it needs a reader who has not seen how the product is built.
+
 <!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@03fc5e, inv.section-keys-match@f8649b, inv.check-well-formed@aa846c, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@ca73cc -->
 ## Reference
 

@@ -113,6 +113,10 @@ export function loadConfig(configPath) {
     checks: raw.checks && {
       file: at(raw.checks.file),
       require: raw.checks.require ?? ["inv", "rule"],
+      // Axes the catalogue must cover (D-62): "outcome" for the outcome axis of every action, or
+      // { "name", "values", "each" } for an axis of the project's own.
+      axes: (raw.checks.axes ?? []).map((a) => (a === "outcome" ? OUTCOME_AXIS : { each: [], ...a })),
+      cannotOccur: raw.checks.cannotOccur ?? "^- Cannot occur:",
     },
     tickets: raw.tickets && {
       dir: at(raw.tickets.dir),
@@ -239,6 +243,26 @@ export const slug = (heading) => heading.toLowerCase().replace(/[^a-z0-9]+/g, "-
 export const keySpans = (heading) => [...heading.matchAll(/`([^`]*)`/g)].map((m) => m[1]);
 export const SECTION_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const sectionKey = (heading) => slug(keySpans(heading)[0] ?? heading);
+// Completeness axes (D-62): the forks along which behavior diverges. Every action has the outcome axis,
+// which a configuration turns on by listing "outcome"; a project may add axes of its own. A value is
+// written `axis: value`, or alone for the outcome axis.
+// ont: concept.completeness-axis
+export const OUTCOME_AXIS = { name: "outcome", values: ["success", "refusal", "empty", "error", "silence"], each: ["action"] };
+export const axisValue = (v) => {
+  const m = v.match(/^([^:]+):\s*(.+)$/);
+  return m ? [m[1].trim(), m[2].trim()] : ["outcome", v.trim()];
+};
+// A line of the catalogue that rules values out, `- Cannot occur: `action.renew` silence — why`: the
+// concepts it names, the values, and the reason after the dash. Without concepts it rules a value out
+// for the whole catalogue.
+export const parseCannotOccur = (md, prefix) =>
+  [...md.matchAll(new RegExp(`${prefix}[ \\t]*(.*)$`, "gm"))].map((m) => {
+    const [head, reason = ""] = m[1].split(/\s+[—-]\s+/);
+    const ids = [...head.matchAll(/`([^`]+)`/g)].map((x) => x[1]);
+    const values = head.replace(/`[^`]+`,?/g, "").split(",").map((v) => v.trim()).filter(Boolean);
+    return { ids, values, reason: reason.trim(), line: m[0] };
+  });
+
 export function parseChecks(md) {
   const checks = [];
   let heading = "";
@@ -248,7 +272,7 @@ export function parseChecks(md) {
     const cells = line.trim().slice(1, -1).split("|").map((c) => c.trim());
     const m = cells[0].match(/^`(check\.[a-z0-9-]+(?:\.[a-z0-9-]+)*)`$/);
     if (!m) continue;
-    const [, concepts = "", given = "", when = "", then = "", proof = ""] = cells;
+    const [, concepts = "", given = "", when = "", then = "", proof = "", covers = ""] = cells;
     checks.push({
       id: m[1],
       heading,
@@ -258,6 +282,8 @@ export function parseChecks(md) {
       when,
       then,
       proof,
+      // An optional seventh cell names the axis values the check covers (D-62).
+      covers: covers.split(",").map((v) => v.trim()).filter(Boolean),
       cells: cells.length,
     });
   }

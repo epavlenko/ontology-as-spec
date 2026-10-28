@@ -20,6 +20,8 @@ import {
   listFiles,
   loadApproach,
   loadConfig,
+  axisValue,
+  parseCannotOccur,
   parseChecks,
   parseGlossary,
   parseImplemented,
@@ -489,11 +491,11 @@ if (cfg.checks) {
     }),
   );
   report(
-    "malformed checks: six cells, concepts, GIVEN, WHEN, THEN, auto, judged or manual",
+    "malformed checks: six or seven cells, concepts, GIVEN, WHEN, THEN, auto, judged or manual",
     checks
       .filter(
         (c) =>
-          c.cells !== 6 ||
+          ![6, 7].includes(c.cells) ||
           !c.concepts.length ||
           !c.given ||
           !c.when ||
@@ -503,6 +505,47 @@ if (cfg.checks) {
       .map((c) => c.id),
   );
   unknown("IDs in the check catalogue but not in the glossary", "the check catalogue", checkConcepts);
+  // Completeness (D-62): every value of every axis the configuration lists is covered by a check, and
+  // an axis with classes by each concept of them, unless a Cannot occur line rules the value out there.
+  // ont: inv.axis-values-covered
+  if (cfg.checks.axes.length) {
+    const axes = new Map(cfg.checks.axes.map((a) => [a.name, a]));
+    const ruledOut = parseCannotOccur(read(cfg.checks.file), cfg.checks.cannotOccur);
+    const valid = (v) => {
+      const [a, value] = axisValue(v);
+      return axes.get(a)?.values.includes(value) ? `${a}: ${value}` : null;
+    };
+    const strange = [];
+    const whole = new Set();
+    const of = new Map();
+    const add = (ids, key) => (ids.length ? ids.forEach((x) => of.set(x, new Set([...(of.get(x) ?? []), key]))) : whole.add(key));
+    for (const c of checks)
+      for (const v of c.covers) {
+        const key = valid(v);
+        if (!key) strange.push(`${c.id}: ${v}`);
+        else {
+          whole.add(key);
+          add(c.concepts, key);
+        }
+      }
+    for (const r of ruledOut)
+      for (const v of r.values) {
+        const key = valid(v);
+        if (!key) strange.push(`Cannot occur: ${v}`);
+        else add(r.ids, key);
+      }
+    report("axis values that no configured axis has", strange);
+    unknown("IDs in Cannot occur lines but not in the glossary", "the check catalogue", new Set(ruledOut.flatMap((r) => r.ids)));
+    report(
+      "axis values that no check covers and no Cannot occur line rules out",
+      [...axes.values()].flatMap((a) => {
+        const lack = (have) => a.values.filter((v) => !have.has(`${a.name}: ${v}`));
+        if (!a.each.length) return lack(whole).length ? [`${a.name}: ${lack(whole).join(", ")}`] : [];
+        const isOf = new RegExp(`^(?:${a.each.join("|")})\\.`);
+        return [...glossary].filter((x) => isOf.test(x) && lack(of.get(x) ?? new Set()).length).map((x) => `${x}: ${lack(of.get(x) ?? new Set()).join(", ")}`);
+      }),
+    );
+  }
   const required = new RegExp(`^(?:${cfg.checks.require.join("|")})\\.`);
   report(
     "concepts without a check",

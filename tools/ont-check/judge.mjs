@@ -27,6 +27,28 @@ export const judgePrompt = (check, output) =>
     "Answer PASS on the first line if the output shows that THEN holds, otherwise FAIL; then say why in one sentence.",
   ].join("\n");
 
+// A blind derivation (D-62): a model that sees only the ontology and the catalogue says what should
+// happen in a case the catalogue does not hold. The owner's answer is the THEN of a judged check kept
+// outside the catalogue, and judge() compares the derived answer with it.
+// ont: action.derive-blind
+export const blindPrompt = ({ ontology, catalogue, given, when }) =>
+  [
+    "Here are a product's ontology and its catalogue of checks. You have not seen its code.",
+    "",
+    "<<< ontology",
+    ontology,
+    ">>>",
+    "",
+    "<<< catalogue",
+    catalogue,
+    ">>>",
+    "",
+    `GIVEN ${given}`,
+    `WHEN ${when}`,
+    "",
+    "Say what should happen, in the product's terms, in one or two sentences.",
+  ].join("\n");
+
 export function judge({
   checks,
   id,

@@ -459,6 +459,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `edge.check.concepts`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
 | `concept.ontology-layer`        | `docs/parts/checks-and-tests.md`                              |                                                                                                            |
 | `concept.product-layer`         | `docs/parts/checks-and-tests.md`                              |                                                                                                            |
+| `concept.completeness-axis`     | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
 | `rule.check-in-product-terms`   | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
 | `rule.unreachable-reported`     | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
 | `rule.manual-evidence-kept`     | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
@@ -470,6 +471,9 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `inv.auto-check-tested`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
 | `inv.section-keys-match`        | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`    |                                                                                                            |
 | `inv.judged-check-tested`       | `tools/ont-check/ont-check.mjs`                               |                                                                                                            |
+| `inv.axis-values-covered`       | `tools/ont-check/ont-check.mjs`                               |                                                                                                            |
+| `rule.check-not-redundant`      | `docs/parts/checks-and-tests.md`                              | reviewed, not checked                                                                                      |
+| `action.derive-blind`           | `tools/ont-check/judge.mjs`, `docs/parts/checks-and-tests.md` | a procedure                                                                                                |
 | `rule.judge-sees-the-check`     | `tools/ont-check/judge.mjs`, `docs/parts/checks-and-tests.md` | the helper gives the judge the case and the output only; a test that calls a judge another way is reviewed |
 | `rule.verdict-kept`             | `tools/ont-check/judge.mjs`, `docs/parts/checks-and-tests.md` | the helper writes the verdict where `JUDGE_VERDICTS` points; that it is outside the repository is reviewed |
 

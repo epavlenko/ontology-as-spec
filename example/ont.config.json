@@ -42,7 +42,8 @@
       "rule",
       "hook",
       "action"
-    ]
+    ],
+    "axes": ["outcome"]
   },
   "testSuites": [
     {

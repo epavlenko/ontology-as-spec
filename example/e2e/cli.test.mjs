@@ -3,7 +3,7 @@
 // implements, from checks.md; this suite must cover every implemented action and view.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -58,4 +58,18 @@ test("[check.hold.only-when-all-out, check.hold.position-shown] a hold is placed
   assert.equal(cli("loans", "ana", "--today", "2026-10-01").out, "hold  Dune  position 1");
   cli("hold", "dune", "carl", "--today", "2026-10-02");
   assert.equal(cli("loans", "carl", "--today", "2026-10-02").out, "hold  Dune  position 2");
+});
+
+test("[check.loan.state-unreadable] a command stops when the state cannot be read, and changes nothing", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "library-e2e-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const state = join(dir, "state.json");
+  writeFileSync(state, "this is not the library's state");
+  const env = { ...process.env, LIBRARY_STATE: state };
+  for (const args of [["checkout", "dune-1", "ana"], ["return", "dune-1"], ["renew", "dune-1"], ["hold", "dune", "ana"]]) {
+    const r = spawnSync("node", [CLI, ...args], { env, encoding: "utf8" });
+    assert.equal(r.status, 3, args.join(" "));
+    assert.match(r.stderr, /the state in .* cannot be read; nothing was changed/);
+  }
+  assert.equal(readFileSync(state, "utf8"), "this is not the library's state");
 });

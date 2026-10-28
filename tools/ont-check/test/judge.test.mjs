@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { judge, judgePrompt } from "../judge.mjs";
+import { blindPrompt, judge, judgePrompt } from "../judge.mjs";
 
 // A stand-in judge: it keeps what it was given and answers by a rule the test chooses.
 const fixture = () => {
@@ -55,4 +55,12 @@ test("[rule.verdict-kept] the verdict is written outside the repository, named b
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("[action.derive-blind] a blind derivation gives the model the ontology, the catalogue and the case, not the answer", () => {
+  const prompt = blindPrompt({ ontology: "| Rule | `rule.renewal` | Renewal rule | | Up to 2 renewals. |", catalogue: "| `check.loan.renew-twice` | ... |", given: "ana renewed twice", when: "she renews again" });
+  assert.match(prompt, /<<< ontology\n\| Rule \| `rule\.renewal`/);
+  assert.match(prompt, /<<< catalogue\n\| `check\.loan\.renew-twice`/);
+  assert.match(prompt, /GIVEN ana renewed twice\nWHEN she renews again/);
+  assert.doesNotMatch(prompt, /THEN/);
 });

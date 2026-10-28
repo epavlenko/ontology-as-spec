@@ -24,6 +24,15 @@ const library = () => {
   return s;
 };
 
+test("[check.loan.nothing-to-act-on] an unknown item, or one not on loan, is refused by name", () => {
+  const s = library();
+  const before = JSON.stringify(s);
+  assert.throws(() => checkout(s, { item: "dune-9", member: "ana", today: "2026-10-01" }), /dune-9/);
+  assert.throws(() => returnItem(s, { item: "dune-2", today: "2026-10-01" }), /dune-2 is not on loan/);
+  assert.throws(() => renew(s, { item: "dune-2", today: "2026-10-01" }), /dune-2 is not on loan/);
+  assert.equal(JSON.stringify(s), before);
+});
+
 test("[check.loan.due-in-21-days] a loan is due 21 days after checkout", () => {
   const loan = checkout(library(), { item: "dune-1", member: "ana", today: "2026-10-01" });
   assert.equal(loan.due, "2026-10-22");

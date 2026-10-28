@@ -30,7 +30,16 @@ const seed = () => {
   s.items = { "dune-1": { title: "dune" }, "dune-2": { title: "dune" }, "drill-1": { title: "drill" } };
   return s;
 };
-const load = () => (existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : seed());
+// A state file that is not the library's state stops every command before it changes anything.
+const load = () => {
+  if (!existsSync(FILE)) return seed();
+  try {
+    const s = JSON.parse(readFileSync(FILE, "utf8"));
+    if (s && s.members && s.titles && s.items && Array.isArray(s.loans) && Array.isArray(s.holds)) return s;
+  } catch {}
+  console.error(`error: the state in ${FILE} cannot be read; nothing was changed`);
+  process.exit(3);
+};
 const save = (s) => writeFileSync(FILE, JSON.stringify(s, null, 1));
 
 const state = command === "seed" ? seed() : load();
