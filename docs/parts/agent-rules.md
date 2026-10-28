@@ -29,7 +29,7 @@ Rules the check cannot enforce:
 - What you put off outside any slice gets an entry with a `Return when:` line, not a note that nobody will read again (`rule.deferral-returns`).
 - A number is held as its role needs. A rule's value or a requirement is held by a check. A model's assumptions are held by a snapshot of its base scenario, each change of them is a short entry about its topic, and no check requires the model to reach its goal (`rule.number-by-role`, `rule.chosen-value-checked`).
 - A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings (`rule.findings-mislead`).
-- A finished task, its checks passing, ends with a local commit of its own changes where the repository lets you commit; push only when the owner allows it. Otherwise tell the owner which accepted decision entries are not protected yet (`rule.commit-finished-work`).
+- Every change ends with a commit of its own files, never another agent's (`rule.commit-finished-work`).
 - A rule here that comes from a rule of the approach or from a decision names it, by ID or entry; a rule that departs from the approach cites the process entry of the log that decided it (`rule.agent-rule-source`, `rule.departure-by-entry`).
 
 ## Why a table
@@ -38,10 +38,10 @@ Agents follow explicit procedures well and infer side effects badly. "Remember t
 
 The list after the table holds only the rules no check enforces; it exists because some rules have no mechanical check yet. Writing them down is the fallback. When a rule keeps being broken, it should move from the list into the check. Encoding a lesson in structure beats repeating it in prose.
 
-<!-- ont: rule.agent-rules-short@66c9df, rule.agent-rules-point-at-files@13a4c3, rule.start-from-ids@8804d9, rule.findings-mislead@0229fa, rule.commit-finished-work@7636e2 -->
+<!-- ont: rule.agent-rules-short@66c9df, rule.agent-rules-point-at-files@13a4c3, rule.start-from-ids@8804d9, rule.findings-mislead@0229fa, rule.commit-finished-work@8ad234 -->
 ## Reference
 
-The rules for the section itself are in the reference: [Agent rules](../reference.md#agent-rules). Keep it short, because it is read at the start of every session and long sections are skimmed. Let every row name a path or a command. Let every task start by naming the IDs it touches: if an agent cannot name them, the task is not about meaning, or the ontology is incomplete. The tool enforces none of this directly; it enforces the consequences, because a skipped row usually fails the check. The same restraint applies to reviews: a consistency review reports what would mislead someone or break a check, not every imperfection it can find. And a finished task ends with a commit where the repository lets agents commit, since the guard protects only accepted entries that are in a commit; where commits are left to the owner, the agent says which accepted entries are not protected yet. The commit is local and holds only the task's own changes, since other agents may work in the same checkout; pushing it is the owner's permission to give. A commit after every change is not asked for: it would record states whose checks fail.
+The rules for the section itself are in the reference: [Agent rules](../reference.md#agent-rules). Keep it short, because it is read at the start of every session and long sections are skimmed. Let every row name a path or a command. Let every task start by naming the IDs it touches: if an agent cannot name them, the task is not about meaning, or the ontology is incomplete. The tool enforces none of this directly; it enforces the consequences, because a skipped row usually fails the check. The same restraint applies to reviews: a consistency review reports what would mislead someone or break a check, not every imperfection it can find. And every change ends with a commit, since the guard protects only accepted entries that are in a commit, and a commit keeps each step easy to undo. The commit holds only the change's own files, since other agents may work in the same checkout. Who approves a commit or a push, and when to push, the approach leaves to the user; a project that does not let agents commit writes that as a process entry, as the next section shows.
 
 <!-- ont: rule.agent-rule-source@695801, rule.departure-by-entry@4fa94e, inv.agent-rule-references-resolve@8ed1db, inv.departure-well-formed@706f17, inv.approach-ids-current@195640 -->
 ## Where a rule comes from
@@ -49,7 +49,7 @@ The rules for the section itself are in the reference: [Agent rules](../referenc
 A project's ontology is about its product. How its agents work is described by the approach's own ontology: the rules of this part and of the decision log are concepts of the approach, with IDs like any product's. So a process rule in a project's agent instructions, one that says how agents work rather than what the product is, names where it comes from: the rule of the approach it follows, by ID, or the entry of the project's log that decided it.
 
 ```markdown
-- A finished task, its checks passing, ends with a local commit of its own changes (`rule.commit-finished-work`).
+- Every change ends with a commit of its own files (`rule.commit-finished-work`).
 ```
 
 In the instructions, `D-nn` always means an entry of the project's own log; a rule of the approach is cited by its ID, never by the approach's entry numbers. The files stay prose, and commands and matters of style name nothing.

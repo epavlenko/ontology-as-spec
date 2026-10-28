@@ -31,7 +31,7 @@ Write a new entry that supersedes the old one instead of editing it.
 DRIFT: 1
 ```
 
-The guard cannot see a commit made with `--no-verify`, which then fails in CI, or a rewritten history, which removes the commit it compares with. Before the first commit there is nothing to compare with: the guard prints `GUARD_OFF` and says that accepted entries are not protected yet, rather than failing on every run. Once there are commits, it also lists accepted entries that the commit does not have yet: they are protected only after they are committed, so a finished task ends with a commit where the repository lets agents commit ([part 7](agent-rules.md#reference)), and the guard runs in the project's test command, where this list is seen.
+The guard cannot see a commit made with `--no-verify`, which then fails in CI, or a rewritten history, which removes the commit it compares with. Before the first commit there is nothing to compare with: the guard prints `GUARD_OFF` and says that accepted entries are not protected yet, rather than failing on every run. Once there are commits, it also lists accepted entries that the commit does not have yet: they are protected only after they are committed, so every change ends with a commit ([part 7](agent-rules.md#reference)), and the guard runs in the project's test command, where this list is seen.
 
 <!-- ont: inv.decision-has-reason@03ecfb, inv.rejected-recorded@b6fb01, rule.cite-decisions@b77959, rule.product-decisions-only@4f3292, inv.supersession-named@bc24b3, inv.meaning-change-decided@641c3e, inv.decision-numbers-unique@ba43af, inv.decision-references-resolve@abba7d, inv.supersedes-older@e84800, rule.number-by-role@367261, rule.unconfirmed-tentative@f4a9a4 -->
 ## Reference
