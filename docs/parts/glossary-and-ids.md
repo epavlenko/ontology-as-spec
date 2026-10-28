@@ -68,6 +68,11 @@ JSON Schema is the neutral part. Any stack can validate data against it or gener
 IDs are permanent, but sometimes one has to change: a class is renamed, a field gets its entity, a concept is removed. The old ID then moves to a "Retired IDs" table with its replacement, or a dash for a removed concept, and the decision that retired it. The decision log, whose accepted entries are never edited, keeps resolving the old ID through this table. Everywhere else the check reports the old ID with its replacement.
 
 <!-- ont: inv.ids-permanent@33ab31, inv.no-restated-definition@21be03, rule.definition-says-what@8e95f9, inv.references-defined@060f13, inv.concept-referenced@b457ed, inv.concept-tried@739910 -->
+<!-- ont: inv.one-concept-per-term@2eb96c -->
+## One term, one concept
+
+Two concepts that share a term make every sentence that uses the term ambiguous. The check lists such terms as information. Fields and relations of different entities may share one, such as the name of a member and the name of a title, and so may a relation named after the entity it refers to, such as the item of a loan and the item itself. What remains can still be legitimate, so it is a question for a reviewer, not an error.
+
 ## Reference
 
 The fields of a definition row, the rules every row follows and the checks that hold them are in the reference: [Concept](../reference.md#concept), [Retired ID](../reference.md#retired-id) and [Contract](../reference.md#contract). The automatic checks there are what the tool enforces. The manual ones are what it cannot: that a rename kept the ID, that a definition says what a thing is rather than how it is stored, that notes add detail instead of restating the definition, and that a concept involving several entities sits with the one it changes.

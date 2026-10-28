@@ -687,6 +687,24 @@ for (const ref of cfg.references) {
   );
 }
 
+// One concept per term (D-59): prose that uses a term two concepts share is ambiguous. Fields and
+// relations of different entities may share one, and so may a relation named after the entity it
+// refers to. Information, since what remains can still be legitimate.
+// ont: inv.one-concept-per-term
+{
+  const entityOf = (x) => (cfg.scoped.includes(x.split(".")[0]) ? x.split(".")[1] : null);
+  const typeOf = new Map(rows.map((r) => [r.id, r.type ?? ""]));
+  const refersTo = (a, b) => new RegExp(`\\brefs?\\s+${b.replace(/\./g, "\\.")}\\b`).test(typeOf.get(a));
+  const allowed = (a, b) =>
+    (entityOf(a) && entityOf(b) && entityOf(a) !== entityOf(b)) || refersTo(a, b) || refersTo(b, a);
+  const shared = [];
+  for (const ids of groupBy(rows.map((r) => r.id), (x) => ONT[x].name.trim().toLowerCase()).values()) {
+    const clash = ids.filter((a) => ids.some((b) => a !== b && !allowed(a, b)));
+    if (clash.length) shared.push(`${ONT[clash[0]].name}: ${clash.join(", ")}`);
+  }
+  report("terms that name more than one concept (one concept per term is clearer)", shared, false);
+}
+
 // A concept nobody refers to is a dead glossary row.
 // ont: inv.concept-referenced
 report(

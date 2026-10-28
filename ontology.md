@@ -329,6 +329,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `inv.references-defined`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
 | `inv.concept-referenced`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
 | `inv.concept-tried`            | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
+| `inv.one-concept-per-term`     | `tools/ont-check/ont-check.mjs`                                                                   |                                                                                   |
 | `inv.ids-permanent`            | `docs/parts/glossary-and-ids.md`                                                                  | a rule for people; the check sees a changed ID only as a removal plus an addition |
 | `inv.no-restated-definition`   | `docs/parts/glossary-and-ids.md`                                                                  | reviewed, not checked                                                             |
 | `action.add-concept`           | `docs/lifecycle.md`                                                                               | a procedure                                                                       |
@@ -349,48 +350,49 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Decision
 
-| ID                                | Implemented in                                                         | Note                                                      |
-| --------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------- |
-| `ent.decision`                    | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `field.decision.number`           | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `field.decision.status`           | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `field.decision.date`             | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `field.decision.choice`           | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `field.decision.why`              | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `field.decision.rejected`         | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `field.decision.title`            | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `edge.decision.concepts`          | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `edge.decision.supersedes`        | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `derived.in-force`                | `tools/ont-check/ont-check.mjs`                                        |                                                           |
-| `derived.named-by`                | `tools/ont-check/ont-check.mjs`                                        |                                                           |
-| `rule.one-choice`                 | `docs/parts/decision-log.md`                                           | reviewed; the check reports partial supersessions         |
-| `rule.cite-decisions`             | `docs/parts/decision-log.md`                                           | reviewed, not checked                                     |
-| `rule.product-decisions-only`     | `docs/parts/decision-log.md`                                           | reviewed, not checked                                     |
-| `rule.unconfirmed-tentative`      | `docs/parts/decision-log.md`                                           | reviewed, not checked                                     |
-| `rule.number-by-role`             | `docs/parts/decision-log.md`                                           | reviewed, not checked                                     |
-| `inv.accepted-never-edited`       | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `inv.decision-numbers-unique`     | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `inv.decision-references-resolve` | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `inv.superseded-whole`            | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                           |
-| `inv.decision-has-reason`         | `docs/parts/decision-log.md`                                           | reviewed, not checked                                     |
-| `inv.rejected-recorded`           | `docs/parts/decision-log.md`                                           | reviewed, not checked                                     |
-| `inv.supersession-named`          | `docs/parts/decision-log.md`                                           | reviewed, not checked                                     |
-| `inv.supersedes-older`            | `tools/ont-check/ont-check.mjs`                                        |                                                           |
-| `inv.meaning-change-decided`      | `docs/parts/decision-log.md`                                           | reviewed, not checked                                     |
-| `action.supersede-decision`       | `docs/lifecycle.md`                                                    | a procedure                                               |
-| `field.decision.source`           | `tools/ont-check/lib.mjs`, `tools/ont-check/guard-decisions.mjs`       |                                                           |
-| `field.decision.return-when`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`             |                                                           |
-| `derived.waiting-for-owner`       | `tools/ont-check/ont-check.mjs`                                        |                                                           |
-| `derived.deferral-in-force`       | `tools/ont-check/ont-check.mjs`                                        |                                                           |
-| `rule.source-precedence`          | `docs/parts/decision-log.md`                                           | reviewed, not checked                                     |
-| `rule.question-as-tentative`      | `docs/parts/decision-log.md`                                           | reviewed; the check lists tentative entries               |
-| `rule.deferral-returns`           | `docs/parts/decision-log.md`                                           | reviewed; the check lists deferrals with their conditions |
-| `inv.sourced-since-first`         | `tools/ont-check/guard-decisions.mjs`                                  |                                                           |
-| `action.answer-tentative`         | `docs/parts/decision-log.md`                                           | a procedure                                               |
-| `field.decision.layer`            | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`             |                                                           |
-| `edge.decision.extends`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`             |                                                           |
-| `edge.decision.overrides`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`             |                                                           |
-| `inv.departure-well-formed`       | `tools/ont-check/ont-check.mjs`                                        |                                                           |
+| ID                                | Implemented in                                                         | Note                                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `ent.decision`                    | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `field.decision.number`           | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `field.decision.status`           | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `field.decision.date`             | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `field.decision.choice`           | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `field.decision.why`              | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `field.decision.rejected`         | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `field.decision.title`            | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `edge.decision.concepts`          | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `edge.decision.supersedes`        | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `derived.in-force`                | `tools/ont-check/ont-check.mjs`                                        |                                                                                              |
+| `derived.named-by`                | `tools/ont-check/ont-check.mjs`                                        |                                                                                              |
+| `derived.meaning-changed`         | `tools/ont-check/guard-decisions.mjs`, `tools/ont-check/lib.mjs`       |                                                                                              |
+| `rule.one-choice`                 | `docs/parts/decision-log.md`                                           | reviewed; the check reports partial supersessions                                            |
+| `rule.cite-decisions`             | `docs/parts/decision-log.md`                                           | reviewed, not checked                                                                        |
+| `rule.product-decisions-only`     | `docs/parts/decision-log.md`                                           | reviewed, not checked                                                                        |
+| `rule.unconfirmed-tentative`      | `docs/parts/decision-log.md`                                           | reviewed, not checked                                                                        |
+| `rule.number-by-role`             | `docs/parts/decision-log.md`                                           | reviewed, not checked                                                                        |
+| `inv.accepted-never-edited`       | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `inv.decision-numbers-unique`     | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `inv.decision-references-resolve` | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `inv.superseded-whole`            | `tools/ont-check/ont-check.mjs`, `tools/ont-check/guard-decisions.mjs` |                                                                                              |
+| `inv.decision-has-reason`         | `docs/parts/decision-log.md`                                           | reviewed, not checked                                                                        |
+| `inv.rejected-recorded`           | `docs/parts/decision-log.md`                                           | reviewed, not checked                                                                        |
+| `inv.supersession-named`          | `docs/parts/decision-log.md`                                           | reviewed, not checked                                                                        |
+| `inv.supersedes-older`            | `tools/ont-check/ont-check.mjs`                                        |                                                                                              |
+| `inv.meaning-change-decided`      | `docs/parts/decision-log.md`, `tools/ont-check/guard-decisions.mjs`    | the guard names definitions changed silently; whether a change rests on a choice is reviewed |
+| `action.supersede-decision`       | `docs/lifecycle.md`                                                    | a procedure                                                                                  |
+| `field.decision.source`           | `tools/ont-check/lib.mjs`, `tools/ont-check/guard-decisions.mjs`       |                                                                                              |
+| `field.decision.return-when`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`             |                                                                                              |
+| `derived.waiting-for-owner`       | `tools/ont-check/ont-check.mjs`                                        |                                                                                              |
+| `derived.deferral-in-force`       | `tools/ont-check/ont-check.mjs`                                        |                                                                                              |
+| `rule.source-precedence`          | `docs/parts/decision-log.md`                                           | reviewed, not checked                                                                        |
+| `rule.question-as-tentative`      | `docs/parts/decision-log.md`                                           | reviewed; the check lists tentative entries                                                  |
+| `rule.deferral-returns`           | `docs/parts/decision-log.md`                                           | reviewed; the check lists deferrals with their conditions                                    |
+| `inv.sourced-since-first`         | `tools/ont-check/guard-decisions.mjs`                                  |                                                                                              |
+| `action.answer-tentative`         | `docs/parts/decision-log.md`                                           | a procedure                                                                                  |
+| `field.decision.layer`            | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`             |                                                                                              |
+| `edge.decision.extends`           | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`             |                                                                                              |
+| `edge.decision.overrides`         | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`             |                                                                                              |
+| `inv.departure-well-formed`       | `tools/ont-check/ont-check.mjs`                                        |                                                                                              |
 
 ### Implementation row
 

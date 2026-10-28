@@ -454,6 +454,14 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the gap listed every target alike, so a loop that took work from it would build what the owner had not approved: all seventeen targets of the approach wait for the tentative D-44, four of them through D-50, which names it. What a target waits for is already written in the log, the ontology, the catalogue and the tickets, so it can be computed rather than kept by hand. A proposed slice saves cutting it by hand, and a job that wakes the agent only on a change keeps the loop cheap.
 - Rejected: a status column in the ontology (a second place for what the log decides); readiness kept by hand in tickets (it goes out of date as entries are accepted); a scheduled agent that wakes on every run (a model call even when nothing changed); building a target that waits for the owner because a loop found it (an approval the owner did not give, D-34).
 
+### D-59 · The guard names silent changes of meaning, and the check lists terms that two concepts share
+
+- Date: 2026-10-28 · Status: accepted
+- Source: the owner's message of 2026-10-28: "build everything that is not built, except what is deferred" (translated from Russian). This builds the two checks of the ontology layer that D-44 agreed.
+- Decision: the guard compares the definition rows with its base commit. A row whose term, type or definition changed fails unless a decision entry added or changed since the base, or a line added to the ontology's revision history, names its ID (`derived.meaning-changed`, `inv.meaning-change-decided`). The heading of the history is configurable as `headings.history`, by default `## Revision history`. A new row and a removed one are not changes of a definition, and the Kind cell and the alignment are formatting. The check lists, as information, terms that name more than one concept, apart from fields and relations of different entities and a relation that is named after the entity it refers to (`inv.one-concept-per-term`).
+- Why: a definition could change without a trace: the next reader saw the new meaning and nothing about the change, while the tooltips, the contracts and the reference pages followed it. The guard already compares the log with a base commit, so it compares the definitions too; a history line is enough for a change of wording, and a change that rests on a choice gets an entry, as the agent rules ask. Shared terms are information, as D-44 found: the approach's own ontology has three legitimate ones.
+- Rejected: a decision entry for every change of a definition (a change of wording is not a choice); counting changes of the Kind cell or the alignment (formatting, which the formatter rewrites); shared terms as an error (D-44).
+
 ## Tentative
 
 ## Open questions

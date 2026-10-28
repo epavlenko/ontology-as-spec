@@ -53,6 +53,7 @@ export function loadConfig(configPath) {
     implementation: "## Implementation status",
     retired: "## Retired IDs",
     divergences: "### Known divergences",
+    history: "## Revision history",
     ...raw.headings,
   };
   // classes: an array of class names, or an object { class: "Kind label" }. The order is the order

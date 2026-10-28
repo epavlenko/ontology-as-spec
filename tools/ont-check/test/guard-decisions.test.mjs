@@ -164,6 +164,40 @@ test("[check.decision.unsourced-acceptance] checks the sources of a log that is 
   }
 });
 
+// A definition changed since the base is named by a new decision entry or a new history line (D-59).
+test("[check.decision.meaning-changed] fails on a definition changed with no decision entry or history line naming it", () => {
+  const dir = mkdtempSync(join(tmpdir(), "guard-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    for (const args of [["init", "-q"], ["add", "."], ["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base"]])
+      assert.equal(spawnSync("git", args, { cwd: dir }).status, 0);
+    const onto = join(dir, "ontology.md");
+    const log = join(dir, "decisions.md");
+    const [text, entries] = [readFileSync(onto, "utf8"), readFileSync(log, "utf8")];
+    const changed = text.replace("Up to 2 renewals per loan, each adds 14 days", "Up to 3 renewals per loan, each adds 14 days");
+    assert.notEqual(changed, text);
+    const guard = () => {
+      const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json")], { cwd: dir, encoding: "utf8" });
+      return { code: r.status, out: r.stdout + r.stderr };
+    };
+    writeFileSync(onto, changed);
+    const silent = guard();
+    assert.equal(silent.code, 1, silent.out);
+    assert.match(silent.out, /definitions changed since HEAD with no decision entry or history line naming them \(1\): rule\.renewal/);
+    writeFileSync(onto, changed.replace("## Revision history\n\n", "## Revision history\n\n- 2026-10-28: `rule.renewal`: three renewals.\n"));
+    assert.equal(guard().code, 0);
+    writeFileSync(onto, changed);
+    writeFileSync(log, entries.replace("## Tentative", "### D-07 · Three renewals\n\n- Date: 2026-10-28 · Status: tentative\n- Decision: `rule.renewal` allows three.\n\n## Tentative"));
+    assert.equal(guard().code, 0);
+    // Formatting is not meaning: the Kind cell and the alignment may change freely.
+    writeFileSync(log, entries);
+    writeFileSync(onto, text.replace("| Rule      | `rule.loan-period`       |", "| Rule | `rule.loan-period` |"));
+    assert.equal(guard().code, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // A log in another language: the same edit is refused only once decisions.accepted matches its
 // status line.
 const localized = (setting) => (dir) => {

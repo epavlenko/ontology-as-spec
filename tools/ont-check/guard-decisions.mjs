@@ -9,11 +9,12 @@
 // there is no commit yet to compare with: before the first commit nothing is protected. Accepted entries
 // that are not in the commit yet are listed as information, since they are protected only once committed.
 // Once the log names a source on a Source line, every entry accepted after the first source must name one.
+// A definition changed since the base must be named by a new or changed decision entry or a new history line.
 // ont: inv.accepted-never-edited, field.decision.source, inv.sourced-since-first
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
-import { DEFAULT_ACCEPTED, DEFAULT_SOURCE, loadConfig, read } from "./lib.mjs";
+import { backtickIds, DEFAULT_ACCEPTED, DEFAULT_SOURCE, loadConfig, parseGlossary, read, section } from "./lib.mjs";
 
 const argv = process.argv.slice(2);
 const values = (flag) => argv.flatMap((a, i) => (argv[i - 1] === flag ? [a] : []));
@@ -30,7 +31,7 @@ const targets = [
     const cfg = loadConfig(c);
     if (!cfg.decisions) throw new Error(`${c}: no decisions file in the config`);
     const { file, entry, accepted, sourceLine } = cfg.decisions;
-    return { file, entry: entry.source, accepted, sourceLine };
+    return { file, entry: entry.source, accepted, sourceLine, ontology: cfg.ontology, history: cfg.headings.history, classes: cfg.classes };
   }),
   ...files.map((f) => ({
     file: resolve(f),
@@ -60,7 +61,8 @@ const errors = [];
 const off = [];
 let violations = 0;
 let unsourcedCount = 0;
-for (const { file, entry, accepted, sourceLine } of targets) {
+let silentCount = 0;
+for (const { file, entry, accepted, sourceLine, ontology, history, classes } of targets) {
   const cwd = dirname(file);
   const path = `./${basename(file)}`;
   const name = relative(process.cwd(), file);
@@ -129,12 +131,42 @@ for (const { file, entry, accepted, sourceLine } of targets) {
     errors.push("unsourced");
     unsourcedCount += unsourced.length;
   }
+  // A definition whose term, type or definition changed since the base is named by a decision entry
+  // added or changed since then, or by a line added to the revision history (D-59). New and removed
+  // rows follow their own rules; the Kind cell and the alignment are formatting, not meaning.
+  // ont: derived.meaning-changed
+  if (ontology) {
+    const ontPath = `./${basename(ontology)}`;
+    const was = git(dirname(ontology), "show", `${base}:${ontPath}`);
+    if (was.status === 0) {
+      const is = staged ? git(dirname(ontology), "show", `:${ontPath}`).stdout : existsSync(ontology) ? read(ontology) : "";
+      const meaning = (md) => {
+        const { ONT, rows } = parseGlossary(md);
+        const norm = (t) => (t ?? "").replace(/\s+/g, " ").trim();
+        return new Map(rows.map((r) => [r.id, [ONT[r.id].name, r.type, ONT[r.id].def].map(norm).join(" | ")]));
+      };
+      const [before, after] = [meaning(was.stdout), meaning(is)];
+      const historyLines = (md) => new Set(md.includes(history) ? section(md, history).split("\n").filter((l) => l.trim()) : []);
+      const oldHistory = historyLines(was.stdout);
+      const named = new Set([
+        ...[...cur].filter(([id, b]) => old.get(id) !== b).flatMap(([, b]) => backtickIds(b, classes)),
+        ...[...historyLines(is)].filter((l) => !oldHistory.has(l)).flatMap((l) => backtickIds(l, classes)),
+      ]);
+      const silent = [...after].filter(([id, m]) => before.has(id) && before.get(id) !== m && !named.has(id)).map(([id]) => id);
+      if (silent.length) {
+        console.log(`ERROR · ${relative(process.cwd(), ontology)}: definitions changed since ${base} with no decision entry or history line naming them (${silent.length}): ${silent.join(", ")}`);
+        errors.push("silent");
+        silentCount += silent.length;
+      }
+    }
+  }
   console.log(`${name}: ${[...old.values()].filter((b) => accepted.test(b)).length} accepted entries in ${base}`);
 }
 
 if (errors.length) {
   if (violations) console.log("Write a new entry that supersedes the old one instead of editing it.");
   if (unsourcedCount) console.log("Name on a Source line where each was decided, or the owner's answer that accepted it.");
+  if (silentCount) console.log("Add a line to the revision history that names each changed definition, or a decision entry when the change rests on a choice.");
   console.log(`DRIFT: ${errors.length}`);
   process.exit(1);
 }

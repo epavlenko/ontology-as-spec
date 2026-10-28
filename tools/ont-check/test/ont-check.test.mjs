@@ -306,6 +306,17 @@ test("[check.decision.tentative-supersedes-nothing] a tentative entry's Supersed
   assert.match(deferral.out, /deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-07: a second branch opens\n/);
 });
 
+// The ontology layer lists terms that name more than one concept (D-59).
+test("[check.concept.term-shared] lists a term that two concepts share as information", () => {
+  const r = run((p, dir) => {
+    p("ontology.md", "| `rule.loan-period`       | Loan period          |", "| `rule.loan-period`       | Due date             |");
+    for (const g of ["gen-glossary.mjs", "gen-reference.mjs"])
+      spawnSync("node", [join(TOOLS, g), "--config", join(dir, "ont.config.json")]);
+  });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /info · terms that name more than one concept[^\n]*\(1\):\n {2}Due date: field\.loan\.due-date, rule\.loan-period\n/);
+});
+
 // What each target waits for, and the next slice to build (D-58).
 test("[check.ticket.gap-readiness] --gap says what each target waits for", () => {
   const r = run((p) => {

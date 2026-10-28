@@ -24,7 +24,7 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | File               | What it does                                                                      |
 | ------------------ | --------------------------------------------------------------------------------- |
 | `ont-check.mjs`    | the check                                                                         |
-| `guard-decisions.mjs` | fails if an entry accepted in an earlier commit (`--base`, default `HEAD`) was edited or removed, or if an entry accepted since then names no source while the log names sources; `--staged` reads the staged log |
+| `guard-decisions.mjs` | fails if an entry accepted in an earlier commit (`--base`, default `HEAD`) was edited or removed, or if an entry accepted since then names no source while the log names sources, or if a definition changed since then with no new decision entry or history line naming it; `--staged` reads the staged log |
 | `gen-glossary.mjs` | writes `window.ONT = {...}` from the definition rows                              |
 | `format-ontology.mjs` | writes the kind order, the Kind cells and the alignment of the definition tables |
 | `gen-contracts.mjs` | writes the JSON Schema, one definition per entity, from the Type cells           |
@@ -49,6 +49,7 @@ Paths are relative to the config file.
 | `ontology` | the ontology Markdown file | yes |
 | `headings.retired` | heading of the retired IDs table; default `## Retired IDs`; the section may be absent | no |
 | `headings.implementation` | heading of the implementation table; default `## Implementation status`; `null` until code exists | no |
+| `headings.history` | heading of the ontology's revision history, whose new lines the guard reads; default `## Revision history` | no |
 | `headings.divergences` | the start of the heading of the known divergences; default `### Known divergences`; the section may be absent | no |
 | `root` | base directory for paths in the implementation table; default the config's directory | no |
 | `code` | code directories whose `ont:` names the check also reads, besides the files of the implementation table: `[{"dir": "src", "match": "\\.ts$"}]` | no |

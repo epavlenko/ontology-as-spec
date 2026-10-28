@@ -50,8 +50,3 @@ D-50 records this target. It is built together with judged checks, under a decis
 ## An independent critic
 
 A significant change, such as a rule of the approach, a new mechanism or risky code, is reviewed by an agent that did not write it. The critic gets the diff, the IDs it touches and their checks, and not the author's summary, since a reviewer handed the author's conclusions tends to confirm them. It reports what would mislead a reader or an agent, or break a check, as part 7 asks of every review.
-
-<!-- ont: inv.one-concept-per-term@2eb96c, derived.meaning-changed@8d5a8c -->
-## Checks of the ontology layer still to come
-
-Two gaps of the ontology layer matter most when agents edit the ontology. A definition can change without a decision or a line of history, so its meaning shifts and nobody sees it; a guard over the change can name such a definition. And two concepts can carry one term, so prose that uses the term is ambiguous. A strict rule against shared terms would be wrong: in this repository's own ontology it found eight terms shared by twelve pairs of concepts, all legitimate, such as two fields termed Name in different entities and a relation named after the entity it refers to. Leaving those cases out still leaves three legitimate pairs, such as two invariants termed Current, one for contracts and one for reference pages. So shared terms are listed as information, for a reviewer to look at.

@@ -17,7 +17,7 @@ A dated, append-only list of product decisions. Each entry records the decision,
 
 It descends from [Architecture Decision Records](https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions) (Michael Nygard, 2011). Two things differ. It records product decisions rather than architecture, and every entry names the concepts it touches by ID, so the log can be read from a concept ("why is renewal refused here?") as well as in date order.
 
-<!-- ont: inv.accepted-never-edited@a7c76a, action.supersede-decision@0d21ae -->
+<!-- ont: inv.accepted-never-edited@a7c76a, action.supersede-decision@0d21ae, derived.meaning-changed@8d5a8c -->
 ## The guard
 
 A second script, `tools/ont-check/guard-decisions.mjs`, enforces the never-edit rule. It takes every entry that was accepted in an earlier commit and fails if its text changed or the entry disappeared. New entries, tentative entries, open questions and history may change freely. It runs in the pre-commit hook against `HEAD` and in CI against the base of the push or pull request:
@@ -30,6 +30,8 @@ decisions.md: 5 accepted entries in HEAD
 Write a new entry that supersedes the old one instead of editing it.
 DRIFT: 1
 ```
+
+The guard also compares the definition rows with the same commit. A row whose term, type or definition changed fails unless a decision entry added or changed since then, or a line added to the ontology's revision history, names its ID: a change of meaning leaves a trace, and a change that rests on a choice gets an entry. The Kind cell and the alignment are formatting, and new and removed rows follow their own rules. A history under another heading is set in `headings.history`.
 
 The guard cannot see a commit made with `--no-verify`, which then fails in CI, or a rewritten history, which removes the commit it compares with. Before the first commit there is nothing to compare with: the guard prints `GUARD_OFF` and says that accepted entries are not protected yet, rather than failing on every run. Once there are commits, it also lists accepted entries that the commit does not have yet: they are protected only after they are committed, so every change ends with a commit ([part 7](agent-rules.md#reference)), and the guard runs in the project's test command, where this list is seen.
 
