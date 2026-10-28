@@ -41,11 +41,12 @@ export const renderApproach = (ONT, retired) =>
     2,
   )}\n`;
 
-// Loads ont.config.json and resolves every path against the config file's directory.
-export function loadConfig(configPath) {
+// Loads ont.config.json and resolves every path against the config file's directory. text, when given,
+// is the configuration to use instead of the file's content, such as its staged version.
+export function loadConfig(configPath, text) {
   const file = resolve(configPath);
   const base = dirname(file);
-  const raw = JSON.parse(read(file));
+  const raw = JSON.parse(text ?? read(file));
   const at = (p) => (p ? resolve(base, p) : null);
   // Headings in another language are set in the config. Known divergences are found by the start of
   // their heading line, so "### Known divergences between code and ontology" matches the default.

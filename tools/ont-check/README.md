@@ -24,7 +24,7 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | File               | What it does                                                                      |
 | ------------------ | --------------------------------------------------------------------------------- |
 | `ont-check.mjs`    | the check                                                                         |
-| `guard-decisions.mjs` | fails if an entry accepted in an earlier commit (`--base`, default `HEAD`) was edited or removed, or if an entry accepted since then names no source while the log names sources, or if a definition changed since then with no new decision entry or history line naming it; `--staged` reads the staged log |
+| `guard-decisions.mjs` | fails if an entry accepted in an earlier commit (`--base`, default `HEAD`) was edited or removed, or if an entry accepted since then names no source while the log names sources, or if a definition changed since then with no new decision entry or history line naming it; `--staged` reads the staged configuration, log and ontology |
 | `gen-glossary.mjs` | writes `window.ONT = {...}` from the definition rows                              |
 | `format-ontology.mjs` | writes the kind order, the Kind cells and the alignment of the definition tables |
 | `gen-contracts.mjs` | writes the JSON Schema, one definition per entity, from the Type cells           |
@@ -108,7 +108,7 @@ Every optional part can be left out. The checks that depend on it are then skipp
 
 ## Hooks
 
-Run the check on commits that touch any file it reads, and on the code paths that implement concepts. The second set is a reminder to update the implementation table, even though the check does not read code. Run the guard with `--staged` on every commit, and in CI with `--base` set to the commit before the push or the base of the pull request. This repository's own hook is `.githooks/pre-commit` and its CI is `.github/workflows/check.yml`; enable the hook with `git config core.hooksPath .githooks`.
+Run the check on commits that touch any file it reads, the code paths that implement concepts among them: it reads their `ont:` names, and a change there is a reminder to update the implementation table. Run the guard with `--staged` on every commit, and in CI with `--base` set to the commit before the push or the base of the pull request. This repository's own hook is `.githooks/pre-commit` and its CI is `.github/workflows/check.yml`; enable the hook with `git config core.hooksPath .githooks`.
 
 ## Tests
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { test } from "node:test";
@@ -209,7 +209,8 @@ test("[check.decision.meaning-changed] compares a renamed ontology with its old 
     return dir;
   };
   const guard = (dir, ...extra) => {
-    const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json"), ...extra], { cwd: dir, encoding: "utf8" });
+    const config = extra[0]?.endsWith(".json") ? extra.shift() : "ont.config.json";
+    const r = spawnSync("node", [GUARD, "--config", join(dir, config), ...extra], { cwd: dir, encoding: "utf8" });
     return { code: r.status, out: r.stdout + r.stderr };
   };
   const point = (dir, path) => {
@@ -226,9 +227,25 @@ test("[check.decision.meaning-changed] compares a renamed ontology with its old 
     point(dir, "model.md");
     const worktree = guard(dir);
     assert.equal(spawnSync("git", ["add", "-A"], { cwd: dir }).status, 0);
-    for (const r of [worktree, guard(dir, "--staged")]) {
+    // With --staged the staged configuration counts, even when the working copy of it says otherwise.
+    const staged = guard(dir, "--staged");
+    writeFileSync(join(dir, "ont.config.json"), readFileSync(join(EXAMPLE, "ont.config.json"), "utf8"));
+    for (const r of [worktree, staged, guard(dir, "--staged")]) {
       assert.equal(r.code, 1, r.out);
       assert.match(r.out, /model\.md: definitions changed since HEAD with no decision entry or history line naming them \(1\): rule\.renewal/);
+    }
+    point(dir, "model.md");
+    // Moved with its configuration into a directory whose name git quotes: git's rename is followed all the same.
+    const moved = repo(["."]);
+    const cfg = JSON.parse(readFileSync(join(moved, "ont.config.json"), "utf8"));
+    mkdirSync(join(moved, "модель"));
+    writeFileSync(join(moved, "модель", "ont.config.json"), JSON.stringify({ ...cfg, decisions: { ...cfg.decisions, file: "../decisions.md" } }));
+    writeFileSync(join(moved, "модель", "ontology.md"), changed);
+    for (const f of ["ont.config.json", "ontology.md"]) rmSync(join(moved, f));
+    assert.equal(spawnSync("git", ["add", "-A"], { cwd: moved }).status, 0);
+    for (const r of [guard(moved, "модель/ont.config.json"), guard(moved, "модель/ont.config.json", "--staged")]) {
+      assert.equal(r.code, 1, r.out);
+      assert.match(r.out, /ontology\.md: definitions changed since HEAD with no decision entry or history line naming them \(1\): rule\.renewal/);
     }
     // An ontology outside any repository, or one the base does not have, is compared with nothing, and the guard says so.
     const outside = mkdtempSync(join(tmpdir(), "guard-outside-"));

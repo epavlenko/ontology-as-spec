@@ -46,7 +46,7 @@ What the script cannot see, beyond the manual checks, is meaning and code behavi
 
 ## How it fails in practice
 
-- **The hook covers too few paths.** If code changes do not trigger the check, the implementation table goes stale without a signal. Include the code paths that implement concepts, even though the check does not read code. The point is the reminder.
+- **The hook covers too few paths.** If code changes do not trigger the check, the implementation table goes stale without a signal. Include the code paths that implement concepts: the check reads their `ont:` names, and a change there is the reminder.
 - **The hook is bypassed** with `--no-verify`. CI runs the same check and the guard, so the drift reaches the branch but not unnoticed.
 - **Someone adds a rule to silence a finding.** A finding means two artifacts disagree. Fix one of them.
 - **The check grows into a linter of style.** Keep it about references between artifacts.

@@ -4,7 +4,7 @@
 // Usage: node tools/ont-check/guard-decisions.mjs [--config ont.config.json]... [--file decisions.md]...
 //          [--base REF] [--staged]
 // --base   the commit to compare with; default HEAD
-// --staged compare the staged version (for a pre-commit hook) instead of the working tree
+// --staged compare the staged configuration, log and ontology (for a pre-commit hook) instead of the working tree
 // Exit code 1 on any change. Prints GUARD_OK when every accepted entry is intact, and GUARD_OFF when
 // there is no commit yet to compare with: before the first commit nothing is protected. Accepted entries
 // that are not in the commit yet are listed as information, since they are protected only once committed.
@@ -26,9 +26,15 @@ const DEFAULT_ENTRY = "^### (D-\\d+) · .+$";
 const configs = values("--config");
 const files = values("--file");
 if (!configs.length && !files.length) configs.push("ont.config.json");
+const git = (cwd, ...args) => spawnSync("git", args, { cwd, encoding: "utf8" });
+// With --staged, the configuration is the staged one too, so that the guard checks what the commit holds.
+const stagedText = (path) => {
+  const r = git(dirname(resolve(path)), "show", `:./${basename(path)}`);
+  return r.status === 0 ? r.stdout : undefined;
+};
 const targets = [
   ...configs.map((c) => {
-    const cfg = loadConfig(c);
+    const cfg = loadConfig(c, staged ? stagedText(c) : undefined);
     if (!cfg.decisions) throw new Error(`${c}: no decisions file in the config`);
     const { file, entry, accepted, sourceLine } = cfg.decisions;
     return { file, entry: entry.source, accepted, sourceLine, ontology: cfg.ontology, history: cfg.headings.history, classes: cfg.classes, config: cfg.file };
@@ -40,8 +46,6 @@ const targets = [
     sourceLine: new RegExp(DEFAULT_SOURCE, "im"),
   })),
 ];
-
-const git = (cwd, ...args) => spawnSync("git", args, { cwd, encoding: "utf8" });
 
 // Entries keyed by number: the text from the heading to the next heading of level 1 to 3.
 const entries = (text, entry) => {
@@ -153,10 +157,10 @@ for (const { file, entry, accepted, sourceLine, ontology, history, classes, conf
           const then = JSON.parse(cfgThen.stdout).ontology;
           if (then) paths.push(inRepo(resolve(dirname(config), then)));
         } catch {}
-      for (const l of git(root, "diff", "--name-status", "-M", ...(staged ? ["--cached"] : []), base).stdout.split("\n")) {
-        const [status, from, to] = l.split("\t");
-        if (status?.startsWith("R") && to === now) paths.push(from);
-      }
+      // -z keeps paths as they are: without it, git quotes a path with characters outside ASCII.
+      const diff = git(root, "diff", "--name-status", "-z", "-M", ...(staged ? ["--cached"] : []), base).stdout.split("\0");
+      for (let i = 0; i < diff.length - 1; i += /^[RC]/.test(diff[i]) ? 3 : 2)
+        if (diff[i].startsWith("R") && diff[i + 2] === now) paths.push(diff[i + 1]);
       for (const p of paths) {
         const r = show(p);
         if (r.status === 0) return r.stdout;
@@ -164,9 +168,11 @@ for (const { file, entry, accepted, sourceLine, ontology, history, classes, conf
       return null;
     };
     const was = root ? prior() : null;
-    if (was === null) console.log(`info · ${label}: ${root ? `not in ${base}` : "not in a git repository"}, so no definition is compared`);
+    const shown = root && staged ? git(root, "show", `:${inRepo(ontology)}`) : null;
+    const is = !root ? null : staged ? (shown.status === 0 ? shown.stdout : null) : existsSync(ontology) ? read(ontology) : null;
+    const missing = !root ? "not in a git repository" : was === null ? `not in ${base}` : is === null ? (staged ? "not staged" : "not found") : null;
+    if (missing) console.log(`info · ${label}: ${missing}, so no definition is compared`);
     else {
-      const is = staged ? git(root, "show", `:${inRepo(ontology)}`).stdout : existsSync(ontology) ? read(ontology) : "";
       // A version whose glossary cannot be read has no definitions to compare; the check reports the current one.
       const meaning = (md, at) => {
         try {
