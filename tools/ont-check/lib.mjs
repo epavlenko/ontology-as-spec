@@ -182,29 +182,30 @@ export const backtickIds = (text, classes) => {
 // Code blocks and inline code in Markdown show anchors and names as examples; they are not the page's
 // own. A code block is fenced by three or more backticks or tildes, indented by up to three spaces and
 // closed by a fence of the same character at least as long, or else it runs to the end; or it is indented
-// by four spaces or a tab after a blank line. markdownRuns returns the text in runs, [{ code, text }],
-// which joined give the text back.
+// by four spaces or a tab, where it does not continue a paragraph or a list item. markdownRuns returns
+// the text in runs, [{ code, text }], which joined give the text back.
 export const markdownRuns = (md) => {
   const runs = [];
   let fence = null;
-  let blank = true;
-  let indented = false;
+  // Whether an indented line starts or continues a code block here: at the start, and after a blank line,
+  // a heading, a fenced block or an indented block; not after a line of text.
+  let indentable = true;
   for (const line of md.split(/(?<=\n)/)) {
     const body = line.replace(/\r?\n$/, "");
-    let code = false;
+    let code = true;
+    const open = fence ? null : body.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
     if (fence) {
-      code = true;
       const m = body.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
       if (m && m[1][0] === fence[0] && m[1].length >= fence.length) fence = null;
-    } else {
-      const m = body.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
-      if (m && !(m[1][0] === "`" && m[2].includes("`"))) {
-        fence = m[1];
-        code = true;
-      } else if (body.trim() && /^( {4}|\t)/.test(body) && (blank || indented)) code = indented = true;
-      else if (body.trim()) indented = false;
+      indentable = true;
+    } else if (open && !(open[1][0] === "`" && open[2].includes("`"))) fence = open[1];
+    else if (!body.trim()) {
+      code = false;
+      indentable = true;
+    } else if (!(indentable && /^( {4}|\t)/.test(body))) {
+      code = false;
+      indentable = /^ {0,3}#{1,6}(?:[ \t]|$)/.test(body);
     }
-    blank = !body.trim();
     if (runs.at(-1)?.code === code) runs.at(-1).text += line;
     else runs.push({ code, text: line });
   }

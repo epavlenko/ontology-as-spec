@@ -492,7 +492,7 @@ test("[check.implementation-row.code-name-unknown] does not read examples in a M
     // indented block; the page's own anchors name a concept and a check of the catalogue.
     writeFileSync(
       join(dir, "app", "overdue.md"),
-      ["# Overdue", "", "<!-- ont: derived.overdue -->", "", "A name reads `// on" + "t: derived.overdew`.", "", fence, example, fence, "", "~~~js", example, "~~~", "", "   " + fence, example, "   " + fence, "", "    " + example, "", anchor, ""].join("\n"),
+      ["# Overdue", "", "<!-- ont: derived.overdue -->", "", "A name reads `// on" + "t: derived.overdew`.", "", fence, example, fence, "", "~~~js", example, "~~~", "", "   " + fence, example, "   " + fence, "", "    " + example, "", "## Right after a heading", "    " + example, "", "- a list item", "    continued in a line of its own", "", anchor, ""].join("\n"),
     );
   };
   const r = run(page("<!-- ont: check.loan.overdue-in-real-time -->"));
