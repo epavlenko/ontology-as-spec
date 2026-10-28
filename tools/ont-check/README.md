@@ -33,7 +33,7 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | `stamp-docs.mjs`   | rewrites anchors with the current stamps                                          |
 | `contracts.mjs`    | the type vocabulary and the schema builder, shared by the generator and the check |
 | `lib.mjs`          | the one parser every script uses, and the config loader                            |
-| `judge.mjs`        | runs a judged check: gives the command in `JUDGE` the check's case and the product's output, and writes the verdict where `JUDGE_VERDICTS` points |
+| `judge.mjs`        | runs a judged check: gives the command in `JUDGE` the check's case and the product's output, takes PASS or FAIL from the first word of the answer and fails on any other answer, and adds the verdict to the day's file where `JUDGE_VERDICTS` points |
 | `ont-tooltips.js`  | browser runtime for the mockup: sets `title` from `window.ONT` on `[data-ont]` elements |
 | `approach.json`    | the approach's concept IDs and retired IDs, which agent instructions and process entries of a project may name; generated, copy it with the tool |
 | `gen-approach.mjs` | writes `approach.json` from the approach's ontology, in the approach's own repository |

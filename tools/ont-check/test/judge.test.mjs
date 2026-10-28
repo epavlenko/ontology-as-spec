@@ -49,9 +49,26 @@ test("[rule.verdict-kept] the verdict is written outside the repository, named b
   const { dir, checks, command } = fixture();
   try {
     const verdicts = join(dir, "verdicts");
+    judge({ checks, id: "check.member.limit-explained", output: "you have too many loans", command: command("FAIL no limit named"), verdicts, date: "2026-10-28" });
     judge({ checks, id: "check.member.limit-explained", output: "ana already has 5 of 5 loans", command: command("PASS it names the limit"), verdicts, date: "2026-10-28" });
+    // A later run of the day does not erase the earlier one.
     const kept = readFileSync(join(verdicts, "check.member.limit-explained", "2026-10-28.md"), "utf8");
-    assert.match(kept, /^# check\.member\.limit-explained · 2026-10-28\n\nPASS it names the limit\n\n## Output\n\nana already has 5 of 5 loans\n$/);
+    const run = (verdict, output) => `\\n## Run at \\S+\\n\\n${verdict}\\n\\n### Output\\n\\n${output}\\n`;
+    assert.match(kept, new RegExp(`^# check\\.member\\.limit-explained · 2026-10-28\\n${run("FAIL no limit named", "you have too many loans")}${run("PASS it names the limit", "ana already has 5 of 5 loans")}$`));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("judge() takes the verdict from the first word of the answer, and fails on an answer that is not one", () => {
+  const { dir, checks, command } = fixture();
+  try {
+    const verdict = (answer) => judge({ checks, id: "check.member.limit-explained", output: "x", command: command(answer) }).pass;
+    assert.equal(verdict("PASS"), true);
+    assert.equal(verdict("**PASS** — it names the limit"), true);
+    assert.equal(verdict("Fail: no limit named"), false);
+    for (const answer of ["PASS/FAIL: FAIL", "PASS? No, FAIL.", "PASSED", "It passes", "PASS, FAIL"])
+      assert.throws(() => verdict(answer), /did not answer with PASS or FAIL first/, answer);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

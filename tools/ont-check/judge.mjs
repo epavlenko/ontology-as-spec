@@ -1,13 +1,14 @@
 // Judged checks (D-60): a test runs the product on a fixed sample, and a model judges the output
 // against the check's case. The judge gets the case and the output and nothing else: not the code,
 // not the test, not an expected text. A verdict is written outside the repository, named by the check
-// and the date, when JUDGE_VERDICTS names a directory.
+// and the date, when JUDGE_VERDICTS names a directory; every run of a day is kept in that file.
 //   const { pass, verdict } = judge({ checks: "checks.md", id: "check.member.limit-refusal-explained", output });
 // The judge is a command the project chooses, set in JUDGE: it reads the prompt on stdin and answers
-// PASS or FAIL on its first line, then why.
+// with PASS or FAIL as its first word, then why. An answer that starts otherwise, or whose first line
+// holds both words, is not a verdict: judge() fails rather than guess.
 // ont: rule.judge-sees-the-check, rule.verdict-kept
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseChecks, read } from "./lib.mjs";
 
@@ -49,6 +50,13 @@ export const blindPrompt = ({ ontology, catalogue, given, when }) =>
     "Say what should happen, in the product's terms, in one or two sentences.",
   ].join("\n");
 
+// PASS or FAIL, from the first word of the answer; null when the answer is not a verdict.
+export const verdictOf = (answer) => {
+  const first = answer.split("\n")[0].replace(/\*\*/g, "").trim();
+  const word = first.match(/^(PASS|FAIL)(?=$|[\s.,:;—–-])/i)?.[1].toUpperCase();
+  return word && !(/\bPASS\b/.test(first) && /\bFAIL\b/.test(first)) ? word : null;
+};
+
 export function judge({
   checks,
   id,
@@ -67,7 +75,12 @@ export function judge({
   if (verdicts) {
     const dir = join(verdicts, id);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, `${date}.md`), `# ${id} · ${date}\n\n${verdict}\n\n## Output\n\n${output}\n`);
+    // A later run of the same day is added after the earlier ones, which stay as evidence.
+    const file = join(dir, `${date}.md`);
+    if (!existsSync(file)) writeFileSync(file, `# ${id} · ${date}\n`);
+    appendFileSync(file, `\n## Run at ${new Date().toISOString()}\n\n${verdict}\n\n### Output\n\n${output}\n`);
   }
-  return { pass: /^PASS\b/i.test(verdict), verdict };
+  const word = verdictOf(verdict);
+  if (!word) throw new Error(`the judge did not answer with PASS or FAIL first: ${verdict.split("\n")[0]}`);
+  return { pass: word === "PASS", verdict };
 }
