@@ -62,6 +62,11 @@ const load = () => {
 };
 const save = (s) => writeFileSync(FILE, JSON.stringify(s, null, 1));
 
+// A day given by hand that is not on the calendar would be saved with the state; it stops the command.
+if (!isDay(today)) {
+  console.error(`error: --today ${today} is not a day (YYYY-MM-DD); nothing was changed`);
+  process.exit(2);
+}
 const state = command === "seed" ? seed() : load();
 try {
   switch (command) {

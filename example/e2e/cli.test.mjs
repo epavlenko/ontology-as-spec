@@ -60,6 +60,21 @@ test("[check.hold.only-when-all-out, check.hold.position-shown] a hold is placed
   assert.equal(cli("loans", "carl", "--today", "2026-10-02").out, "hold  Dune  position 2");
 });
 
+test("a --today that is not a day stops the command before it changes anything", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "library-e2e-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const env = { ...process.env, LIBRARY_STATE: join(dir, "state.json") };
+  const cli = (...args) => spawnSync("node", [CLI, ...args], { env, encoding: "utf8" });
+  cli("seed");
+  cli("checkout", "dune-1", "ana", "--today", "2026-10-01");
+  const before = readFileSync(env.LIBRARY_STATE, "utf8");
+  const r = cli("return", "dune-1", "--today", "2026-02-30");
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /--today 2026-02-30 is not a day/);
+  assert.equal(readFileSync(env.LIBRARY_STATE, "utf8"), before);
+  assert.equal(cli("loans", "ana", "--today", "2026-10-02").status, 0);
+});
+
 test("[check.loan.state-unreadable] a command stops when the state cannot be read, and changes nothing", (t) => {
   const dir = mkdtempSync(join(tmpdir(), "library-e2e-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
