@@ -423,6 +423,17 @@ test("[check.implementation-row.code-name-unknown] fails on an ID named in code 
   assert.match(r.out, /IDs named in code that the ontology does not define \(1\):\n {2}app\/library\.mjs: derived\.overdew\n/);
 });
 
+test("[check.implementation-row.code-name-unknown] reads the code directories under code, nested ones too", () => {
+  // The default pattern matches every path, and a directory is not read as a file.
+  const r = run((p, dir) => {
+    p("ont.config.json", '"agentInstructions": ["AGENTS.md"],', '"agentInstructions": ["AGENTS.md"],\n  "code": [{ "dir": "app" }],');
+    mkdirSync(join(dir, "app", "nested"));
+    writeFileSync(join(dir, "app", "nested", "util.mjs"), "// ont: derived.overdew\n");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /IDs named in code that the ontology does not define \(1\):\n {2}app\/nested\/util\.mjs: derived\.overdew\n/);
+});
+
 test("[check.implementation-row.code-name-retired] fails on a retired ID named in code", () => {
   const r = run((p) => p("app/library.mjs", "// ont: derived.overdue\n", "// ont: derived.overdue, field.due-date\n"));
   assert.equal(r.code, 1, r.out);

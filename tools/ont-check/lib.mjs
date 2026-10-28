@@ -1,6 +1,6 @@
 // Shared parsing for the check and the generators. One parser for all of them: if a generator and
 // the check read the ontology differently, a broken document passes unnoticed.
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -140,7 +140,15 @@ export function loadConfig(configPath) {
   };
 }
 
-// Files under dir (recursively) whose relative path matches the pattern, README.md excluded.
+// Files under dir (recursively) whose relative path matches the pattern, README.md excluded. A directory
+// whose name matches is not a file to read.
+const isFile = (path) => {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+};
 export const listFiles = (dir, match) =>
   existsSync(dir)
     ? readdirSync(dir, { recursive: true })
@@ -148,6 +156,7 @@ export const listFiles = (dir, match) =>
         .filter((f) => match.test(f) && !/(^|\/)README\.md$/.test(f))
         .sort()
         .map((f) => join(dir, f))
+        .filter(isFile)
     : [];
 
 // Tags in tests and ticket scenarios: [check.loan.renew-while-held] or [rule.renewal, field.loan.renewals].
