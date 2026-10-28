@@ -64,12 +64,31 @@ test("[check.loan.state-unreadable] a command stops when the state cannot be rea
   const dir = mkdtempSync(join(tmpdir(), "library-e2e-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const state = join(dir, "state.json");
-  writeFileSync(state, "this is not the library's state");
   const env = { ...process.env, LIBRARY_STATE: state };
-  for (const args of [["checkout", "dune-1", "ana"], ["return", "dune-1"], ["renew", "dune-1"], ["hold", "dune", "ana"]]) {
-    const r = spawnSync("node", [CLI, ...args], { env, encoding: "utf8" });
-    assert.equal(r.status, 3, args.join(" "));
-    assert.match(r.stderr, /the state in .* cannot be read; nothing was changed/);
+  // Not JSON, and JSON of the right shape whose loans or holds the library could not act on.
+  const sample = {
+    members: { ana: { name: "Ana" } },
+    titles: { dune: { name: "Dune" } },
+    items: { "dune-1": { title: "dune" } },
+    loans: [{ id: "L1", item: "dune-1", member: "ana", checkout: "2026-10-01", due: "2026-10-22", renewals: 0, returned: null, fineCents: 0 }],
+    holds: [],
+  };
+  const broken = [
+    "this is not the library's state",
+    JSON.stringify({ ...sample, loans: [null] }),
+    JSON.stringify({ ...sample, loans: [{ ...sample.loans[0], item: "dune-9" }] }),
+    JSON.stringify({ ...sample, loans: [{ ...sample.loans[0], due: "soon" }] }),
+    JSON.stringify({ ...sample, holds: [{ id: "H1", title: "dune", member: "bob", placed: "2026-10-02", closed: null }] }),
+  ];
+  for (const text of broken) {
+    writeFileSync(state, text);
+    for (const args of [["checkout", "dune-1", "ana"], ["return", "dune-1"], ["renew", "dune-1"], ["hold", "dune", "ana"]]) {
+      const r = spawnSync("node", [CLI, ...args], { env, encoding: "utf8" });
+      assert.equal(r.status, 3, `${args.join(" ")} on ${text}`);
+      assert.match(r.stderr, /the state in .* cannot be read; nothing was changed/);
+    }
+    assert.equal(readFileSync(state, "utf8"), text);
   }
-  assert.equal(readFileSync(state, "utf8"), "this is not the library's state");
+  writeFileSync(state, JSON.stringify(sample));
+  assert.equal(spawnSync("node", [CLI, "renew", "dune-1", "--today", "2026-10-10"], { env, encoding: "utf8" }).status, 0);
 });

@@ -30,12 +30,30 @@ const seed = () => {
   s.items = { "dune-1": { title: "dune" }, "dune-2": { title: "dune" }, "drill-1": { title: "drill" } };
   return s;
 };
-// A state file that is not the library's state stops every command before it changes anything.
+// A state file that is not the library's state stops every command before it changes anything. The
+// state is the library's when its collections have the right shape, every loan and hold names an item,
+// a title and a member it holds, and its dates are days.
+const isObject = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
+const has = (o, k) => typeof k === "string" && Object.hasOwn(o, k) && isObject(o[k]);
+const isDay = (x) => typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x) && !Number.isNaN(Date.parse(x));
+const isLibrary = (s) =>
+  isObject(s) &&
+  [s.members, s.titles, s.items].every(isObject) &&
+  Object.values(s.members).every((m) => isObject(m) && (m.borrowLimit === undefined || Number.isInteger(m.borrowLimit))) &&
+  Object.values(s.titles).every((t) => isObject(t) && typeof t.name === "string") &&
+  Object.values(s.items).every((i) => isObject(i) && has(s.titles, i.title)) &&
+  Array.isArray(s.loans) &&
+  s.loans.every(
+    (l) =>
+      isObject(l) && has(s.items, l.item) && has(s.members, l.member) && isDay(l.due) && Number.isInteger(l.renewals) && (l.returned === null || isDay(l.returned)),
+  ) &&
+  Array.isArray(s.holds) &&
+  s.holds.every((h) => isObject(h) && has(s.titles, h.title) && has(s.members, h.member) && isDay(h.placed));
 const load = () => {
   if (!existsSync(FILE)) return seed();
   try {
     const s = JSON.parse(readFileSync(FILE, "utf8"));
-    if (s && s.members && s.titles && s.items && Array.isArray(s.loans) && Array.isArray(s.holds)) return s;
+    if (isLibrary(s)) return s;
   } catch {}
   console.error(`error: the state in ${FILE} cannot be read; nothing was changed`);
   process.exit(3);
