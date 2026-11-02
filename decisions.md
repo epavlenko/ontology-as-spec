@@ -505,6 +505,14 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
+### D-65 · The approach ships an agent skill that points to this repository
+
+- Date: 2026-11-02 · Status: tentative
+- Source: the owner's answer of 2026-11-02 to the question whether to list the approach in a catalogue of agent skills, option "a": a free skill with a link to the repository (translated from Russian). The owner accepts this entry when the branch is merged.
+- Decision: `skills/ontology-as-spec/SKILL.md`, in the Agent Skills format (a folder with `SKILL.md`, `name` matching the folder, `description`), teaches an agent to build a product's ontology and keep it checked: get the tool with `pin.mjs update`, write the ontology, start the decision log, configure and run the check and the guard, write the checks and tag the tests, connect the code, plan from the gap. It restates the steps in its own words and points to this repository for every rule, which wins where the two disagree. It is licensed under MIT, like the templates, so that a catalogue may deliver it under its own terms; the text of `docs/` stays under CC BY 4.0 (D-07, D-21).
+- Why: an agent that loads the skill can apply the approach without reading the whole repository first, and a catalogue that lists the skill sends readers to the repository.
+- Rejected: copying pages of `docs/` into the skill (two copies of the same text drift, and CC BY forbids the extra terms a catalogue puts on what it delivers); bundling the tool inside the skill (a second copy of the tool without a pin, against D-64).
+
 ## Open questions
 
 ## History
