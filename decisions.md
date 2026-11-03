@@ -557,6 +557,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: a limit on the number of concepts in `--next` (one concept can take a day and five an hour, so any number would be invented); leaving the size to the section (sections are drawn for meaning, not for review).
 - Concepts: `rule.slice-one-change`, `derived.next-slice`, `action.cut-slice`.
 
+### D-72 · A question that a run can answer is settled by a prototype before it reaches the owner
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes, and the third", to the proposal to settle questions of fact by a prototype instead of asking the owner (translated from Russian).
+- Decision: a question that a run can answer, such as whether something is fast enough, fits a screen or works with a service, is answered by a throwaway prototype before it reaches the owner, and the result, with where it came from, is the evidence on its entry (`rule.run-settles-question`). A question of fact is then closed; a choice stays tentative and waits for the owner with what the run showed (D-34, D-48 still hold). Only what no run settles, the meaning of the product, a preference or a price, waits for the owner. Part 2 explains it, and the template's rules list it.
+- Why: every question with a recommendation waits for the owner as a tentative entry (D-48), including questions a run would settle in minutes, so concepts waited for the owner's time on the agent's own work. Agent toolkits settle such forks by a prototype and ask the operator only what no run can settle (https://github.com/cursor/plugins/blob/main/pstack/skills/poteto-mode/playbooks/multi-phase-plan.md).
+- Rejected: letting an agent accept a choice on a prototype's result (a choice is the owner's, D-34; the run informs it); asking the owner first and prototyping on request (the owner then answers what the agent could have measured).
+- Concepts: `rule.run-settles-question`, `rule.question-as-tentative`, `rule.unconfirmed-tentative`.
+
 ## Tentative
 
 ## Open questions

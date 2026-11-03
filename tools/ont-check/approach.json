@@ -198,6 +198,7 @@
     "rule.question-as-tentative",
     "rule.readers-words",
     "rule.reread-then-stamp",
+    "rule.run-settles-question",
     "rule.scoped-ids",
     "rule.second-vocabulary",
     "rule.slice-one-change",

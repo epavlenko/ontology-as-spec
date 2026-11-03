@@ -25,6 +25,7 @@ Rules the check cannot enforce:
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side (`rule.divergence-becomes-work`).
 - Code that implements a concept names its ID next to it in a comment, `// ont: <ID>` (`rule.code-names-concepts`).
 - What a partial implementation leaves out is a target concept, named in the note of its row. A note alone hides the work from `--gap` (`rule.partial-noted`).
+- Before you ask the owner a question that a run can answer, such as whether something is fast enough or fits, answer it with a throwaway prototype and put the result on the entry; ask only what no run settles (`rule.run-settles-question`).
 - A choice the owner has not explicitly approved, such as a value you picked when asked to tune something, is recorded as tentative; the owner's approval accepts it (`rule.unconfirmed-tentative`).
 - A number is held as its role needs. A rule's value or a requirement is held by a check. A model's assumptions are held by a snapshot of its base scenario, each change of them is a short entry about its topic, and no check requires the model to reach its goal (`rule.number-by-role`, `rule.chosen-value-checked`).
 - A ticket is a slice of the gap: IDs, checks, out of scope, dependencies, permissions. It does not describe behavior; behavior goes into the catalogue first (`rule.ticket-without-behavior`, `action.cut-slice`).
