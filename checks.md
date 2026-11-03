@@ -6,6 +6,14 @@ Context: [ontology.md](./ontology.md)
 
 What must hold for the approach, whatever implements it. The automatic checks are implemented by the tests in `tools/ont-check/test/`, which start their titles with the check IDs. The manual checks are what the tool cannot enforce: a reviewer does them.
 
+## Specification
+
+| Check | Concepts | GIVEN | WHEN | THEN | Proof |
+| --- | --- | --- | --- | --- | --- |
+| `check.specification.code-from-spec` | `rule.spec-is-source` | a slice of code, the mockup included | a reviewer compares it with the specification | everything it does is stated by a definition row or a check; what is not becomes a check or a question before the slice is done | manual |
+| `check.specification.behavior-described` | `rule.behavior-in-spec` | a view or an action | a reviewer reads its rows and its checks | what the view shows in each state, what the user can do there and every outcome of the action are stated; layout and style are not asked for | manual |
+| `check.specification.changed-first` | `rule.change-spec-first` | a change that alters what the product does | a reviewer reads its commits | the ontology or the catalogue changes in the same change or before the code | manual |
+
 ## Concept
 
 | Check                                | Concepts                                     | GIVEN                                                                                   | WHEN                                       | THEN                                                                                               | Proof  |

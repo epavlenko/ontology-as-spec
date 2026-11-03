@@ -12,6 +12,15 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 "Implemented" has a particular meaning here. A concept is implemented when it is realised: by the tool, for what the tool enforces, or by the page of `docs/` that states it, for rules people follow and procedures they carry out. Which rules the tool cannot enforce is visible in the check catalogue: their checks are manual.
 
+## Specification
+
+| Kind   | ID                       | Term                          | Type | Definition                                                                                                                                                                                                              |
+| ------ | ------------------------ | ----------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity | `ent.specification`      | Specification                 |      | The ontology and the check catalogue of a product together: what a model writes the product's code from, the mockup included.                                                                                           |
+| Rule   | `rule.spec-is-source`    | Specification is the source   |      | A model writes the product's code from the specification, and the mockup is code written the same way; what the code does that the specification does not say is a gap in the specification.                            |
+|        | `rule.behavior-in-spec`  | Behavior in the specification |      | The specification describes behavior as completely as it can: what every view shows in each state, what the user can do there, and every outcome of every action as a check. Layout and style are the implementation's. |
+|        | `rule.change-spec-first` | Specification changes first   |      | A change of behavior starts in the specification, then the checks, then the code and its tests; a change of code alone changes no behavior.                                                                             |
+
 ## Concept
 
 | Kind      | ID                             | Term                    | Type                       | Definition                                                                                                                                                            |
@@ -134,17 +143,17 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Mockup element
 
-| Kind      | ID                            | Term                 | Type              | Definition                                                                             |
-| --------- | ----------------------------- | -------------------- | ----------------- | -------------------------------------------------------------------------------------- |
-| Entity    | `ent.mockup-element`          | Mockup element       |                   | A meaningful element of the mockup, labelled with a concept by `data-ont`.             |
-| Relation  | `edge.mockup-element.concept` | Shows                | ref `ent.concept` | The concept the element stands for.                                                    |
-| Rule      | `rule.one-mockup`             | One mockup           |                   | One mockup for the whole product, in plain HTML that runs from the file system.        |
-|           | `rule.mockup-shows-target`    | Shows the target     |                   | The mockup shows the target, not the code, and may run ahead of it.                    |
-|           | `rule.mockup-data-fictional`  | Fictional data       |                   | Data in a shared mockup is fictional; real data only in a private copy.                |
-| Invariant | `inv.mockup-matches-map`      | Mockup matches map   |                   | The mockup and the map name the same set of IDs.                                       |
-|           | `inv.tooltips-generated`      | Tooltips generated   |                   | The tooltip file equals what the generator writes from the definitions.                |
-|           | `inv.dynamic-ids-declared`    | Dynamic IDs declared |                   | An ID built from a template is declared, and every declared class has a live template. |
-|           | `inv.label-is-true`           | Label is true        |                   | An element labelled with a concept behaves as that concept.                            |
+| Kind      | ID                            | Term                 | Type              | Definition                                                                                                                        |
+| --------- | ----------------------------- | -------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.mockup-element`          | Mockup element       |                   | A meaningful element of the mockup, labelled with a concept by `data-ont`.                                                        |
+| Relation  | `edge.mockup-element.concept` | Shows                | ref `ent.concept` | The concept the element stands for.                                                                                               |
+| Rule      | `rule.one-mockup`             | One mockup           |                   | One mockup for the whole product, in plain HTML that runs from the file system.                                                   |
+|           | `rule.mockup-shows-target`    | Shows the target     |                   | The mockup is the first implementation of the interface, written from the specification, and may run ahead of the product's code. |
+|           | `rule.mockup-data-fictional`  | Fictional data       |                   | Data in a shared mockup is fictional; real data only in a private copy.                                                           |
+| Invariant | `inv.mockup-matches-map`      | Mockup matches map   |                   | The mockup and the map name the same set of IDs.                                                                                  |
+|           | `inv.tooltips-generated`      | Tooltips generated   |                   | The tooltip file equals what the generator writes from the definitions.                                                           |
+|           | `inv.dynamic-ids-declared`    | Dynamic IDs declared |                   | An ID built from a template is declared, and every declared class has a live template.                                            |
+|           | `inv.label-is-true`           | Label is true        |                   | An element labelled with a concept behaves as that concept.                                                                       |
 
 ## Map row
 
@@ -322,6 +331,15 @@ A fix to the tool is made in the approach and reaches a project with its next co
 ## Implementation status
 
 Where each concept is realised. Tool files enforce or generate; pages of `docs/` state the rules people follow and the procedures they carry out.
+
+### Specification
+
+| ID | Implemented in | Note |
+| --- | --- | --- |
+| `ent.specification` | `tools/ont-check/lib.mjs`, `docs/principles.md` | |
+| `rule.spec-is-source` | `docs/principles.md` | |
+| `rule.behavior-in-spec` | `docs/principles.md` | |
+| `rule.change-spec-first` | `docs/principles.md` | |
 
 ### Concept
 
@@ -638,6 +656,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-03: the specification is the source of the code, and the mockup is code: `ent.specification`, `rule.spec-is-source`, `rule.behavior-in-spec` and `rule.change-spec-first`; `rule.mockup-shows-target` redefined (D-73, tentative).
 - 2026-11-03: a question a run can answer is settled by a prototype: `rule.run-settles-question` (D-72).
 - 2026-11-03: a slice is one reviewable change: `rule.slice-one-change` (D-71).
 - 2026-11-03: concurrent tickets are cut by one coordinator: `rule.coordinator-cuts` (D-70).

@@ -113,6 +113,8 @@ export function loadConfig(configPath, text) {
         checks: t.checks ?? [],
       }),
     ),
+    // The ontology and this catalogue together are the specification code is written from (D-73).
+    // ont: ent.specification
     checks: raw.checks && {
       file: at(raw.checks.file),
       require: raw.checks.require ?? ["inv", "rule"],

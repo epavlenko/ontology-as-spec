@@ -4,6 +4,21 @@
 
 Every concept of the approach, its type and definition, and the checks that hold it, generated from [ontology.md](../ontology.md) and [checks.md](../checks.md). Automatic checks are enforced by the tool; manual checks are what a reviewer does, because the tool cannot. The pages of this directory explain the parts; this page is what they refer to.
 
+## Specification
+
+| Kind   | Term                          | ID                       | Type | Definition                                                                                                                                                                                                              |
+| ------ | ----------------------------- | ------------------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity | Specification                 | `ent.specification`      |      | The ontology and the check catalogue of a product together: what a model writes the product's code from, the mockup included.                                                                                           |
+| Rule   | Specification is the source   | `rule.spec-is-source`    |      | A model writes the product's code from the specification, and the mockup is code written the same way; what the code does that the specification does not say is a gap in the specification.                            |
+| Rule   | Behavior in the specification | `rule.behavior-in-spec`  |      | The specification describes behavior as completely as it can: what every view shows in each state, what the user can do there, and every outcome of every action as a check. Layout and style are the implementation's. |
+| Rule   | Specification changes first   | `rule.change-spec-first` |      | A change of behavior starts in the specification, then the checks, then the code and its tests; a change of code alone changes no behavior.                                                                             |
+
+| Check                                    | Concepts                 | GIVEN                                      | WHEN                                          | THEN                                                                                                                                         | Proof  |
+| ---------------------------------------- | ------------------------ | ------------------------------------------ | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `check.specification.code-from-spec`     | `rule.spec-is-source`    | a slice of code, the mockup included       | a reviewer compares it with the specification | everything it does is stated by a definition row or a check; what is not becomes a check or a question before the slice is done              | manual |
+| `check.specification.behavior-described` | `rule.behavior-in-spec`  | a view or an action                        | a reviewer reads its rows and its checks      | what the view shows in each state, what the user can do there and every outcome of the action are stated; layout and style are not asked for | manual |
+| `check.specification.changed-first`      | `rule.change-spec-first` | a change that alters what the product does | a reviewer reads its commits                  | the ontology or the catalogue changes in the same change or before the code                                                                  | manual |
+
 ## Concept
 
 | Kind      | Term                    | ID                             | Type                     | Definition                                                                                                                                                            |
@@ -201,17 +216,17 @@ Every concept of the approach, its type and definition, and the checks that hold
 
 ## Mockup element
 
-| Kind      | Term                 | ID                            | Type            | Definition                                                                             |
-| --------- | -------------------- | ----------------------------- | --------------- | -------------------------------------------------------------------------------------- |
-| Entity    | Mockup element       | `ent.mockup-element`          |                 | A meaningful element of the mockup, labelled with a concept by data-ont.               |
-| Relation  | Shows                | `edge.mockup-element.concept` | ref ent.concept | The concept the element stands for.                                                    |
-| Rule      | One mockup           | `rule.one-mockup`             |                 | One mockup for the whole product, in plain HTML that runs from the file system.        |
-| Rule      | Shows the target     | `rule.mockup-shows-target`    |                 | The mockup shows the target, not the code, and may run ahead of it.                    |
-| Rule      | Fictional data       | `rule.mockup-data-fictional`  |                 | Data in a shared mockup is fictional; real data only in a private copy.                |
-| Invariant | Mockup matches map   | `inv.mockup-matches-map`      |                 | The mockup and the map name the same set of IDs.                                       |
-| Invariant | Tooltips generated   | `inv.tooltips-generated`      |                 | The tooltip file equals what the generator writes from the definitions.                |
-| Invariant | Dynamic IDs declared | `inv.dynamic-ids-declared`    |                 | An ID built from a template is declared, and every declared class has a live template. |
-| Invariant | Label is true        | `inv.label-is-true`           |                 | An element labelled with a concept behaves as that concept.                            |
+| Kind      | Term                 | ID                            | Type            | Definition                                                                                                                        |
+| --------- | -------------------- | ----------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | Mockup element       | `ent.mockup-element`          |                 | A meaningful element of the mockup, labelled with a concept by data-ont.                                                          |
+| Relation  | Shows                | `edge.mockup-element.concept` | ref ent.concept | The concept the element stands for.                                                                                               |
+| Rule      | One mockup           | `rule.one-mockup`             |                 | One mockup for the whole product, in plain HTML that runs from the file system.                                                   |
+| Rule      | Shows the target     | `rule.mockup-shows-target`    |                 | The mockup is the first implementation of the interface, written from the specification, and may run ahead of the product's code. |
+| Rule      | Fictional data       | `rule.mockup-data-fictional`  |                 | Data in a shared mockup is fictional; real data only in a private copy.                                                           |
+| Invariant | Mockup matches map   | `inv.mockup-matches-map`      |                 | The mockup and the map name the same set of IDs.                                                                                  |
+| Invariant | Tooltips generated   | `inv.tooltips-generated`      |                 | The tooltip file equals what the generator writes from the definitions.                                                           |
+| Invariant | Dynamic IDs declared | `inv.dynamic-ids-declared`    |                 | An ID built from a template is declared, and every declared class has a live template.                                            |
+| Invariant | Label is true        | `inv.label-is-true`           |                 | An element labelled with a concept behaves as that concept.                                                                       |
 
 | Check                                           | Concepts                                      | GIVEN                                                                  | WHEN                                     | THEN                                                                                  | Proof  |
 | ----------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------- | ------ |
