@@ -129,6 +129,7 @@
     "inv.ids-permanent",
     "inv.implementation-files-exist",
     "inv.implementation-true",
+    "inv.implemented-named",
     "inv.judged-check-tested",
     "inv.kind-named-once",
     "inv.known-classes",

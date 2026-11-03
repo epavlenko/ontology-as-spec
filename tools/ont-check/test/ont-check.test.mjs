@@ -528,6 +528,15 @@ test("[check.implementation-row.unnamed-in-code] lists an implemented concept it
   assert.match(r.out, / named in code 24 /);
 });
 
+test("[check.implementation-row.unnamed-required] fails on an implemented concept its files do not name when the configuration requires names", () => {
+  const r = run((p) => {
+    p("ont.config.json", '"root": "."', '"root": ".",\n  "codeNames": { "require": true }');
+    p("app/library.mjs", "// ont: derived.queue-position\n", "");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · implemented concepts that the files of their row do not name \(1\):\n {2}derived\.queue-position\n/);
+});
+
 // Agent instructions name rules of the approach and entries of the project's log (D-53).
 test("[check.agent-rules.unknown-id] fails on an ID in the agent instructions that nothing defines", () => {
   // A file name such as `action.yml` looks like an ID of the approach's classes and is not one.

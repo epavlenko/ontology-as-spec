@@ -32,6 +32,10 @@ The check confirms that the files named in the table exist and which of them nam
 
 The tool cannot parse the syntax of every language and test framework, so it reads a tag wherever it appears in a test file, not only in a title, and an `ont:` name wherever it appears in a file it reads for names, not only in a comment. A fixture string that looks like a tag or a name counts as one: an invalid one fails the check, a valid one claims a proof or a name the code does not give. Fixtures that need such strings build them from parts. Only in Markdown are code blocks and inline code left out, as examples, found as CommonMark finds them, except that a code block inside a block quote is read as text.
 
+### Code names live in comments
+
+`ont:` names are comments, and some projects forbid comments or run an agent that deletes them. Such a cleanup deletes the names with the rest, and by default the check only lists implemented concepts their files no longer name, as information. A project that removes comments sets `codeNames.require` in the configuration, so the check fails instead, and tells its cleanup to keep `ont:` names.
+
 ### Readiness reads names, not intent
 
 The tool learns that a target waits from the decision log, by the entries that name it. A tentative entry that describes a concept without its ID leaves the concept looking ready, and an accepted entry that mentions a concept in passing counts as naming it. A target that no entry names counts as agreed, since the ontology is the agreed target.

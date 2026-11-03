@@ -503,6 +503,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: each project copied the tool with a script of its own, and none of them deleted a file the approach had removed, while their verifications looked only at the top of the directory or at the files the pin named, so a stale file stayed and passed. One tool in the approach gives every project the same update and the same verification, and a fix reaches all of them with their next copy.
 - Rejected: deleting every file that the new commit does not have (it would delete a project's own notes kept beside the copy); leaving the scripts in the projects and describing the rule (each would need the same fix again); a pin format of its own (the projects' pins would all have to be rewritten).
 
+### D-66 · A configuration may require every implemented concept to be named in its code
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to protect the `ont:` names from comment cleanups (translated from Russian).
+- Decision: the configuration takes `"codeNames": { "require": true }`. With it, an implemented concept that the files of its implementation row do not name in an `ont:` comment fails the check (`inv.implemented-named`); without it, the check lists such concepts as information, as before (D-38, D-57). The limitations say that `ont:` names are comments and that a project which removes comments, by hand or by an agent, sets the key and tells its cleanup to keep the names.
+- Why: agent toolkits now ship skills that delete comments before review, and a project of the approach runs one. A deleted name left the check passing with one line of information, so the link from code to concept could disappear unseen. A failing check is the strongest place to hold it; a rule in the agent instructions alone can be skipped.
+- Rejected: making names required for every project (D-38 keeps a name apart from an implementation, and projects adopting the approach start without names); a marker other than a comment, such as a decorator or an attribute (a different syntax per language, against D-57); relying on a line in the agent instructions only (an agent that deletes comments may not read it).
+- Concepts: `inv.implemented-named`, `derived.named-in-code`, `rule.code-names-concepts`.
+
 ## Tentative
 
 ## Open questions
