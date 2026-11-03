@@ -539,6 +539,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: a new kind of artifact for the feature map (a doc set already holds anchored sections and reports gaps and stale sections); requiring the map or the command line in the profile (the tool cannot check that a command line drives the product, D-44 requires only what the tool checks); describing user reports as a separate process (they are findings like the blind walk's, with the same three outcomes).
 - Concepts: `ent.profile`, `ent.doc-set`, `action.walk-blind`.
 
+### D-70 · When several agents start at once, one coordinator cuts their tickets on the main branch
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to say who cuts the tickets of agents that work in parallel (translated from Russian).
+- Decision: when several agents start work at the same time, one coordinator cuts all their tickets and commits them to the main branch before any of them starts: it runs `--next`, commits the ticket, and runs `--next` again for the next agent, so no concept is in two tickets (`rule.coordinator-cuts`). This adds to D-68: the work starts with handing it out, so the tickets are still cut when it starts. Part 8 explains it.
+- Why: D-68 relies on a ticket taking its concepts, but only agents that see the ticket respect that. Agents on branches or checkouts of their own do not see one another's tickets until they are merged, so each would take the same slice from `--next` and build it twice. Agent toolkits that run many agents at once give the handing out of work to one coordinator for the same reason (https://github.com/cursor/plugins/blob/main/pstack/skills/poteto-mode/playbooks/orchestrate.md).
+- Rejected: each agent cutting its own ticket and pushing it at once (two agents may still read `--next` before either push lands); a lock file or a field in the ticket that marks it taken (a second mechanism for what a committed ticket already does).
+- Concepts: `rule.coordinator-cuts`, `rule.cut-when-started`, `derived.readiness`.
+
 ## Tentative
 
 ## Open questions

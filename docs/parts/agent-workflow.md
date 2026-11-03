@@ -47,12 +47,14 @@ What a ticket no longer carries: expected behavior (it is in the check catalogue
 
 Not every ticket is a slice. Refactoring, infrastructure, performance and dependency updates do not change meaning and are ordinary tickets without IDs. With an external contractor, a ticket is also the agreement about what is delivered and accepted; the ontology does not replace that.
 
-<!-- ont: rule.cut-when-started@03d590, rule.ticket-closed-on-done@109f27 -->
+<!-- ont: rule.cut-when-started@03d590, rule.ticket-closed-on-done@109f27, rule.coordinator-cuts@f7168b -->
 ## When a ticket is cut and closed
 
 A ticket is cut when work on its slice starts (`rule.cut-when-started`). Cutting it earlier, to keep a queue, costs more than it seems: a ticket takes its concepts, so `--gap` shows them as "in ticket" and `--next` no longer offers them, and work that nobody does looks taken. The queue the approach keeps is the gap itself, computed fresh each time. Whoever starts the work cuts the ticket, the owner or an agent that takes the slice `--next` proposes; what the agent may do then, commit, push, open a pull request, is the owner's choice, written on the ticket's pre-authorized lines.
 
 When `--gap` with the ticket prints `SLICE_DONE` and the tests pass, the ticket is closed and kept (`rule.ticket-closed-on-done`). A file stays in the tickets directory and a tracker entry is closed, not deleted: the ticket is the record of which slice was built when and within which limits. The check reads only tickets that are files in the repository, so a ticket in a tracker takes nothing in `--gap`, and its concepts stay offered by `--next` while it is open.
+
+A ticket takes its concepts only for agents that can see it. Agents that work at once, each on a branch or a checkout of its own, do not see one another's tickets until they are merged, so each would take the same slice from `--next` and build it twice. When several agents start together, one coordinator cuts all their tickets and commits them to the main branch before any of them starts (`rule.coordinator-cuts`): the coordinator runs `--next`, commits the ticket, and runs it again for the next agent, so no concept is in two tickets. That is still cutting when the work starts, since the work starts with handing it out.
 
 <!-- ont: rule.take-ready@38f877, derived.readiness@346c38, derived.next-slice@187668 -->
 ## Ready, waiting and deferred
