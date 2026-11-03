@@ -7,7 +7,7 @@ Nine parts. The first three hold meaning, the next three tie artifacts to it, th
 | 1   | [Glossary and permanent IDs](glossary-and-ids.md)  | one definition per concept, the ID everything else uses                   |
 | 2   | [Decision log](decision-log.md)                    | why the ontology is the way it is                                         |
 | 3   | [Target and reality](target-and-reality.md)        | what exists in code, what is target, where they disagree                  |
-| 4   | [Mockup as UI specification](mockup-as-ui-spec.md) | interface elements labelled with concepts; the map                        |
+| 4   | [The mockup](mockup-as-ui-spec.md)                 | interface elements labelled with concepts; the map                        |
 | 5   | [Drift check](drift-check.md)                      | one script that cross-checks all of the above                             |
 | 6   | [Checks and tests](checks-and-tests.md)            | what must hold for any implementation, and the tests that implement it    |
 | 7   | [Agent rules](agent-rules.md)                      | what else to update when something changes, and what the check cannot see |

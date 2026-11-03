@@ -81,7 +81,7 @@ The fields of a definition row, the rules every row follows and the checks that 
 
 - **Definitions written as implementation notes.** They age with the code. Keep the "how" in the implementation table's note column.
 - **Notes that grow into a second definition.** A note that starts with "A loan is…" is a definition in the wrong place. Move what is missing into the row.
-- **Too many concepts too early.** A concept that nobody discusses does not need an ID. Start with the ten concepts people argue about. The check lists concepts with no mockup element, ticket or implementation, which is where this shows first.
+- **Concepts nothing tries.** Start with the ten concepts people argue about, then grow the ontology until it describes the product's behavior. A concept that no mockup element, ticket or implementation tries yet is listed by the check; it is either planned, shown or removed.
 - **Glossary rows that restate the term** ("Due date: the due date"). The definition must answer the question a newcomer would ask.
 
 ## In the example

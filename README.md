@@ -1,6 +1,6 @@
 # Ontology as Specification
 
-A way to specify a product for AI coding agents: one model of the product's concepts that the UI, the decisions and the code all refer to, kept consistent by an automatic check.
+A way to specify a product for AI coding agents: one model of the product's concepts and behavior that agents write the UI and the code from, and that the decisions, the tests and the code all refer to, kept consistent by an automatic check.
 
 **Status.** An early version, v0.1, in active development: the rules still change every few days, and each change is an entry in [decisions.md](decisions.md). Four private projects use it. Issues and pull requests are welcome ([CONTRIBUTING.md](CONTRIBUTING.md)). More under [Status and origin](#status-and-origin).
 
@@ -50,7 +50,7 @@ One script checks all of these against each other, in both directions, on every 
 
 Teams and solo builders whose code is mostly written by coding agents, and the person who owns what the product means: a founder, a product owner, a tech lead. It pays off when the product has enough concepts that people argue about their names and rules, and when agents run long tasks without supervision.
 
-It is not a tool for generating code from a specification. See [why not spec-as-source](docs/why-not-spec-as-source.md).
+The ontology and the check catalogue are the specification: a model writes the code from them, the mockup included, and a change of behavior starts in them. See [principle 6](docs/principles.md#6-the-specification-is-the-source-of-the-code).
 
 ## Try it in two minutes
 
@@ -63,7 +63,7 @@ node --test 'tools/ont-check/test/*.test.mjs'                        # the check
 
 Then open `example/mockup/index.html` in a browser and hover over the elements. Rename a `data-ont` value or delete a row from `example/mockup/ontology-map.md`, run the check again, and read what it reports.
 
-To adopt the approach, start with ten definition rows for the concepts your team argues about most. See [Adopting the approach](docs/lifecycle.md#adopting-the-approach) and the [templates](templates/README.md).
+To adopt the approach, start with ten definition rows for the concepts your team argues about most, then grow the ontology until it describes the product's behavior. See [Adopting the approach](docs/lifecycle.md#adopting-the-approach) and the [templates](templates/README.md).
 
 ## What's in this repository
 
@@ -76,7 +76,6 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | [docs/profiles.md](docs/profiles.md) | recipes for a property of a product: model output, interface, model and data scenarios |
 | [docs/lifecycle.md](docs/lifecycle.md) | how a change travels: new concept, rename, removal, superseded decision, implementation, adoption |
 | [docs/comparison.md](docs/comparison.md) | spec-driven development tools and older practices, with links to primary sources |
-| [docs/why-not-spec-as-source.md](docs/why-not-spec-as-source.md) | why the ontology does not generate the product |
 | [docs/limitations.md](docs/limitations.md) | weaknesses, open questions and open proposals |
 | [templates/](templates/README.md) | starting files for every artifact |
 | [tools/ont-check/](tools/ont-check/README.md) | the check, the decision guard, and the generators of tooltips, contracts and reference pages; Node, no dependencies |
@@ -85,7 +84,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 
 ## How it compares
 
-Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) of spec-driven development: spec-first, spec-anchored and spec-as-source. This approach is spec-anchored, but what stays anchored is a concept rather than a feature. A feature spec describes one change and then ages. A concept keeps its ID for the life of the product. We call this **concept-anchored**. Tools such as Spec Kit, Kiro and OpenSpec work per feature or per change. None of them ties the interface to a shared vocabulary. The full comparison, including older practices such as Domain-Driven Design and decision records, is in [docs/comparison.md](docs/comparison.md).
+Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) of spec-driven development: spec-first, spec-anchored and spec-as-source. In this approach the specification is the source of the code, and it is anchored to concepts rather than features. A feature spec describes one change and then ages. A concept keeps its ID for the life of the product. We call this **concept-anchored**. Tools such as Spec Kit, Kiro and OpenSpec work per feature or per change. None of them ties the interface to a shared vocabulary. The full comparison, including older practices such as Domain-Driven Design and decision records, is in [docs/comparison.md](docs/comparison.md).
 
 ## Status and origin
 

@@ -8,6 +8,11 @@ What the approach does not do, the open questions, and what could make it strong
 
 Code names the concepts it implements in `ont:` comments, and the check confirms that every name resolves and lists implemented concepts that the files of their row do not name. It does not read what the code does. A tagged test ties a concept to behavior as far as the test goes, so code that behaves differently from the ontology where no test looks passes. The generated contracts carry IDs, and whether the code follows them is up to the project's own checks. The [Spec Growth Engine](comparison.md#the-spec-growth-engine) reads code structure instead.
 
+<!-- ont: rule.spec-is-source@5e8bd3, action.derive-blind@73594f -->
+### A model does not write the same code twice
+
+The specification is the source of the code, and a model writes it. Two runs write different code; what makes them the same product is that both pass the same checks. Where the catalogue has no check, two runs may behave differently and the check does not notice. A blind derivation from the ontology and the catalogue finds such cases before code is written, and a behavior found later becomes a check.
+
 ### A tag says what a test implements, not that it does
 
 An invariant such as "an item is on at most one open loan" is written in prose, and the check catalogue gives the case with data that proves it. A test names the check in a tag, and the check requires such a test for every automatic check of implemented concepts. It cannot see whether the test actually does what the check says: a test tagged `[check.item.one-open-loan]` that asserts nothing passes. Manual checks are run by people, and nothing records that they were.
