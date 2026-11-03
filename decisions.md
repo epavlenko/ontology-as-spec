@@ -512,6 +512,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: making names required for every project (D-38 keeps a name apart from an implementation, and projects adopting the approach start without names); a marker other than a comment, such as a decorator or an attribute (a different syntax per language, against D-57); relying on a line in the agent instructions only (an agent that deletes comments may not read it).
 - Concepts: `inv.implemented-named`, `derived.named-in-code`, `rule.code-names-concepts`.
 
+### D-67 · A correction is held at the strongest step that can hold it
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to add the rule after a talk on keeping agents trustworthy at hundreds of changes a day (translated from Russian).
+- Decision: a correction of an agent is held at the strongest step that can hold it, in this order: the structure of the code, so the mistake cannot be written; a check of the tool, a test or a lint; a rule in the agent instructions; a reviewer's memory last (`rule.strongest-step`). Part 7 explains the order under "Why a table", with the talk as its source, the template's list of rules the check cannot enforce opens with it, and a manual check asks the reviewer whether a correction held only in prose could have been held by something stronger.
+- Why: part 7 already said that a rule which keeps being broken should become a check, but only for the rules already written down. Corrections went into the instructions by habit, where an agent may not read them, and the next agent repeated the mistake. The talk by Lauren Tan (https://x.com/poteto/status/2102050467505430555) describes the same order from a codebase that takes hundreds of agent changes a day.
+- Rejected: a check of the tool (whether a correction could have been held more strongly is a judgment about the code, which the tool does not read); leaving the sentence in part 7 as it was (it covered only rules already in the list, not each correction as it happens).
+- Concepts: `rule.strongest-step`, `ent.agent-rules`.
+
 ## Tentative
 
 ## Open questions

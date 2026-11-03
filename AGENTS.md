@@ -20,6 +20,7 @@ This repository describes an approach to product development: product meaning ke
 - **Sources.** From D-47 on, every accepted entry names its source on a `- Source:` line: the owner's answer or message that decided it (`inv.sourced-since-first`, `rule.source-precedence`, D-47). What is put off gets a `- Return when:` line (`rule.deferral-returns`, D-49).
 - **Accepted decisions are never edited**, here or in the example. Write a superseding entry; `npm run guard` refuses the edit (`inv.accepted-never-edited`). One entry answers one question; a later entry adds to it or supersedes it whole (`rule.one-choice`, D-26).
 - **Commit every change.** Every change ends with a commit of its own files, never another agent's (`rule.commit-finished-work`, D-54).
+- **Strongest step.** A correction is held by the check, a test or the structure of the code where one of them can hold it; a rule here only where none can (`rule.strongest-step`, D-67).
 - **Findings that matter.** A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings (`rule.findings-mislead`, D-27).
 - **Cite primary sources.** A claim about another tool or practice links to its primary source; quotes are verbatim.
 - **Keep the example consistent.** It follows its own rules in `example/AGENTS.md`. After editing the example's definition rows, run `npm run format` and `npm run generate` to regenerate the tooltips, the contracts and the reference pages (D-04).

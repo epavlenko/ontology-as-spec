@@ -19,6 +19,7 @@ Generated files are never edited by hand; the check compares them with what the 
 
 Rules the check cannot enforce:
 
+- When you are corrected, hold the correction at the strongest step that can hold it: the structure of the code, so the mistake cannot be written; then a check, a test or a lint; a rule here only when none of them can (`rule.strongest-step`).
 - IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it (`inv.ids-permanent`, `action.change-id`).
 - Removing a concept is a decision: write the entry and retire the ID; the check then finds every reference left (`action.remove-concept`).
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side (`rule.divergence-becomes-work`).

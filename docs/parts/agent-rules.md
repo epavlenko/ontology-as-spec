@@ -33,11 +33,14 @@ Rules the check cannot enforce:
 - Every change ends with a commit of its own files, never another agent's (`rule.commit-finished-work`).
 - A rule here that comes from a rule of the approach or from a decision names it, by ID or entry; a rule that departs from the approach cites the process entry of the log that decided it (`rule.agent-rule-source`, `rule.departure-by-entry`).
 
+<!-- ont: rule.strongest-step@4002fd -->
 ## Why a table
 
 Agents follow explicit procedures well and infer side effects badly. "Remember to keep docs in sync" produces nothing. "You changed the mockup, so add the map row and run this command" produces the map row. The table turns the dependency graph between artifacts into instructions, and the Verify column turns each instruction into something checkable.
 
 The list after the table holds only the rules no check enforces; it exists because some rules have no mechanical check yet. Writing them down is the fallback. When a rule keeps being broken, it should move from the list into the check. Encoding a lesson in structure beats repeating it in prose.
+
+The same order applies to every correction of an agent (`rule.strongest-step`). A mistake an agent made once it will make again, so the correction is held at the strongest step that can hold it. First the structure of the code, so the mistake cannot be written: a type, a boundary in the import graph, a single way to do a thing. Then a check of the tool, a test or a lint, which fail the build. Then a rule in the agent instructions, which an agent may not read. Last, what a reviewer remembers, which does not scale with the number of changes. A rule in the instructions is the fallback for what nothing else can hold, and the list after the table is where it goes. The order follows Lauren Tan's account of how a team of agents keeps a codebase trustworthy at hundreds of changes a day ([talk, 2026-09-21](https://x.com/poteto/status/2102050467505430555)).
 
 <!-- ont: rule.agent-rules-short@66c9df, rule.agent-rules-point-at-files@13a4c3, rule.start-from-ids@8804d9, rule.findings-mislead@0229fa, rule.commit-finished-work@8ad234 -->
 ## Reference
@@ -87,6 +90,7 @@ A significant change, such as a rule of the approach, a new mechanism or risky c
 
 - **The table describes an older layout of the repository.** When paths move, update the table in the same change. Include the agent instructions file in the paths that trigger the check.
 - **Rules that should be checks stay rules forever.** Review the list from time to time and ask which item could be a check.
+- **A correction goes into the instructions by habit.** The agent is told once more in prose, and the next agent repeats the mistake. Ask first whether the code, a check, a test or a lint can make it impossible.
 - **Instructions that quietly differ from the approach.** A project's rule says less or more than the rule of the approach it replaces, and nothing records the choice. Write the departure as a process entry and cite it from the instruction.
 - **Reviews that list everything.** A finding that misleads no one costs the reader's attention and teaches agents that the list is noise. Report what would mislead a reader or an agent, or would break a check, and leave style and completeness alone.
 

@@ -200,6 +200,7 @@
     "rule.second-vocabulary",
     "rule.source-precedence",
     "rule.start-from-ids",
+    "rule.strongest-step",
     "rule.table-with-code",
     "rule.take-ready",
     "rule.ticket-without-behavior",
