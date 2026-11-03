@@ -8,50 +8,44 @@ The approach described with itself: the concepts its artifacts are made of, the 
 
 ## How to read this
 
-One section per entity of the approach, one row per concept, rows grouped by kind in the configured order. Fields and relations name their entity. Types use the neutral vocabulary; `contracts/approach.schema.json` is generated from them.
+The ontology is these tables and the check catalogue in [checks.md](./checks.md): the tables say what each thing is, the catalogue what must happen. One section per entity of the approach, one row per concept, rows grouped by kind in the configured order. Fields and relations name their entity. Types use the neutral vocabulary; `contracts/approach.schema.json` is generated from them.
 
 "Implemented" has a particular meaning here. A concept is implemented when it is realised: by the tool, for what the tool enforces, or by the page of `docs/` that states it, for rules people follow and procedures they carry out. Which rules the tool cannot enforce is visible in the check catalogue: their checks are manual.
 
-## Specification
-
-| Kind   | ID                       | Term                          | Type | Definition                                                                                                                                                                                                              |
-| ------ | ------------------------ | ----------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entity | `ent.specification`      | Specification                 |      | The ontology and the check catalogue of a product together: what a model writes the product's code from, the mockup included.                                                                                           |
-| Rule   | `rule.spec-is-source`    | Specification is the source   |      | A model writes the product's code from the specification, and the mockup is code written the same way; what the code does that the specification does not say is a gap in the specification.                            |
-|        | `rule.behavior-in-spec`  | Behavior in the specification |      | The specification describes behavior as completely as it can: what every view shows in each state, what the user can do there, and every outcome of every action as a check. Layout and style are the implementation's. |
-|        | `rule.change-spec-first` | Specification changes first   |      | A change of behavior starts in the specification, then the checks, then the code and its tests; a change of code alone changes no behavior.                                                                             |
-
 ## Concept
 
-| Kind      | ID                             | Term                    | Type                       | Definition                                                                                                                                                            |
-| --------- | ------------------------------ | ----------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.concept`                  | Concept                 |                            | Something in the product that people talk about, with one permanent ID and one definition row.                                                                        |
-| Field     | `field.concept.id`             | ID                      | text                       | `class.name` in lowercase; a field or a relation adds its entity, `field.loan.due-date`. Never changes.                                                               |
-|           | `field.concept.kind`           | Kind                    | text                       | One of the classes the configuration lists, in the order rows are grouped; by default entity, field, relation, derived, concept, rule, invariant, hook, action, view. |
-|           | `field.concept.term`           | Term                    | text                       | The name people use. It may change; the ID does not.                                                                                                                  |
-|           | `field.concept.type`           | Type                    | text optional              | For fields and relations only: a type from the neutral vocabulary.                                                                                                    |
-|           | `field.concept.definition`     | Definition              | text                       | What the concept is, in one or two sentences. Tooltips, reference pages and contracts quote it.                                                                       |
-| Relation  | `edge.concept.entity`          | Belongs to              | ref `ent.concept` optional | The entity a field or relation belongs to, named in its ID.                                                                                                           |
-| Derived   | `derived.implemented`          | Implemented             |                            | A concept listed in the implementation table.                                                                                                                         |
-|           | `derived.target`               | Target                  |                            | A concept not listed in the implementation table: agreed, not built yet.                                                                                              |
-| Rule      | `rule.kind-order`              | Kind order              |                            | Rows are grouped by kind in the order of the classes the configuration lists.                                                                                         |
-|           | `rule.scoped-ids`              | Entity in field IDs     |                            | Fields and relations name their entity in the ID; other classes do not.                                                                                               |
-|           | `rule.definition-says-what`    | Definitions say what    |                            | A definition is short and says what the thing is, not how it is built.                                                                                                |
-|           | `rule.concept-with-its-entity` | Concept with its entity |                            | A concept that involves several entities sits with the entity it constrains or changes.                                                                               |
-| Invariant | `inv.one-definition-row`       | One definition row      |                            | Every ID has exactly one definition row, in one table.                                                                                                                |
-|           | `inv.known-classes`            | Known classes           |                            | Every ID belongs to a class the configuration lists.                                                                                                                  |
-|           | `inv.kind-named-once`          | Kind named once         |                            | The Kind cell names the kind on the first row of its group and is empty on the rest.                                                                                  |
-|           | `inv.field-in-its-entity`      | Field with its entity   |                            | A field or relation sits in the table of the entity its ID names, and a table holds one entity.                                                                       |
-|           | `inv.references-defined`       | References defined      |                            | Every ID used anywhere has a definition row; the decision log may also use retired IDs.                                                                               |
-|           | `inv.concept-referenced`       | Referenced              |                            | Every concept is referred to somewhere besides its own row.                                                                                                           |
-|           | `inv.concept-tried`            | Tried                   |                            | Every concept has a mockup element, a ticket or an implementation. Reported as information.                                                                           |
-|           | `inv.ids-permanent`            | IDs are permanent       |                            | Renaming a term changes its row's text, never its ID.                                                                                                                 |
-|           | `inv.no-restated-definition`   | No restated definition  |                            | Notes under a table add detail and never restate a definition.                                                                                                        |
-|           | `inv.one-concept-per-term`     | One concept per term    |                            | A term names one concept, apart from fields and relations of different entities and a relation named after the entity it refers to. Reported as information.          |
-| Action    | `action.add-concept`           | Add a concept           |                            | Write its definition row first, in its entity's section; then its checks, map row, mockup element and anchors.                                                        |
-|           | `action.rename-term`           | Rename a term           |                            | Change the term and definition, keep the ID, regenerate, reread anchored sections.                                                                                    |
-|           | `action.change-id`             | Change an ID            |                            | Replace it everywhere but the decision log and retire the old one, with a decision.                                                                                   |
-|           | `action.remove-concept`        | Remove a concept        |                            | Remove its row and every reference, retire its ID with a dash, record a decision.                                                                                     |
+| Kind      | ID                             | Term                     | Type                       | Definition                                                                                                                                                                                                         |
+| --------- | ------------------------------ | ------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Entity    | `ent.concept`                  | Concept                  |                            | Something in the product that people talk about, with one permanent ID and one definition row.                                                                                                                     |
+| Field     | `field.concept.id`             | ID                       | text                       | `class.name` in lowercase; a field or a relation adds its entity, `field.loan.due-date`. Never changes.                                                                                                            |
+|           | `field.concept.kind`           | Kind                     | text                       | One of the classes the configuration lists, in the order rows are grouped; by default entity, field, relation, derived, concept, rule, invariant, hook, action, view.                                              |
+|           | `field.concept.term`           | Term                     | text                       | The name people use. It may change; the ID does not.                                                                                                                                                               |
+|           | `field.concept.type`           | Type                     | text optional              | For fields and relations only: a type from the neutral vocabulary.                                                                                                                                                 |
+|           | `field.concept.definition`     | Definition               | text                       | What the concept is, in one or two sentences. Tooltips, reference pages and contracts quote it.                                                                                                                    |
+| Relation  | `edge.concept.entity`          | Belongs to               | ref `ent.concept` optional | The entity a field or relation belongs to, named in its ID.                                                                                                                                                        |
+| Derived   | `derived.implemented`          | Implemented              |                            | A concept listed in the implementation table.                                                                                                                                                                      |
+|           | `derived.target`               | Target                   |                            | A concept not listed in the implementation table: agreed, not built yet.                                                                                                                                           |
+| Rule      | `rule.kind-order`              | Kind order               |                            | Rows are grouped by kind in the order of the classes the configuration lists.                                                                                                                                      |
+|           | `rule.scoped-ids`              | Entity in field IDs      |                            | Fields and relations name their entity in the ID; other classes do not.                                                                                                                                            |
+|           | `rule.definition-says-what`    | Definitions say what     |                            | A definition is short and says what the thing is, not how it is built.                                                                                                                                             |
+|           | `rule.concept-with-its-entity` | Concept with its entity  |                            | A concept that involves several entities sits with the entity it constrains or changes.                                                                                                                            |
+|           | `rule.ontology-is-source`      | Ontology is the source   |                            | A model writes the product's code from the ontology, and the mockup is code written the same way; what the code does that the ontology does not say is a gap in the ontology.                                      |
+|           | `rule.behavior-in-ontology`    | Behavior in the ontology |                            | The ontology describes behavior as completely as it can: what every view shows in each state, what the user can do there, and every outcome of every action as a check. Layout and style are the implementation's. |
+|           | `rule.ontology-changes-first`  | Ontology changes first   |                            | A change of behavior starts in the ontology, its rows or its checks, then the code and its tests; a change of code alone changes no behavior.                                                                      |
+| Invariant | `inv.one-definition-row`       | One definition row       |                            | Every ID has exactly one definition row, in one table.                                                                                                                                                             |
+|           | `inv.known-classes`            | Known classes            |                            | Every ID belongs to a class the configuration lists.                                                                                                                                                               |
+|           | `inv.kind-named-once`          | Kind named once          |                            | The Kind cell names the kind on the first row of its group and is empty on the rest.                                                                                                                               |
+|           | `inv.field-in-its-entity`      | Field with its entity    |                            | A field or relation sits in the table of the entity its ID names, and a table holds one entity.                                                                                                                    |
+|           | `inv.references-defined`       | References defined       |                            | Every ID used anywhere has a definition row; the decision log may also use retired IDs.                                                                                                                            |
+|           | `inv.concept-referenced`       | Referenced               |                            | Every concept is referred to somewhere besides its own row.                                                                                                                                                        |
+|           | `inv.concept-tried`            | Tried                    |                            | Every concept has a mockup element, a ticket or an implementation. Reported as information.                                                                                                                        |
+|           | `inv.ids-permanent`            | IDs are permanent        |                            | Renaming a term changes its row's text, never its ID.                                                                                                                                                              |
+|           | `inv.no-restated-definition`   | No restated definition   |                            | Notes under a table add detail and never restate a definition.                                                                                                                                                     |
+|           | `inv.one-concept-per-term`     | One concept per term     |                            | A term names one concept, apart from fields and relations of different entities and a relation named after the entity it refers to. Reported as information.                                                       |
+| Action    | `action.add-concept`           | Add a concept            |                            | Write its definition row first, in its entity's section; then its checks, map row, mockup element and anchors.                                                                                                     |
+|           | `action.rename-term`           | Rename a term            |                            | Change the term and definition, keep the ID, regenerate, reread anchored sections.                                                                                                                                 |
+|           | `action.change-id`             | Change an ID             |                            | Replace it everywhere but the decision log and retire the old one, with a decision.                                                                                                                                |
+|           | `action.remove-concept`        | Remove a concept         |                            | Remove its row and every reference, retire its ID with a dash, record a decision.                                                                                                                                  |
 
 ## Retired ID
 
@@ -143,17 +137,17 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 
 ## Mockup element
 
-| Kind      | ID                            | Term                 | Type              | Definition                                                                                                                        |
-| --------- | ----------------------------- | -------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.mockup-element`          | Mockup element       |                   | A meaningful element of the mockup, labelled with a concept by `data-ont`.                                                        |
-| Relation  | `edge.mockup-element.concept` | Shows                | ref `ent.concept` | The concept the element stands for.                                                                                               |
-| Rule      | `rule.one-mockup`             | One mockup           |                   | One mockup for the whole product, in plain HTML that runs from the file system.                                                   |
-|           | `rule.mockup-shows-target`    | Shows the target     |                   | The mockup is the first implementation of the interface, written from the specification, and may run ahead of the product's code. |
-|           | `rule.mockup-data-fictional`  | Fictional data       |                   | Data in a shared mockup is fictional; real data only in a private copy.                                                           |
-| Invariant | `inv.mockup-matches-map`      | Mockup matches map   |                   | The mockup and the map name the same set of IDs.                                                                                  |
-|           | `inv.tooltips-generated`      | Tooltips generated   |                   | The tooltip file equals what the generator writes from the definitions.                                                           |
-|           | `inv.dynamic-ids-declared`    | Dynamic IDs declared |                   | An ID built from a template is declared, and every declared class has a live template.                                            |
-|           | `inv.label-is-true`           | Label is true        |                   | An element labelled with a concept behaves as that concept.                                                                       |
+| Kind      | ID                            | Term                 | Type              | Definition                                                                                                                   |
+| --------- | ----------------------------- | -------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.mockup-element`          | Mockup element       |                   | A meaningful element of the mockup, labelled with a concept by `data-ont`.                                                   |
+| Relation  | `edge.mockup-element.concept` | Shows                | ref `ent.concept` | The concept the element stands for.                                                                                          |
+| Rule      | `rule.one-mockup`             | One mockup           |                   | One mockup for the whole product, in plain HTML that runs from the file system.                                              |
+|           | `rule.mockup-shows-target`    | Shows the target     |                   | The mockup is the first implementation of the interface, written from the ontology, and may run ahead of the product's code. |
+|           | `rule.mockup-data-fictional`  | Fictional data       |                   | Data in a shared mockup is fictional; real data only in a private copy.                                                      |
+| Invariant | `inv.mockup-matches-map`      | Mockup matches map   |                   | The mockup and the map name the same set of IDs.                                                                             |
+|           | `inv.tooltips-generated`      | Tooltips generated   |                   | The tooltip file equals what the generator writes from the definitions.                                                      |
+|           | `inv.dynamic-ids-declared`    | Dynamic IDs declared |                   | An ID built from a template is declared, and every declared class has a live template.                                       |
+|           | `inv.label-is-true`           | Label is true        |                   | An element labelled with a concept behaves as that concept.                                                                  |
 
 ## Map row
 
@@ -332,15 +326,6 @@ A fix to the tool is made in the approach and reaches a project with its next co
 
 Where each concept is realised. Tool files enforce or generate; pages of `docs/` state the rules people follow and the procedures they carry out.
 
-### Specification
-
-| ID | Implemented in | Note |
-| --- | --- | --- |
-| `ent.specification` | `tools/ont-check/lib.mjs`, `docs/principles.md` | |
-| `rule.spec-is-source` | `docs/principles.md` | |
-| `rule.behavior-in-spec` | `docs/principles.md` | |
-| `rule.change-spec-first` | `docs/principles.md` | |
-
 ### Concept
 
 | ID                             | Implemented in                                                                                    | Note                                                                              |
@@ -358,6 +343,9 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `rule.scoped-ids`              | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
 | `rule.definition-says-what`    | `docs/parts/glossary-and-ids.md`                                                                  | reviewed, not checked                                                             |
 | `rule.concept-with-its-entity` | `docs/parts/glossary-and-ids.md`                                                                  | reviewed, not checked                                                             |
+| `rule.ontology-is-source` | `docs/principles.md` | |
+| `rule.behavior-in-ontology` | `docs/principles.md` | |
+| `rule.ontology-changes-first` | `docs/principles.md` | |
 | `inv.one-definition-row`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
 | `inv.known-classes`            | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
 | `inv.kind-named-once`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`, `tools/ont-check/format-ontology.mjs` |                                                                                   |
@@ -656,7 +644,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
-- 2026-11-03: the specification is the source of the code, and the mockup is code: `ent.specification`, `rule.spec-is-source`, `rule.behavior-in-spec` and `rule.change-spec-first`; `rule.mockup-shows-target` redefined (D-73, tentative).
+- 2026-11-03: the ontology is the source of the code, and the mockup is code: `rule.ontology-is-source`, `rule.behavior-in-ontology` and `rule.ontology-changes-first`; `rule.mockup-shows-target` redefined (D-73, tentative).
 - 2026-11-03: a question a run can answer is settled by a prototype: `rule.run-settles-question` (D-72).
 - 2026-11-03: a slice is one reviewable change: `rule.slice-one-change` (D-71).
 - 2026-11-03: concurrent tickets are cut by one coordinator: `rule.coordinator-cuts` (D-70).

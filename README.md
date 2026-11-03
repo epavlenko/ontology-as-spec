@@ -50,7 +50,7 @@ One script checks all of these against each other, in both directions, on every 
 
 Teams and solo builders whose code is mostly written by coding agents, and the person who owns what the product means: a founder, a product owner, a tech lead. It pays off when the product has enough concepts that people argue about their names and rules, and when agents run long tasks without supervision.
 
-The ontology and the check catalogue are the specification: a model writes the code from them, the mockup included, and a change of behavior starts in them. See [principle 6](docs/principles.md#6-the-specification-is-the-source-of-the-code).
+The ontology, its tables of concepts and its catalogue of checks, is the specification: a model writes the code from it, the mockup included, and a change of behavior starts in it. See [principle 6](docs/principles.md#6-the-ontology-is-the-source-of-the-code).
 
 ## Try it in two minutes
 
@@ -84,7 +84,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 
 ## How it compares
 
-Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) of spec-driven development: spec-first, spec-anchored and spec-as-source. In this approach the specification is the source of the code, and it is anchored to concepts rather than features. A feature spec describes one change and then ages. A concept keeps its ID for the life of the product. We call this **concept-anchored**. Tools such as Spec Kit, Kiro and OpenSpec work per feature or per change. None of them ties the interface to a shared vocabulary. The full comparison, including older practices such as Domain-Driven Design and decision records, is in [docs/comparison.md](docs/comparison.md).
+Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) of spec-driven development: spec-first, spec-anchored and spec-as-source. In this approach the ontology is the specification and the source of the code, and it is anchored to concepts rather than features. A feature spec describes one change and then ages. A concept keeps its ID for the life of the product. We call this **concept-anchored**. Tools such as Spec Kit, Kiro and OpenSpec work per feature or per change. None of them ties the interface to a shared vocabulary. The full comparison, including older practices such as Domain-Driven Design and decision records, is in [docs/comparison.md](docs/comparison.md).
 
 ## Status and origin
 

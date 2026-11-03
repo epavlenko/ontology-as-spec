@@ -3,7 +3,7 @@
 <!-- ont: ent.mockup-element@54a519, ent.map-row@6bee30, inv.mockup-matches-map@8f55c3 -->
 ## What it is
 
-A single clickable mockup of the whole product, in plain HTML. It is code: the first implementation of the interface, written from the specification, and it may run ahead of the product's code. Every element that means something carries `data-ont="<id>"`. Hovering it shows the glossary definition, because the tooltips are generated from the glossary rather than written in the markup. Next to it lives the **UI-to-ontology map**, a table that says, for each labelled element, what it shows, which concept stands behind it and what it deliberately does not do.
+A single clickable mockup of the whole product, in plain HTML. It is code: the first implementation of the interface, written from the ontology, and it may run ahead of the product's code. Every element that means something carries `data-ont="<id>"`. Hovering it shows the glossary definition, because the tooltips are generated from the glossary rather than written in the markup. Next to it lives the **UI-to-ontology map**, a table that says, for each labelled element, what it shows, which concept stands behind it and what it deliberately does not do.
 
 ```html
 <button class="act" disabled data-ont="action.renew">Renew</button>
@@ -32,10 +32,10 @@ The "what it does not do" column is the negative specification. Many interface m
 
 A small browser smoke test can add the runtime side: every labelled element really received a tooltip, and no script errors occurred.
 
-<!-- ont: rule.one-mockup@e0579a, rule.mockup-shows-target@d5aa5d, rule.mockup-data-fictional@9d8937, inv.label-is-true@23b3e9, rule.map-by-screen@aabc2a -->
+<!-- ont: rule.one-mockup@e0579a, rule.mockup-shows-target@924bf0, rule.mockup-data-fictional@9d8937, inv.label-is-true@23b3e9, rule.map-by-screen@aabc2a -->
 ## Reference
 
-The rules of the mockup and the map, and the checks that hold them, are in the reference: [Mockup element](../reference.md#mockup-element) and [Map row](../reference.md#map-row). The mockup is code written from the specification, the first implementation of the interface, and may run ahead of the product's code; what it shows that the specification does not say is a gap in the specification. Data in a shared mockup is fictional; using real data in a private copy is a strong test, because a week of living with the mockup surfaces problems no review does. Whether an element labelled `action.renew` renews anything is a manual check, and so is behavior over time, which a mockup cannot show: see [limitations](../limitations.md#the-mockup-cannot-show-time).
+The rules of the mockup and the map, and the checks that hold them, are in the reference: [Mockup element](../reference.md#mockup-element) and [Map row](../reference.md#map-row). The mockup is code written from the ontology, the first implementation of the interface, and may run ahead of the product's code; what it shows that the ontology does not say is a gap in the ontology. Data in a shared mockup is fictional; using real data in a private copy is a strong test, because a week of living with the mockup surfaces problems no review does. Whether an element labelled `action.renew` renews anything is a manual check, and so is behavior over time, which a mockup cannot show: see [limitations](../limitations.md#the-mockup-cannot-show-time).
 
 ## How it fails in practice
 

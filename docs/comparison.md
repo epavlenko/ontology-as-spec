@@ -12,7 +12,7 @@ Birgitta Böckeler, [Understanding Spec-Driven-Development: Kiro, spec-kit, and 
 
 She also separates specs from a "memory bank" of always-loaded context: Kiro's steering files and Spec Kit's constitution.
 
-**Where this approach sits.** The specification is the source of the code, with a different unit. The tools she reviews anchor a spec to a feature or a change. This approach anchors meaning to a **concept**: one ID, one definition, referenced by every artifact for the life of the product. The ontology is neither a feature spec nor a memory bank. It is closer to a shared domain model that both the specs and the memory bank would point at. It is spec-as-source in the sense that matters when agents write the code: a model writes the code from the ontology and the catalogue, and a change of behavior starts there ([principle 6](principles.md#6-the-specification-is-the-source-of-the-code)). What makes two runs the same product is that both pass the same checks, not that they produce the same code.
+**Where this approach sits.** The ontology is the source of the code, with a different unit. The tools she reviews anchor a spec to a feature or a change. This approach anchors meaning to a **concept**: one ID, one definition, referenced by every artifact for the life of the product. The ontology is neither a feature spec nor a memory bank. It is closer to a shared domain model that both the specs and the memory bank would point at. It is spec-as-source in the sense that matters when agents write the code: a model writes the code from the ontology, its rows and its checks, and a change of behavior starts there ([principle 6](principles.md#6-the-ontology-is-the-source-of-the-code)). What makes two runs the same product is that both pass the same checks, not that they produce the same code.
 
 ## Tools
 
@@ -38,7 +38,7 @@ She also separates specs from a "memory bank" of always-loaded context: Kiro's s
 
 Described in Böckeler's article as the one tool that "explicitly aspires to a spec-anchored approach, and is even exploring the spec-as-source level", with a one-to-one mapping between spec and code file and generated code marked `// GENERATED FROM SPEC - DO NOT EDIT`. On regenerating from the same spec: "I have seen the non-determinism in action".
 
-*Compared with this approach.* Both make the spec the source of the code. Tessl ties a spec to a code file and marks the code as generated; this approach ties the specification to concepts and lets the code be rewritten freely, and it answers non-determinism with checks: whatever a model writes has to pass the same catalogue.
+*Compared with this approach.* Both make the spec the source of the code. Tessl ties a spec to a code file and marks the code as generated; this approach ties the ontology to concepts and lets the code be rewritten freely, and it answers non-determinism with checks: whatever a model writes has to pass the same catalogue.
 
 ### The Spec Growth Engine
 
@@ -72,7 +72,7 @@ Hartwig Grabowski, [The Spec Growth Engine: Spec-Anchored, Code-Coupled, Drift-E
 - **Problem size.** In her test, Kiro turned a small bug into 4 "user stories" with "a total of 16 acceptance criteria". This approach does not produce documents per change. A small change touches the glossary only if it changes meaning. A bug fix often touches nothing but code and the implementation note.
 - **Verbosity and review burden.** "I'd rather review code than all these markdown files." Partly applies. The ontology is long. But it is reviewed once per concept, not once per feature, and the glossary keeps the per-concept unit to one line. Reviewing a change to meaning means reading a few rows and a decision entry.
 - **False sense of control.** She asks whether agents follow the spec, and saw them ignore and over-apply instructions. This applies fully. The check guarantees that the artifacts agree with each other. It does not guarantee that code agrees with them. See [limitations](limitations.md#the-check-reads-names-in-code-not-what-code-does).
-- **The model-driven development parallel.** She warns that spec-as-source may combine "the downsides of both MDD and LLMs: Inflexibility and non-determinism." This applies. A model writing code from the ontology is not deterministic, so this approach does not promise the same code twice. It promises that every behavior the specification states is proven by a check, and treats a behavior the specification does not state as a gap in the specification. Its deterministic generators only restate the ontology: tooltips, a JSON Schema for stored fields, reference pages.
+- **The model-driven development parallel.** She warns that spec-as-source may combine "the downsides of both MDD and LLMs: Inflexibility and non-determinism." This applies. A model writing code from the ontology is not deterministic, so this approach does not promise the same code twice. It promises that every behavior the ontology states is proven by a check, and treats a behavior the ontology does not state as a gap in the ontology. Its deterministic generators only restate the ontology: tooltips, a JSON Schema for stored fields, reference pages.
 
 ## The objection from learning
 

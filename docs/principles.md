@@ -36,19 +36,19 @@ The ontology describes the agreed target. An implementation table says which con
 
 *Prevents:* the design document silently drifting toward the code, and the code being "fixed" toward a design that was abandoned.
 
-<!-- ont: ent.specification@e6824a, rule.spec-is-source@5e8bd3, rule.behavior-in-spec@a68f16, rule.change-spec-first@a173d3 -->
-## 6. The specification is the source of the code
+<!-- ont: rule.ontology-is-source@df6b8f, rule.behavior-in-ontology@bb739f, rule.ontology-changes-first@a547a8 -->
+## 6. The ontology is the source of the code
 
-The ontology and the check catalogue are the product's specification. They describe its behavior as completely as they can: what every view shows in each state, what the user can do there, and every outcome of every action as a check. A model writes the code from them, and a change of behavior starts in them, then the code follows. What the code does that the specification does not say is a gap in the specification: it becomes a check, or a question for the owner. Layout and style are left to the code, and the owner judges them on the mockup.
+The ontology is the tables of concepts and the catalogue of checks on them, kept in two files so that cases with data do not bury the definitions. Together they describe the product's behavior as completely as they can: what every view shows in each state, what the user can do there, and every outcome of every action as a check. A model writes the code from them, and a change of behavior starts in them, then the code follows. What the code does that the ontology does not say is a gap in the ontology: it becomes a check, or a question for the owner. Layout and style are left to the code, and the owner judges them on the mockup.
 
 Two runs of a model do not write the same code. They write code that passes the same checks, and that is what makes them the same product. The generators of the approach only restate the ontology: tooltips, contracts and reference pages.
 
-*Prevents:* behavior that is born in code nobody decided, and a specification that each month describes less than the product does.
+*Prevents:* behavior that is born in code nobody decided, and an ontology that each month describes less than the product does.
 
-<!-- ont: ent.mockup-element@54a519, rule.mockup-shows-target@d5aa5d -->
+<!-- ont: ent.mockup-element@54a519, rule.mockup-shows-target@924bf0 -->
 ## 7. The mockup is code that names its concepts
 
-The mockup is the first implementation of the interface, written from the specification like the rest of the code, and it may run ahead of the product's code. Every meaningful element is labelled with the concept it shows, so the reason it exists is one hover away and outlives every redesign. A map records, for each element, what it shows and what it deliberately does not do.
+The mockup is the first implementation of the interface, written from the ontology like the rest of the code, and it may run ahead of the product's code. Every meaningful element is labelled with the concept it shows, so the reason it exists is one hover away and outlives every redesign. A map records, for each element, what it shows and what it deliberately does not do.
 
 *Prevents:* interface elements whose reason nobody remembers, and agents building behavior a mockup merely suggested.
 
