@@ -232,6 +232,7 @@ One section per entity of the approach, one row per concept, rows grouped by kin
 |           | `rule.cut-when-started`        | Cut when started       |                            | A ticket is cut when work on its slice starts, not ahead of it, because it takes its concepts out of what `--next` offers; an agent may cut it from `--next`, and what the agent may do then is the owner's choice                                                                                                                        |
 |           | `rule.ticket-closed-on-done`   | Closed when done       |                            | When `--gap` with the ticket prints `SLICE_DONE` and the tests pass, the ticket is closed and kept as the record of the slice                                                                                                                                                                                                             |
 |           | `rule.coordinator-cuts`        | Coordinator cuts       |                            | When several agents work at once, one coordinator cuts all their tickets and commits them to the main branch before they start, since a ticket on another branch takes nothing that the others can see                                                                                                                                    |
+|           | `rule.slice-one-change`        | One change per slice   |                            | A slice is one change that a reviewer can read with its own evidence; when what `--next` proposes is more, it is split along its dependencies and the part the rest depends on is built first                                                                                                                                             |
 | Invariant | `inv.ticket-has-ids`           | Names its concepts     |                            | A ticket has an `IDs:` line.                                                                                                                                                                                                                                                                                                              |
 |           | `inv.ticket-checks-related`    | Related checks         |                            | Every check a ticket lists exists and names one of its concepts.                                                                                                                                                                                                                                                                          |
 | Action    | `action.cut-slice`             | Cut a slice            |                            | Take part of the gap and write the ticket with its limits and permissions.                                                                                                                                                                                                                                                                |
@@ -538,6 +539,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `rule.cut-when-started`         | `docs/parts/agent-workflow.md`  | reviewed, not checked                                     |
 | `rule.ticket-closed-on-done`    | `docs/parts/agent-workflow.md`  | reviewed, not checked                                     |
 | `rule.coordinator-cuts`          | `docs/parts/agent-workflow.md`  | reviewed, not checked                                      |
+| `rule.slice-one-change`           | `docs/parts/agent-workflow.md`  | reviewed, not checked                                       |
 | `rule.ticket-without-behavior` | `docs/parts/agent-workflow.md`  | reviewed, not checked                                    |
 | `inv.ticket-has-ids`           | `tools/ont-check/ont-check.mjs` |                                                          |
 | `inv.ticket-checks-related`    | `tools/ont-check/ont-check.mjs` |                                                          |
@@ -634,6 +636,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-03: a slice is one reviewable change: `rule.slice-one-change` (D-71).
 - 2026-11-03: concurrent tickets are cut by one coordinator: `rule.coordinator-cuts` (D-70).
 - 2026-11-03: when a ticket is cut and when it is closed: `rule.cut-when-started` and `rule.ticket-closed-on-done` (D-68).
 - 2026-11-03: a correction is held at the strongest step: `rule.strongest-step` (D-67).

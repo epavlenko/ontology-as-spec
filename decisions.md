@@ -548,6 +548,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: each agent cutting its own ticket and pushing it at once (two agents may still read `--next` before either push lands); a lock file or a field in the ticket that marks it taken (a second mechanism for what a committed ticket already does).
 - Concepts: `rule.coordinator-cuts`, `rule.cut-when-started`, `derived.readiness`.
 
+### D-71 · A slice is one change a reviewer can read
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to limit a slice to one reviewable change (translated from Russian).
+- Decision: a slice is one change that a reviewer can read with its own evidence. When what `--next` proposes is more than that, it is split along its dependencies, the part the rest depends on is built first, and the rest stays in the gap for `--next` to offer again (`rule.slice-one-change`). No number of concepts marks the limit; the reviewer judges, so the check is manual. Part 8 explains it under "Slices and control tests".
+- Why: `--next` cuts by ontology section, and a section can hold three concepts or twenty, so a proposed slice could become a change too large to review, whose tests prove little one by one. Agent toolkits that land many changes a day keep each change small and checked before the next for the same reason (https://github.com/cursor/plugins/blob/main/pstack/skills/principle-sequence-verifiable-units/SKILL.md).
+- Rejected: a limit on the number of concepts in `--next` (one concept can take a day and five an hour, so any number would be invented); leaving the size to the section (sections are drawn for meaning, not for review).
+- Concepts: `rule.slice-one-change`, `derived.next-slice`, `action.cut-slice`.
+
 ## Tentative
 
 ## Open questions
