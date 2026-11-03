@@ -47,6 +47,13 @@ What a ticket no longer carries: expected behavior (it is in the check catalogue
 
 Not every ticket is a slice. Refactoring, infrastructure, performance and dependency updates do not change meaning and are ordinary tickets without IDs. With an external contractor, a ticket is also the agreement about what is delivered and accepted; the ontology does not replace that.
 
+<!-- ont: rule.cut-when-started@03d590, rule.ticket-closed-on-done@109f27 -->
+## When a ticket is cut and closed
+
+A ticket is cut when work on its slice starts (`rule.cut-when-started`). Cutting it earlier, to keep a queue, costs more than it seems: a ticket takes its concepts, so `--gap` shows them as "in ticket" and `--next` no longer offers them, and work that nobody does looks taken. The queue the approach keeps is the gap itself, computed fresh each time. Whoever starts the work cuts the ticket, the owner or an agent that takes the slice `--next` proposes; what the agent may do then, commit, push, open a pull request, is the owner's choice, written on the ticket's pre-authorized lines.
+
+When `--gap` with the ticket prints `SLICE_DONE` and the tests pass, the ticket is closed and kept (`rule.ticket-closed-on-done`). A file stays in the tickets directory and a tracker entry is closed, not deleted: the ticket is the record of which slice was built when and within which limits. The check reads only tickets that are files in the repository, so a ticket in a tracker takes nothing in `--gap`, and its concepts stay offered by `--next` while it is open.
+
 <!-- ont: rule.take-ready@38f877, derived.readiness@346c38, derived.next-slice@187668 -->
 ## Ready, waiting and deferred
 

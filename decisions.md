@@ -521,6 +521,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: a check of the tool (whether a correction could have been held more strongly is a judgment about the code, which the tool does not read); leaving the sentence in part 7 as it was (it covered only rules already in the list, not each correction as it happens).
 - Concepts: `rule.strongest-step`, `ent.agent-rules`.
 
+### D-68 · A ticket is cut when its work starts and kept when it is done
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to say who cuts a ticket, when, and what happens to it after `SLICE_DONE` (translated from Russian).
+- Decision: a ticket is cut when work on its slice starts, not ahead of it, by whoever starts the work, the owner or an agent that takes the slice `--next` proposes; what the agent may do then is the owner's choice, on the ticket's pre-authorized lines (`rule.cut-when-started`). When `--gap` with the ticket prints `SLICE_DONE` and the tests pass, the ticket is closed and kept as the record of the slice: a file stays in the tickets directory, a tracker entry is closed, not deleted (`rule.ticket-closed-on-done`). Part 8 explains both, and that a ticket in a tracker takes nothing in `--gap`, since the check reads only ticket files.
+- Why: part 8 said what a ticket is cut from and when it is done, but not when it is cut, by whom, or what happens to it after. A ticket takes its concepts out of what `--next` offers, so tickets cut ahead to keep a queue would make untouched work look taken; and the gap is already the queue, computed fresh each time.
+- Rejected: a backlog of tickets cut ahead (it hides ready work from `--next`, and the gap already orders the work); deleting a ticket when it is done (it is the only record of which slice was built when and within which limits); a check that open tickets are being worked on (nothing in the repository records that work is going on).
+- Concepts: `rule.cut-when-started`, `rule.ticket-closed-on-done`, `ent.ticket`, `action.cut-slice`.
+
 ## Tentative
 
 ## Open questions
