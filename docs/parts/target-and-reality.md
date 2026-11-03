@@ -58,6 +58,8 @@ Code that behaves differently from the ontology where no test looks passes every
 
 A blind walk is recommended before a release; it is not required, since nothing records that it happened.
 
+A report from a user is a finding of the same kind. An agent reproduces it with the run guides and the map, then sorts it the same three ways: behavior that contradicts the target is a known divergence, a case the catalogue does not have becomes a check before the fix, and a request for what is not built is already the gap, or a decision if it changes the target. A report that cannot be reproduced is kept with the ticket or the tracker entry, not in the ontology.
+
 ## How it fails in practice
 
 - **The table stops being updated** because nothing fails when it is stale in the "not yet listed" direction. Tie the update to the ticket's Done when.

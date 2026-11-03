@@ -530,6 +530,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: a backlog of tickets cut ahead (it hides ready work from `--next`, and the gap already orders the work); deleting a ticket when it is done (it is the only record of which slice was built when and within which limits); a check that open tickets are being worked on (nothing in the repository records that work is going on).
 - Concepts: `rule.cut-when-started`, `rule.ticket-closed-on-done`, `ent.ticket`, `action.cut-slice`.
 
+### D-69 · The interface profile recommends a feature map and a command line that drives the product
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to write the feature map, the command line and the handling of user reports into the interface profile (translated from Russian).
+- Decision: the interface profile recommends, besides the blind walk, a feature map kept as a doc set that covers views and actions, one anchored section per screen or feature with how a user reaches it, how to drive it and its traps, and a command line that drives the product, so run guides and the blind walk name commands rather than improvised steps. Both are recommendations, as D-61 made the profiles; the tool checks the doc set, not the command line. Part 3 adds that a report from a user is reproduced with the run guides and the map and sorted like a finding of the blind walk: a known divergence, a check written before the fix, or the gap or a decision.
+- Why: Lauren Tan's verification skills (https://x.com/poteto/status/2094457600259842065) let agents check their own changes on a product's screens through exactly these two parts, and keeping the map up to date there takes a daily maintenance run because nothing notices when it goes stale. As a doc set anchored to the ontology, the check notices. A project of the approach already keeps its run guides that way.
+- Rejected: a new kind of artifact for the feature map (a doc set already holds anchored sections and reports gaps and stale sections); requiring the map or the command line in the profile (the tool cannot check that a command line drives the product, D-44 requires only what the tool checks); describing user reports as a separate process (they are findings like the blind walk's, with the same three outcomes).
+- Concepts: `ent.profile`, `ent.doc-set`, `action.walk-blind`.
+
 ## Tentative
 
 ## Open questions
