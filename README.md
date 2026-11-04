@@ -78,6 +78,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | [docs/comparison.md](docs/comparison.md) | spec-driven development tools and older practices, with links to primary sources |
 | [docs/limitations.md](docs/limitations.md) | weaknesses, open questions and open proposals |
 | [templates/](templates/README.md) | starting files for every artifact |
+| [skills/ontology-as-spec/](skills/ontology-as-spec/SKILL.md) | an agent skill that walks an agent through adopting the approach and points back here (MIT) |
 | [tools/ont-check/](tools/ont-check/README.md) | the check, the decision guard, and the generators of tooltips, contracts and reference pages; Node, no dependencies |
 | [ontology.md](ontology.md), [checks.md](checks.md) | the approach described with itself: its concepts, rules and checks, checked like any product |
 | [decisions.md](decisions.md) | decisions about this repository |
