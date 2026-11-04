@@ -566,7 +566,7 @@ test("[check.implementation-row.ownerless-required] skips a file the code direct
 
 test("[check.implementation-row.ownerless-file] lists a code file without an ont: name when the configuration does not require owners", () => {
   const r = run((p, dir) => {
-    p("ont.config.json", '"codeNames": { "owner": true }', '"codeNames": { "owner": false }');
+    p("ont.config.json", '  "codeNames": { "owner": true },\n', "");
     addFile("app/format.mjs", "export const pad = (s) => s;\n")(p, dir);
   });
   assert.equal(r.code, 0, r.out);

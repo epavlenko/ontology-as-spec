@@ -121,7 +121,7 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 |           | `inv.implementation-files-exist`  | Files exist             |                    | Every file the table names exists.                                                                                                                                                                                                                                                                                                      |
 |           | `inv.implementation-true`         | Row is true             |                    | The files a row names do realise the concept.                                                                                                                                                                                                                                                                                           |
 |           | `inv.implemented-named`           | Implemented is named    |                    | When the configuration sets `codeNames.require`, every implemented concept is named in an `ont:` comment in a file of its row, so a cleanup that deletes the name fails the check.                                                                                                                                                      |
-|           | `inv.code-has-owner`              | Code has an owner       |                    | When the configuration sets `codeNames.owner`, every file of the code directories names, in an `ont:` comment, at least one concept the ontology defines, so no code serves what the ontology does not say.                                                                                                                             |
+|           | `inv.code-has-owner`              | Code has an owner       |                    | When the configuration sets `codeNames.owner`, every file of the code directories names, in an `ont:` comment, at least one concept the ontology defines.                                                                                                                                                                               |
 
 ## Divergence
 
@@ -647,6 +647,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-04: `inv.code-has-owner` says only what the check holds, a name of a defined concept in each code file, not that the ontology describes all a file does (D-75).
 - 2026-11-04: a configuration may require every code file to name a concept it serves: `inv.code-has-owner` (D-75); the other two mechanisms of D-73 put off (D-76).
 - 2026-11-04: what an element does not do is written in the ontology: `rule.limits-in-ontology`; the map's column for it removed and its field retired (D-74, tentative).
 - 2026-11-03: the ontology is the source of the code, and the mockup is code: `rule.ontology-is-source`, `rule.behavior-in-ontology` and `rule.ontology-changes-first`; `rule.mockup-shows-target` redefined (D-73, tentative).

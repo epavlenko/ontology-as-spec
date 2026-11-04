@@ -39,7 +39,7 @@ It also gives agents a precise instruction. An agent implementing a ticket build
 
 The fields of an implementation row and of a divergence, their rules and their checks are in the reference: [Implementation row](../reference.md#implementation-row) and [Divergence](../reference.md#divergence). The tool confirms that the files a row names exist and, through the names in the code, which of them name the concept; that the files realise it, and that the table stays current with the code, are manual checks. It also fails on a divergence that names no concept: `--gap` matches divergences to tickets by their IDs, and a line without them would belong to no slice.
 
-<!-- ont: rule.code-names-concepts@701aa5, inv.code-names-resolve@052349, derived.named-in-code@5e7772, inv.implemented-named@60cc4f, inv.code-has-owner@399856 -->
+<!-- ont: rule.code-names-concepts@701aa5, inv.code-names-resolve@052349, derived.named-in-code@5e7772, inv.implemented-named@60cc4f, inv.code-has-owner@a84f3b -->
 
 ## Code names its concepts
 
