@@ -1,24 +1,26 @@
 # 7. Agent rules
 
 <!-- ont: ent.agent-rules@99af23 -->
+
 ## What it is
 
 A section in the repository's agent instructions (`AGENTS.md` or its equivalent) that tells any agent how to keep meaning current. It has two parts: a table of what else to update when something changes, and a short list of rules the check cannot enforce.
 
-| You changed                                        | Also update                                                                                                          | Verify                          |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| A concept, rule, invariant or view in the ontology | run `format-ontology.mjs`; regenerate the tooltips; a revision history line; a decision entry when the reason is new | the check                       |
-| A rule, invariant, hook or action in the ontology  | its check in the catalogue, before the code                                                                          | the check                       |
-| The mockup                                         | `data-ont` on every new meaningful element and its map row                                                           | the check, a browser smoke test |
-| Behavior in code                                   | an `ont:` comment naming the concepts the code implements; the implementation table and known divergences           | the check, the tests            |
-| Your mind about an earlier decision                | a new dated entry that supersedes the old one                                                                        | the check                       |
-| A concept becomes implemented                      | tests that implement its automatic checks, titled with the check IDs                                                 | the check, the tests            |
-| A definition row that a help page explains         | reread the sections the check lists, then `stamp-docs.mjs`; regenerate the reference pages                           | the check                       |
+| You changed                                        | Also update                                                                                                                                        | Verify                          |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| A concept, rule, invariant or view in the ontology | run `format-ontology.mjs`; regenerate the tooltips; a revision history line; a decision entry when the reason is new                               | the check                       |
+| A rule, invariant, hook or action in the ontology  | its check in the catalogue, before the code                                                                                                        | the check                       |
+| The mockup                                         | the ontology first; `data-ont` on every new meaningful element and its map row                                                                     | the check, a browser smoke test |
+| Code                                               | the rows and checks it implements first; an `ont:` comment naming the concepts the code implements; the implementation table and known divergences | the check, the tests            |
+| Your mind about an earlier decision                | a new dated entry that supersedes the old one                                                                                                      | the check                       |
+| A concept becomes implemented                      | tests that implement its automatic checks, titled with the check IDs                                                                               | the check, the tests            |
+| A definition row that a help page explains         | reread the sections the check lists, then `stamp-docs.mjs`; regenerate the reference pages                                                         | the check                       |
 
 Generated files are never edited by hand; the check compares them with what the generators write.
 
 Rules the check cannot enforce:
 
+- A change of behavior starts in the ontology, its rows or its checks; the code and its tests are written from it after (`rule.ontology-changes-first`). The code, the mockup included, is written from the ontology: what it would do that the ontology does not say, including what an element deliberately does not do, is a gap in the ontology, so add the row or the check, or ask, before writing it (`rule.ontology-is-source`, `rule.behavior-in-ontology`, `rule.limits-in-ontology`).
 - IDs are permanent. Renaming a term changes its row's text, never its ID. An ID that has to change goes under "Retired IDs" with its replacement; only the decision log keeps using it (`inv.ids-permanent`, `action.change-id`).
 - Removing a concept is a decision: write the entry and retire the ID; the check then finds every reference left (`action.remove-concept`).
 - The ontology describes the target. When the code disagrees, record the divergence; do not silently change either side (`rule.divergence-becomes-work`).
@@ -34,6 +36,7 @@ Rules the check cannot enforce:
 - A rule here that comes from a rule of the approach or from a decision names it, by ID or entry; a rule that departs from the approach cites the process entry of the log that decided it (`rule.agent-rule-source`, `rule.departure-by-entry`).
 
 <!-- ont: rule.strongest-step@4002fd -->
+
 ## Why a table
 
 Agents follow explicit procedures well and infer side effects badly. "Remember to keep docs in sync" produces nothing. "You changed the mockup, so add the map row and run this command" produces the map row. The table turns the dependency graph between artifacts into instructions, and the Verify column turns each instruction into something checkable.
@@ -43,11 +46,13 @@ The list after the table holds only the rules no check enforces; it exists becau
 The same order applies to every correction of an agent (`rule.strongest-step`). A mistake an agent made once it will make again, so the correction is held at the strongest step that can hold it. First the structure of the code, so the mistake cannot be written: a type, a boundary in the import graph, a single way to do a thing. Then a check of the tool, a test or a lint, which fail the build. Then a rule in the agent instructions, which an agent may not read. Last, what a reviewer remembers, which does not scale with the number of changes. A rule in the instructions is the fallback for what nothing else can hold, and the list after the table is where it goes. The order follows Lauren Tan's account of how a team of agents keeps a codebase trustworthy at hundreds of changes a day ([talk, 2026-09-21](https://x.com/poteto/status/2102050467505430555)).
 
 <!-- ont: rule.agent-rules-short@66c9df, rule.agent-rules-point-at-files@13a4c3, rule.start-from-ids@8804d9, rule.findings-mislead@0229fa, rule.commit-finished-work@8ad234 -->
+
 ## Reference
 
 The rules for the section itself are in the reference: [Agent rules](../reference.md#agent-rules). Keep it short, because it is read at the start of every session and long sections are skimmed. Let every row name a path or a command. Let every task start by naming the IDs it touches: if an agent cannot name them, the task is not about meaning, or the ontology is incomplete. The tool enforces none of this directly; it enforces the consequences, because a skipped row usually fails the check. The same restraint applies to reviews: a consistency review reports what would mislead someone or break a check, not every imperfection it can find. And every change ends with a commit, since the guard protects only accepted entries that are in a commit, and a commit keeps each step easy to undo. The commit holds only the change's own files, since other agents may work in the same checkout. Who approves a commit or a push, and when to push, the approach leaves to the user; a project that does not let agents commit writes that as a process entry, as the next section shows.
 
 <!-- ont: rule.agent-rule-source@695801, rule.departure-by-entry@4fa94e, inv.agent-rule-references-resolve@8ed1db, inv.departure-well-formed@706f17, inv.approach-ids-current@195640 -->
+
 ## Where a rule comes from
 
 A project's ontology is about its product. How its agents work is described by the approach's own ontology: the rules of this part and of the decision log are concepts of the approach, with IDs like any product's. So a process rule in a project's agent instructions, one that says how agents work rather than what the product is, names where it comes from: the rule of the approach it follows, by ID, or the entry of the project's log that decided it.
@@ -82,6 +87,7 @@ The configuration lists the instruction files under `agentInstructions`. The che
 What the tool cannot tell is which lines are process rules, and whether a rule written in prose is stricter or looser than the approach. A reviewer reads the instructions for that: a process rule that names no source is a finding, and so is a departure without an entry.
 
 <!-- ont: action.critique-change@79fa01 -->
+
 ## An independent critic
 
 A significant change, such as a rule of the approach, a new mechanism or risky code, is reviewed by an agent that did not write it. The critic gets the diff, the IDs it touches and their checks, and not the author's summary, since a reviewer handed the author's conclusions tends to confirm them. It reports what would mislead a reader or an agent, or break a check, as part 7 asks of every review. It is recommended for changes of rules, mechanisms and risky code; it is not required, since nothing records that it happened.
