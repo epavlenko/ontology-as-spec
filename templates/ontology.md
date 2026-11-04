@@ -31,7 +31,7 @@ What the product is for, in two sentences. This document describes the **target 
 | ---- | ----------------- | ---------- | ------------------------- |
 | View | `view.thing.page` | Thing page | One thing with its state. |
 
-- `view.thing.page` shows one `ent.thing` with `field.thing.state` and offers `action.close`.
+- `view.thing.page` shows one `ent.thing` with its `field.thing.state`, which nobody edits by hand. While the thing is open the page offers `action.close`; once it is closed it offers nothing, and no screen offers to reopen it (D-01).
 
 ## Deliberately out of scope
 

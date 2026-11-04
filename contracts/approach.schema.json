@@ -265,11 +265,6 @@
           "x-ont": "field.map-row.shows",
           "type": "string"
         },
-        "doesNotDo": {
-          "description": "What the element deliberately does not do.",
-          "x-ont": "field.map-row.does-not-do",
-          "type": "string"
-        },
         "concept": {
           "description": "The concept behind the element.",
           "x-ont": "edge.map-row.concept",

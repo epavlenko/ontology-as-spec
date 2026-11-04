@@ -1,6 +1,6 @@
 # Ontology as Specification
 
-A way to specify a product for AI coding agents: one model of the product's concepts that the UI, the decisions and the code all refer to, kept consistent by an automatic check.
+A way to specify a product for AI coding agents: one model of the product's concepts and behavior that agents write the UI and the code from, and that the decisions, the tests and the code all refer to, kept consistent by an automatic check.
 
 **Status.** An early version, v0.1, in active development: the rules still change every few days, and each change is an entry in [decisions.md](decisions.md). Four private projects use it. Issues and pull requests are welcome ([CONTRIBUTING.md](CONTRIBUTING.md)). More under [Status and origin](#status-and-origin).
 
@@ -38,10 +38,10 @@ These tables, one per entity with short notes under each, are the "ontology". It
 Then everything that touches meaning refers to the IDs:
 
 - **Decisions.** Each decision is logged with its date, where it was made, its reason, the rejected alternatives and the IDs it affects; what is put off is logged with the condition for taking it up again. Old entries are never edited; a new entry replaces them, and a guard refuses edits to accepted entries.
-- **The UI.** Each meaningful element of the interface mockup carries `data-ont="action.renew"`, and its tooltip comes from the definition. A map records what each element shows and what it deliberately does not do.
+- **The UI.** Each meaningful element of the interface mockup carries `data-ont="action.renew"`, and its tooltip comes from the definition. A map lists each element with its concept, screen by screen; what an element deliberately does not do is written in the ontology.
 - **The code.** Code names the concepts it implements in a comment, `// ont: inv.no-renew-when-held`, and the check confirms that every name exists. A table says which concepts are already implemented and in which files, and a list says where the code still disagrees with the agreed target. Fields and relations have types in a neutral vocabulary, and a JSON Schema per entity is generated from them, so any language can check its data or generate its types from the same source.
 - **Checks and tests.** A catalogue of checks says what must hold, as GIVEN/WHEN/THEN cases in the product's terms, for any implementation. Each test names the check it implements: `test("[check.loan.renew-while-held] renewal is refused while someone waits")`. The configuration says which test suite must prove which kind of concept: rules by unit tests, actions by end-to-end tests.
-- **Documentation.** Pages for people are written by hand, and each section names the concepts it explains in an anchor readers do not see. The check says which concepts no page explains and which sections to reread after a definition changed. Reference pages, such as a list of terms, are generated.
+- **Documentation.** Pages for people are written from the ontology, by a person or an agent, and each section names the concepts it explains in an anchor readers do not see. The check says which concepts no page explains and which sections to reread after a definition changed. Reference pages, such as a list of terms, are generated.
 - **Tasks.** The work left is computed: concepts not yet built, checks without a test, known divergences, and what each target waits for. `--next` proposes the next slice of what is ready. A ticket is a slice of that gap with its limits and permissions, and it is done when the check says so.
 
 One script checks all of these against each other, in both directions, on every commit and in CI. It also checks the shape of the ontology: kinds in order, every field in its entity's table.
@@ -50,7 +50,7 @@ One script checks all of these against each other, in both directions, on every 
 
 Teams and solo builders whose code is mostly written by coding agents, and the person who owns what the product means: a founder, a product owner, a tech lead. It pays off when the product has enough concepts that people argue about their names and rules, and when agents run long tasks without supervision.
 
-It is not a tool for generating code from a specification. See [why not spec-as-source](docs/why-not-spec-as-source.md).
+The ontology, its tables of concepts and its catalogue of checks, is the specification: a model writes the code from it, the mockup included, and a change of behavior starts in it. See [principle 6](docs/principles.md#6-the-ontology-is-the-source-of-the-code).
 
 ## Try it in two minutes
 
@@ -63,7 +63,7 @@ node --test 'tools/ont-check/test/*.test.mjs'                        # the check
 
 Then open `example/mockup/index.html` in a browser and hover over the elements. Rename a `data-ont` value or delete a row from `example/mockup/ontology-map.md`, run the check again, and read what it reports.
 
-To adopt the approach, start with ten definition rows for the concepts your team argues about most. See [Adopting the approach](docs/lifecycle.md#adopting-the-approach) and the [templates](templates/README.md).
+To adopt the approach, start with ten definition rows for the concepts your team argues about most, then grow the ontology until it describes the product's behavior. See [Adopting the approach](docs/lifecycle.md#adopting-the-approach) and the [templates](templates/README.md).
 
 ## What's in this repository
 
@@ -76,7 +76,6 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | [docs/profiles.md](docs/profiles.md) | recipes for a property of a product: model output, interface, model and data scenarios |
 | [docs/lifecycle.md](docs/lifecycle.md) | how a change travels: new concept, rename, removal, superseded decision, implementation, adoption |
 | [docs/comparison.md](docs/comparison.md) | spec-driven development tools and older practices, with links to primary sources |
-| [docs/why-not-spec-as-source.md](docs/why-not-spec-as-source.md) | why the ontology does not generate the product |
 | [docs/limitations.md](docs/limitations.md) | weaknesses, open questions and open proposals |
 | [templates/](templates/README.md) | starting files for every artifact |
 | [tools/ont-check/](tools/ont-check/README.md) | the check, the decision guard, and the generators of tooltips, contracts and reference pages; Node, no dependencies |
@@ -85,7 +84,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 
 ## How it compares
 
-Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) of spec-driven development: spec-first, spec-anchored and spec-as-source. This approach is spec-anchored, but what stays anchored is a concept rather than a feature. A feature spec describes one change and then ages. A concept keeps its ID for the life of the product. We call this **concept-anchored**. Tools such as Spec Kit, Kiro and OpenSpec work per feature or per change. None of them ties the interface to a shared vocabulary. The full comparison, including older practices such as Domain-Driven Design and decision records, is in [docs/comparison.md](docs/comparison.md).
+Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) of spec-driven development: spec-first, spec-anchored and spec-as-source. In this approach the ontology is the specification and the source of the code, and it is anchored to concepts rather than features. A feature spec describes one change and then ages. A concept keeps its ID for the life of the product. We call this **concept-anchored**. Tools such as Spec Kit, Kiro and OpenSpec work per feature or per change. None of them ties the interface to a shared vocabulary. The full comparison, including older practices such as Domain-Driven Design and decision records, is in [docs/comparison.md](docs/comparison.md).
 
 ## Status and origin
 

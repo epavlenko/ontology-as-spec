@@ -33,6 +33,18 @@ Required, and checked by the tool: every implemented action and view has a test 
 
 Recommended: when the product carries `data-ont` labels, a test that every implemented screen shows the elements its map lists; and a [blind walk](parts/target-and-reality.md#walking-the-product-blind) before a release.
 
+Recommended, so that an agent can check its own work on the screens:
+
+- **A feature map as a doc set.** One section per screen or feature, anchored by its view and action IDs: what it is for, how a user reaches it (the clicks and keys), how to drive it, and the traps where a run gets lost. The tool then lists the implemented views and actions that no section explains, and the sections to reread after a definition changed, so the map cannot go stale unseen ([part 9](parts/documentation.md#how-it-is-written)):
+
+  ```json
+  { "name": "features", "dir": "docs/features", "cover": ["view", "action"], "scope": "implemented" }
+  ```
+
+- **A command line that drives the product.** Open a screen, act on it, take a snapshot or a screenshot, read the state, each one command with a clear error and output a program can read. The run guides and the blind walk then name commands to run instead of steps to improvise, and an agent's evidence is the same from one run to the next. The tool does not check it; it is the product's own code.
+
+Both follow Lauren Tan's verification skills, a command line plus a feature map, which let agents check their own changes on a product's screens ([article, 2026-08-31](https://x.com/poteto/status/2094457600259842065); [example](https://github.com/poteto/verification-skill-example)). The difference is where the map comes from: there an agent writes it from the running product, here its sections are anchored to the ontology, so the check also sees a screen of the target that the map does not explain.
+
 ## Model and data scenarios
 
 For a product whose results inform people's decisions, such as a business model with prices and conversion rates.

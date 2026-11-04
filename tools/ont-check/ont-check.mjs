@@ -166,8 +166,9 @@ report(
 // Code names the concepts it implements in a comment, "// ont: rule.renewal" (D-57). The names in the
 // files of the implementation table and of the configured code directories resolve; an implemented
 // concept that the files of its row do not name is listed as information, since a name is not an
-// implementation and the table still says where a concept is built (D-38).
-// ont: derived.named-in-code, inv.code-names-resolve
+// implementation and the table still says where a concept is built (D-38), or fails when the
+// configuration requires names, so a cleanup that deletes them cannot pass unseen (D-66).
+// ont: derived.named-in-code, inv.code-names-resolve, inv.implemented-named
 const namedIn = new Map();
 {
   const files = new Set([
@@ -194,8 +195,8 @@ const namedIn = new Map();
   report(
     "implemented concepts that the files of their row do not name",
     [...rowFiles].filter(([id, fs]) => glossary.has(id) && !fs.some((f) => namedIn.get(id)?.includes(f))).map(([id]) => id),
-    false,
-    20,
+    cfg.codeNames.require,
+    cfg.codeNames.require ? Infinity : 20,
   );
 }
 
@@ -272,7 +273,7 @@ if (cfg.mockup.length) {
 }
 
 // Map: the ID column of every table row. The map and the mockup describe the same set of elements.
-// ont: ent.map-row, field.map-row.shows, field.map-row.does-not-do, edge.map-row.concept, inv.mockup-matches-map
+// ont: ent.map-row, field.map-row.shows, edge.map-row.concept, inv.mockup-matches-map
 let mapped = new Set();
 if (cfg.map) {
   const map = read(cfg.map.file);

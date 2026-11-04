@@ -1,6 +1,6 @@
 // Generates the reference pages listed under "references" in the config: the ontology's concepts by
 // section and, if asked, the checks of each section. Only what the ontology and the catalogue already
-// say; explanations are written by people and anchored (see docs.mjs).
+// say; explanations are written from the ontology, by a person or an agent, and anchored (see docs.mjs).
 // Usage: node tools/ont-check/gen-reference.mjs [--config path/to/ont.config.json]
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, relative } from "node:path";

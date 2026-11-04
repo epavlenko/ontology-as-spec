@@ -12,7 +12,7 @@ You can have up to five items at a time. If you already have five, the desk will
 
 The desk says why in one line. The usual reasons are that the item is already on loan to someone else, or that you have reached your limit.
 
-<!-- ont: view.member.loans@1ab896, derived.overdue@0277ba -->
+<!-- ont: view.member.loans@51c1e5, derived.overdue@0277ba -->
 ## Seeing your loans
 
 "My loans" lists everything you have, with its due date. The day after the due date, a loan is marked overdue. Nothing else happens on that day: there are no fines.

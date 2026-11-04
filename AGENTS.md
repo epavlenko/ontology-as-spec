@@ -15,11 +15,13 @@ This repository describes an approach to product development: product meaning ke
 
 - **English only** (D-03).
 - **Nothing from the source project.** Do not copy content, names, concepts, decisions or screens from the product where the approach emerged, and do not name it (D-01, D-02, D-45). Examples use the fictional lending library or generic placeholders. No personal data, no names of partners or contractors.
+- **The ontology first.** A change to the approach starts in `ontology.md` and `checks.md`; the docs, the tools and their tests are written from them after. What a page or a tool would say or do that the ontology does not is added to it first, or asked (`rule.ontology-changes-first`, `rule.ontology-is-source`, D-73).
 - **New mechanisms need a decision.** A new check, generator or format rule is recorded in `decisions.md` before it is implemented (D-56).
 - **Unapproved is tentative.** A choice the owner has not explicitly approved is recorded as tentative; the owner's approval accepts it (`rule.unconfirmed-tentative`, D-34). A question with a recommendation is written as a tentative entry, and the owner's answer accepts it (`rule.question-as-tentative`, D-48).
 - **Sources.** From D-47 on, every accepted entry names its source on a `- Source:` line: the owner's answer or message that decided it (`inv.sourced-since-first`, `rule.source-precedence`, D-47). What is put off gets a `- Return when:` line (`rule.deferral-returns`, D-49).
 - **Accepted decisions are never edited**, here or in the example. Write a superseding entry; `npm run guard` refuses the edit (`inv.accepted-never-edited`). One entry answers one question; a later entry adds to it or supersedes it whole (`rule.one-choice`, D-26).
 - **Commit every change.** Every change ends with a commit of its own files, never another agent's (`rule.commit-finished-work`, D-54).
+- **Strongest step.** A correction is held by the check, a test or the structure of the code where one of them can hold it; a rule here only where none can (`rule.strongest-step`, D-67).
 - **Findings that matter.** A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings (`rule.findings-mislead`, D-27).
 - **Cite primary sources.** A claim about another tool or practice links to its primary source; quotes are verbatim.
 - **Keep the example consistent.** It follows its own rules in `example/AGENTS.md`. After editing the example's definition rows, run `npm run format` and `npm run generate` to regenerate the tooltips, the contracts and the reference pages (D-04).

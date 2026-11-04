@@ -85,6 +85,8 @@ export function loadConfig(configPath, text) {
     agentInstructions: (raw.agentInstructions ?? []).map(at),
     // Directories of code whose "ont:" names the check reads, besides the files of the implementation table.
     code: (raw.code ?? []).map((c) => ({ dir: at(c.dir), match: new RegExp(c.match ?? ".") })),
+    // When set, an implemented concept that the files of its row do not name fails the check (D-66).
+    codeNames: { require: raw.codeNames?.require === true },
     // Set only in the approach's own repository: where gen-approach.mjs writes the approach's IDs.
     approachIds: raw.approachIds && { out: at(raw.approachIds.out) },
     glossaryOut: at(raw.glossaryOut),

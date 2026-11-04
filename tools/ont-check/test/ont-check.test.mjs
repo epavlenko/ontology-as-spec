@@ -528,6 +528,15 @@ test("[check.implementation-row.unnamed-in-code] lists an implemented concept it
   assert.match(r.out, / named in code 24 /);
 });
 
+test("[check.implementation-row.unnamed-required] fails on an implemented concept its files do not name when the configuration requires names", () => {
+  const r = run((p) => {
+    p("ont.config.json", '"root": "."', '"root": ".",\n  "codeNames": { "require": true }');
+    p("app/library.mjs", "// ont: derived.queue-position\n", "");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · implemented concepts that the files of their row do not name \(1\):\n {2}derived\.queue-position\n/);
+});
+
 // Agent instructions name rules of the approach and entries of the project's log (D-53).
 test("[check.agent-rules.unknown-id] fails on an ID in the agent instructions that nothing defines", () => {
   // A file name such as `action.yml` looks like an ID of the approach's classes and is not one.
@@ -769,7 +778,7 @@ const cases = [
   ["[check.mockup-element.dynamic-without-template] a dynamic class without a template", "class declared dynamic but the mockup has no data-ont template",
     (p) => p("mockup/index.html", 'data-ont="derived.${s}"', 'data-ont="derived.overdue"')],
   ["[check.concept.dead-row] a glossary row nobody refers to", "glossary concepts nobody refers to",
-    (p) => p("ontology.md", "\n\n- `view.catalog` shows", "\n|      | `view.history`      | History    | Past loans of a member. |\n\n- `view.catalog` shows")],
+    (p) => p("ontology.md", "\n\nEach note says what the screen shows", "\n|      | `view.history`      | History    | Past loans of a member. |\n\nEach note says what the screen shows")],
   ["[check.concept.out-of-order] definition rows out of kind order", "definition rows out of kind order",
     (p) => p("ontology.md", "| Hook      | `hook.due-reminder`  ", "| Rule      | `rule.due-reminder`  ")],
   ["[check.concept.wrong-kind-label] a Kind cell that names the wrong kind", "Kind cells that do not match the row's class",

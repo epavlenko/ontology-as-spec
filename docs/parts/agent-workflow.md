@@ -47,6 +47,15 @@ What a ticket no longer carries: expected behavior (it is in the check catalogue
 
 Not every ticket is a slice. Refactoring, infrastructure, performance and dependency updates do not change meaning and are ordinary tickets without IDs. With an external contractor, a ticket is also the agreement about what is delivered and accepted; the ontology does not replace that.
 
+<!-- ont: rule.cut-when-started@03d590, rule.ticket-closed-on-done@109f27, rule.coordinator-cuts@f7168b -->
+## When a ticket is cut and closed
+
+A ticket is cut when work on its slice starts (`rule.cut-when-started`). Cutting it earlier, to keep a queue, costs more than it seems: a ticket takes its concepts, so `--gap` shows them as "in ticket" and `--next` no longer offers them, and work that nobody does looks taken. The queue the approach keeps is the gap itself, computed fresh each time. Whoever starts the work cuts the ticket, the owner or an agent that takes the slice `--next` proposes; what the agent may do then, commit, push, open a pull request, is the owner's choice, written on the ticket's pre-authorized lines.
+
+When `--gap` with the ticket prints `SLICE_DONE` and the tests pass, the ticket is closed and kept (`rule.ticket-closed-on-done`). A file stays in the tickets directory and a tracker entry is closed, not deleted: the ticket is the record of which slice was built when and within which limits. The check reads only tickets that are files in the repository, so a ticket in a tracker takes nothing in `--gap`, and its concepts stay offered by `--next` while it is open.
+
+A ticket takes its concepts only for agents that can see it. Agents that work at once, each on a branch or a checkout of its own, do not see one another's tickets until they are merged, so each would take the same slice from `--next` and build it twice. When several agents start together, one coordinator cuts all their tickets and commits them to the main branch before any of them starts (`rule.coordinator-cuts`): the coordinator runs `--next`, commits the ticket, and runs it again for the next agent, so no concept is in two tickets. That is still cutting when the work starts, since the work starts with handing it out.
+
 <!-- ont: rule.take-ready@38f877, derived.readiness@346c38, derived.next-slice@187668 -->
 ## Ready, waiting and deferred
 
@@ -82,7 +91,10 @@ An agent can run a list of commands and see whether they pass. It cannot reliabl
 
 The same reasoning favors writing the description well before implementation starts. A precise target, with IDs, decisions, checks and a labelled mockup, lengthens the stretch an agent can work alone. Prose by itself does not lengthen it. What does is a checkable condition at the end. The ontology supplies the vocabulary, the catalogue the cases, and the derived finish condition the stopping point.
 
+<!-- ont: rule.slice-one-change@8c5fb0 -->
 ## Slices and control tests
+
+A slice is one change a reviewer can read, with its own evidence (`rule.slice-one-change`). `--next` proposes the ready targets of one ontology section and what they depend on, and a section can hold three concepts or twenty. When the proposal is more than one change, split it along its dependencies and build first the part the rest depends on; the rest stays in the gap, and `--next` offers it again. No number of concepts marks the limit, since one concept can take a day and five can take an hour; the reviewer is the judge, which is why the check is manual.
 
 Order the slices by what everything else depends on, and close each with a test that would expose a wrong foundation. A typical first stage is the one whose mistakes would poison everything after it: a classification, a routing decision, a data import. Its control test runs a realistic, deliberately messy input through the real code and scores the result against expectations, with a recorded baseline. Later stages may not start until the control test of the stage they build on passes.
 

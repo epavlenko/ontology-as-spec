@@ -63,10 +63,12 @@ The sources of one decision sometimes disagree: the owner said one thing in a ca
 
 Once a log names a source, every entry accepted after that names its own. The guard fails on an entry accepted since its base commit without a `Source:` line, whether the entry is new or a tentative one accepted now. Entries accepted before the first source need none, since they can no longer be edited, so an existing log adopts sources from its next entry on. When the first source arrives in one of the commits the guard compares, as in CI after a push of several commits, the guard cannot tell which entries were accepted before it, and asks a source only of the entries numbered after the first one that has a source. A log in another language sets the pattern of the line in `decisions.source`.
 
-<!-- ont: rule.question-as-tentative@7c4575, action.answer-tentative@82178a -->
+<!-- ont: rule.question-as-tentative@7c4575, action.answer-tentative@82178a, rule.run-settles-question@804ee6 -->
 ## Questions and tentative entries
 
 A question that has options and a recommendation does not wait in Open questions. It is written at once as a tentative entry: the recommendation is its decision, the other options are its rejected alternatives with their reasons, and the reasons for the recommendation are its why. The analysis then lives in the log rather than in a chat, where whoever works on the product sees the recommended course and that the owner has not answered yet. The entry gives no permission to act on the recommendation: a task or the owner does. Open questions keep only questions nobody can recommend an answer to yet.
+
+Not every question needs the owner. One that a run can answer, such as whether a screen stays fast with a thousand rows, whether a layout fits a phone, or whether a service accepts a call, is answered by a throwaway prototype first (`rule.run-settles-question`). The result, with the branch or the numbers it came from, is the evidence on the entry: a question of fact is then closed, and a choice still waits for the owner, now with what the run showed. What goes to the owner is what no run settles: the meaning of the product, a preference, a price. An agent that asks a question a prototype could answer spends the owner's time on its own work.
 
 The owner answers the entry in one of three ways. Taking the recommendation, the owner accepts the entry as it stands. Picking another option, the entry is rewritten to it and accepted, since a tentative entry may change without a new entry. Dropping the question, the entry is removed, and History says so. An accepted entry names the answer on its `Source:` line, and History records when it was accepted. Until the owner answers, the check lists the entry on every run, as information:
 

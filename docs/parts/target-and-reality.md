@@ -37,7 +37,7 @@ It also gives agents a precise instruction. An agent implementing a ticket build
 
 The fields of an implementation row and of a divergence, their rules and their checks are in the reference: [Implementation row](../reference.md#implementation-row) and [Divergence](../reference.md#divergence). The tool confirms that the files a row names exist and, through the names in the code, which of them name the concept; that the files realise it, and that the table stays current with the code, are manual checks. It also fails on a divergence that names no concept: `--gap` matches divergences to tickets by their IDs, and a line without them would belong to no slice.
 
-<!-- ont: rule.code-names-concepts@701aa5, inv.code-names-resolve@052349, derived.named-in-code@9f8511 -->
+<!-- ont: rule.code-names-concepts@701aa5, inv.code-names-resolve@052349, derived.named-in-code@5e7772, inv.implemented-named@60cc4f -->
 ## Code names its concepts
 
 Code that implements a concept names its ID next to it, in a comment:
@@ -49,7 +49,7 @@ export function renew(state, { item, today }) {
 
 The comment has the form of a doc anchor without the HTML around it, so it works in any language: `# ont: …` in Python or Ruby, `-- ont: …` in SQL, `<!-- ont: … -->` in markup. A reader of the code sees which concepts it realises, and an agent that changes a concept finds its code by searching for the ID.
 
-The check reads these names in the files of the implementation table and in the code directories the configuration lists under `code`. It fails on a name the ontology does not define or has retired, and lists, as information, implemented concepts that the files of their row do not name. `--coverage` shows, for each implemented concept, the files that name it. Only the IDs after the `ont:` marker are read, so a property path in code that looks like an ID is not mistaken for one, and each of them must resolve, whatever its class. The check reads the marker as text and parses no language, which is why any comment syntax works; a string that holds the marker counts as a name too, so a test fixture that needs one builds it from parts. In a Markdown file, code blocks and inline code are examples and are not read. A name is not an implementation: the table still says where a concept is built, and what the code does is proven by the tests that name its checks.
+The check reads these names in the files of the implementation table and in the code directories the configuration lists under `code`. It fails on a name the ontology does not define or has retired, and lists, as information, implemented concepts that the files of their row do not name. A project sets `"codeNames": { "require": true }` in the configuration to make that list an error, so that a cleanup that deletes comments, by hand or by an agent told to remove comments, cannot delete the names unseen (`inv.implemented-named`). `--coverage` shows, for each implemented concept, the files that name it. Only the IDs after the `ont:` marker are read, so a property path in code that looks like an ID is not mistaken for one, and each of them must resolve, whatever its class. The check reads the marker as text and parses no language, which is why any comment syntax works; a string that holds the marker counts as a name too, so a test fixture that needs one builds it from parts. In a Markdown file, code blocks and inline code are examples and are not read. A name is not an implementation: the table still says where a concept is built, and what the code does is proven by the tests that name its checks.
 
 <!-- ont: action.walk-blind@2e8dcb -->
 ## Walking the product blind
@@ -57,6 +57,8 @@ The check reads these names in the files of the implementation table and in the 
 Code that behaves differently from the ontology where no test looks passes every check. The cheapest way to find it is to use the product as a person would, knowing what it should do and not how it is built. An agent gets the ontology, the catalogue, the map and the run guides, but not the code, and walks the product before a release. A difference is one of three things. Behavior that contradicts the target becomes a known divergence. A case the catalogue does not have becomes a check. What is simply not built yet is already the gap, and adds nothing. In the lending library, a walker reads that renewal is refused while someone waits for the title, places a hold as ben, renews as ana at the desk, and records a divergence if the renewal goes through; finding the hold queue unserved adds nothing, since its concepts are target.
 
 A blind walk is recommended before a release; it is not required, since nothing records that it happened.
+
+A report from a user is a finding of the same kind. An agent reproduces it with the run guides and the map, then sorts it the same three ways: behavior that contradicts the target is a known divergence, a case the catalogue does not have becomes a check before the fix, and a request for what is not built is already the gap, or a decision if it changes the target. A report that cannot be reproduced is kept with the ticket or the tracker entry, not in the ontology.
 
 ## How it fails in practice
 

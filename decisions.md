@@ -503,6 +503,69 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: each project copied the tool with a script of its own, and none of them deleted a file the approach had removed, while their verifications looked only at the top of the directory or at the files the pin named, so a stale file stayed and passed. One tool in the approach gives every project the same update and the same verification, and a fix reaches all of them with their next copy.
 - Rejected: deleting every file that the new commit does not have (it would delete a project's own notes kept beside the copy); leaving the scripts in the projects and describing the rule (each would need the same fix again); a pin format of its own (the projects' pins would all have to be rewritten).
 
+### D-66 · A configuration may require every implemented concept to be named in its code
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to protect the `ont:` names from comment cleanups (translated from Russian).
+- Decision: the configuration takes `"codeNames": { "require": true }`. With it, an implemented concept that the files of its implementation row do not name in an `ont:` comment fails the check (`inv.implemented-named`); without it, the check lists such concepts as information, as before (D-38, D-57). The limitations say that `ont:` names are comments and that a project which removes comments, by hand or by an agent, sets the key and tells its cleanup to keep the names.
+- Why: agent toolkits now ship skills that delete comments before review, and a project of the approach runs one. A deleted name left the check passing with one line of information, so the link from code to concept could disappear unseen. A failing check is the strongest place to hold it; a rule in the agent instructions alone can be skipped.
+- Rejected: making names required for every project (D-38 keeps a name apart from an implementation, and projects adopting the approach start without names); a marker other than a comment, such as a decorator or an attribute (a different syntax per language, against D-57); relying on a line in the agent instructions only (an agent that deletes comments may not read it).
+- Concepts: `inv.implemented-named`, `derived.named-in-code`, `rule.code-names-concepts`.
+
+### D-67 · A correction is held at the strongest step that can hold it
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to add the rule after a talk on keeping agents trustworthy at hundreds of changes a day (translated from Russian).
+- Decision: a correction of an agent is held at the strongest step that can hold it, in this order: the structure of the code, so the mistake cannot be written; a check of the tool, a test or a lint; a rule in the agent instructions; a reviewer's memory last (`rule.strongest-step`). Part 7 explains the order under "Why a table", with the talk as its source, the template's list of rules the check cannot enforce opens with it, and a manual check asks the reviewer whether a correction held only in prose could have been held by something stronger.
+- Why: part 7 already said that a rule which keeps being broken should become a check, but only for the rules already written down. Corrections went into the instructions by habit, where an agent may not read them, and the next agent repeated the mistake. The talk by Lauren Tan (https://x.com/poteto/status/2102050467505430555) describes the same order from a codebase that takes hundreds of agent changes a day.
+- Rejected: a check of the tool (whether a correction could have been held more strongly is a judgment about the code, which the tool does not read); leaving the sentence in part 7 as it was (it covered only rules already in the list, not each correction as it happens).
+- Concepts: `rule.strongest-step`, `ent.agent-rules`.
+
+### D-68 · A ticket is cut when its work starts and kept when it is done
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to say who cuts a ticket, when, and what happens to it after `SLICE_DONE` (translated from Russian).
+- Decision: a ticket is cut when work on its slice starts, not ahead of it, by whoever starts the work, the owner or an agent that takes the slice `--next` proposes; what the agent may do then is the owner's choice, on the ticket's pre-authorized lines (`rule.cut-when-started`). When `--gap` with the ticket prints `SLICE_DONE` and the tests pass, the ticket is closed and kept as the record of the slice: a file stays in the tickets directory, a tracker entry is closed, not deleted (`rule.ticket-closed-on-done`). Part 8 explains both, and that a ticket in a tracker takes nothing in `--gap`, since the check reads only ticket files.
+- Why: part 8 said what a ticket is cut from and when it is done, but not when it is cut, by whom, or what happens to it after. A ticket takes its concepts out of what `--next` offers, so tickets cut ahead to keep a queue would make untouched work look taken; and the gap is already the queue, computed fresh each time.
+- Rejected: a backlog of tickets cut ahead (it hides ready work from `--next`, and the gap already orders the work); deleting a ticket when it is done (it is the only record of which slice was built when and within which limits); a check that open tickets are being worked on (nothing in the repository records that work is going on).
+- Concepts: `rule.cut-when-started`, `rule.ticket-closed-on-done`, `ent.ticket`, `action.cut-slice`.
+
+### D-69 · The interface profile recommends a feature map and a command line that drives the product
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to write the feature map, the command line and the handling of user reports into the interface profile (translated from Russian).
+- Decision: the interface profile recommends, besides the blind walk, a feature map kept as a doc set that covers views and actions, one anchored section per screen or feature with how a user reaches it, how to drive it and its traps, and a command line that drives the product, so run guides and the blind walk name commands rather than improvised steps. Both are recommendations, as D-61 made the profiles; the tool checks the doc set, not the command line. Part 3 adds that a report from a user is reproduced with the run guides and the map and sorted like a finding of the blind walk: a known divergence, a check written before the fix, or the gap or a decision.
+- Why: Lauren Tan's verification skills (https://x.com/poteto/status/2094457600259842065) let agents check their own changes on a product's screens through exactly these two parts, and keeping the map up to date there takes a daily maintenance run because nothing notices when it goes stale. As a doc set anchored to the ontology, the check notices. A project of the approach already keeps its run guides that way.
+- Rejected: a new kind of artifact for the feature map (a doc set already holds anchored sections and reports gaps and stale sections); requiring the map or the command line in the profile (the tool cannot check that a command line drives the product, D-44 requires only what the tool checks); describing user reports as a separate process (they are findings like the blind walk's, with the same three outcomes).
+- Concepts: `ent.profile`, `ent.doc-set`, `action.walk-blind`.
+
+### D-70 · When several agents start at once, one coordinator cuts their tickets on the main branch
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to say who cuts the tickets of agents that work in parallel (translated from Russian).
+- Decision: when several agents start work at the same time, one coordinator cuts all their tickets and commits them to the main branch before any of them starts: it runs `--next`, commits the ticket, and runs `--next` again for the next agent, so no concept is in two tickets (`rule.coordinator-cuts`). This adds to D-68: the work starts with handing it out, so the tickets are still cut when it starts. Part 8 explains it.
+- Why: D-68 relies on a ticket taking its concepts, but only agents that see the ticket respect that. Agents on branches or checkouts of their own do not see one another's tickets until they are merged, so each would take the same slice from `--next` and build it twice. Agent toolkits that run many agents at once give the handing out of work to one coordinator for the same reason (https://github.com/cursor/plugins/blob/main/pstack/skills/poteto-mode/playbooks/orchestrate.md).
+- Rejected: each agent cutting its own ticket and pushing it at once (two agents may still read `--next` before either push lands); a lock file or a field in the ticket that marks it taken (a second mechanism for what a committed ticket already does).
+- Concepts: `rule.coordinator-cuts`, `rule.cut-when-started`, `derived.readiness`.
+
+### D-71 · A slice is one change a reviewer can read
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes", to the proposal to limit a slice to one reviewable change (translated from Russian).
+- Decision: a slice is one change that a reviewer can read with its own evidence. When what `--next` proposes is more than that, it is split along its dependencies, the part the rest depends on is built first, and the rest stays in the gap for `--next` to offer again (`rule.slice-one-change`). No number of concepts marks the limit; the reviewer judges, so the check is manual. Part 8 explains it under "Slices and control tests".
+- Why: `--next` cuts by ontology section, and a section can hold three concepts or twenty, so a proposed slice could become a change too large to review, whose tests prove little one by one. Agent toolkits that land many changes a day keep each change small and checked before the next for the same reason (https://github.com/cursor/plugins/blob/main/pstack/skills/principle-sequence-verifiable-units/SKILL.md).
+- Rejected: a limit on the number of concepts in `--next` (one concept can take a day and five an hour, so any number would be invented); leaving the size to the section (sections are drawn for meaning, not for review).
+- Concepts: `rule.slice-one-change`, `derived.next-slice`, `action.cut-slice`.
+
+### D-72 · A question that a run can answer is settled by a prototype before it reaches the owner
+
+- Date: 2026-11-03 · Status: accepted
+- Source: the owner's answer of 2026-11-03, "yes, and the third", to the proposal to settle questions of fact by a prototype instead of asking the owner (translated from Russian).
+- Decision: a question that a run can answer, such as whether something is fast enough, fits a screen or works with a service, is answered by a throwaway prototype before it reaches the owner, and the result, with where it came from, is the evidence on its entry (`rule.run-settles-question`). A question of fact is then closed; a choice stays tentative and waits for the owner with what the run showed (D-34, D-48 still hold). Only what no run settles, the meaning of the product, a preference or a price, waits for the owner. Part 2 explains it, and the template's rules list it.
+- Why: every question with a recommendation waits for the owner as a tentative entry (D-48), including questions a run would settle in minutes, so concepts waited for the owner's time on the agent's own work. Agent toolkits settle such forks by a prototype and ask the operator only what no run can settle (https://github.com/cursor/plugins/blob/main/pstack/skills/poteto-mode/playbooks/multi-phase-plan.md).
+- Rejected: letting an agent accept a choice on a prototype's result (a choice is the owner's, D-34; the run informs it); asking the owner first and prototyping on request (the owner then answers what the agent could have measured).
+- Concepts: `rule.run-settles-question`, `rule.question-as-tentative`, `rule.unconfirmed-tentative`.
+
 ## Tentative
 
 ### D-65 · The approach ships an agent skill that points to this repository
@@ -512,6 +575,24 @@ The approach applied to itself: decisions about how the approach is described an
 - Decision: `skills/ontology-as-spec/SKILL.md`, in the Agent Skills format (a folder with `SKILL.md`, `name` matching the folder, `description`), teaches an agent to build a product's ontology and keep it checked: get the tool with `pin.mjs update`, write the ontology, start the decision log, configure and run the check and the guard, write the checks and tag the tests, connect the code, plan from the gap. It restates the steps in its own words and points to this repository for every rule, which wins where the two disagree. It is licensed under MIT, like the templates, so that a catalogue may deliver it under its own terms; the text of `docs/` stays under CC BY 4.0 (D-07, D-21).
 - Why: an agent that loads the skill can apply the approach without reading the whole repository first, and a catalogue that lists the skill sends readers to the repository.
 - Rejected: copying pages of `docs/` into the skill (two copies of the same text drift, and CC BY forbids the extra terms a catalogue puts on what it delivers); bundling the tool inside the skill (a second copy of the tool without a pin, against D-64).
+
+### D-73 · The ontology is the source of the code: it describes behavior as completely as it can, and a model writes the code from it
+
+- Date: 2026-11-03 · Status: tentative
+- Source: the owner's messages of 2026-11-03: "the ontology should describe all behavior as far as possible, so that all the code is generated by a model", "first the ontology changes, then the code is generated or written from it by a model", "the mockup is already code, not specification", his answer "a" to where behavior ends and appearance begins, and his "yes" to the ontology being the specification, with the check catalogue as part of it (translated from Russian).
+- Decision: the ontology is the product's specification: its tables of concepts and its catalogue of checks, kept in two files so that cases with data do not bury the definitions (D-14). A model writes the product's code from it, and the mockup is code too: the first implementation of the interface, written from the ontology like the rest, which may run ahead of the product's code (`rule.ontology-is-source`, `rule.mockup-shows-target`). The ontology describes behavior as completely as it can: what every view shows in each state and what the user can do there, and every outcome of every action as a check; layout and style are the implementation's, and the owner judges them on the mockup (`rule.behavior-in-ontology`). What the code does that the ontology does not say is a gap in the ontology and becomes a check or a question, not a choice left to the code. A change of behavior starts in the ontology, its rows or its checks, then the code and its tests (`rule.ontology-changes-first`). Two runs of a model do not write the same code; they write code that passes the same checks, and that is what the same product means here. The deterministic generators keep restating the ontology: tooltips, contracts and reference pages. The decision log explains why the ontology is as it is and is not part of it. The concepts people argue about are where adoption starts, not the limit of the ontology. The reason D-18 gives, that code is written by hand, is replaced by this entry; its decision on documentation stands.
+- Why: the approach grew out of the owner's need to keep, for every element of the mockup, the reason it exists. Its texts then said that the ontology is not a full specification of behavior, that code and mockup are edited directly, that the mockup is a specification and that a concept nobody discusses needs no ID. None of it was the owner's decision: it came from an agent's answer to the owner's question of 2026-10-17 and from the brief for this repository, which passed that answer on as a finding, and the first commit wrote it down. The owner's position is the opposite: describe first, so that agents work longer on their own (his message of 2026-10-17), and write the code from the description.
+- Rejected: staying spec-anchored with a narrow generated slice (the owner's position); regenerating the code from the ontology by a script (behavior needs a model; a script restates only what the ontology states mechanically); the mockup as part of the specification (a mockup holds decisions the ontology does not state, and an agent then builds what the mockup merely suggests); layout and style in the ontology (they are judged better on the mockup than read in a table); a specification as a concept of its own beside the ontology (a third word for what the approach's name already says); a page of its own about spec-as-source (a second home for the position, which the rows hold and the principles explain).
+- Concepts: `rule.ontology-is-source`, `rule.behavior-in-ontology`, `rule.ontology-changes-first`, `rule.mockup-shows-target`.
+
+### D-74 · What a mockup element does not do is written in the ontology, and the map only links elements to concepts
+
+- Date: 2026-11-04 · Status: tentative
+- Source: the owner's answer "a" of 2026-11-04 to whether the map's column of what an element does not do moves into the ontology (translated from Russian).
+- Decision: what an element deliberately does not do, such as a button that is never offered, a value nobody edits or an amount that is never shown, is behavior, so it is written in the ontology: in a definition, a note of the screen or "Deliberately out of scope" (`rule.limits-in-ontology`). The map keeps what each element shows on its screen and the concept behind it; its column of what the element does not do is removed and `field.map-row.does-not-do` is retired. Adds to D-73: the ontology describes behavior as completely as it can, and this is the part of it the map held.
+- Why: the map held behavior that the ontology did not state. A model that writes the code from the ontology would not see it, and the same limit lived in two places, which drift apart.
+- Rejected: keeping the column and requiring every item to be in the ontology too (the same limit twice, kept in step by hand); keeping the column as the only record (behavior outside the ontology, against D-73).
+- Concepts: `rule.limits-in-ontology`, `ent.map-row`, `rule.behavior-in-ontology`.
 
 ## Open questions
 
