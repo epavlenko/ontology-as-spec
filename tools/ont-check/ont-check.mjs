@@ -168,12 +168,14 @@ report(
 // concept that the files of its row do not name is listed as information, since a name is not an
 // implementation and the table still says where a concept is built (D-38), or fails when the
 // configuration requires names, so a cleanup that deletes them cannot pass unseen (D-66).
-// ont: derived.named-in-code, inv.code-names-resolve, inv.implemented-named
+// ont: derived.named-in-code, inv.code-names-resolve, inv.implemented-named, inv.code-has-owner
 const namedIn = new Map();
 {
+  // A file of the code directories that names no defined concept serves nothing the ontology says (D-75).
+  const codeFiles = new Set(cfg.code.flatMap((c) => listFiles(c.dir, c.match)));
   const files = new Set([
     ...implFiles.map((f) => resolve(cfg.root, f)).filter((f) => existsSync(f)),
-    ...cfg.code.flatMap((c) => listFiles(c.dir, c.match)),
+    ...codeFiles,
   ]);
   const undefinedNames = [];
   const retiredNames = [];
@@ -188,6 +190,13 @@ const namedIn = new Map();
       else undefinedNames.push(`${rel}: ${x}`);
     }
   }
+  const owned = new Set([...namedIn.values()].flat());
+  report(
+    "code files that name no concept of the ontology",
+    [...codeFiles].map((f) => relative(cfg.root, f)).filter((f) => !owned.has(f)),
+    cfg.codeNames.owner,
+    cfg.codeNames.owner ? Infinity : 20,
+  );
   report("IDs named in code that the ontology does not define", undefinedNames);
   report("retired IDs named in code", retiredNames);
   const rowFiles = new Map();

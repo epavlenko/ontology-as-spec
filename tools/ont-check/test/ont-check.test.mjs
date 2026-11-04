@@ -530,11 +530,47 @@ test("[check.implementation-row.unnamed-in-code] lists an implemented concept it
 
 test("[check.implementation-row.unnamed-required] fails on an implemented concept its files do not name when the configuration requires names", () => {
   const r = run((p) => {
-    p("ont.config.json", '"root": "."', '"root": ".",\n  "codeNames": { "require": true }');
+    p("ont.config.json", '"codeNames": { "owner": true }', '"codeNames": { "owner": true, "require": true }');
     p("app/library.mjs", "// ont: derived.queue-position\n", "");
   });
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /ERROR · implemented concepts that the files of their row do not name \(1\):\n {2}derived\.queue-position\n/);
+});
+
+// A file of the code directories names a concept it serves; the example sets codeNames.owner (D-75).
+const addFile = (name, text) => (p, dir) => writeFileSync(join(dir, name), text);
+test("[check.implementation-row.ownerless-required] fails on a code file without an ont: name when the configuration requires owners", () => {
+  const r = run(addFile("app/format.mjs", "export const pad = (s) => String(s).padStart(2, '0');\n"));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · code files that name no concept of the ontology \(1\):\n {2}app\/format\.mjs\n/);
+});
+
+test("[check.implementation-row.ownerless-required] fails on a code file whose ont: name defines nothing", () => {
+  const r = run(addFile("app/format.mjs", "// ont: field.loan.due-on\nexport const pad = (s) => s;\n"));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · code files that name no concept of the ontology \(1\):\n {2}app\/format\.mjs\n/);
+  assert.match(r.out, /IDs named in code that the ontology does not define \(1\):\n {2}app\/format\.mjs: field\.loan\.due-on\n/);
+});
+
+test("[check.implementation-row.ownerless-required] passes a code file that names a concept", () => {
+  const r = run(addFile("app/format.mjs", "// ont: field.loan.due-date\nexport const pad = (s) => s;\n"));
+  assert.equal(r.code, 0, r.out);
+  assert.doesNotMatch(r.out, /code files that name no concept/);
+});
+
+test("[check.implementation-row.ownerless-required] skips a file the code directory's match leaves out", () => {
+  const r = run(addFile("app/format.test.mjs", "export {};\n"));
+  assert.equal(r.code, 0, r.out);
+  assert.doesNotMatch(r.out, /code files that name no concept/);
+});
+
+test("[check.implementation-row.ownerless-file] lists a code file without an ont: name when the configuration does not require owners", () => {
+  const r = run((p, dir) => {
+    p("ont.config.json", '"codeNames": { "owner": true }', '"codeNames": { "owner": false }');
+    addFile("app/format.mjs", "export const pad = (s) => s;\n")(p, dir);
+  });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /info · code files that name no concept of the ontology \(1\):\n {2}app\/format\.mjs\n/);
 });
 
 // Agent instructions name rules of the approach and entries of the project's log (D-53).

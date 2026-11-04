@@ -1,6 +1,7 @@
 # 3. Target and reality
 
 <!-- ont: ent.implementation-row@f093f9, ent.divergence@c86a47, rule.divergence-contradicts@792674 -->
+
 ## What it is
 
 The ontology describes the **target model**: the product as agreed, not as built. Two sections at the end of the ontology say how far the code has come:
@@ -31,13 +32,15 @@ A design document that is edited to match the code stops being a design. A desig
 It also gives agents a precise instruction. An agent implementing a ticket builds toward the ontology. When it finds the code disagreeing, it does not quietly "fix" the ontology to match. It records a divergence.
 
 <!-- ont: inv.implementation-files-exist@07da6e, inv.implementation-true@182ebf, rule.table-with-code@a2eb21, rule.partial-noted@164c8d, rule.divergence-becomes-work@5253b4, rule.second-vocabulary@82a1d4, inv.divergence-names-concepts@56bf0a -->
+
 ## Reference
 
 `ont-check.mjs --gap` reads the table the other way round: every concept not in it is target, and together with untested checks and the known divergences that is the work left. Divergences therefore list only code that contradicts the target; what is simply not built yet comes from the table. For the same reason a note cannot hold work: a concept with a row counts as built, whatever its note says is missing. The note of a partial row names the target concept that adds what is missing, and when no concept covers it, one is added with its check. In the example, the borrow limit is fixed at five until staff can set it, and setting it is a target action with its own check.
 
 The fields of an implementation row and of a divergence, their rules and their checks are in the reference: [Implementation row](../reference.md#implementation-row) and [Divergence](../reference.md#divergence). The tool confirms that the files a row names exist and, through the names in the code, which of them name the concept; that the files realise it, and that the table stays current with the code, are manual checks. It also fails on a divergence that names no concept: `--gap` matches divergences to tickets by their IDs, and a line without them would belong to no slice.
 
-<!-- ont: rule.code-names-concepts@701aa5, inv.code-names-resolve@052349, derived.named-in-code@5e7772, inv.implemented-named@60cc4f -->
+<!-- ont: rule.code-names-concepts@701aa5, inv.code-names-resolve@052349, derived.named-in-code@5e7772, inv.implemented-named@60cc4f, inv.code-has-owner@399856 -->
+
 ## Code names its concepts
 
 Code that implements a concept names its ID next to it, in a comment:
@@ -51,7 +54,10 @@ The comment has the form of a doc anchor without the HTML around it, so it works
 
 The check reads these names in the files of the implementation table and in the code directories the configuration lists under `code`. It fails on a name the ontology does not define or has retired, and lists, as information, implemented concepts that the files of their row do not name. A project sets `"codeNames": { "require": true }` in the configuration to make that list an error, so that a cleanup that deletes comments, by hand or by an agent told to remove comments, cannot delete the names unseen (`inv.implemented-named`). `--coverage` shows, for each implemented concept, the files that name it. Only the IDs after the `ont:` marker are read, so a property path in code that looks like an ID is not mistaken for one, and each of them must resolve, whatever its class. The check reads the marker as text and parses no language, which is why any comment syntax works; a string that holds the marker counts as a name too, so a test fixture that needs one builds it from parts. In a Markdown file, code blocks and inline code are examples and are not read. A name is not an implementation: the table still says where a concept is built, and what the code does is proven by the tests that name its checks.
 
+The other direction holds too: `"codeNames": { "owner": true }` makes the check fail on a file of the code directories that names no concept the ontology defines, since the code is written from the ontology and a file that serves none of its concepts holds behavior the ontology does not state (`inv.code-has-owner`). Tests and generated files are left out through the directory's `match`.
+
 <!-- ont: action.walk-blind@2e8dcb -->
+
 ## Walking the product blind
 
 Code that behaves differently from the ontology where no test looks passes every check. The cheapest way to find it is to use the product as a person would, knowing what it should do and not how it is built. An agent gets the ontology, the catalogue, the map and the run guides, but not the code, and walks the product before a release. A difference is one of three things. Behavior that contradicts the target becomes a known divergence. A case the catalogue does not have becomes a check. What is simply not built yet is already the gap, and adds nothing. In the lending library, a walker reads that renewal is refused while someone waits for the title, places a hold as ben, renews as ana at the desk, and records a divergence if the renewal goes through; finding the hold queue unserved adds nothing, since its concepts are target.

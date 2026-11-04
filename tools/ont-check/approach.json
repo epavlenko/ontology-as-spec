@@ -111,6 +111,7 @@
     "inv.check-ids-unique",
     "inv.check-in-its-section",
     "inv.check-well-formed",
+    "inv.code-has-owner",
     "inv.code-names-resolve",
     "inv.concept-referenced",
     "inv.concept-tried",

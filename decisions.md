@@ -592,7 +592,26 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: keeping the column and requiring every item to be in the ontology too (the same limit twice, kept in step by hand); keeping the column as the only record (behavior outside the ontology, against D-73).
 - Concepts: `rule.limits-in-ontology`, `ent.map-row`, `rule.behavior-in-ontology`.
 
+### D-76 · Two more mechanisms of D-73 are put off until a project has tried them
+
+- Date: 2026-11-04 · Status: accepted
+- Source: the owner's answer of 2026-11-04 to question 526, option b: "only the first now, the second and the third after a pilot" (translated from Russian).
+- Decision: two mechanisms that would hold D-73 by a check are put off: a flag in CI on a change of behavior in the code without a change of the ontology, and a blind build of a slice from the ontology alone. The first mechanism, a code file that names no concept, is D-75.
+- Why: a code file without a concept is found by a script, with no model and no false alarms. The other two need a heuristic or runs of a model, and their cost and false alarms are unknown until one project tries them.
+- Rejected: all three now (two mechanisms whose cost nobody has measured); putting off all three (the cheapest one holds part of D-73 today).
+- Return when: one project of the approach has tried either mechanism in its own check or CI and reported what it caught, what it flagged by mistake and what it cost.
+- Concepts: `rule.ontology-is-source`, `rule.ontology-changes-first`, `action.derive-blind`.
+
 ## Tentative
+
+### D-75 · Every code file names a concept it serves
+
+- Date: 2026-11-04 · Status: tentative
+- Source: the owner's answer of 2026-11-04 to question 526, option b: the first mechanism, a code file without an owning concept, now (translated from Russian). The details below are the thread's; the owner accepts them when the branch is merged.
+- Decision: the configuration takes `"codeNames": { "owner": true }`. With it, every file of the directories under `code`, as their `match` selects them, names at least one concept the ontology defines in an `ont:` name, or the check fails and names the file (`inv.code-has-owner`); a file whose names define nothing counts as naming none. Without it, the check lists such files as information. The names are read as they are already read (D-57): anywhere in the file, inside a string too, so a name ties a file to a concept and does not prove that the ontology describes everything the file does. A project leaves tests and generated files out through `match`; there are no other exceptions. Adds to D-73 and works like D-66.
+- Why: the code is written from the ontology (D-73), so a file that serves no concept of it holds behavior the ontology does not state. D-66 holds the link from a concept to its code; nothing held the link from a file to a concept.
+- Rejected: on for every project (projects adopting the approach start without names, as D-66 says); a list of exempt files in the configuration (a second way to say what `match` says); a new parser of comment syntax (one per language, against D-57).
+- Concepts: `inv.code-has-owner`, `rule.code-names-concepts`, `rule.ontology-is-source`.
 
 ## Open questions
 

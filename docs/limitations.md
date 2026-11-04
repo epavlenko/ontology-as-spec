@@ -35,7 +35,7 @@ The check confirms that the files named in the table exist and which of them nam
 
 ### Test tags and code names are read anywhere in a file
 
-The tool cannot parse the syntax of every language and test framework, so it reads a tag wherever it appears in a test file, not only in a title, and an `ont:` name wherever it appears in a file it reads for names, not only in a comment. A fixture string that looks like a tag or a name counts as one: an invalid one fails the check, a valid one claims a proof or a name the code does not give. Fixtures that need such strings build them from parts. Only in Markdown are code blocks and inline code left out, as examples, found as CommonMark finds them, except that a code block inside a block quote is read as text.
+The tool cannot parse the syntax of every language and test framework, so it reads a tag wherever it appears in a test file, not only in a title, and an `ont:` name wherever it appears in a file it reads for names, not only in a comment. A fixture string that looks like a tag or a name counts as one: an invalid one fails the check, a valid one claims a proof or a name the code does not give. Fixtures that need such strings build them from parts. The same holds for the owner of a code file under `codeNames.owner`: a name ties the file to a concept, and does not prove that the ontology describes everything the file does. Only in Markdown are code blocks and inline code left out, as examples, found as CommonMark finds them, except that a code block inside a block quote is read as text.
 
 ### Code names live in comments
 
