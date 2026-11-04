@@ -230,17 +230,18 @@ Every concept of the approach, its type and definition, and the checks that hold
 
 ## Map row
 
-| Kind     | Term                | ID                          | Type            | Definition                                                                           |
-| -------- | ------------------- | --------------------------- | --------------- | ------------------------------------------------------------------------------------ |
-| Entity   | Map row             | `ent.map-row`               |                 | A row of the UI-to-ontology map: one mockup element and its concept.                 |
-| Field    | What it shows       | `field.map-row.shows`       | text            | What the element shows, on this screen.                                              |
-| Field    | What it does not do | `field.map-row.does-not-do` | text optional   | What the element deliberately does not do.                                           |
-| Relation | Concept             | `edge.map-row.concept`      | ref ent.concept | The concept behind the element.                                                      |
-| Rule     | Grouped by screen   | `rule.map-by-screen`        |                 | The map is grouped by screen, one row per element; several elements may share an ID. |
+| Kind     | Term                   | ID                        | Type            | Definition                                                                                           |
+| -------- | ---------------------- | ------------------------- | --------------- | ---------------------------------------------------------------------------------------------------- |
+| Entity   | Map row                | `ent.map-row`             |                 | A row of the UI-to-ontology map: one mockup element and its concept.                                 |
+| Field    | What it shows          | `field.map-row.shows`     | text            | What the element shows, on this screen.                                                              |
+| Relation | Concept                | `edge.map-row.concept`    | ref ent.concept | The concept behind the element.                                                                      |
+| Rule     | Grouped by screen      | `rule.map-by-screen`      |                 | The map is grouped by screen, one row per element; several elements may share an ID.                 |
+| Rule     | Limits in the ontology | `rule.limits-in-ontology` |                 | What an element deliberately does not do is behavior and is written in the ontology, not in the map. |
 
-| Check                     | Concepts             | GIVEN   | WHEN                | THEN                                             | Proof  |
-| ------------------------- | -------------------- | ------- | ------------------- | ------------------------------------------------ | ------ |
-| `check.map-row.by-screen` | `rule.map-by-screen` | the map | a reviewer reads it | it is grouped by screen with one row per element | manual |
+| Check                              | Concepts                  | GIVEN                                                                                                   | WHEN                            | THEN                                                                                                         | Proof  |
+| ---------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------ |
+| `check.map-row.by-screen`          | `rule.map-by-screen`      | the map                                                                                                 | a reviewer reads it             | it is grouped by screen with one row per element                                                             | manual |
+| `check.map-row.limits-in-ontology` | `rule.limits-in-ontology` | an element the mockup deliberately leaves without some behavior, such as a button that is never offered | a reviewer looks for the reason | the ontology states it, in a definition, a note of the screen or the out-of-scope list, and the map does not | manual |
 
 ## Check
 

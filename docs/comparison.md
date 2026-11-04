@@ -84,7 +84,7 @@ The objection is right about specifications that are frozen. This approach answe
 
 - One concept is referenced by the glossary, the interface, the decisions, the implementation table, the check catalogue, the tickets, the tests and the documentation, and a check keeps those references whole in both directions.
 - The boundary between target, implemented and divergent is explicit and maintained.
-- Interface elements are bound to concepts, and the map records what each element deliberately does not do. No tool reviewed here does either.
+- Interface elements are bound to concepts, and what the interface deliberately does not do is written in the ontology with them. No tool reviewed here does either.
 
 ## What the check does not see
 

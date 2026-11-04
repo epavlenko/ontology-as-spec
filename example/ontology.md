@@ -33,7 +33,7 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 
 - `concept.suspension` starts the moment one of the member's loans becomes `derived.overdue`. It replaces money fines, which do not exist (D-03).
 - `inv.suspended-cannot-borrow` blocks `action.checkout` and `action.place-hold`. Nobody can override it at the desk.
-- `action.set-borrow-limit` is done by staff at the desk.
+- `action.set-borrow-limit` is done by staff at the desk; members never change their own limit.
 
 ## Title
 
@@ -53,7 +53,7 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 | Derived   | `derived.available`     | Available         |                            | The item is not on loan, not reserved and not damaged.                                |
 | Invariant | `inv.one-loan-per-item` | One loan per item |                            | An item is on at most one open loan.                                                  |
 
-- `field.item.condition` is set by staff during `action.return`.
+- `field.item.condition` is set by staff during `action.return`; members never edit it.
 - An item is reserved through `concept.reservation`, described under Hold.
 
 ## Loan
@@ -109,10 +109,12 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 |      | `view.member.loans` | My loans   | A member's open loans and holds: due dates, overdue marks, renew buttons, queue positions. |
 |      | `view.desk`         | Desk       | Staff screen for checkout and return, with the reason when a checkout is refused.          |
 
-- `view.catalog` shows each `ent.title` with how many items are `derived.available`, or the queue length.
-- `view.title.page` shows `field.item.condition`, `derived.queue-position` and `action.place-hold`.
-- `view.member.loans` shows `field.loan.due-date`, `derived.overdue`, `field.loan.renewals` and `action.renew`.
-- `view.desk` offers `action.checkout`, `action.return` and `action.set-borrow-limit`, and shows `field.member.borrow-limit`.
+Each note says what the screen shows in each state and what can be done there. Layout and style are the mockup's.
+
+- `view.catalog` lists each `ent.title`, with a search. While an item of the title is `derived.available`, the row says how many are; while none is, it gives the queue length instead, and never which copy will come back first (D-02). From here a member opens a title.
+- `view.title.page` lists the title's items, each with its `field.item.condition` and whether it is `derived.available`. Members never edit the condition. The queue is listed by `derived.queue-position` and cannot be reordered (`inv.queue-order`). It also says how long a returned item is kept for the head of the queue (`concept.reservation`, `rule.pickup-window`). While no item is available, a member not in the queue can `action.place-hold` and a member in it can `action.cancel-hold`; while an item is available, the page does not offer `action.place-hold`, and a hold placed any other way is refused with the reason. While the member is suspended, `action.place-hold` is refused, with the overdue item named (`inv.suspended-cannot-borrow`).
+- `view.member.loans` shows the member's own open loans and holds, never another member's. Each loan shows its `field.loan.due-date`, its `field.loan.renewals` out of two and, once it is `derived.overdue`, the overdue mark. Each loan offers `action.renew`; while someone waits for the title, the button stays visible and disabled, with the number of people waiting (`inv.no-renew-when-held`, D-04). Each hold shows its `derived.queue-position`. While the member is suspended, a note says borrowing is paused until the overdue item is back, with the rule behind it, and never shows an amount of money (`concept.suspension`, D-03). The screen also says that `hook.due-reminder` comes two days before a due date.
+- `view.desk` is for staff, who enter an item and a member. `action.checkout` opens the loan, or is refused with a message that alone tells the librarian which rule stops it and what would make checkout possible (`inv.one-loan-per-item`, `inv.within-limit`, `inv.suspended-cannot-borrow`); nothing at the desk overrides a refusal. `action.return` closes the loan and records the item's condition. The screen shows the member's open loans against `field.member.borrow-limit`, and staff change the limit with `action.set-borrow-limit`.
 
 ## Deliberately out of scope
 
@@ -199,6 +201,7 @@ IDs that had to change. The decision log keeps using them, because its entries a
 
 ## Revision history
 
+- 2026-11-04: each screen's note says what it shows in each state and what can be done there; what the map said elements do not do is written here, and the map no longer has that column.
 - 2026-10-23: `action.set-borrow-limit`, the staff action the borrow limit's definition already implied, so that `--gap` shows it as work; notes on partial rows name the target concept that adds what is missing.
 - 2026-10-22: known divergences keep only behavior that contradicts the target; what is not built yet comes from `--gap`. `derived.queue-position` added to the implementation table, which `--gap` showed missing.
 - 2026-10-21: types for fields and relations, contracts generated from them; relations `edge.loan.item`, `edge.loan.member` and `edge.hold.member`, which the code already had.

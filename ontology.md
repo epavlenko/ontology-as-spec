@@ -151,13 +151,13 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 
 ## Map row
 
-| Kind     | ID                          | Term                | Type              | Definition                                                                           |
-| -------- | --------------------------- | ------------------- | ----------------- | ------------------------------------------------------------------------------------ |
-| Entity   | `ent.map-row`               | Map row             |                   | A row of the UI-to-ontology map: one mockup element and its concept.                 |
-| Field    | `field.map-row.shows`       | What it shows       | text              | What the element shows, on this screen.                                              |
-|          | `field.map-row.does-not-do` | What it does not do | text optional     | What the element deliberately does not do.                                           |
-| Relation | `edge.map-row.concept`      | Concept             | ref `ent.concept` | The concept behind the element.                                                      |
-| Rule     | `rule.map-by-screen`        | Grouped by screen   |                   | The map is grouped by screen, one row per element; several elements may share an ID. |
+| Kind     | ID                        | Term                   | Type              | Definition                                                                                           |
+| -------- | ------------------------- | ---------------------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
+| Entity   | `ent.map-row`             | Map row                |                   | A row of the UI-to-ontology map: one mockup element and its concept.                                 |
+| Field    | `field.map-row.shows`     | What it shows          | text              | What the element shows, on this screen.                                                              |
+| Relation | `edge.map-row.concept`    | Concept                | ref `ent.concept` | The concept behind the element.                                                                      |
+| Rule     | `rule.map-by-screen`      | Grouped by screen      |                   | The map is grouped by screen, one row per element; several elements may share an ID.                 |
+|          | `rule.limits-in-ontology` | Limits in the ontology |                   | What an element deliberately does not do is behavior and is written in the ontology, not in the map. |
 
 ## Check
 
@@ -469,9 +469,9 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | --------------------------- | --------------------------------- | --------------------- |
 | `ent.map-row`               | `tools/ont-check/ont-check.mjs`   |                       |
 | `field.map-row.shows`       | `tools/ont-check/ont-check.mjs`   |                       |
-| `field.map-row.does-not-do` | `tools/ont-check/ont-check.mjs`   |                       |
 | `edge.map-row.concept`      | `tools/ont-check/ont-check.mjs`   |                       |
 | `rule.map-by-screen`        | `docs/parts/mockup-as-ui-spec.md` | reviewed, not checked |
+| `rule.limits-in-ontology`   | `docs/parts/mockup-as-ui-spec.md` | reviewed, not checked |
 
 ### Check
 
@@ -641,9 +641,11 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 | Retired ID               | Replaced by           | Decision |
 | ------------------------ | --------------------- | -------- |
 | `rule.target-not-tuning` | `rule.number-by-role` | D-40     |
+| `field.map-row.does-not-do` | — | D-74 |
 
 ## Revision history
 
+- 2026-11-04: what an element does not do is written in the ontology: `rule.limits-in-ontology`; the map's column for it removed and its field retired (D-74, tentative).
 - 2026-11-03: the ontology is the source of the code, and the mockup is code: `rule.ontology-is-source`, `rule.behavior-in-ontology` and `rule.ontology-changes-first`; `rule.mockup-shows-target` redefined (D-73, tentative).
 - 2026-11-03: a question a run can answer is settled by a prototype: `rule.run-settles-question` (D-72).
 - 2026-11-03: a slice is one reviewable change: `rule.slice-one-change` (D-71).

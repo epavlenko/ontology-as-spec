@@ -273,7 +273,7 @@ if (cfg.mockup.length) {
 }
 
 // Map: the ID column of every table row. The map and the mockup describe the same set of elements.
-// ont: ent.map-row, field.map-row.shows, field.map-row.does-not-do, edge.map-row.concept, inv.mockup-matches-map
+// ont: ent.map-row, field.map-row.shows, edge.map-row.concept, inv.mockup-matches-map
 let mapped = new Set();
 if (cfg.map) {
   const map = read(cfg.map.file);

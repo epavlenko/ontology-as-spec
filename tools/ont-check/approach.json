@@ -95,7 +95,6 @@
     "field.doc-set.scope",
     "field.implementation-row.files",
     "field.implementation-row.note",
-    "field.map-row.does-not-do",
     "field.map-row.shows",
     "field.test-suite.cover",
     "field.test-suite.name",
@@ -186,6 +185,7 @@
     "rule.guide-runs-check",
     "rule.judge-sees-the-check",
     "rule.kind-order",
+    "rule.limits-in-ontology",
     "rule.manual-evidence-kept",
     "rule.map-by-screen",
     "rule.mockup-data-fictional",
@@ -217,6 +217,7 @@
     "rule.verdict-kept"
   ],
   "retired": {
+    "field.map-row.does-not-do": null,
     "rule.target-not-tuning": "rule.number-by-role"
   }
 }

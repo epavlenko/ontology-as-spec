@@ -778,7 +778,7 @@ const cases = [
   ["[check.mockup-element.dynamic-without-template] a dynamic class without a template", "class declared dynamic but the mockup has no data-ont template",
     (p) => p("mockup/index.html", 'data-ont="derived.${s}"', 'data-ont="derived.overdue"')],
   ["[check.concept.dead-row] a glossary row nobody refers to", "glossary concepts nobody refers to",
-    (p) => p("ontology.md", "\n\n- `view.catalog` shows", "\n|      | `view.history`      | History    | Past loans of a member. |\n\n- `view.catalog` shows")],
+    (p) => p("ontology.md", "\n\nEach note says what the screen shows", "\n|      | `view.history`      | History    | Past loans of a member. |\n\nEach note says what the screen shows")],
   ["[check.concept.out-of-order] definition rows out of kind order", "definition rows out of kind order",
     (p) => p("ontology.md", "| Hook      | `hook.due-reminder`  ", "| Rule      | `rule.due-reminder`  ")],
   ["[check.concept.wrong-kind-label] a Kind cell that names the wrong kind", "Kind cells that do not match the row's class",

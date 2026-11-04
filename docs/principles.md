@@ -48,7 +48,7 @@ Two runs of a model do not write the same code. They write code that passes the 
 <!-- ont: ent.mockup-element@54a519, rule.mockup-shows-target@924bf0 -->
 ## 7. The mockup is code that names its concepts
 
-The mockup is the first implementation of the interface, written from the ontology like the rest of the code, and it may run ahead of the product's code. Every meaningful element is labelled with the concept it shows, so the reason it exists is one hover away and outlives every redesign. A map records, for each element, what it shows and what it deliberately does not do.
+The mockup is the first implementation of the interface, written from the ontology like the rest of the code, and it may run ahead of the product's code. Every meaningful element is labelled with the concept it shows, so the reason it exists is one hover away and outlives every redesign. A map lists, screen by screen, each element and its concept. What an element deliberately does not do is behavior, and the ontology says it.
 
 *Prevents:* interface elements whose reason nobody remembers, and agents building behavior a mockup merely suggested.
 

@@ -577,6 +577,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: staying spec-anchored with a narrow generated slice (the owner's position); regenerating the code from the ontology by a script (behavior needs a model; a script restates only what the ontology states mechanically); the mockup as part of the specification (a mockup holds decisions the ontology does not state, and an agent then builds what the mockup merely suggests); layout and style in the ontology (they are judged better on the mockup than read in a table); a specification as a concept of its own beside the ontology (a third word for what the approach's name already says); a page of its own about spec-as-source (a second home for the position, which the rows hold and the principles explain).
 - Concepts: `rule.ontology-is-source`, `rule.behavior-in-ontology`, `rule.ontology-changes-first`, `rule.mockup-shows-target`.
 
+### D-74 · What a mockup element does not do is written in the ontology, and the map only links elements to concepts
+
+- Date: 2026-11-04 · Status: tentative
+- Source: the owner's answer "a" of 2026-11-04 to whether the map's column of what an element does not do moves into the ontology (translated from Russian).
+- Decision: what an element deliberately does not do, such as a button that is never offered, a value nobody edits or an amount that is never shown, is behavior, so it is written in the ontology: in a definition, a note of the screen or "Deliberately out of scope" (`rule.limits-in-ontology`). The map keeps what each element shows on its screen and the concept behind it; its column of what the element does not do is removed and `field.map-row.does-not-do` is retired. Adds to D-73: the ontology describes behavior as completely as it can, and this is the part of it the map held.
+- Why: the map held behavior that the ontology did not state. A model that writes the code from the ontology would not see it, and the same limit lived in two places, which drift apart.
+- Rejected: keeping the column and requiring every item to be in the ontology too (the same limit twice, kept in step by hand); keeping the column as the only record (behavior outside the ontology, against D-73).
+- Concepts: `rule.limits-in-ontology`, `ent.map-row`, `rule.behavior-in-ontology`.
+
 ## Open questions
 
 ## History
