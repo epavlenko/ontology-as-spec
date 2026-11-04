@@ -1,6 +1,6 @@
 ---
 name: ontology-as-spec
-description: Builds and checks a product's ontology with the Ontology as Specification method. The ontology is one Markdown table per entity, every concept a row with a permanent ID, and decisions, checks, tests, code and documentation refer to those IDs, verified by a script on every commit. Use when the user asks to set up or extend a product ontology, give product concepts permanent IDs, keep specs, decisions and code consistent for coding agents, or run or fix ont-check.
+description: Builds and checks a product's ontology with the Ontology as Specification method, and writes the code from it. The ontology is one Markdown table per entity, every concept a row with a permanent ID, with a catalogue of checks; it describes the product's behavior, the code and the mockup are written from it, and decisions, checks, tests, code and documentation refer to its IDs, verified by a script on every commit. Use when the user asks to set up or extend a product ontology, give product concepts permanent IDs, keep specs, decisions and code consistent for coding agents, or run or fix ont-check.
 license: MIT
 ---
 
@@ -10,11 +10,13 @@ This skill teaches you to build a product's ontology and keep it checked, by the
 
 The idea in one paragraph: every concept of the product gets one name, one short definition and a permanent ID, in a table for the entity it belongs to. Decisions, checks, tests, code comments, mockups and help pages name concepts by ID. A script, `ont-check`, fails when a reference does not resolve, a concept lacks what the configuration requires, or a generated file is stale. Agents then read one definition of each thing instead of guessing from whatever document is in front of them.
 
+The ontology, its tables and its catalogue of checks, is the product's specification. It describes behavior as completely as it can, and you write the code from it, the mockup included. A change of behavior starts in the ontology, then the code and its tests follow.
+
 ## When to use it, and when not
 
 Use it when a product has enough concepts that people argue about their names and rules, when coding agents do most of the work, or when the user asks for an ontology, a glossary with IDs, a decision log that agents must respect, or traceability from rules to tests and code.
 
-Do not use it to generate code from a specification. The ontology is what code, tests and screens are checked against, not their source. For a throwaway script or a product with three concepts it is overhead.
+The ontology is the source of the code, but no script turns it into code: a model writes the code from it, and two runs write different code that passes the same checks. What the code would do that the ontology does not say is a gap in the ontology. For a throwaway script or a product with three concepts it is overhead.
 
 ## What you need
 
@@ -36,7 +38,7 @@ The copy is never edited in place. A fix to the tool goes to the approach, and t
 
 ## 2. Write the ontology
 
-Start with the ten concepts people argue about most, not with everything. Copy `templates/ontology.md` and keep its layout:
+Start with the ten concepts people argue about most, then grow the ontology until it describes the product's behavior: what each screen shows in each state and what the user can do there, and every outcome of every action as a check. Layout and style are left to the implementation, and the owner judges them on the mockup. Copy `templates/ontology.md` and keep its layout:
 
 ```markdown
 ## Loan
@@ -51,13 +53,13 @@ Start with the ten concepts people argue about most, not with everything. Copy `
 
 The rules the check enforces or relies on:
 
-- **One section per entity, one row per concept.** A concept that involves several entities sits with the entity it constrains or changes. Screens get a section of their own.
+- **One section per entity, one row per concept.** A concept that involves several entities sits with the entity it constrains or changes. Screens get a section of their own, with a note per screen on what it shows in each state and what can be done there.
 - **Kinds in order**, the kind written on the first row of its group: Entity (`ent.`), Field (`field.`), Relation (`edge.`), Derived (`derived.`), Concept (`concept.`), Rule (`rule.`), Invariant (`inv.`), Hook (`hook.`), Action (`action.`), View (`view.`).
 - **IDs are `class.name` and permanent.** Fields and relations name their entity: `field.loan.due-date`. Renaming a term changes the row's text, never its ID. An ID that must change moves to "Retired IDs" with its replacement and the decision.
 - **Only fields and relations have a type**, from a vocabulary that belongs to no programming language: `text`, `integer` (or `integer 0..2`), `number`, `boolean`, `date`, `datetime`, `one of a, b`, `ref <entity>`, `refs <entity>`, and `optional` after any of them. JSON Schema contracts are generated from these.
 - **A definition says what the thing is, in one or two sentences.** Notes under a table add detail and name concepts by ID; they never restate a definition.
 - **The ontology describes the target.** What the code already does is listed in "Implementation status"; everything absent from that table is target.
-- **"Deliberately out of scope"** lists what a helpful contributor would otherwise add, and why it is absent.
+- **"Deliberately out of scope"** lists what a helpful contributor would otherwise add, and why it is absent. What one element deliberately does not do, such as a button that is never offered, goes in its definition or the note of its screen.
 
 Once the configuration of step 4 exists, run `node tools/ont-check/format-ontology.mjs --config ont.config.json` after editing rows: it writes the kind order, the Kind cells and the alignment.
 
@@ -104,8 +106,9 @@ Copy `templates/checks.md`. Every invariant and rule gets at least one check: GI
 
 A test starts its title with the check's ID: `test("[check.loan.renew-while-held] renewal is refused while someone waits")`. A tag is a claim that the test does what the check says; do not tag a test that does not. `testSuites` in the configuration says which suite must prove which kind of concept, and `--coverage` shows what proves each implemented concept.
 
-## 6. Connect the code
+## 6. Write the code from the ontology
 
+- Write the code from the rows and checks of the concepts it implements. If it would do something the ontology does not say, add the row or the check first, or ask the owner.
 - Code that implements a concept names it next to the code: `// ont: inv.no-renew-when-held`, in any comment syntax. The check fails on a name that does not resolve.
 - When a concept is built, add its row to "Implementation status" with the files. What a partial implementation leaves out is named in the note of its row.
 - When the code disagrees with the ontology, add a line under "Known divergences" naming the IDs. Do not silently change either side: a divergence becomes a ticket, or a new decision if the target changed.
@@ -119,13 +122,13 @@ node tools/ont-check/ont-check.mjs --config ont.config.json --next   # the next 
 
 A ticket is a slice of the gap: an `IDs:` line, a `Checks:` line, what is out of scope, dependencies and permissions. It does not describe behavior; new behavior goes into the check catalogue first. The ticket is done when `--gap <ticket>` prints `SLICE_DONE`.
 
-Later parts, when the product has them: labelling the mockup with `data-ont` and a map of its elements, and anchoring help pages so the check says which sections to reread after a definition changed. Both are described in `docs/parts/` of the repository.
+Later parts, when the product has them: the mockup, the first implementation of the interface, written from the ontology, with each element labelled by `data-ont` and a map that links elements to concepts, and anchoring help pages so the check says which sections to reread after a definition changed. Both are described in `docs/parts/` of the repository.
 
 ## Rules for you, the agent
 
 - **Start every task from the IDs it touches.** If a concept you need has no ID, propose its definition row, in its entity's table, before writing code or markup.
 - **Never invent product meaning.** You propose; the owner decides. Record your proposal as a tentative entry with your recommendation.
-- **Change meaning in the ontology first**, then the checks, then the code and tests. Generated files (tooltips, contracts, reference pages) are regenerated, never edited by hand.
+- **Change behavior in the ontology first**, its rows or its checks, then write the code and tests from it. What you would build that the ontology does not say goes into it first. Generated files (tooltips, contracts, reference pages) are regenerated, never edited by hand.
 - **Removing a concept is a decision**: write the entry and retire the ID; the check then finds every reference left.
 - **Report what misleads.** A consistency review lists what would mislead a reader or an agent, or would break a check, not style or the completeness of lists.
 
