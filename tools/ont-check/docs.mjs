@@ -33,7 +33,8 @@ export const parseAnchors = (text) =>
       }),
   }));
 
-// Every section of a hand-written page declares what it explains (D-84): the line right above each
+// Every section of a hand-written page declares what it explains (D-84): the nearest line that is not
+// blank above each
 // heading of the second or third level, outside examples, is an anchor, with IDs or empty,
 // "<!-- ont: -->", when the section explains no concept. Headings are read as CommonMark reads them:
 // a line of hashes, or a paragraph underlined with dashes, outside HTML blocks. Returns the headings that declare nothing,

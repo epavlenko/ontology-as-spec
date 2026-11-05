@@ -60,6 +60,11 @@ The tool learns that a target waits from the decision log, by the entries that n
 
 A generated reference page shows each concept's definition, which describes the target. A page limited to implemented concepts still shows the target definition of a concept that is only partly built: the example's terms page says the borrow limit is set by staff, while the code fixes it at five. The note column of the implementation table is not on the page.
 
+<!-- ont: inv.section-declared@1b1726 -->
+### The check reads headings at the top level of a page
+
+Every section of a doc set declares what it explains, and the check finds the sections by their headings. It reads Markdown itself, without a library ([part 5](parts/drift-check.md#design-choices)), and it reads the blocks pages are written in: headings of hashes and underlined ones, code, HTML blocks, rules. A heading inside a block quote or a list item, such as `> ## Notes`, it does not read as a section, so such a section is not required to declare anything. None of the doc sets the approach knows of has one; a project that writes them anchors them by hand, and the reviewer of a change sees them.
+
 <!-- ont: -->
 ## Open questions
 

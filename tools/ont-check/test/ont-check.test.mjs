@@ -804,6 +804,9 @@ test("[check.doc-section.undeclared] reads sections as CommonMark does: other he
   // An anchor written on several lines declares the section under it.
   assert.deepEqual(named("<!-- ont: action.renew,\n  action.return -->\n## Renewing\n"), []);
   assert.deepEqual(named("Intro.\n\n## Plain\n"), ["## Plain"]);
+  // Blank lines may stand between an anchor and its heading; text may not.
+  assert.deepEqual(named("<!-- ont: -->\n\n## Heading\n"), []);
+  assert.deepEqual(named("<!-- ont: -->\n\nText.\n\n## Heading\n"), ["## Heading"]);
 });
 
 test("[check.doc-section.declared-empty] accepts a section with an empty anchor, which stamping leaves empty", () => {

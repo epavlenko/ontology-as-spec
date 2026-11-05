@@ -311,7 +311,7 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 |           | `rule.readers-words`        | Readers' words         |                    | Pages explain in the readers' words; they do not copy definitions, which reference pages restate.                                                                                                    |
 |           | `rule.guide-runs-check`     | A guide runs its check |                    | A section that explains how to run a check lets someone who has not seen the product run it, and names the check instead of restating its case.                                                      |
 | Invariant | `inv.anchors-resolve`       | Anchors resolve        |                    | Every anchor names IDs of concepts or checks that exist.                                                                                                                                             |
-|           | `inv.section-declared`      | Every section declares |                    | Every heading of the second or third level on a hand-written page of a doc set, outside examples, has an anchor on the line right above it, with IDs or empty.                                       |
+|           | `inv.section-declared`      | Every section declares |                    | Every heading of the second or third level on a hand-written page of a doc set, outside examples, has an anchor above it with nothing but blank lines between, with IDs or empty.                    |
 
 ## Doc set
 
