@@ -54,9 +54,9 @@ When the change touches code, the tool lists the approach's check of errors and 
 - **a secret in the code**: a key, a token or a password, in the code, a fixture or a configuration file;
 - **unchecked input** that reaches a database query, a shell command, a file path or a page without being validated or escaped;
 - **access wider than the change needs**: a permission, a scope, an open endpoint or a role it did not have before;
-- **a dependency with a known flaw**, or one added without need.
+- **a dependency with a known flaw**.
 
-Report each one found with its file and line, and the concept it breaks where there is one, such as the rule whose bound the code gets wrong. A literal that looks like a key or a token fails the check until the author shows it is not one; never try it against the service it seems to belong to. The check fails if you find any; it passes if you find none; it is `not run` when judging needs a run you cannot make, such as a dependency audit without network.
+Report each one found with its file and line, and the concept it breaks where there is one, such as the rule whose bound the code gets wrong. Never try a literal that looks like a key or a token against the service it seems to belong to. The check fails if you find any; it passes if you find none; it is `not run` when judging needs a run you cannot make, such as a dependency audit without network.
 
 ### Values with a source
 
