@@ -49,6 +49,7 @@ Write a new decision entry that supersedes the old one whole, names it on a `- S
 5. Remove the matching line from known divergences, if there was one; while it stays, `--gap` keeps the slice open.
 6. `--gap` with the ticket prints `SLICE_DONE`, and the tests pass.
 
+<!-- ont: ent.divergence@c86a47, rule.divergence-becomes-work@5253b4 -->
 ## Finding a divergence
 
 Code disagrees with the ontology. Do not change either side silently. Add a line to known divergences with the IDs involved. Then either open a ticket to bring the code to the target, or, if the code is right and the target was wrong, write a decision and change the ontology.
@@ -65,6 +66,7 @@ node tools/ontology-as-spec/pin.mjs verify --pin tools/ontology-as-spec.upstream
 
 The update copies the tool of the clone's `HEAD`, or of `--ref`, without its tests and with the approach's LICENSE, deletes the files the approach removed since the old pin, and writes the pin: the commit, its date, the last decision of the approach and the hash of every file. It lists the decisions since the old pin, which the project reads and carries into its own rules, and the files in the directory that no pin names, which it leaves in place. The verification runs with the check, and fails on a file that is missing or changed and on any file in the directory that the pin does not name. A note the project keeps beside the copy is listed under `own` in the pin.
 
+<!-- ont: -->
 ## Adopting the approach
 
 Start small. The approach pays off before every part is in place.

@@ -161,6 +161,7 @@
     "inv.retired-only-in-log",
     "inv.review-path-checked",
     "inv.review-paths-known",
+    "inv.section-declared",
     "inv.section-keys-match",
     "inv.sourced-since-first",
     "inv.suite-covers-classes",
@@ -848,7 +849,7 @@
       ],
       "given": "a page of a doc set",
       "when": "a reviewer reads it",
-      "then": "every section that explains a concept has an anchor, and none copies a definition"
+      "then": "each anchor names what its section is about, an empty one stands only above a section that explains no concept, and no section copies a definition"
     },
     {
       "id": "check.doc-section.reread-before-stamp",

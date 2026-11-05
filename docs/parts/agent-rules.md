@@ -95,6 +95,7 @@ Before a change is merged, an agent of another provider that did not write it re
 
 `ont-check --review <base>` gives the critic its checks: the manual checks of the project whose concepts the change touches, through a changed definition row, a changed check, a changed file that names the concept in `ont:` or is in its implementation row, a changed doc section anchored to it or a changed ticket that lists it, or a changed file under a directory the configuration names under `reviewPaths`, which data files without `ont:` names need; and the manual checks of the approach for the kinds of artifact the change touches, such as the Decision section when the decision log changed. The approach's manual checks travel with the tool. The critic follows the [change-review skill](../../skills/change-review/SKILL.md) and gives each check a verdict: pass, fail, not run when the check applies but could not be carried out, such as one that needs the running product, or not applicable, each with its evidence or reason. A check that could not be run is never written off as not applicable. For a change of code the critic also gets the approach's check of errors and security: it reads the diff for errors of correctness, secrets, unchecked input, wider access and flawed dependencies, and fails the check on any of them ([profile Code](../profiles.md#code)).
 
+<!-- ont: rule.strongest-step@4002fd, rule.departure-by-entry@4fa94e, rule.findings-mislead@0229fa -->
 ## How it fails in practice
 
 - **The table describes an older layout of the repository.** When paths move, update the table in the same change. Include the agent instructions file in the paths that trigger the check.
@@ -103,6 +104,7 @@ Before a change is merged, an agent of another provider that did not write it re
 - **Instructions that quietly differ from the approach.** A project's rule says less or more than the rule of the approach it replaces, and nothing records the choice. Write the departure as a process entry and cite it from the instruction.
 - **Reviews that list everything.** A finding that misleads no one costs the reader's attention and teaches agents that the list is noise. Report what would mislead a reader or an agent, or would break a check, and leave style and completeness alone.
 
+<!-- ont: -->
 ## In the example
 
 [`example/AGENTS.md`](../../example/AGENTS.md).

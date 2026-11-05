@@ -1,5 +1,6 @@
 # 8. Agent workflow
 
+<!-- ont: derived.gap@14d3ee, derived.next-slice@187668 -->
 ## What it is
 
 How implementation work is framed for agents so that it stays inside the ontology and can run without supervision. Five habits:
@@ -86,6 +87,7 @@ With nothing ready, it says what the targets wait for, such as `NEXT · nothing 
 
 A loop can watch it. A job runs `--next` on a timer and, when a new slice appears, wakes an agent that cuts the ticket and builds it until `SLICE_DONE`. A job that only compares the output with its previous run costs nothing while nothing changes. What the agent may commit, push or merge stays the owner's choice.
 
+<!-- ont: derived.slice-done@debd06 -->
 ## Why commands
 
 An agent can run a list of commands and see whether they pass. It cannot reliably judge whether "the hold queue works" is true. A duration ("work on it for two hours") is not a finish condition either. Commands make the stopping point objective, and that is what lets the human step away.
@@ -101,6 +103,7 @@ Order the slices by what everything else depends on, and close each with a test 
 
 This is how the approach meets the objection that full specifications ignore what you learn during implementation. The ontology is complete enough to work from, and implementation still teaches things. When a slice teaches something, it goes into the decision log, and the ontology changes before the next slice.
 
+<!-- ont: -->
 ## Reporting back
 
 - Claims carry evidence or a label: measured, inferred or guessed.
@@ -112,6 +115,7 @@ This is how the approach meets the objection that full specifications ignore wha
 
 The fields of a ticket, its rules and checks are in the reference: [Ticket](../reference.md#ticket). When tickets are files in the repository, the tool checks them; tickets kept in a tracker are not checked, though `--gap` still computes the gap they are cut from. Tickets written before the check catalogue may still carry one-line GIVEN/WHEN/THEN scenarios, which the tool validates as before.
 
+<!-- ont: derived.slice-done@debd06, inv.ticket-has-ids@679ecd -->
 ## How it fails in practice
 
 - **Done when written as prose only.** The agent stops when it feels done. Use the derived condition; if the slice's checks do not exist yet, the ticket is not ready.
@@ -119,6 +123,7 @@ The fields of a ticket, its rules and checks are in the reference: [Ticket](../r
 - **Behavior described in the ticket** instead of in the catalogue. It is lost when the ticket closes, and the next rewrite cannot find it.
 - **Stages started out of order** because a later stage is more visible. The control test of the earlier stage exists to stop exactly that.
 
+<!-- ont: -->
 ## In the example
 
 [`example/issues/0003-serve-the-hold-queue.md`](../../example/issues/0003-serve-the-hold-queue.md): a slice of six concepts and six checks of the hold queue, which is not built yet. `--gap` with it prints `SLICE_OPEN: 7`: the six concepts and the divergence the slice closes. [`example/issues/0004-suspend-instead-of-fines.md`](../../example/issues/0004-suspend-instead-of-fines.md): the slice that closes the other divergence, the fines a decision abolished.

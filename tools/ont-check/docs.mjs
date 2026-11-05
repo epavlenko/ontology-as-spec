@@ -33,6 +33,32 @@ export const parseAnchors = (text) =>
       }),
   }));
 
+// Every section of a hand-written page declares what it explains (D-84): the line right above each
+// heading of the second or third level, outside examples, is an anchor, with IDs or empty,
+// "<!-- ont: -->", when the section explains no concept. Returns the headings that declare nothing,
+// with their line numbers. Text above the first such heading is the page's intro and declares nothing.
+// ont: inv.section-declared
+const ANCHOR_LINE = /^<!--\s*ont:[^>]*-->\s*$/;
+export const undeclaredSections = (text) => {
+  const found = [];
+  let line = 0;
+  let above = "";
+  for (const run of markdownRuns(text)) {
+    const ls = run.text.split("\n");
+    if (run.text.endsWith("\n")) ls.pop();
+    for (const l of ls) {
+      line++;
+      if (run.code) {
+        above = "code";
+        continue;
+      }
+      if (/^#{2,3} /.test(l) && !ANCHOR_LINE.test(above)) found.push({ line, heading: l.trim() });
+      if (l.trim()) above = l.trim();
+    }
+  }
+  return found;
+};
+
 const hash = (text) => createHash("sha256").update(text).digest("hex").slice(0, 6);
 
 // The stamp of a concept covers what a section explaining it relies on: its term, type and
@@ -56,7 +82,7 @@ export const stampAnchors = (text, stamp) =>
       .map((x) => x.trim().split("@")[0])
       .filter(Boolean)
       .map((id) => (stamp(id) ? `${id}@${stamp(id)}` : id));
-    return `<!-- ont: ${refs.join(", ")} -->`;
+    return refs.length ? `<!-- ont: ${refs.join(", ")} -->` : "<!-- ont: -->";
   }));
 
 const cell = (s) => String(s ?? "").replace(/\|/g, "\\|");

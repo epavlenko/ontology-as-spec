@@ -36,7 +36,7 @@ import {
   tagIds,
 } from "./lib.mjs";
 import { buildContracts, renderContracts } from "./contracts.mjs";
-import { parseAnchors, renderReference, stampOf } from "./docs.mjs";
+import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, runStamp } from "./manual-runs.mjs";
 
@@ -703,7 +703,7 @@ if (cfg.tickets) {
 // Documentation: hand-written pages carry anchors naming the concepts and checks they explain. Each
 // doc set must explain every concept of its classes (the implemented ones, or all of them); a stamp
 // older than the definition marks a section to reread. Reference pages are generated and compared.
-// ont: ent.doc-section, field.doc-section.stamp, edge.doc-section.explains, edge.doc-section.set, derived.to-reread, inv.anchors-resolve, ent.doc-set, field.doc-set.name, field.doc-set.cover, field.doc-set.scope, field.doc-set.checks, inv.doc-set-covers, inv.doc-set-names-unique
+// ont: ent.doc-section, inv.section-declared, field.doc-section.stamp, edge.doc-section.explains, edge.doc-section.set, derived.to-reread, inv.anchors-resolve, ent.doc-set, field.doc-set.name, field.doc-set.cover, field.doc-set.scope, field.doc-set.checks, inv.doc-set-covers, inv.doc-set-names-unique
 const anchored = new Set();
 const bySet = new Map();
 const setDupes = cfg.docSets.map((d) => d.name).filter((n, i, a) => a.indexOf(n) !== i);
@@ -716,7 +716,9 @@ for (const d of cfg.docSets) {
   const ids = new Set();
   const stale = [];
   const notIds = [];
+  const undeclared = [];
   for (const f of files) {
+    for (const u of undeclaredSections(read(f))) undeclared.push(`${relative(cfg.base, f)}:${u.line}  ${u.heading}`);
     for (const a of parseAnchors(read(f)))
       for (const { id, stamp } of a.refs) {
         if (!isId.test(id) && !/^check\.[a-z0-9.-]+$/.test(id)) {
@@ -731,6 +733,11 @@ for (const d of cfg.docSets) {
   bySet.set(d.name, ids);
   ids.forEach((x) => anchored.add(x));
   report(`anchors in ${label} that are not IDs`, notIds);
+  // D-84: a section without an anchor is checked by nobody, so each one says what it explains.
+  report(
+    `${label} sections that declare nothing (put <!-- ont: id, … --> right above the heading, or <!-- ont: --> if the section explains no concept)`,
+    undeclared,
+  );
   const concepts = new Set([...ids].filter((x) => !x.startsWith("check.")));
   unknown(`IDs in ${label} anchors but not in the glossary`, label, concepts);
   report(

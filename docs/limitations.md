@@ -2,8 +2,10 @@
 
 What the approach does not do, the open questions, and what could make it stronger. What is deferred is under [Deferred](#deferred).
 
+<!-- ont: -->
 ## Weaknesses
 
+<!-- ont: rule.code-names-concepts@701aa5, derived.named-in-code@5e7772 -->
 ### The check reads names in code, not what code does
 
 Code names the concepts it implements in `ont:` comments, and the check confirms that every name resolves and lists implemented concepts that the files of their row do not name. It does not read what the code does. A tagged test ties a concept to behavior as far as the test goes, so code that behaves differently from the ontology where no test looks passes. The generated contracts carry IDs, and whether the code follows them is up to the project's own checks. The [Spec Growth Engine](comparison.md#the-spec-growth-engine) reads code structure instead.
@@ -13,42 +15,52 @@ Code names the concepts it implements in `ont:` comments, and the check confirms
 
 The ontology is the source of the code, and a model writes it. Two runs write different code; what makes them the same product is that both pass the same checks. Where the catalogue has no check, two runs may behave differently and the check does not notice. A blind derivation from the ontology and the catalogue finds such cases before code is written, and a behavior found later becomes a check.
 
+<!-- ont: inv.test-does-what-check-says@2b7515 -->
 ### A tag says what a test implements, not that it does
 
 An invariant such as "an item is on at most one open loan" is written in prose, and the check catalogue gives the case with data that proves it. A test names the check in a tag, and the check requires such a test for every automatic check of implemented concepts. It cannot see whether the test actually does what the check says: a test tagged `[check.item.one-open-loan]` that asserts nothing passes. Manual checks are run by people, and nothing records that they were.
 
+<!-- ont: inv.no-restated-definition@21be03 -->
 ### Notes can still restate a definition
 
 Each concept has one definition row, in the table of its entity, and no second table explains it again. The notes under a table may still describe a concept in words of their own, and the check compares IDs, not text. In the project where the approach took shape, an explanatory table listed five items where the glossary row listed four; the layout removes the second table, not the temptation.
 
+<!-- ont: ent.mockup-element@54a519 -->
 ### The mockup cannot show time
 
 A mockup shows a state: overdue, reserved, suspended. It cannot show a loan becoming overdue, a reminder arriving two days before the due date, or a reservation passing to the next person after three days. Hooks, derived values that depend on the date, and rules with durations need tests against code. A partial substitute is to use the mockup with persistent state and real data for a week or two, so that time-based states actually occur. A person still has to notice them.
 
+<!-- ont: inv.implementation-true@182ebf -->
 ### The implementation table trusts its author
 
 The check confirms that the files named in the table exist and which of them name the concept in an `ont:` comment, not that they implement it. For the classes that tests must cover, a tagged test is required as well. For the other classes, a row is a claim that a reviewer confirms.
 
+<!-- ont: inv.accepted-never-edited@a7c76a -->
 ### The decision guard compares text with one earlier commit
 
 `guard-decisions.mjs` refuses an edit or removal of an accepted entry, comparing with `HEAD` before a commit and with the base of a push or pull request in CI. It sees text, not intent: a typo fix in an accepted entry is refused too, by design. `git commit --no-verify` skips the hook, and only CI catches that. A rewritten history removes the base it compares with. It compares the definition rows with the ontology of the same commit, found under its path, under the path the base's configuration names, or under the path git finds it renamed from; when it finds none, it says so and compares nothing. It does not check that a new entry which replaces an older one names it on its `Supersedes:` line; it checks only that the entries named there exist and are older. Before the first commit it has nothing to compare with and says `GUARD_OFF`: until then, accepted entries are protected by review only. It sees that an entry accepted since its base has a `Source:` line, not that the line names where the decision was really made. When the first source arrives within the commits it compares, it asks a source only of the entries numbered after that one, so an older tentative entry accepted in the same commits goes unasked.
 
+<!-- ont: inv.test-names-known-checks@1384c7, inv.code-names-resolve@052349 -->
 ### Test tags and code names are read anywhere in a file
 
 The tool cannot parse the syntax of every language and test framework, so it reads a tag wherever it appears in a test file, not only in a title, and an `ont:` name wherever it appears in a file it reads for names, not only in a comment. A fixture string that looks like a tag or a name counts as one: an invalid one fails the check, a valid one claims a proof or a name the code does not give. Fixtures that need such strings build them from parts. The same holds for the owner of a code file under `codeNames.owner`: a name ties the file to a concept, and does not prove that the ontology describes everything the file does. Only in Markdown are code blocks and inline code left out, as examples, found as CommonMark finds them, except that a code block inside a block quote is read as text.
 
+<!-- ont: rule.code-names-concepts@701aa5 -->
 ### Code names live in comments
 
 `ont:` names are comments, and some projects forbid comments or run an agent that deletes them. Such a cleanup deletes the names with the rest, and by default the check only lists implemented concepts their files no longer name, as information. A project that removes comments sets `codeNames.require` in the configuration, so the check fails instead, and tells its cleanup to keep `ont:` names.
 
+<!-- ont: derived.readiness@346c38 -->
 ### Readiness reads names, not intent
 
 The tool learns that a target waits from the decision log, by the entries that name it. A tentative entry that describes a concept without its ID leaves the concept looking ready, and an accepted entry that mentions a concept in passing counts as naming it. A target that no entry names counts as agreed, since the ontology is the agreed target.
 
+<!-- ont: ent.reference-page@b1ec8f -->
 ### Reference pages show the target
 
 A generated reference page shows each concept's definition, which describes the target. A page limited to implemented concepts still shows the target definition of a concept that is only partly built: the example's terms page says the borrow limit is set by staff, while the code fixes it at five. The note column of the implementation table is not on the page.
 
+<!-- ont: -->
 ## Open questions
 
 - **Scale.** One ontology file with about 150 concepts was workable. At what size should it split, and along which lines: by bounded context, by product surface?
@@ -57,6 +69,7 @@ A generated reference page shows each concept's definition, which describes the 
 - **Two languages.** The target model can be written in the team's language while code and user documentation use another. The approach handles this as two vocabularies with recorded divergences. Does it hold up with a larger team?
 - **Versioning.** Should the ontology be versioned against releases, or is the decision log enough history?
 
+<!-- ont: -->
 ## Deferred
 
 - **Forbidden terms**: words a decision retired, searched for in the doc sets. Deferred in [D-51](../decisions.md) until one project has piloted them.

@@ -19,6 +19,7 @@ A single clickable mockup of the whole product, in plain HTML. It is code: the f
 | "Renew" | `action.renew` | renews the loan |
 ```
 
+<!-- ont: ent.mockup-element@54a519 -->
 ## Why a mockup and not only prose
 
 Interface decisions are where meaning gets lost fastest. A word on a button, a badge, a disabled state: each is a product decision, and each is invisible in a feature list. A labelled mockup makes the interface reviewable concept by concept. An agent implementing a screen can ask "which concepts are on this screen?" and get an exact list. A reviewer can hover anything and see whether the definition matches what the element does.
@@ -46,12 +47,14 @@ A small browser smoke test can add the runtime side: every labelled element real
 
 The rules of the mockup and the map, and the checks that hold them, are in the reference: [Mockup element](../reference.md#mockup-element) and [Map row](../reference.md#map-row). The mockup is code written from the ontology, the first implementation of the interface, and may run ahead of the product's code; what it shows that the ontology does not say is a gap in the ontology. Data in a shared mockup is fictional; using real data in a private copy is a strong test, because a week of living with the mockup surfaces problems no review does. Whether an element labelled `action.renew` renews anything is a manual check, and so is behavior over time, which a mockup cannot show: see [limitations](../limitations.md#the-mockup-cannot-show-time).
 
+<!-- ont: ent.mockup-element@54a519, ent.map-row@6bee30 -->
 ## How it fails in practice
 
 - **Labels on wrappers instead of elements.** The whole card gets `view.member.loans`, and the meaningful parts inside get nothing. Label the smallest element that carries the meaning.
 - **The map becomes a copy of the glossary.** Map rows describe the element on this screen, not the concept in general.
 - **Mockup and product diverge silently** after the code catches up. When a screen ships, the mockup still shows the target, and the implementation table says what shipped.
 
+<!-- ont: -->
 ## In the example
 
 [`example/mockup/index.html`](../../example/mockup/index.html) and [`example/mockup/ontology-map.md`](../../example/mockup/ontology-map.md): four screens, 23 concepts, two dynamic IDs.

@@ -299,18 +299,19 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 
 ## Doc section
 
-| Kind      | ID                          | Term                   | Type               | Definition                                                                                                                                                                  |
-| --------- | --------------------------- | ---------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.doc-section`           | Doc section            |                    | A hand-written section of a page for people, anchored to what it explains.                                                                                                  |
-| Field     | `field.doc-section.stamp`   | Stamp                  | text optional      | A short hash of what the section relies on for each concept it explains, the term, type, definition and the notes that name it, as it was when the section was last reread. |
-| Relation  | `edge.doc-section.explains` | Explains               | refs `ent.concept` | The concepts and checks the section explains.                                                                                                                               |
-|           | `edge.doc-section.set`      | In set                 | ref `ent.doc-set`  | The doc set the page belongs to.                                                                                                                                            |
-| Derived   | `derived.to-reread`         | To reread              |                    | A section anchored to a concept whose definition, type or notes changed after its stamp.                                                                                    |
-| Rule      | `rule.anchor-every-section` | Every section anchored |                    | Every section that explains a concept has an anchor; unanchored sections are not checked.                                                                                   |
-|           | `rule.reread-then-stamp`    | Reread, then stamp     |                    | A section listed as anchored to a changed definition is reread, fixed if needed, and only then stamped.                                                                     |
-|           | `rule.readers-words`        | Readers' words         |                    | Pages explain in the readers' words; they do not copy definitions, which reference pages restate.                                                                           |
-|           | `rule.guide-runs-check`     | A guide runs its check |                    | A section that explains how to run a check lets someone who has not seen the product run it, and names the check instead of restating its case.                             |
-| Invariant | `inv.anchors-resolve`       | Anchors resolve        |                    | Every anchor names IDs of concepts or checks that exist.                                                                                                                    |
+| Kind      | ID                          | Term                   | Type               | Definition                                                                                                                                                                                           |
+| --------- | --------------------------- | ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.doc-section`           | Doc section            |                    | A hand-written section of a page for people, anchored to what it explains.                                                                                                                           |
+| Field     | `field.doc-section.stamp`   | Stamp                  | text optional      | A short hash of what the section relies on for each concept it explains, the term, type, definition and the notes that name it, as it was when the section was last reread.                          |
+| Relation  | `edge.doc-section.explains` | Explains               | refs `ent.concept` | The concepts and checks the section explains.                                                                                                                                                        |
+|           | `edge.doc-section.set`      | In set                 | ref `ent.doc-set`  | The doc set the page belongs to.                                                                                                                                                                     |
+| Derived   | `derived.to-reread`         | To reread              |                    | A section anchored to a concept whose definition, type or notes changed after its stamp.                                                                                                             |
+| Rule      | `rule.anchor-every-section` | Every section anchored |                    | Every section's anchor names what the section explains, the concepts and checks it is about; an empty anchor says it explains no concept, and a section that explains one never has an empty anchor. |
+|           | `rule.reread-then-stamp`    | Reread, then stamp     |                    | A section listed as anchored to a changed definition is reread, fixed if needed, and only then stamped.                                                                                              |
+|           | `rule.readers-words`        | Readers' words         |                    | Pages explain in the readers' words; they do not copy definitions, which reference pages restate.                                                                                                    |
+|           | `rule.guide-runs-check`     | A guide runs its check |                    | A section that explains how to run a check lets someone who has not seen the product run it, and names the check instead of restating its case.                                                      |
+| Invariant | `inv.anchors-resolve`       | Anchors resolve        |                    | Every anchor names IDs of concepts or checks that exist.                                                                                                                                             |
+|           | `inv.section-declared`      | Every section declares |                    | Every heading of the second or third level on a hand-written page of a doc set, outside examples, has an anchor on the line right above it, with IDs or empty.                                       |
 
 ## Doc set
 
@@ -639,6 +640,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `rule.readers-words`        | `docs/parts/documentation.md`                                                                 | reviewed, not checked |
 | `rule.guide-runs-check`     | `docs/parts/checks-and-tests.md`                                                              | reviewed, not checked |
 | `inv.anchors-resolve`       | `tools/ont-check/docs.mjs`, `tools/ont-check/ont-check.mjs`, `tools/ont-check/stamp-docs.mjs` |                       |
+| `inv.section-declared` | `tools/ont-check/docs.mjs`, `tools/ont-check/ont-check.mjs` | |
 
 ### Doc set
 
@@ -690,6 +692,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-05: every section of a doc set declares what it explains: `inv.section-declared`, and `rule.anchor-every-section` says an empty anchor declares no concept (D-84, tentative).
 - 2026-11-05: each state of a view is judged on a snapshot, and the screens are kept for the owner: `rule.view-state-judged`, `rule.screens-kept` (D-83, tentative).
 - 2026-11-05: `derived.review-checks` leaves the records of manual runs out of the change it reviews (D-82, tentative).
 - 2026-11-05: the reviewer of a change of code looks for errors and security problems: `rule.code-reviewed-for-errors`; a profile for code (D-81, tentative).

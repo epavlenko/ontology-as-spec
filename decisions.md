@@ -676,6 +676,15 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
+### D-84 · Every section of a doc set declares what it explains
+
+- Date: 2026-11-05 · Status: tentative
+- Source: the owner's answer of 2026-11-05 to question 541, "yes": the manual check that every section explaining a concept has an anchor becomes automatic, through a decision; and his answer of 2026-11-05 to question 548, option a, "ok", after an example on a page of the approach: every section of a page of a doc set, under a heading of the second or third level, declares what it explains, with an anchor of IDs or an empty anchor if it explains no concept; the check fails on a section that declares nothing; the rule of the approach changes, and the projects with doc sets mark their sections when they update their copy of the tool. The details below are the thread's; the owner accepts them when the branch is merged.
+- Decision: on every hand-written page of a doc set, the line right above each heading of the second or third level, outside examples, is an anchor: the IDs the section explains, or `<!-- ont: -->`, which says it explains no concept (`inv.section-declared`). The check names each heading without one, with its page and line, and fails. An empty anchor names nothing, so it is never stale and stamping leaves it empty. Text above the first such heading is the page's intro and needs no anchor; an anchor there stays valid. Generated reference pages are not hand-written and are left out. Whether an anchor names what its section is about, and whether an empty one stands above a section that explains nothing, the tool cannot see; the reviewer of a change judges it (`rule.anchor-every-section`, `check.doc-section.anchored`). Adds to D-18 and D-20.
+- Why: a section without an anchor was checked by nobody: a decision could contradict it and no stamp would list it to reread, and texts against decisions passed that way in the approach's own documentation. A mention of a concept does not make a section its explanation, so the tool cannot tell which sections should have had an anchor; only an explicit declaration lets it see every section.
+- Rejected: failing only on a section whose heading names a concept by its term or ID (the rest would stay unchecked); keeping the anchors a manual check (the owner chose the automatic one).
+- Concepts: `inv.section-declared`, `rule.anchor-every-section`.
+
 ## Open questions
 
 ## History

@@ -16,6 +16,7 @@ Renaming a term changes the text of its row. The ID stays. Changing an ID is pos
 
 *Prevents:* broken references after every rename, and the temptation to avoid renaming a bad term because it is expensive.
 
+<!-- ont: inv.references-defined@060f13 -->
 ## 3. The glossary comes first
 
 A concept may not appear in the mockup, a ticket or the code before it has a glossary row. If an agent needs a concept that has no ID, the ontology is incomplete, and the agent proposes the row before it writes anything else.
@@ -52,18 +53,21 @@ The mockup is the first implementation of the interface, written from the ontolo
 
 *Prevents:* interface elements whose reason nobody remembers, and agents building behavior a mockup merely suggested.
 
+<!-- ont: inv.references-defined@060f13, inv.concept-referenced@b457ed -->
 ## 8. Consistency is checked by a machine, in both directions
 
 The check verifies more than "every reference exists". It also verifies "every concept is referenced", "every labelled element is mapped" and "every mapped element exists". It runs on commit and in CI.
 
 *Prevents:* drift found by rereading, which in practice means drift never found.
 
+<!-- ont: rule.start-from-ids@8804d9, derived.slice-done@debd06 -->
 ## 9. Work starts from IDs and ends on commands
 
 A task names the concept IDs it touches. Its finish condition is a list of commands that must pass. An agent can run a list of commands without anyone watching. It cannot reliably decide that a prose goal has been met.
 
 *Prevents:* agents finishing on "looks done", and humans having to supervise every step.
 
+<!-- ont: action.cut-slice@2b0910 -->
 ## 10. Write the long description first, deliver in short slices
 
 Describing the target well before implementing it is not waterfall. A well-described target lengthens the stretch an agent can work without a human. Delivery still happens in small slices, each closed by a test, with feedback from real users between slices. When a slice teaches something new, the decision log records it and the ontology changes.

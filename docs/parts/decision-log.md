@@ -103,6 +103,7 @@ info · deferrals in force, each with the condition for taking it up again (1):
 
 Work left for another slice is not deferred: the gap keeps it. The tool cannot tell whether a condition holds; people see the list and judge. A log in another language sets the pattern of the line in `decisions.returnWhen`.
 
+<!-- ont: ent.decision@4607b2 -->
 ## How it fails in practice
 
 - **Decisions recorded as outcomes without the fight.** "We use suspension" without "fines kept people away" is useless the day someone proposes fines again.
@@ -110,6 +111,7 @@ Work left for another slice is not deferred: the gap keeps it. The tool cannot t
 - **Superseded entries silently edited to match the new state.** That destroys the one thing the log is for.
 - **Numbers inside a long entry.** An entry that fixes the structure of an offer and lists every price and rate has to be superseded whole whenever one of them is tuned, and until then it quotes numbers that no longer hold. Give each topic of values a short entry of its own, and let a check hold what they produce.
 
+<!-- ont: -->
 ## In the example
 
 [`example/decisions.md`](../../example/decisions.md): five accepted decisions, one tentative, one open question. This repository's own log, [decisions.md](../../decisions.md), names sources from D-47 on and defers a mechanism in D-51.

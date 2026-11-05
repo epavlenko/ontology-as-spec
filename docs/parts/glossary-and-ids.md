@@ -73,10 +73,12 @@ IDs are permanent, but sometimes one has to change: a class is renamed, a field 
 
 Two concepts that share a term make every sentence that uses the term ambiguous. The check lists such terms as information. Fields and relations of different entities may share one, such as the name of a member and the name of a title, and so may a relation named after the entity it refers to, such as the item of a loan and the item itself. What remains can still be legitimate, so it is a question for a reviewer, not an error.
 
+<!-- ont: ent.concept@58346b, ent.retired-id@b03cc7, ent.contract@67c18d -->
 ## Reference
 
 The fields of a definition row, the rules every row follows and the checks that hold them are in the reference: [Concept](../reference.md#concept), [Retired ID](../reference.md#retired-id) and [Contract](../reference.md#contract). The automatic checks there are what the tool enforces. The manual ones are what it cannot: that a rename kept the ID, that a definition says what a thing is rather than how it is stored, that notes add detail instead of restating the definition, and that a concept involving several entities sits with the one it changes.
 
+<!-- ont: rule.definition-says-what@8e95f9, inv.no-restated-definition@21be03 -->
 ## How it fails in practice
 
 - **Definitions written as implementation notes.** They age with the code. Keep the "how" in the implementation table's note column.
@@ -84,6 +86,7 @@ The fields of a definition row, the rules every row follows and the checks that 
 - **Concepts nothing tries.** Start with the ten concepts people argue about, then grow the ontology until it describes the product's behavior. A concept that no mockup element, ticket or implementation tries yet is listed by the check; it is either planned, shown or removed.
 - **Glossary rows that restate the term** ("Due date: the due date"). The definition must answer the question a newcomer would ask.
 
+<!-- ont: -->
 ## In the example
 
 [`example/ontology.md`](../../example/ontology.md): five entity sections and a screens section, 40 concepts in ten classes, typed fields and relations with the generated [`contracts/ontology.schema.json`](../../example/contracts/ontology.schema.json), and six retired IDs from the change that put the entity into field and relation IDs.

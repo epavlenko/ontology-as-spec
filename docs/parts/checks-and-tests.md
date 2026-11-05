@@ -20,6 +20,7 @@ test("[check.loan.renew-while-held] renewal is refused while someone waits for t
 
 The catalogue has one section per entity, in the order of the ontology, and a check's ID names its section. The same check can be implemented by a unit test of the code that applies the rule and by an end-to-end test through the interface. If the product is rewritten in another language or moves from a command line to the web, the catalogue does not change; the tests are written again against it.
 
+<!-- ont: ent.check@d0dcbc -->
 ## Why
 
 The ontology states an invariant in a sentence. A test proves it in the terms of one implementation: a function, a command, a selector. Between the two there was nothing persistent. Examples with data lived in tickets, which close, and then survived only as test code. A rewrite had to dig the cases out of old tests.
@@ -156,16 +157,19 @@ The record is not the evidence. It may sit in the repository, where CI sees it, 
 
 A check's current run is its latest pass or fail, by time, whose stamp is the check's stamp now; a record of `not-run` or `not-applicable` says why the check was not carried out and is not a run. The tool lists the manual checks of implemented concepts that have no current run, as information, or as an error when the configuration sets `"require": true`. A check whose current run failed is listed as information either way: the key asks that the checks are run, and whether a failure blocks a merge is the reviewer's verdict on the change. A record the tool cannot read, or two records with the same check, time and author, fail the check.
 
+<!-- ont: rule.check-in-product-terms@e5b72b, inv.test-does-what-check-says@2b7515 -->
 ## How it fails in practice
 
 - **Checks written after the code**, copied from what the tests already do. They then describe the implementation, not the product. Write them from the ontology, before the ticket starts.
 - **Manual as a way out.** A check marked `manual` because its test is hard to write, not impossible. Review every manual check: could a suite with a controlled clock or a test double do it?
 - **Tags added to old tests wholesale** to satisfy the check. A tag is a claim that the test implements the check. Read the test before tagging it.
 
+<!-- ont: -->
 ## Before the catalogue
 
 Earlier versions kept a verification map: a directory of scenario files, one per feature, with an `IDs:` line. The tool still reads it under the `features` key, so existing projects keep working, but a new project uses the catalogue. The scenarios were recipes that nothing ran, and most of them repeated tests.
 
+<!-- ont: -->
 ## In the example
 
 [`example/checks.md`](../../example/checks.md): twenty-two checks, two of them manual, for every invariant, rule, hook and action, including the hold queue that is not built yet. The manual check of a built concept has a run guide, [`example/verify/overdue.md`](../../example/verify/overdue.md). Two test suites implement the automatic ones: unit tests in [`example/app/library.test.mjs`](../../example/app/library.test.mjs) and end-to-end tests in [`example/e2e/cli.test.mjs`](../../example/e2e/cli.test.mjs), which run the command line front end as a separate process.

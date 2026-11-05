@@ -1,5 +1,6 @@
 # 5. Drift check
 
+<!-- ont: -->
 ## What it is
 
 One script that reads every artifact holding or referring to meaning and checks that the references are whole. It exits non-zero on drift and runs in two places: a pre-commit hook on the paths it covers, and CI. The generic version is [`tools/ont-check`](../../tools/ont-check/README.md).
@@ -36,6 +37,7 @@ A separate script, `guard-decisions.mjs`, checks history rather than state: it r
 
 What the script cannot see, beyond the manual checks, is meaning and code behavior. It does not know whether a definition is right, and code that contradicts the ontology where no test looks passes. [Limitations](../limitations.md) lists these with possible remedies.
 
+<!-- ont: -->
 ## Design choices
 
 - **One parser for the generator and the check.** If the two read the glossary differently, a malformed row can pass the check and still break the tooltips.
@@ -44,6 +46,7 @@ What the script cannot see, beyond the manual checks, is meaning and code behavi
 - **Plain text output, one line per finding.** Agents read it and fix the exact line.
 - **No dependencies.** It runs wherever Node runs, in a hook, in CI, in an agent's sandbox.
 
+<!-- ont: -->
 ## How it fails in practice
 
 - **The hook covers too few paths.** If code changes do not trigger the check, the implementation table goes stale without a signal. Include the code paths that implement concepts: the check reads their `ont:` names, and a change there is the reminder.
@@ -51,6 +54,7 @@ What the script cannot see, beyond the manual checks, is meaning and code behavi
 - **Someone adds a rule to silence a finding.** A finding means two artifacts disagree. Fix one of them.
 - **The check grows into a linter of style.** Keep it about references between artifacts.
 
+<!-- ont: -->
 ## In the example
 
 `example/ont.config.json` configures the check for the example. `tools/ont-check/test/` breaks the example in fifty-six different ways and asserts that each break is named, and runs the guard on edits it must allow and edits it must refuse.

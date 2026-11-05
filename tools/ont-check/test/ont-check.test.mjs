@@ -746,6 +746,38 @@ test("[check.doc-section.reread-after-change] a changed definition marks the sec
   }
 });
 
+test("[check.doc-section.undeclared] names a section without an anchor, and not a heading in a code block", () => {
+  const f = "`".repeat(3);
+  const r = run((p) =>
+    p("help/borrowing.md", "<!-- ont: action.return@", `## Opening hours\n\nThe desk is open every day.\n\n${f}md\n## An example heading\n${f}\n\n<!-- ont: action.return@`),
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · help docs sections that declare nothing [^\n]*\(1\):\n {2}help\/borrowing\.md:\d+ {2}## Opening hours\n/);
+  assert.doesNotMatch(r.out, /An example heading/);
+});
+
+test("[check.doc-section.declared-empty] accepts a section with an empty anchor, which stamping leaves empty", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ont-docs-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    const cfg = join(dir, "ont.config.json");
+    const node = (script) => spawnSync("node", [join(TOOLS, script), "--config", cfg], { encoding: "utf8" });
+    const page = join(dir, "help", "borrowing.md");
+    const section = "<!-- ont: -->\n## Opening hours\n\nThe desk is open every day.\n";
+    writeFileSync(page, readFileSync(page, "utf8") + "\n" + section);
+    const before = node("ont-check.mjs");
+    assert.equal(before.status, 0, before.stdout + before.stderr);
+    assert.doesNotMatch(before.stdout, /declare nothing|changed since review/);
+    node("stamp-docs.mjs");
+    assert.ok(readFileSync(page, "utf8").endsWith(section));
+    const after = node("ont-check.mjs");
+    assert.equal(after.status, 0, after.stdout + after.stderr);
+    assert.doesNotMatch(after.stdout, /declare nothing|changed since review/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("finds code blocks in Markdown as CommonMark does, apart from block quotes", async () => {
   const { markdownRuns, withoutExamples } = await import("../lib.mjs");
   const f = "`".repeat(3);

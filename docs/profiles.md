@@ -6,6 +6,7 @@
 
 A profile is a recipe for a property of the product that its ontology shows: what to put in the configuration, what that requires, and what is only recommended. It is not a key of the configuration. A project follows it by writing the settings it lists and the checks it asks for. What a profile requires is something the tool checks through the configuration and the catalogue; everything else in it is a recommendation, and a project that skips one breaks no check.
 
+<!-- ont: inv.judged-check-tested@39910a -->
 ## Model output
 
 For a product in which a model writes values that people read: a summary of a meeting, the claims extracted from an interview, a reply to a member.
@@ -80,6 +81,7 @@ Recommended, so that an agent can check its own work on the screens:
 
 Both follow Lauren Tan's verification skills, a command line plus a feature map, which let agents check their own changes on a product's screens ([article, 2026-08-31](https://x.com/poteto/status/2094457600259842065); [example](https://github.com/poteto/verification-skill-example)). The difference is where the map comes from: there an agent writes it from the running product, here its sections are anchored to the ontology, so the check also sees a screen of the target that the map does not explain.
 
+<!-- ont: rule.chosen-value-checked@ca73cc -->
 ## Model and data scenarios
 
 For a product whose results inform people's decisions, such as a business model with prices and conversion rates.
