@@ -665,21 +665,22 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: reviewing the records as part of the change (the review would widen itself, and the records are its result, not its subject); requiring the records directory outside every doc set (a rule of form that leaves the cause in place).
 - Concepts: `derived.review-checks`.
 
-## Tentative
-
 ### D-83 · Each state of a view is judged on a snapshot, and the screens are kept for the owner
 
-- Date: 2026-11-05 · Status: tentative
-- Source: the owner's words of 2026-11-05, "errors and security of code, the look of the interface: into the approach, definitely", his answer to question 542, and his answer to question 545, option a, the plan whose fourth step this is: "the approach checks that the screen shows what the ontology records for each state, and you judge layout and style on the snapshots, as in D-73" (translated from Russian). The details below are the thread's; the owner accepts them when the branch is merged.
+- Date: 2026-11-05 · Status: accepted
+- Source: the owner's words of 2026-11-05, "errors and security of code, the look of the interface: into the approach, definitely", his answer to question 542, and his answer to question 545, option a, the plan whose fourth step this is: "the approach checks that the screen shows what the ontology records for each state, and you judge layout and style on the snapshots, as in D-73" (translated from Russian). The details below are the thread's; the owner accepted them with his answer of 2026-11-05 to question 569, "yes" to merge.
 - Decision: every state of an implemented view that the view's note describes has a judged check: in that state, a snapshot of the view, the text a program can read of it, shows what the note says for it (`rule.view-state-judged`). A run of those checks keeps each snapshot, and the image where the product can take one, in the directory `JUDGE_SCREENS` names, outside the repository, by date, view and state, so that the owner judges layout and style on them; the approach does not judge them (`rule.screens-kept`, D-73). `judge.mjs` gets `keepScreen` for this. The profile Interface requires a judged suite that covers views, so the tool sees that every implemented view has a test there; that those tests are judged and that every state of the note has one, it cannot see, and a manual check of the approach holds it. Adds to D-60.
 - Why: the notes of the screens say what each shows in each state (D-73, D-74), and nothing checked that a screen does. A judge that reads the snapshot next to the check's case catches a screen that lacks what the note records, without a browser in the tool.
 - Rejected: a model judging layout and style (the owner judges them, in his answer to question 545); a browser in the tool (the tool has no dependencies, and the product's own command line takes snapshots, as the profile Interface recommends); comparing screenshots with stored ones (breaks on every harmless change of layout, and says nothing about what the note records).
 - Concepts: `rule.view-state-judged`, `rule.screens-kept`, `rule.verdict-kept`.
 
+## Tentative
+
 ## Open questions
 
 ## History
 
+- 2026-11-05: D-83 accepted by the owner.
 - 2026-11-05: D-82 accepted by the owner.
 - 2026-11-05: D-81 accepted by the owner.
 - 2026-11-05: D-79 and D-80 accepted by the owner.
