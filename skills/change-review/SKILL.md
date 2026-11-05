@@ -56,7 +56,7 @@ When the change touches code, the tool lists the approach's check of errors and 
 - **access wider than the change needs**: a permission, a scope, an open endpoint or a role it did not have before;
 - **a dependency with a known flaw**, or one added without need.
 
-Report each one found with its file and line, and the concept it breaks where there is one, such as the rule whose bound the code gets wrong. The check fails if you find any; it passes if you find none; it is `not run` when judging needs a run you cannot make, such as a dependency audit without network.
+Report each one found with its file and line, and the concept it breaks where there is one, such as the rule whose bound the code gets wrong. A literal that looks like a key or a token fails the check until the author shows it is not one; never try it against the service it seems to belong to. The check fails if you find any; it passes if you find none; it is `not run` when judging needs a run you cannot make, such as a dependency audit without network.
 
 ### Values with a source
 
@@ -92,7 +92,7 @@ If the configuration has `manualRuns`, write one record for each verdict, in tha
 ```
 Check: <check ID>
 Time: <UTC time to the second, such as 2026-11-05T14:30:00Z>
-Commit: <the commit or range you reviewed>
+Commit: <the commit or range you reviewed; for changes not yet committed, the base commit followed by +working-tree>
 Stamp: <the stamp --review printed for the check>
 Verdict: pass | fail | not-run | not-applicable
 By: <your model and provider>
