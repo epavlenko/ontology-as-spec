@@ -763,6 +763,21 @@ test("[check.doc-section.undeclared] names a section without an anchor, and not 
   assert.doesNotMatch(r.out, /An example heading|a list item/);
 });
 
+test("[check.doc-section.undeclared] reads sections as CommonMark does: other headings, HTML blocks, anchors on several lines", async () => {
+  const { undeclaredSections } = await import("../docs.mjs");
+  const named = (text) => undeclaredSections(text).map((s) => s.heading);
+  // A heading of another level ends the paragraph before it, and borrows no anchor.
+  assert.deepEqual(named("<!-- ont: -->\n# Page\nUnderlined\n----------\n"), ["Underlined"]);
+  // A rule of dashes after a heading is a rule, not an underline.
+  assert.deepEqual(named("# Page\n---\n"), []);
+  // Nothing inside an HTML comment or another HTML block is a section.
+  assert.deepEqual(named("<!-- a note\n## hidden\n-->\n"), []);
+  assert.deepEqual(named("<div>\n## hidden\n</div>\n"), []);
+  // An anchor written on several lines declares the section under it.
+  assert.deepEqual(named("<!-- ont: action.renew,\n  action.return -->\n## Renewing\n"), []);
+  assert.deepEqual(named("Intro.\n\n## Plain\n"), ["## Plain"]);
+});
+
 test("[check.doc-section.declared-empty] accepts a section with an empty anchor, which stamping leaves empty", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-docs-"));
   try {

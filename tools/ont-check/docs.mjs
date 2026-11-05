@@ -36,20 +36,24 @@ export const parseAnchors = (text) =>
 // Every section of a hand-written page declares what it explains (D-84): the line right above each
 // heading of the second or third level, outside examples, is an anchor, with IDs or empty,
 // "<!-- ont: -->", when the section explains no concept. Headings are read as CommonMark reads them:
-// a line of hashes, or a paragraph underlined with dashes. Returns the headings that declare nothing,
+// a line of hashes, or a paragraph underlined with dashes, outside HTML blocks. Returns the headings that declare nothing,
 // with their line numbers. Text above the first such heading is the page's intro and declares nothing.
 // ont: inv.section-declared
 const ANCHOR_LINE = /^ {0,3}<!--\s*ont:[^>]*-->\s*$/;
-const SECTION_HEADING = /^ {0,3}#{2,3}(?:[ \t]|$)/;
+const ATX_HEADING = /^ {0,3}(#{1,6})(?:[ \t]|$)/;
 const UNDERLINE = /^ {0,3}-+[ \t]*$/;
 // A paragraph that starts like a list item, a quote or a table row is not underlined into a heading.
 const NOT_A_PARAGRAPH = /^ {0,3}(?:[-*+][ \t]|\d+[.)][ \t]|>|\|)/;
+// HTML blocks hold no sections: a comment runs to the line that closes it, other blocks to a blank line.
+const COMMENT_START = /^ {0,3}<!--/;
+const HTML_START = /^ {0,3}<\/?[A-Za-z][A-Za-z0-9-]*(?:[ \t>]|\/>|$)/;
 export const undeclaredSections = (text) => {
   const found = [];
   const check = (above, line, heading) => ANCHOR_LINE.test(above) || found.push({ line, heading });
   let line = 0;
   let above = "";
   let para = null;
+  let html = null;
   for (const run of markdownRuns(text)) {
     const ls = run.text.split("\n");
     if (run.text.endsWith("\n")) ls.pop();
@@ -57,21 +61,38 @@ export const undeclaredSections = (text) => {
       line++;
       if (run.code) {
         above = "code";
-        para = null;
+        para = html = null;
+        continue;
+      }
+      if (html) {
+        html.text += `\n${l}`;
+        if (html.comment ? l.includes("-->") : !l.trim()) {
+          above = html.text.trim();
+          html = null;
+        }
         continue;
       }
       if (!l.trim()) {
         para = null;
         continue;
       }
-      if (SECTION_HEADING.test(l)) {
-        check(above, line, l.trim());
+      const atx = l.match(ATX_HEADING);
+      if (atx) {
+        if (atx[1].length === 2 || atx[1].length === 3) check(above, line, l.trim());
         para = null;
       } else if (para && UNDERLINE.test(l)) {
         if (!NOT_A_PARAGRAPH.test(para.text)) check(para.above, para.line, para.text);
         para = null;
-      } else if (ANCHOR_LINE.test(l)) para = null;
-      else if (!para) para = { line, above, text: l.trim() };
+      } else if (COMMENT_START.test(l)) {
+        para = null;
+        if (!l.includes("-->", l.indexOf("<!--") + 4)) {
+          html = { comment: true, text: l };
+          continue;
+        }
+      } else if (!para && HTML_START.test(l)) {
+        html = { comment: false, text: l };
+        continue;
+      } else if (!para) para = { line, above, text: l.trim() };
       above = l.trim();
     }
   }
