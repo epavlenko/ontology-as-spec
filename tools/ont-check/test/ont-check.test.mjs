@@ -787,6 +787,14 @@ test("[check.doc-section.undeclared] reads sections as CommonMark does: other he
   assert.deepEqual(named("Intro\n<custom-tag>\n## shown\n"), ["## shown"]);
   assert.deepEqual(named("<em>hello</em>\n## shown\n"), ["## shown"]);
   assert.deepEqual(named("<pre>x</pre>\n## shown\n"), ["## shown"]);
+  // An opening tag of the first kind's names starts no block of the seventh, and a comment may close
+  // where it opens.
+  for (const tag of ["script", "pre", "style", "TEXTAREA"]) assert.deepEqual(named(`<${tag}/>\n## shown\n`), ["## shown"], tag);
+  assert.deepEqual(named("<!--->\n## shown\n"), ["## shown"]);
+  // A fence inside an HTML block is its content: it hides nothing inside it and opens nothing after it.
+  const f = "`".repeat(3);
+  assert.deepEqual(named(`<script>\n${f}\n${f}\n## hidden\n</script>\n`), []);
+  assert.deepEqual(named(`<script>\n${f}\n</script>\n## shown\n`), ["## shown"]);
   // An anchor written on several lines declares the section under it.
   assert.deepEqual(named("<!-- ont: action.renew,\n  action.return -->\n## Renewing\n"), []);
   assert.deepEqual(named("Intro.\n\n## Plain\n"), ["## Plain"]);

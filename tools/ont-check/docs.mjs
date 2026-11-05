@@ -57,64 +57,77 @@ const HTML_BLOCKS = [
   { start: /^ {0,3}<!\[CDATA\[/, end: /\]\]>/, interrupts: true },
   { start: new RegExp(`^ {0,3}</?(?:${BLOCK_TAGS})(?:[ \\t]|/?>|$)`, "i"), end: null, interrupts: true },
   {
-    start: new RegExp(`^ {0,3}(?:<[A-Za-z][A-Za-z0-9-]*(?:${ATTRIBUTE})*\\s*/?>|</[A-Za-z][A-Za-z0-9-]*\\s*>)[ \\t]*$`),
+    // Any other complete tag alone on its line; an opening tag of the first kind's names is not one.
+    start: new RegExp(
+      `^ {0,3}(?:<(?!(?:script|pre|style|textarea)(?:[\\s/>]|$))[A-Za-z][A-Za-z0-9-]*(?:${ATTRIBUTE})*\\s*/?>|</[A-Za-z][A-Za-z0-9-]*\\s*>)[ \\t]*$`,
+      "i",
+    ),
     end: null,
     interrupts: false,
   },
 ];
-// The kind of HTML block a line starts, or null; the end of the first kind may be on the same line,
-// after its start, so it is looked for past the opening characters.
+// The kind of HTML block a line starts, or null.
 const htmlBlock = (l, inParagraph) =>
   HTML_BLOCKS.find((b) => (b.interrupts || !inParagraph) && b.start.test(l)) ?? null;
+// Which lines of a text are code, as markdownRuns reads them.
+const codeLines = (text) =>
+  markdownRuns(text).flatMap((r) => {
+    const n = r.text.split("\n").length - (r.text.endsWith("\n") ? 1 : 0);
+    return Array(n).fill(r.code);
+  });
 export const undeclaredSections = (text) => {
   const found = [];
   const check = (above, line, heading) => ANCHOR_LINE.test(above) || found.push({ line, heading });
-  let line = 0;
+  const lines = text.split("\n");
+  if (text.endsWith("\n")) lines.pop();
+  // Code is found again after each HTML block, since a fence inside one is its content and opens nothing.
+  let code = codeLines(text);
+  let from = 0;
   let above = "";
   let para = null;
   let html = null;
-  for (const run of markdownRuns(text)) {
-    const ls = run.text.split("\n");
-    if (run.text.endsWith("\n")) ls.pop();
-    for (const l of ls) {
-      line++;
-      if (run.code) {
-        above = "code";
-        para = html = null;
-        continue;
+  lines.forEach((l, i) => {
+    const line = i + 1;
+    if (html) {
+      const ends = html.kind.end ? html.kind.end.test(l) : !l.trim();
+      if (html.kind.end || !ends) html.text += `\n${l}`;
+      if (ends) {
+        above = html.text.trim();
+        html = para = null;
+        code = codeLines(lines.slice(i + 1).join("\n"));
+        from = i + 1;
       }
-      if (html) {
-        if (html.kind.end ? html.kind.end.test(l) : !l.trim()) {
-          if (html.kind.end) html.text += `\n${l}`;
-          above = html.text.trim();
-          html = null;
-        } else html.text += `\n${l}`;
-        if (!html && !l.trim()) para = null;
-        continue;
-      }
-      if (!l.trim()) {
-        para = null;
-        continue;
-      }
-      const atx = l.match(ATX_HEADING);
-      if (atx) {
-        if (atx[1].length === 2 || atx[1].length === 3) check(above, line, l.trim());
-        para = null;
-      } else if (para && UNDERLINE.test(l)) {
-        if (!NOT_A_PARAGRAPH.test(para.text)) check(para.above, para.line, para.text);
-        para = null;
-      } else if (htmlBlock(l, !!para)) {
-        const kind = htmlBlock(l, !!para);
-        para = null;
-        const opening = l.trimStart().slice(0, 4);
-        if (!(kind.end && kind.end.test(l.trimStart().slice(opening.startsWith("<!--") ? 4 : 1)))) {
-          html = { kind, text: l };
-          continue;
-        }
-      } else if (!para) para = { line, above, text: l.trim() };
-      above = l.trim();
+      return;
     }
-  }
+    if (code[i - from]) {
+      above = "code";
+      para = null;
+      return;
+    }
+    if (!l.trim()) {
+      para = null;
+      return;
+    }
+    const atx = l.match(ATX_HEADING);
+    const kind = atx ? null : htmlBlock(l, !!para);
+    if (atx) {
+      if (atx[1].length === 2 || atx[1].length === 3) check(above, line, l.trim());
+      para = null;
+    } else if (para && UNDERLINE.test(l)) {
+      if (!NOT_A_PARAGRAPH.test(para.text)) check(para.above, para.line, para.text);
+      para = null;
+    } else if (kind) {
+      para = null;
+      // A block whose first line also meets its end condition is that one line.
+      if (!(kind.end && kind.end.test(l))) {
+        html = { kind, text: l };
+        return;
+      }
+      code = codeLines(lines.slice(i + 1).join("\n"));
+      from = i + 1;
+    } else if (!para) para = { line, above, text: l.trim() };
+    above = l.trim();
+  });
   return found;
 };
 
