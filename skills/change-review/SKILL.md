@@ -4,13 +4,13 @@ description: Reviews a change before it is merged, in a project that uses the On
 license: MIT
 ---
 
-<!-- ont: rule.reviewed-before-merge, derived.review-checks -->
+<!-- ont: rule.reviewed-before-merge, derived.review-checks, rule.run-recorded -->
 
 # Change review
 
 You review a change you did not write, before it is merged. The approach behind it is https://github.com/epavlenko/ontology-as-spec; its rule is that the reviewer is an agent of another provider than the author's, so that the two do not share blind spots. If you wrote the change, or your provider is the author's, even with another model, say so and stop. If you do not know the author's provider, say so in the answer and go on.
 
-You read and report. You do not edit files, commit, push or merge, and you do not message anyone on the author's behalf.
+You read and report. You do not edit files, commit, push or merge, and you do not message anyone on the author's behalf. The one exception is the records of step 4.
 
 ## What you get
 
@@ -68,6 +68,22 @@ Verdict: ready to merge | fix first | cannot tell (with what is missing)
 ```
 
 `ready to merge` only when no check fails and no finding of this change remains. A check that already failed on the base and that the change does not touch is an earlier problem: report it, and do not let it block. A `not run` check does not block on its own, but say who has to run it before the merge.
+
+## 4. Record each verdict
+
+If the configuration has `manualRuns`, write one record for each verdict, in that directory and nowhere else. These are the only files you create: you do not change the change itself and you do not commit; the author commits the records with the change. Name each file by the time in UTC, the check and four random characters, such as `20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md`, and write:
+
+```
+Check: <check ID>
+Time: <UTC time to the second, such as 2026-11-05T14:30:00Z>
+Commit: <the commit or range you reviewed>
+Stamp: <the stamp --review printed for the check>
+Verdict: pass | fail | not-run | not-applicable
+By: <your model and provider>
+Evidence: <where the evidence is, outside the repository, if the check kept any>
+```
+
+Evidence such as screenshots or data stays outside the repository; the record only links to it.
 
 ## Licence
 

@@ -123,8 +123,8 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
   return { changed, touched: [...touched].sort(), kinds: [...kinds], project, approach };
 }
 
-export const renderReview = (r, base, root) => {
-  const show = (c) => `  ${c.id} [${c.concepts.join(", ")}]\n    GIVEN ${c.given} · WHEN ${c.when} · THEN ${c.then}`;
+export const renderReview = (r, base, root, stamp = () => "") => {
+  const show = (c) => `  ${c.id} [${c.concepts.join(", ")}] stamp ${stamp(c)}\n    GIVEN ${c.given} · WHEN ${c.when} · THEN ${c.then}`;
   if (!r.project.length && !r.approach.length) return `REVIEW ${base}: nothing to review (${r.changed.length} files changed)`;
   return [
     `REVIEW ${base}: ${r.changed.length} files changed: ${r.changed.map((f) => relative(root, f)).join(", ")}`,

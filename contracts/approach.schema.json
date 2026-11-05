@@ -325,6 +325,64 @@
         "concepts"
       ]
     },
+    "manual-run": {
+      "title": "Manual run",
+      "description": "A record that a manual check was run on a change: one file in the directory the configuration names under manualRuns.",
+      "x-ont": "ent.manual-run",
+      "type": "object",
+      "properties": {
+        "time": {
+          "description": "When the check ran, in UTC to the second; it orders the runs of a check.",
+          "x-ont": "field.manual-run.time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "commit": {
+          "description": "The commit or the range of commits the check ran on.",
+          "x-ont": "field.manual-run.commit",
+          "type": "string"
+        },
+        "stamp": {
+          "description": "The stamp of the check's case and its concepts when it ran, as --review prints it.",
+          "x-ont": "field.manual-run.stamp",
+          "type": "string"
+        },
+        "verdict": {
+          "description": "What the run found; not-run and not-applicable say why the check was not carried out.",
+          "x-ont": "field.manual-run.verdict",
+          "enum": [
+            "pass",
+            "fail",
+            "not-run",
+            "not-applicable"
+          ]
+        },
+        "by": {
+          "description": "Who ran it: a person, or a model and its provider.",
+          "x-ont": "field.manual-run.by",
+          "type": "string"
+        },
+        "evidence": {
+          "description": "Where the evidence is, outside the repository.",
+          "x-ont": "field.manual-run.evidence",
+          "type": "string"
+        },
+        "check": {
+          "description": "The check that ran, from the project's catalogue or the approach's.",
+          "x-ont": "edge.manual-run.check",
+          "type": "string",
+          "x-ont-ref": "ent.check"
+        }
+      },
+      "required": [
+        "time",
+        "commit",
+        "stamp",
+        "verdict",
+        "by",
+        "check"
+      ]
+    },
     "test": {
       "title": "Test",
       "description": "Code that implements checks and starts its title with their IDs.",

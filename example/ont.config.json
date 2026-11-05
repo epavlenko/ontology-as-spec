@@ -20,6 +20,7 @@
   "agentInstructions": ["AGENTS.md"],
   "code": [{ "dir": "app", "match": "^(?!.*\\.test\\.mjs$).*\\.mjs$" }],
   "codeNames": { "owner": true },
+  "manualRuns": { "dir": "verify/runs" },
   "decisions": {
     "file": "decisions.md",
     "entry": "^### (D-\\d+) \u00b7 .+$",

@@ -1,6 +1,7 @@
 # 6. Checks and tests
 
 <!-- ont: ent.check@d0dcbc, inv.required-concepts-checked@4f9fa8 -->
+
 ## What it is
 
 A catalogue of checks: what must hold, stated in the product's own terms, so that it applies to any implementation. The ontology says what a concept is; a check gives the case with data that proves it. Tests implement checks, and a test carries the ID of the check it implements at the start of its title.
@@ -26,6 +27,7 @@ The ontology states an invariant in a sentence. A test proves it in the terms of
 The catalogue is that missing layer. It is the split behavior-driven development tools make between scenarios in the language of the product and the code that runs them. In Cucumber's words, "A Step Definition is a method with an expression that links it to one or more Gherkin steps" ([Cucumber, Step definitions](https://cucumber.io/docs/cucumber/step-definitions/)). A check is written before the code, from the ontology; a test is written by whoever implements the check, a person or an agent, the way code is written from the ontology.
 
 <!-- ont: concept.ontology-layer@0c2853, concept.product-layer@4e4ce9 -->
+
 ## Two layers
 
 A project made with the approach is checked twice. The tool checks the ontology and the artifacts that refer to it: that every ID is defined and used, that the mockup and the map agree, that accepted decisions stay as they were, that the gap is computed. That is the ontology layer, and it is the same in every project. The catalogue and the tests check something else: the product that agents build from the ontology, whether it behaves as the checks say. That is the product layer, and it depends on what the product is.
@@ -33,6 +35,7 @@ A project made with the approach is checked twice. The tool checks the ontology 
 The two meet in this repository. The tool is the approach's product, so its own tests are the product layer of the tool, and the checks they implement are the ontology layer of every other project.
 
 <!-- ont: ent.test@af89b6, inv.test-names-known-checks@1384c7, inv.test-only-implemented@059c2e, inv.no-manual-tested@46671b -->
+
 ## Tests that name checks
 
 A test starts its title with the IDs of the checks it implements, in square brackets. The tag is plain text in the title, so it works with any test runner and shows up in its output. A test may also name a concept directly, `[field.loan.renewals]`, for something that is not a product check, such as comparing the code's constants with the generated contract.
@@ -40,6 +43,7 @@ A test starts its title with the IDs of the checks it implements, in square brac
 The tool reads tags anywhere in a test file, not only in titles, because it cannot parse the syntax of every test framework. A string in a fixture that looks like a tag counts as one. When a fixture must contain an invalid tag, build the string from parts, as the tool's own tests do.
 
 <!-- ont: ent.test-suite@6bf22e, inv.suite-covers-classes@39e870, inv.suite-names-unique@f69f85, inv.suite-not-empty@2cd076 -->
+
 ## Test suites
 
 Different kinds of concepts need different kinds of proof. A rule is proven by a fast test of the code that applies it. An action is proven only when it works the way a person uses it, through the interface. A hook is proven only by a test that controls time. The configuration says which suite must prove which kind of concept:
@@ -67,11 +71,13 @@ The suites themselves, how to run them and what they cost, belong to the team's 
 ```
 
 <!-- ont: edge.test-suite.checks@44582d, inv.suite-implements-checks@a2592f -->
+
 ## Checks a suite must implement
 
 Classes say which suite proves a kind of concept. A suite may also name checks it must implement, which covers what classes cannot: a key scenario that runs through several actions must be proven end to end as a whole, not action by action. The configuration lists them on the suite, `"checks": ["check.loan.renew-while-held"]`, and the check fails on a named check of implemented concepts that none of the suite's tests implements, on one the catalogue does not have, and on a manual one, which has no test.
 
 <!-- ont: inv.judged-check-tested@39910a, rule.judge-sees-the-check@2d7cba, rule.verdict-kept@10793d -->
+
 ## Checks a model judges
 
 Some values are written by a model: a summary of an event, the claims extracted from an interview, a reply to a member. A test that compares them with an exact text breaks on every harmless change, and a manual check of them is seldom run. A judged check sits between the two: its proof is `judged`, a test runs the product on a fixed sample, and a model reads the output next to the check's THEN and says whether it holds.
@@ -80,7 +86,11 @@ Some values are written by a model: a summary of an event, the claims extracted 
 import { judge } from "../tools/ont-check/judge.mjs";
 test("[check.member.limit-refusal-explained] a refusal at the borrow limit says why", () => {
   const output = refusalFor("ana", "dune-6");
-  const { pass, verdict } = judge({ checks: "checks.md", id: "check.member.limit-refusal-explained", output });
+  const { pass, verdict } = judge({
+    checks: "checks.md",
+    id: "check.member.limit-refusal-explained",
+    output,
+  });
   assert.ok(pass, verdict);
 });
 ```
@@ -88,6 +98,7 @@ test("[check.member.limit-refusal-explained] a refusal at the borrow limit says 
 The judge reads the check's case and the product's output, never the code, the test or an expected text, so that it judges the product and not the implementation; `judge.mjs` builds exactly that prompt and runs the command in `JUDGE`, which the project chooses. The verdict is kept outside the repository, named by the check and the date, like the evidence of a manual check: the helper writes it where `JUDGE_VERDICTS` points, and a later run of the same day is added to the file rather than replacing it. The judge answers with PASS or FAIL, in capitals, as its first word; an answer that starts otherwise, or whose first line holds both words, fails the test as an error rather than counting as either. Nothing in a product's ontology tells a generated value from another, so the suite that runs judged checks names them, and the check fails on a judged check of implemented concepts that no suite names. Judged checks are automatic, so they count wherever automatic ones do: in the gap, in a finished slice and in a check a ticket waits for. Each run costs a call to a model, so a project may keep their suite apart and run it on purpose, and a test may skip itself when no judge is set.
 
 <!-- ont: concept.completeness-axis@a17be3, inv.axis-values-covered@3a3db0, rule.check-not-redundant@2f43b8, action.derive-blind@73594f -->
+
 ## When the catalogue is complete
 
 A catalogue with a check for every concept can still miss what matters: a renewal checked only for success says nothing about the refusal a member meets when someone waits for the title. Completeness is measured by forks, not by the number of checks. The forks are the axes along which behavior diverges, each with its values. Every action has one axis, its outcome: success, refusal, empty when there is nothing to act on, error, and silence when no answer comes back. A product adds axes of its own, such as who acts first or how much time passes. Every value of every axis is covered by a check, and each action's outcomes by its own checks, unless the catalogue says why a value cannot occur.
@@ -107,6 +118,7 @@ More checks are not better. Two checks whose cases differ only in the data, anot
 Whether the catalogue suffices is tested by deriving blind. The owner writes cases the catalogue does not hold as judged checks in a file outside the repository, with the answer the owner expects as their THEN. A model gets the ontology, the catalogue and a case's GIVEN and WHEN, and nothing else, through `blindPrompt` in `judge.mjs`, and says what should happen; `judge` compares its answer with the owner's. A match means the case follows from what is written. A mismatch means a check is missing, or that the owner does not know the answer either, which is an open question. A reviewer, who sees the code, cannot run this test: it needs a reader who has not seen how the product is built.
 
 <!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@03fc5e, inv.section-keys-match@f8649b, inv.check-well-formed@aa846c, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@ca73cc -->
+
 ## Reference
 
 The fields of a check, a test and a test suite, their rules and the checks that hold them are in the reference: [Check](../reference.md#check), [Test](../reference.md#test) and [Test suite](../reference.md#test-suite). A check's ID has the form `check.<section>.<name>`. The section is the key of the catalogue heading: the code span in it when there is one, ``## Préstamo `loan` ``, and otherwise the heading's Latin letters and digits in lowercase, joined by hyphens. A heading with other letters, accented ones included, therefore needs a code span, and the ontology's section of the same entity carries the same key; the tool fails when a catalogue key names no ontology section, or two ontology sections share one. Its cases use concrete data from a fixed sample and the product's words, never a function, a command or a selector.
@@ -116,11 +128,32 @@ The tool reads tags; the test command runs the tests. So the tool cannot tell wh
 A value that a decision chose, or a target that is a requirement on the product, is held by an automatic check; without one, a later edit can move the product away from what was decided while every test passes. A model whose results inform people, such as a business model, is different. Its assumptions are held by a snapshot of its base scenario: a check that records what the default values produce, so that an unintended change fails and an intended one updates the snapshot together with an entry in the log ([part 2](decision-log.md#reference)). No check requires the model to reach its goal. Whether it does is what the model is for, and a test that demands it would turn an honest gap into a failure that tuning the assumptions makes go away.
 
 <!-- ont: rule.guide-runs-check@eb28c9 -->
+
 ## Running manual checks
 
 A manual check is run by a person or an agent in the product, and the catalogue says what they should see, in the product's terms. How to get there is a different kind of knowledge: where to start, the steps and what shows after each one, what to keep as evidence, and the traps where a run gets lost, such as content that loads late or a notice that covers a button. For an automatic check that knowledge is the test. For a manual check it lives in a run guide, a doc set whose sections anchor the checks they explain ([part 9](documentation.md#how-it-is-written)). A section names its check by ID and does not restate GIVEN, WHEN or THEN, so the catalogue stays the one place that says what must hold; when a check's case changes, its stamp lists the section to reread.
 
 A doc set that lists `"checks": ["manual"]` must name every manual check of implemented concepts, so a manual check without a way to run it fails the check at the moment an automatic check without a test would. The evidence of a run is kept outside the repository, named by the check's ID and the date; the guide says what to keep.
+
+<!-- ont: ent.manual-run@893f59, derived.current-run@7b78f8, rule.run-recorded@2b45ff, inv.manual-checks-run@51da97, inv.manual-runs-well-formed@a1af0e -->
+
+## Records of runs
+
+A run of a manual check leaves a record: one short file in the directory the configuration names, `"manualRuns": { "dir": "verify/runs" }`, named by its time in UTC, the check and a short random suffix, so that two branches never write the same file.
+
+```
+Check: check.loan.overdue-in-real-time
+Time: 2026-11-05T14:30:00Z
+Commit: 3ca577b
+Stamp: 6b1f0c2e
+Verdict: pass
+By: gpt-6.1-sol, OpenAI
+Evidence: https://example.org/runs/2026-11-05-overdue
+```
+
+The record is not the evidence. It may sit in the repository, where CI sees it, and it links to the evidence, which stays outside. The stamp covers the check's case and the stamps of its concepts, and `--review` prints it for each check, so a record goes stale the moment the check or one of its concepts changes, as a doc section does. The reviewer of a change writes a record for each verdict it gives.
+
+A check's current run is its latest pass or fail, by time, whose stamp is the check's stamp now; a record of `not-run` or `not-applicable` says why the check was not carried out and is not a run. The tool lists the manual checks of implemented concepts that have no current run, as information, or as an error when the configuration sets `"require": true`. A check whose current run failed is listed as information either way: the key asks that the checks are run, and whether a failure blocks a merge is the reviewer's verdict on the change. A record the tool cannot read, or two records with the same check, time and author, fail the check.
 
 ## How it fails in practice
 

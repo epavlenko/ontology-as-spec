@@ -192,6 +192,26 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 
 - `concept.ontology-layer` and `concept.product-layer` meet in this repository: the tool's own tests are the product layer of the tool, and the checks they implement are the ontology layer of every other project.
 
+## Manual run
+
+| Kind      | ID                            | Term              | Type                                       | Definition                                                                                                                                      |
+| --------- | ----------------------------- | ----------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.manual-run`              | Manual run        |                                            | A record that a manual check was run on a change: one file in the directory the configuration names under `manualRuns`.                         |
+| Field     | `field.manual-run.time`       | Time              | datetime                                   | When the check ran, in UTC to the second; it orders the runs of a check.                                                                        |
+|           | `field.manual-run.commit`     | Commit            | text                                       | The commit or the range of commits the check ran on.                                                                                            |
+|           | `field.manual-run.stamp`      | Stamp             | text                                       | The stamp of the check's case and its concepts when it ran, as `--review` prints it.                                                            |
+|           | `field.manual-run.verdict`    | Verdict           | one of pass, fail, not-run, not-applicable | What the run found; `not-run` and `not-applicable` say why the check was not carried out.                                                       |
+|           | `field.manual-run.by`         | By                | text                                       | Who ran it: a person, or a model and its provider.                                                                                              |
+|           | `field.manual-run.evidence`   | Evidence          | text optional                              | Where the evidence is, outside the repository.                                                                                                  |
+| Relation  | `edge.manual-run.check`       | Check             | ref `ent.check`                            | The check that ran, from the project's catalogue or the approach's.                                                                             |
+| Derived   | `derived.current-run`         | Current run       |                                            | The latest run of a check, by time and then by file name, whose verdict is pass or fail and whose stamp is the check's stamp now.               |
+| Rule      | `rule.run-recorded`           | Run recorded      |                                            | Every verdict of a review is recorded as a manual run, and the record links to the evidence, which stays outside the repository.                |
+| Invariant | `inv.manual-checks-run`       | Manual checks run |                                            | When the configuration sets `manualRuns.require`, every manual check of implemented concepts has a current run, pass or fail.                   |
+|           | `inv.manual-runs-well-formed` | Runs well formed  |                                            | Every record names a known check, a verdict, a time in UTC, a stamp and an author, and no two records share the check, the time and the author. |
+
+- A record of a run is not the evidence of the check: it is a few lines that `--review` and the reviewer write, so that the check can see which checks ran (D-78). `rule.manual-evidence-kept` still keeps the evidence outside the repository.
+- A failed `derived.current-run` is listed as information whatever `manualRuns.require` says: the key asks that the checks are run, not that they pass.
+
 ## Test
 
 | Kind      | ID                              | Term                | Type                 | Definition                                                       |
@@ -507,6 +527,14 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `rule.judge-sees-the-check`     | `tools/ont-check/judge.mjs`, `docs/parts/checks-and-tests.md` | the helper gives the judge the case and the output only; a test that calls a judge another way is reviewed |
 | `rule.verdict-kept`             | `tools/ont-check/judge.mjs`, `docs/parts/checks-and-tests.md` | the helper writes the verdict where `JUDGE_VERDICTS` points; that it is outside the repository is reviewed |
 
+### Manual run
+
+| ID | Implemented in | Note |
+| --- | --- | --- |
+| `ent.manual-run`, `edge.manual-run.check`, `field.manual-run.time`, `field.manual-run.commit`, `field.manual-run.stamp`, `field.manual-run.verdict`, `field.manual-run.by`, `field.manual-run.evidence`, `derived.current-run` | `tools/ont-check/manual-runs.mjs`, `tools/ont-check/ont-check.mjs` | |
+| `inv.manual-checks-run`, `inv.manual-runs-well-formed` | `tools/ont-check/ont-check.mjs` | |
+| `rule.run-recorded` | `skills/change-review/SKILL.md`, `docs/parts/checks-and-tests.md` | the skill writes the records; that every verdict was recorded is reviewed |
+
 ### Test
 
 | ID                              | Implemented in                   | Note                  |
@@ -651,6 +679,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-05: records of manual runs: `ent.manual-run` with its fields, `derived.current-run`, `rule.run-recorded`, `inv.manual-checks-run` and `inv.manual-runs-well-formed` (D-78, tentative).
 - 2026-11-05: a change is reviewed before merge against the manual checks it touches: `derived.review-checks`, `rule.reviewed-before-merge`; `concept.approach-ids` now carries the approach's manual checks (D-77, tentative).
 - 2026-11-04: `inv.code-has-owner` says only what the check holds, a name of a defined concept in each code file, not that the ontology describes all a file does (D-75).
 - 2026-11-04: a configuration may require every code file to name a concept it serves: `inv.code-has-owner` (D-75); the other two mechanisms of D-73 put off (D-76).

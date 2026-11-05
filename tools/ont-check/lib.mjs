@@ -91,6 +91,9 @@ export function loadConfig(configPath, text) {
     // Directories of code whose "ont:" names the check reads, besides the files of the implementation table.
     code: (raw.code ?? []).map((c) => ({ dir: at(c.dir), match: new RegExp(c.match ?? ".") })),
     // When set, an implemented concept that the files of its row do not name fails the check (D-66).
+    // Records of manual runs, one file per run, and whether every manual check of implemented concepts
+    // needs a current run (D-78).
+    manualRuns: raw.manualRuns && { dir: at(raw.manualRuns.dir), require: raw.manualRuns.require === true },
     // When owner is set, a file of the code directories that names no defined concept fails the check (D-75).
     codeNames: { require: raw.codeNames?.require === true, owner: raw.codeNames?.owner === true },
     // Set only in the approach's own repository: where gen-approach.mjs writes the approach's IDs.

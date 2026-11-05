@@ -38,6 +38,7 @@ import {
 import { buildContracts, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf } from "./docs.mjs";
 import { renderReview, reviewChange } from "./review.mjs";
+import { currentRun, parseRuns, runStamp } from "./manual-runs.mjs";
 
 const groupBy = (xs, key) =>
   xs.reduce((m, x) => m.set(key(x), [...(m.get(key(x)) ?? []), x]), new Map());
@@ -1088,6 +1089,30 @@ if (flag("--next") > 0) {
   }
 }
 
+// Manual runs (D-78): a manual check of implemented concepts has a current run, a pass or a fail whose
+// stamp is the check's stamp now. Without manualRuns.require a missing run is information; a failed
+// current run is always information, since the key asks that checks are run, not that they pass.
+// ont: inv.manual-checks-run, inv.manual-runs-well-formed, derived.current-run
+const stampFor = (c) => runStamp(c, ONT, rows, checkById, notes);
+if (cfg.manualRuns) {
+  const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
+  const { runs, malformed, ambiguous } = parseRuns(cfg.manualRuns.dir, known);
+  report("manual run records that cannot be read", malformed);
+  report("manual run records that two files claim (same check, time and author)", ambiguous);
+  const due = checks.filter((c) => c.proof === "manual" && c.concepts.some((x) => implemented.has(x)));
+  const current = new Map(due.map((c) => [c.id, currentRun(runs, c.id, stampFor(c))]));
+  report(
+    "manual checks of implemented concepts with no current run",
+    due.filter((c) => !current.get(c.id)).map((c) => c.id),
+    cfg.manualRuns.require,
+  );
+  report(
+    "manual checks whose last current run failed",
+    due.filter((c) => current.get(c.id)?.verdict === "fail").map((c) => `${c.id} (${current.get(c.id).file})`),
+    false,
+  );
+}
+
 // --review <base>: the checks to review for the change from base to the working tree, for a reviewer
 // that did not write it (D-77).
 // ont: derived.review-checks, rule.reviewed-before-merge
@@ -1102,7 +1127,7 @@ if (flag("--review") > 0) {
     console.log(`ERROR · ${r.error}`);
     process.exit(2);
   }
-  console.log(renderReview(r, base, cfg.base));
+  console.log(renderReview(r, base, cfg.base, stampFor));
 }
 
 console.log(
