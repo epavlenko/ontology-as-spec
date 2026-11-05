@@ -10,6 +10,10 @@ import { stampOf } from "./docs.mjs";
 
 export const VERDICTS = ["pass", "fail", "not-run", "not-applicable"];
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+// A time is real when it reads back as itself: 2026-99-99T99:99:99Z has the shape and is no time.
+const realTime = (t) => TIME.test(t ?? "") && !Number.isNaN(Date.parse(t)) && new Date(t).toISOString().replace(".000Z", "Z") === t;
+const NAME = /^(\d{8}T\d{6}Z)-(check\.[a-z0-9.-]+)-[a-z0-9]{4}\.md$/;
+const compact = (t) => (t ?? "").replace(/[-:]/g, "");
 
 // The stamp of a run covers the check's case and the stamps of its concepts, so that a change to either
 // makes the run no longer current, as a changed definition makes a doc section stale (D-23).
@@ -24,20 +28,25 @@ export function parseRuns(dir, known) {
   const runs = [];
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
-    const fields = Object.fromEntries(
-      read(f)
-        .split("\n")
-        .map((l) => l.match(/^(Check|Time|Commit|Stamp|Verdict|By|Evidence):\s*(.*?)\s*$/))
-        .filter(Boolean)
-        .map((m) => [m[1].toLowerCase(), m[2].replace(/^`|`$/g, "")]),
-    );
+    const pairs = read(f)
+      .split("\n")
+      .map((l) => l.match(/^(Check|Time|Commit|Stamp|Verdict|By|Evidence):\s*(.*?)\s*$/))
+      .filter(Boolean)
+      .map((m) => [m[1].toLowerCase(), m[2].replace(/^`|`$/g, "")]);
+    const fields = Object.fromEntries(pairs);
+    const repeated = [...new Set(pairs.map(([k]) => k).filter((k, i, a) => a.indexOf(k) !== i))];
     const name = basename(f);
+    const named = name.match(NAME);
     const wrong = [
+      repeated.length && `${repeated.join(", ")} given more than once`,
       !known.has(fields.check) && `unknown check ${fields.check ?? "(none)"}`,
       !VERDICTS.includes(fields.verdict) && `verdict ${fields.verdict ?? "(none)"} is not one of ${VERDICTS.join(", ")}`,
-      !TIME.test(fields.time ?? "") && `time ${fields.time ?? "(none)"} is not UTC to the second, such as 2026-11-05T14:30:00Z`,
+      !realTime(fields.time) && `time ${fields.time ?? "(none)"} is not a UTC time to the second, such as 2026-11-05T14:30:00Z`,
+      !fields.commit && "no commit",
       !fields.stamp && "no stamp",
       !fields.by && "no author",
+      !named && "the name is not <UTC time>-<check>-<4 characters>.md, such as 20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md",
+      named && (named[2] !== fields.check || named[1] !== compact(fields.time)) && "the name does not match the record's check and time",
     ].filter(Boolean);
     if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
     else runs.push({ file: name, ...fields });

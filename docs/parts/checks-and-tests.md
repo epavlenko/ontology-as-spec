@@ -135,7 +135,7 @@ A manual check is run by a person or an agent in the product, and the catalogue 
 
 A doc set that lists `"checks": ["manual"]` must name every manual check of implemented concepts, so a manual check without a way to run it fails the check at the moment an automatic check without a test would. The evidence of a run is kept outside the repository, named by the check's ID and the date; the guide says what to keep.
 
-<!-- ont: ent.manual-run@893f59, derived.current-run@7b78f8, rule.run-recorded@2b45ff, inv.manual-checks-run@51da97, inv.manual-runs-well-formed@a1af0e -->
+<!-- ont: ent.manual-run@893f59, derived.current-run@7b78f8, rule.run-recorded@2b45ff, inv.manual-checks-run@51da97, inv.manual-runs-well-formed@51f120 -->
 
 ## Records of runs
 
