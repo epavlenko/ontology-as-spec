@@ -41,9 +41,12 @@ export const parseAnchors = (text) =>
 // ont: inv.section-declared
 const ANCHOR_LINE = /^ {0,3}<!--\s*ont:[^>]*-->\s*$/;
 const ATX_HEADING = /^ {0,3}(#{1,6})(?:[ \t]|$)/;
-const UNDERLINE = /^ {0,3}-+[ \t]*$/;
-// A paragraph that starts like a list item, a quote or a table row is not underlined into a heading.
-const NOT_A_PARAGRAPH = /^ {0,3}(?:[-*+][ \t]|\d+[.)][ \t]|>|\|)/;
+// A paragraph underlined with dashes is a heading of the second level, with equals signs of the first.
+const UNDERLINE = /^ {0,3}(?:-+|=+)[ \t]*$/;
+// A line of three or more stars, dashes or underscores is a rule: it starts no paragraph and ends one.
+const RULE = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
+// A paragraph that starts like a list item or a quote is not underlined into a heading.
+const NOT_A_PARAGRAPH = /^ {0,3}(?:[-*+][ \t]|\d+[.)][ \t]|>)/;
 // HTML blocks hold no sections. Their seven kinds as CommonMark 0.31 has them, section 4.6: how each
 // starts, the line that ends it (null: a blank line ends it), and whether it can interrupt a paragraph.
 const BLOCK_TAGS =
@@ -113,8 +116,10 @@ export const undeclaredSections = (text) => {
     if (atx) {
       if (atx[1].length === 2 || atx[1].length === 3) check(above, line, l.trim());
       para = null;
-    } else if (para && UNDERLINE.test(l)) {
-      if (!NOT_A_PARAGRAPH.test(para.text)) check(para.above, para.line, para.text);
+    } else if (para && UNDERLINE.test(l) && !NOT_A_PARAGRAPH.test(para.text)) {
+      if (l.trim().startsWith("-")) check(para.above, para.line, para.text);
+      para = null;
+    } else if (RULE.test(l)) {
       para = null;
     } else if (kind) {
       para = null;

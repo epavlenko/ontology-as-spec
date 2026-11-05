@@ -768,8 +768,14 @@ test("[check.doc-section.undeclared] reads sections as CommonMark does: other he
   const named = (text) => undeclaredSections(text).map((s) => s.heading);
   // A heading of another level ends the paragraph before it, and borrows no anchor.
   assert.deepEqual(named("<!-- ont: -->\n# Page\nUnderlined\n----------\n"), ["Underlined"]);
-  // A rule of dashes after a heading is a rule, not an underline.
+  // A rule of dashes after a heading is a rule, not an underline; so is one after a heading of the first
+  // level underlined with equals signs, and one after another rule.
   assert.deepEqual(named("# Page\n---\n"), []);
+  assert.deepEqual(named("Title\n===\n---\n"), []);
+  assert.deepEqual(named("Title\n===\n<custom>\n## hidden\n"), []);
+  assert.deepEqual(named("***\n---\n"), []);
+  // A line that starts with a bar is a paragraph like any other.
+  assert.deepEqual(named("| Plain heading\n---\n"), ["| Plain heading"]);
   // Nothing inside an HTML block is a section, whichever of the seven kinds it is, and each ends where
   // its kind ends: a closing tag, the end of a comment or other markup, or a blank line.
   for (const block of [
