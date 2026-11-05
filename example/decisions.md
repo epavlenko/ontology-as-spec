@@ -64,6 +64,16 @@ Log rules:
 - Rejected: hiding the button (looks broken); leaving it enabled and refusing on the press (the member learns the rule only by trying).
 - Concepts: `view.member.loans`, `action.renew`, `rule.renewal`.
 
+### D-08 · When both renewals are used, the renew button stays visible and disabled, with the reason, as the owner answered
+
+- Date: 2026-11-05 · Status: accepted
+- Supersedes: D-07
+- Source: the owner's answer of 2026-11-05: as when someone waits, the button is visible and disabled, with the reason «renewed 2 of 2» next to it (translated from Russian).
+- Decision: on `view.member.loans`, a loan that has used both renewals of `rule.renewal` shows the renew button visible and disabled, with the reason that both renewals are used, as D-04 does while someone waits for the title. This replaces D-07 whole, which said the same without naming its source.
+- Why: a hidden button reads as a bug, as D-04 says, and a refusal that comes only after the press leaves the member guessing; the reason next to the button says it at once. D-07 named its source only as a date, and an accepted entry is never edited.
+- Rejected: hiding the button (looks broken); leaving it enabled and refusing on the press (the member learns the rule only by trying).
+- Concepts: `view.member.loans`, `action.renew`, `rule.renewal`.
+
 ## Tentative
 
 ### D-05 · A reserved item waits three days

@@ -44,7 +44,7 @@ const run = (edit, prepare = () => {}) => {
 };
 
 const allowed = [
-  ["[check.decision.free-sections] a new accepted entry", (t) => t.replace("## Tentative", "### D-17 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative")],
+  ["[check.decision.free-sections] a new accepted entry", (t) => t.replace("## Tentative", "### D-17 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Source: the owner's answer of 2026-10-21\n- Decision: x.\n\n## Tentative")],
   ["[check.decision.free-sections] an edit of a tentative entry", (t) => t.replace("a week may be needed", "two weeks may be needed")],
   ["[check.decision.free-sections] a new open question", (t) => t.replace("## Open questions\n", "## Open questions\n\n- Another question?\n")],
 ];
@@ -92,12 +92,18 @@ test("[check.decision.guard-off] says GUARD_OFF before the first commit", () => 
 });
 
 test("[check.decision.uncommitted-named] names accepted entries that are not committed yet", () => {
-  const [plain, staged] = run((t) => t.replace("## Tentative", "### D-17 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative"));
+  const [plain, staged] = run((t) => t.replace("## Tentative", "### D-17 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Source: the owner's answer of 2026-10-21\n- Decision: x.\n\n## Tentative"));
   assert.equal(plain.code, 0, plain.out);
   assert.match(plain.out, /accepted entries not in HEAD yet, protected once committed \(1\): D-17/);
   assert.match(plain.out, /GUARD_OK/);
   assert.doesNotMatch(staged.out, /not in HEAD yet/);
 });
+
+// The example's log names sources from D-07 on. A case about a log that names none removes them first.
+const unsourced = (dir) => {
+  const log = join(dir, "decisions.md");
+  writeFileSync(log, readFileSync(log, "utf8").replace(/^- Source: .*\n/gm, ""));
+};
 
 // Once a log names a source, every entry accepted since the base names its own: a new one, and a
 // tentative one accepted now. A log that names no source is not asked for one.
@@ -119,7 +125,7 @@ test("[check.decision.unsourced-acceptance] refuses an entry accepted without a 
     assert.match(r.out, /without a source, while the log names sources \(1\): D-05/);
   }
   for (const r of run(another("- Source: the owner's answer of 2026-10-26\n"), sourced)) assert.equal(r.code, 0, r.out);
-  for (const r of run(another(""))) assert.equal(r.code, 0, r.out);
+  for (const r of run(another(""), unsourced)) assert.equal(r.code, 0, r.out);
 });
 
 // When the first source comes after the base, the guard cannot tell which entries were accepted before
@@ -131,8 +137,8 @@ test("[check.decision.unsourced-acceptance] asks a source only after the first o
       "## Tentative",
       `### D-17 · One\n\n- Date: 2026-10-26 · Status: accepted\n${a}- Decision: x.\n\n### D-18 · Two\n\n- Date: 2026-10-26 · Status: accepted\n${b}- Decision: y.\n\n## Tentative`,
     );
-  for (const r of run(two("", src))) assert.equal(r.code, 0, r.out);
-  for (const r of run(two(src, ""))) {
+  for (const r of run(two("", src), unsourced)) assert.equal(r.code, 0, r.out);
+  for (const r of run(two(src, ""), unsourced)) {
     assert.equal(r.code, 1, r.out);
     assert.match(r.out, /without a source, while the log names sources \(1\): D-18/);
   }

@@ -229,7 +229,7 @@ test("[check.decision.partial-supersession] an entry superseded whole leaves the
 test("[check.decision.named-by] --decisions names the later entries that mention an entry", () => {
   const r = run((p) => p("decisions.md", "## Tentative", entry("17", ["Decision: adds a second reminder to the rule of D-04."])), "--decisions");
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| in force +\| D-07, D-17 +\|/);
+  assert.match(r.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| in force +\| D-07, D-08, D-17 +\|/);
   // The last entry ends at the next heading: the history after it, which lists D-01…D-05, names nothing.
   assert.match(r.out, /\| D-01 +\| A loan is 21 days with a fixed rule, not a per-title setting +\| in force +\| +\|/);
 });
@@ -288,7 +288,7 @@ test("[check.decision.tentative-supersedes-nothing] a tentative entry's Supersed
   const proposal = entry("17", ["Supersedes: D-04", "Decision: renewal is shown differently."]).replace("Status: accepted", "Status: tentative");
   const before = run((p) => p("decisions.md", "## Tentative", proposal), "--decisions");
   assert.equal(before.code, 0, before.out);
-  assert.match(before.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| in force +\| D-07, D-17 +\|/);
+  assert.match(before.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| in force +\| D-07, D-08, D-17 +\|/);
   assert.match(before.out, /\| D-17 +\| Entry 17 +\| tentative +\|/);
   const after = run((p) => p("decisions.md", "## Tentative", proposal.replace("Status: tentative", "Status: accepted")), "--decisions");
   assert.match(after.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| superseded by D-17 +\|/);
