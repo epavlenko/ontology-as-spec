@@ -187,6 +187,7 @@
     "rule.chosen-value-checked",
     "rule.cite-decisions",
     "rule.code-names-concepts",
+    "rule.code-reviewed-for-errors",
     "rule.commit-finished-work",
     "rule.concept-with-its-entity",
     "rule.coordinator-cuts",
@@ -805,6 +806,16 @@
       "given": "a change that adds or alters a value with a source",
       "when": "a reviewer reads its review",
       "then": "the reviewer opened the source of each such value, gave the project's check of values against their source a verdict, and recorded it; a source it could not open is not-run with the reason"
+    },
+    {
+      "id": "check.agent-rules.code-reviewed-for-errors",
+      "section": "Agent rules",
+      "concepts": [
+        "rule.code-reviewed-for-errors"
+      ],
+      "given": "a change that touches code",
+      "when": "its reviewer reads the diff",
+      "then": "the change brings no error of correctness and no security problem: no secret in the code, no unchecked input that reaches a query, a command or a path, no access wider than the change needs, no dependency with a known flaw; each one found is reported with its file and line"
     },
     {
       "id": "check.doc-section.anchored",

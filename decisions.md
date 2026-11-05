@@ -649,6 +649,15 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
+### D-81 · The reviewer of a change of code looks for errors and security problems in it
+
+- Date: 2026-11-05 · Status: tentative
+- Source: the owner's words of 2026-11-05, "errors and security of code, the look of the interface: into the approach, definitely", his answer to question 542 (translated from Russian), and his answer to question 545, option a, the plan whose third step this is: a pass of the reviewer over errors and security of code, with a profile that recommends scanners the approach does not ship. The details below are the thread's; the owner accepts them when the branch is merged.
+- Decision: the reviewer of a change that touches code reads the diff for errors of correctness and for security problems, a secret in the code, unchecked input that reaches a query, a command or a path, access wider than the change needs, a dependency with a known flaw, and gives the approach's check of them a verdict: pass when it finds none, fail when it finds one, not run when judging needs a run it cannot make; each one found is reported with its file and line, with the concept it breaks where there is one (`rule.code-reviewed-for-errors`). `--review` lists that check for every change of a file in a directory under `code`, whether or not the file names a concept. `docs/profiles.md` gets a profile "Code": required, and checked by the tool, that `code` lists the project's code directories; recommended, `codeNames.owner` (D-75) and a linter, a dependency audit and a secret scan in the project's CI. The approach ships no scanner. Adds to D-77.
+- Why: the checks of the approach concern meaning, and none of them would see a wrong loop bound or a key committed with the code. The reviewer of a change is already reading the diff, and a scanner that suits every language is not something a tool that parses no language can be (D-57).
+- Rejected: scanners shipped with the approach (one per language and framework, against D-57); a judged check in CI (it would run on every build and see the whole code, not the change); leaving errors and security outside the approach (the owner's words).
+- Concepts: `rule.code-reviewed-for-errors`, `derived.review-checks`.
+
 ## Open questions
 
 ## History

@@ -71,7 +71,14 @@ test("[check.agent-rules.review-code-changed] lists the manual checks of the con
   const approach = listed(out, "approach");
   assert.ok(approach.includes("check.implementation-row.true"), out);
   assert.ok(approach.includes("check.concept.code-from-ontology"), out);
+  assert.ok(approach.includes("check.agent-rules.code-reviewed-for-errors"), out);
   assert.ok(!approach.includes("check.concept.definition-says-what"), out);
+});
+
+test("[check.agent-rules.review-code-errors-listed] lists the check of errors and security for a new code file that names no concept", () => {
+  const out = review({ after: (dir) => writeFileSync(join(dir, "app/format.mjs"), "export const pad = (s) => String(s).padStart(2, '0');\n") });
+  assert.match(out, /Kinds of artifact: code\n/);
+  assert.ok(listed(out, "approach").includes("check.agent-rules.code-reviewed-for-errors"), out);
 });
 
 test("[check.agent-rules.review-catalogue-changed] lists the approach's checks of the catalogue when a check changes", () => {

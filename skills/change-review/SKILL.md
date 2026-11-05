@@ -4,7 +4,7 @@ description: Reviews a change before it is merged, in a project that uses the On
 license: MIT
 ---
 
-<!-- ont: rule.reviewed-before-merge, derived.review-checks, rule.run-recorded, rule.value-checked-against-source -->
+<!-- ont: rule.reviewed-before-merge, derived.review-checks, rule.run-recorded, rule.value-checked-against-source, rule.code-reviewed-for-errors -->
 
 # Change review
 
@@ -45,6 +45,18 @@ Take the checks one by one. For each, read what its THEN demands, find the evide
 - **not applicable**: the check does not concern this change, although the tool listed it, for example a check of the Decision section when the decision log only gained a line of history. Say why in one sentence.
 
 Checks of the approach often ask about the whole kind of artifact, such as "a definition says what the thing is, in a sentence or two". Judge them on what the change adds or alters, not on the rest of the file.
+
+### Errors and security
+
+When the change touches code, the tool lists the approach's check of errors and security, `check.agent-rules.code-reviewed-for-errors`. Read the diff for:
+
+- **errors of correctness**: a wrong bound or condition, a case the rules of the ontology name that the code mishandles, an error swallowed, state left half changed;
+- **a secret in the code**: a key, a token or a password, in the code, a fixture or a configuration file;
+- **unchecked input** that reaches a database query, a shell command, a file path or a page without being validated or escaped;
+- **access wider than the change needs**: a permission, a scope, an open endpoint or a role it did not have before;
+- **a dependency with a known flaw**, or one added without need.
+
+Report each one found with its file and line, and the concept it breaks where there is one, such as the rule whose bound the code gets wrong. The check fails if you find any; it passes if you find none; it is `not run` when judging needs a run you cannot make, such as a dependency audit without network.
 
 ### Values with a source
 

@@ -72,6 +72,22 @@ Required, and checked by the tool: the check that holds the snapshot is automati
 
 Recommended: each change of an assumption is a short decision entry about its topic, tentative when an agent chose the values, and no check requires the model to reach its goal.
 
+<!-- ont: rule.code-reviewed-for-errors@3dbf61 -->
+
+## Code
+
+For any product with code, so that a change of it is read for errors and security problems as well as for meaning.
+
+List the project's code directories under `code` in the configuration, with a `match` that leaves out tests and generated files:
+
+```json
+"code": [{ "dir": "src", "match": "\\.ts$" }]
+```
+
+Required, and checked by the tool: `code` lists the code directories. A change of a file under them is then a change of code, and `--review` hands its reviewer the check of errors and security together with the checks of meaning, whether or not the file names a concept. The reviewer reads the diff for errors of correctness, for a secret in the code, for unchecked input that reaches a query, a command or a path, for access wider than the change needs and for a dependency with a known flaw, and fails the check on any of them, with the file and line ([part 7](parts/agent-rules.md#an-independent-critic)).
+
+Recommended: `"codeNames": { "owner": true }`, so that every code file names the concept it serves and a change of it is matched to concepts too; and, in the project's CI, a linter for its language, an audit of its dependencies and a scan for secrets, such as `npm audit` or `pip-audit` and gitleaks. The approach ships none of them: each belongs to a language or a platform, and the tool parses none.
+
 <!-- ont: rule.value-checked-against-source@52bea9, inv.review-path-checked@53e736, inv.review-paths-known@b3168e -->
 
 ## Research

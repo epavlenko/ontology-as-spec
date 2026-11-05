@@ -21,7 +21,8 @@ export const KIND_SECTIONS = {
   "agent rules": ["Agent rules"],
 };
 // Checks of the Concept section that concern the code rather than the rows (D-73).
-const CODE_CONCEPT_CHECKS = ["check.concept.code-from-ontology", "check.concept.ontology-changed-first"];
+// The check of errors and security in code goes with every change of code too (D-81).
+const CODE_CONCEPT_CHECKS = ["check.concept.code-from-ontology", "check.concept.ontology-changed-first", "check.agent-rules.code-reviewed-for-errors"];
 
 const git = (cwd, ...args) => {
   const r = spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8", maxBuffer: 1 << 26 });
