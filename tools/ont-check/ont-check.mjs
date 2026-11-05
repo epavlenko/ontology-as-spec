@@ -1089,6 +1089,18 @@ if (flag("--next") > 0) {
   }
 }
 
+// Review paths (D-80): every concept they name is defined and has a manual check of the project, so a
+// change of their files always hands the reviewer a check to give a verdict.
+// ont: inv.review-paths-known, inv.review-path-checked
+{
+  const named = [...new Set(cfg.reviewPaths.flatMap((p) => p.concepts))];
+  report("concepts under reviewPaths that the ontology does not define", named.filter((x) => !glossary.has(x)));
+  report(
+    "concepts under reviewPaths without a manual check in the catalogue",
+    named.filter((x) => glossary.has(x) && !checks.some((c) => c.proof === "manual" && c.concepts.includes(x))),
+  );
+}
+
 // Manual runs (D-78): a manual check of implemented concepts has a current run, a pass or a fail whose
 // stamp is the check's stamp now. Without manualRuns.require a missing run is information; a failed
 // current run is always information, since the key asks that checks are run, not that they pass.

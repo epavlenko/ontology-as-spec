@@ -2,7 +2,7 @@
 // repository of its own, commits it, changes one artifact and asks which checks a reviewer must run.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -95,6 +95,36 @@ test("[check.agent-rules.review-doc-changed] counts a changed section as touched
   });
   assert.match(out, /Touched concepts \(1\): action\.return\n/);
   assert.ok(listed(out, "approach").includes("check.doc-section.anchored"), out);
+});
+
+// reviewPaths (D-80): a changed data file touches the concepts its directory names.
+const withData = (concepts) => (dir) => {
+  patch(dir, "checks.md", "| `check.loan.overdue-in-real-time`", RENEW_EXPLAINED + "| `check.loan.overdue-in-real-time`");
+  if (concepts) patch(dir, "ont.config.json", '"root": "."', `"root": ".",\n  "reviewPaths": [{ "dir": "data", "concepts": ${JSON.stringify(concepts)} }]`);
+  mkdirSync(join(dir, "data"), { recursive: true });
+  writeFileSync(join(dir, "data/renewals.json"), '{ "renewals": { "value": 2, "kind": "fact", "sources": ["rules-page"] } }\n');
+};
+const changeData = (dir) => writeFileSync(join(dir, "data/renewals.json"), '{ "renewals": { "value": 3, "kind": "fact", "sources": ["rules-page"] } }\n');
+
+test("[check.agent-rules.review-path-touches] lists the manual check of the concept a changed data file's directory names", () => {
+  const out = review({ before: withData(["action.renew"]), after: changeData });
+  assert.match(out, /Touched concepts \(1\): action\.renew\n/);
+  assert.deepEqual(listed(out, "project"), ["check.loan.renew-explained"]);
+});
+
+test("[check.agent-rules.review-path-absent] finds nothing to review in a changed data file without reviewPaths", () => {
+  const out = review({ before: withData(null), after: changeData });
+  assert.match(out, /REVIEW HEAD: nothing to review \(1 files changed\)/);
+});
+
+test("[check.agent-rules.review-path-unknown] fails on a concept under reviewPaths that the ontology does not define", () => {
+  const out = review({ before: withData(["field.case.no-such"]) });
+  assert.match(out, /ERROR · concepts under reviewPaths that the ontology does not define \(1\):\n {2}field\.case\.no-such\n/);
+});
+
+test("[check.agent-rules.review-path-unchecked] fails on a concept under reviewPaths without a manual check", () => {
+  const out = review({ before: withData(["edge.loan.item"]) });
+  assert.match(out, /ERROR · concepts under reviewPaths without a manual check in the catalogue \(1\):\n {2}edge\.loan\.item\n/);
 });
 
 test("[check.agent-rules.review-nothing] says there is nothing to review when nothing changed", () => {

@@ -96,6 +96,8 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
       for (const t of [before(f), now(f)]) add(ids(t.match(/^(?:Ontology )?IDs:(.*)$/m)?.[1] ?? ""));
     }
     if (cfg.testSuites.some((s) => inDir(f, s.dir) && s.match.test(relative(s.dir, f)))) kinds.add("tests");
+    // Data files carry no ont: names; reviewPaths says which concepts a change of them touches (D-80).
+    for (const p of cfg.reviewPaths) if (inDir(f, p.dir)) add(p.concepts);
     const doc = cfg.docSets.some((d) => inDir(f, d.dir));
     if (doc) {
       kinds.add("docs");

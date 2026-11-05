@@ -91,6 +91,8 @@ export function loadConfig(configPath, text) {
     // Directories of code whose "ont:" names the check reads, besides the files of the implementation table.
     code: (raw.code ?? []).map((c) => ({ dir: at(c.dir), match: new RegExp(c.match ?? ".") })),
     // When set, an implemented concept that the files of its row do not name fails the check (D-66).
+    // Directories of data whose changed files touch the concepts named, for --review (D-80).
+    reviewPaths: (raw.reviewPaths ?? []).map((p) => ({ dir: at(p.dir), concepts: p.concepts ?? [] })),
     // Records of manual runs, one file per run, and whether every manual check of implemented concepts
     // needs a current run (D-78).
     manualRuns: raw.manualRuns && { dir: at(raw.manualRuns.dir), require: raw.manualRuns.require === true },

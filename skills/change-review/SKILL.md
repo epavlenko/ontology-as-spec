@@ -4,7 +4,7 @@ description: Reviews a change before it is merged, in a project that uses the On
 license: MIT
 ---
 
-<!-- ont: rule.reviewed-before-merge, derived.review-checks, rule.run-recorded -->
+<!-- ont: rule.reviewed-before-merge, derived.review-checks, rule.run-recorded, rule.value-checked-against-source -->
 
 # Change review
 
@@ -45,6 +45,10 @@ Take the checks one by one. For each, read what its THEN demands, find the evide
 - **not applicable**: the check does not concern this change, although the tool listed it, for example a check of the Decision section when the decision log only gained a line of history. Say why in one sentence.
 
 Checks of the approach often ask about the whole kind of artifact, such as "a definition says what the thing is, in a sentence or two". Judge them on what the change adds or alters, not on the rest of the file.
+
+### Values with a source
+
+If the change adds or alters values that carry a source, such as the cases of a study, open the source of each such value and check that it says what the value says, at the kind the value claims. The tool lists the project's check for this when the configuration names the directory of those values under `reviewPaths`. Give that check one verdict for the change, and say in the evidence which values you read where. A source you cannot open, behind a login or gone, makes the verdict `not run`, with the source named.
 
 ## 3. Report what matters
 

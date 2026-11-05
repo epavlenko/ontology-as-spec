@@ -631,6 +631,24 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
+### D-79 · A profile for research: an ontology from the goal, values with a kind and a source
+
+- Date: 2026-11-05 · Status: tentative
+- Source: the owner's answer of 2026-11-05 to question 543, option a: a profile in docs/profiles.md with an example, its rules taken from one of his private research projects. The details below are the thread's, written without the name or the subject of that project; the owner accepts them when the branch is merged.
+- Decision: `docs/profiles.md` gets a profile "Research", for a product whose result answers questions from collected evidence. Its ontology starts from the goal: the decisions the research serves, the evidence each needs as a question to the sample, the fields of a case that answer it, the findings and the recommendations. Every value carries its kind, a fact, a claim or an estimate, and its sources; a source has a type and the date it was read, and optionally the date it was published; a value is never of a higher kind than its source's type allows; a finding names the cases for and against. Required, and checked by the tool: these rules are rules and invariants of the project's ontology, so `checks.require` asks for their checks and the automatic ones have tests; `reviewPaths` names the directory of the values with the concept of their source, and that concept has a manual check of values against their source (`inv.review-path-checked`, D-80). Recommended: values kept as `{ value, kind, sources }` and a contract generated from the types. Whether and how often the sources are read again is the project's choice.
+- Why: one project of the approach already holds a large sample this way, and its tests catch a value without a source and a fact taken from a self-report; another keeps the basis of a value as free text that nothing checks.
+- Rejected: leaving every research project to invent this (the second project would not get what the first already has); checking the sources again on a schedule in the approach (the owner's answer to question 544: a periodic process is the project's business).
+- Concepts: `ent.profile`, `rule.profile-requires-checkable`, `inv.review-path-checked`.
+
+### D-80 · A change that adds or alters a value with a source is reviewed against the source
+
+- Date: 2026-11-05 · Status: tentative
+- Source: the owner's answer of 2026-11-05 to question 544, option a, "at every change: the reviewer of changes opens the source of new and changed values and checks the value, with a verdict and a record", with his words "since a periodic process is the business of a particular project" (translated from Russian). The details below are the thread's; the owner accepts them when the branch is merged.
+- Decision: in a project whose values carry a source, the reviewer of a change opens the source of each value the change adds or alters and gives the project's check of values against their source a verdict, recorded as a manual run (D-78); a source it cannot open gives not-run with the reason (`rule.value-checked-against-source`). The configuration takes `"reviewPaths": [{ "dir": "cases", "concepts": ["edge.case.sources"] }]`: a changed file under such a directory touches the concepts named, so `--review` lists their manual checks although data files carry no `ont:` names (`derived.review-checks`). The check fails on a concept there that the ontology does not define (`inv.review-paths-known`) and on one that has no manual check in the project's catalogue (`inv.review-path-checked`), so the verdict always has a check to go to. Adds to D-77 and D-78.
+- Why: a script sees that a value has a source, not that the source says it. A wrong value is cheapest to catch when it enters, and the reviewer of the change is already reading it.
+- Rejected: a judged check on a sample before findings (the owner chose the review at each change); reading the sources again on a schedule (the project's business, in the owner's words); listing data files by an `ont:` name inside them (data formats such as JSON have no comments).
+- Concepts: `rule.value-checked-against-source`, `derived.review-checks`, `inv.review-paths-known`, `inv.review-path-checked`.
+
 ## Open questions
 
 ## History

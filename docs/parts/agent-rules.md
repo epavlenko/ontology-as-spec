@@ -87,13 +87,13 @@ The configuration lists the instruction files under `agentInstructions`. The che
 
 What the tool cannot tell is which lines are process rules, and whether a rule written in prose is stricter or looser than the approach. A reviewer reads the instructions for that: a process rule that names no source is a finding, and so is a departure without an entry.
 
-<!-- ont: action.critique-change@79fa01, derived.review-checks@786946, rule.reviewed-before-merge@7ac9d0 -->
+<!-- ont: action.critique-change@79fa01, derived.review-checks@0f35f9, rule.reviewed-before-merge@7ac9d0 -->
 
 ## An independent critic
 
 Before a change is merged, an agent of another provider that did not write it reviews it. Two agents of the same provider tend to share blind spots, and a reviewer handed the author's conclusions tends to confirm them, so the critic gets the diff and the IDs it touches, not the author's summary.
 
-`ont-check --review <base>` gives the critic its checks: the manual checks of the project whose concepts the change touches, through a changed definition row, a changed check, a changed file that names the concept in `ont:` or is in its implementation row, a changed doc section anchored to it or a changed ticket that lists it; and the manual checks of the approach for the kinds of artifact the change touches, such as the Decision section when the decision log changed. The approach's manual checks travel with the tool. The critic follows the [change-review skill](../../skills/change-review/SKILL.md) and gives each check a verdict: pass, fail, not run when the check applies but could not be carried out, such as one that needs the running product, or not applicable, each with its evidence or reason. A check that could not be run is never written off as not applicable.
+`ont-check --review <base>` gives the critic its checks: the manual checks of the project whose concepts the change touches, through a changed definition row, a changed check, a changed file that names the concept in `ont:` or is in its implementation row, a changed doc section anchored to it or a changed ticket that lists it, or a changed file under a directory the configuration names under `reviewPaths`, which data files without `ont:` names need; and the manual checks of the approach for the kinds of artifact the change touches, such as the Decision section when the decision log changed. The approach's manual checks travel with the tool. The critic follows the [change-review skill](../../skills/change-review/SKILL.md) and gives each check a verdict: pass, fail, not run when the check applies but could not be carried out, such as one that needs the running product, or not applicable, each with its evidence or reason. A check that could not be run is never written off as not applicable.
 
 ## How it fails in practice
 

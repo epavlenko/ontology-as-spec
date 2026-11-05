@@ -159,6 +159,8 @@
     "inv.required-concepts-checked",
     "inv.retired-not-defined",
     "inv.retired-only-in-log",
+    "inv.review-path-checked",
+    "inv.review-paths-known",
     "inv.section-keys-match",
     "inv.sourced-since-first",
     "inv.suite-covers-classes",
@@ -229,6 +231,7 @@
     "rule.ticket-without-behavior",
     "rule.unconfirmed-tentative",
     "rule.unreachable-reported",
+    "rule.value-checked-against-source",
     "rule.verdict-kept"
   ],
   "retired": {
@@ -792,6 +795,16 @@
       "given": "a change about to be merged",
       "when": "a reviewer looks for its review",
       "then": "an agent of another provider that did not write it gave each check `--review` listed a verdict, and a check it could not run is `not run` with the reason, not `not applicable`"
+    },
+    {
+      "id": "check.agent-rules.value-checked-against-source",
+      "section": "Agent rules",
+      "concepts": [
+        "rule.value-checked-against-source"
+      ],
+      "given": "a change that adds or alters a value with a source",
+      "when": "a reviewer reads its review",
+      "then": "the reviewer opened the source of each such value, gave the project's check of values against their source a verdict, and recorded it; a source it could not open is not-run with the reason"
     },
     {
       "id": "check.doc-section.anchored",
