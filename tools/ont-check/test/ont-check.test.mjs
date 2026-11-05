@@ -749,10 +749,17 @@ test("[check.doc-section.reread-after-change] a changed definition marks the sec
 test("[check.doc-section.undeclared] names a section without an anchor, and not a heading in a code block", () => {
   const f = "`".repeat(3);
   const r = run((p) =>
-    p("help/borrowing.md", "<!-- ont: action.return@", `## Opening hours\n\nThe desk is open every day.\n\n${f}md\n## An example heading\n${f}\n\n<!-- ont: action.return@`),
+    p(
+      "help/borrowing.md",
+      "<!-- ont: action.return@",
+      `## Opening hours\n\nThe desk is open every day.\n\n  ## Indented\n\nText.\n\n###\tTabbed\n\nText.\n\n${f}md\n## An example heading\n${f}\n\n<!-- ont: action.return@`,
+    ),
   );
   assert.equal(r.code, 1, r.out);
-  assert.match(r.out, /ERROR · help docs sections that declare nothing [^\n]*\(1\):\n {2}help\/borrowing\.md:\d+ {2}## Opening hours\n/);
+  assert.match(
+    r.out,
+    /ERROR · help docs sections that declare nothing [^\n]*\(3\):\n {2}help\/borrowing\.md:\d+ {2}## Opening hours\n {2}help\/borrowing\.md:\d+ {2}## Indented\n {2}help\/borrowing\.md:\d+ {2}###\tTabbed\n/,
+  );
   assert.doesNotMatch(r.out, /An example heading/);
 });
 

@@ -2,7 +2,7 @@
 
 How the approach relates to spec-driven development (SDD) tools of 2025–2026 and to older practices it borrows from. Every characterization below links to a primary source; quotes are verbatim. Sources were read on 2026-10-17.
 
-<!-- ont: -->
+<!-- ont: rule.ontology-is-source@df6b8f, ent.concept@58346b -->
 ## The three levels
 
 Birgitta Böckeler, [Understanding Spec-Driven-Development: Kiro, spec-kit, and Tessl](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) (martinfowler.com, 15 October 2025), distinguishes three levels of commitment to a specification:
@@ -76,7 +76,7 @@ Hartwig Grabowski, [The Spec Growth Engine: Spec-Anchored, Code-Coupled, Drift-E
 | Spec Growth Engine | spec graph node | yes | spec nodes, no glossary | no | no: divergence blocks the merge | spec ↔ code structure, blocking |
 | **This approach** | concept | yes | yes, permanent | yes, both directions | yes, explicitly | concepts ↔ interface, map, decisions, implementation table, checks, test tags, tickets, contracts, documentation |
 
-<!-- ont: -->
+<!-- ont: rule.ontology-is-source@df6b8f -->
 ## Böckeler's criticisms, applied here
 
 - **Problem size.** In her test, Kiro turned a small bug into 4 "user stories" with "a total of 16 acceptance criteria". This approach does not produce documents per change. A small change touches the glossary only if it changes meaning. A bug fix often touches nothing but code and the implementation note.

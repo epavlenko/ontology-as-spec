@@ -20,7 +20,7 @@ A section names the concepts it explains in an HTML comment that readers do not 
 If you need an item longer, renew it from "My loans". Each renewal adds 14 days …
 ```
 
-<!-- ont: -->
+<!-- ont: ent.doc-section@496f3f, ent.reference-page@b1ec8f -->
 ## Why
 
 Documentation describes the same product as the ontology, in the words of its readers. Without a link between them it drifts the same way design documents and code drift: a rule changes in the ontology, the help page keeps the old one, and nobody notices. An anchor makes the link explicit without filling the text with IDs.

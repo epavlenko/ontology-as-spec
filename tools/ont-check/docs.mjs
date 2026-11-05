@@ -38,7 +38,9 @@ export const parseAnchors = (text) =>
 // "<!-- ont: -->", when the section explains no concept. Returns the headings that declare nothing,
 // with their line numbers. Text above the first such heading is the page's intro and declares nothing.
 // ont: inv.section-declared
-const ANCHOR_LINE = /^<!--\s*ont:[^>]*-->\s*$/;
+const ANCHOR_LINE = /^ {0,3}<!--\s*ont:[^>]*-->\s*$/;
+// An ATX heading as CommonMark reads it: up to three spaces, the hashes, then a space, a tab or the end.
+const SECTION_HEADING = /^ {0,3}#{2,3}(?:[ \t]|$)/;
 export const undeclaredSections = (text) => {
   const found = [];
   let line = 0;
@@ -52,7 +54,7 @@ export const undeclaredSections = (text) => {
         above = "code";
         continue;
       }
-      if (/^#{2,3} /.test(l) && !ANCHOR_LINE.test(above)) found.push({ line, heading: l.trim() });
+      if (SECTION_HEADING.test(l) && !ANCHOR_LINE.test(above)) found.push({ line, heading: l.trim() });
       if (l.trim()) above = l.trim();
     }
   }
