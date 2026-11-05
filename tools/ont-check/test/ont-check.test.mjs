@@ -45,14 +45,15 @@ test("[check.concept.untried] lists a concept with no mockup element, ticket or 
 });
 
 test("accepts the older single tests key as one unnamed suite", () => {
-  // A project on the older key has no suite that names judged checks, so the example's judged check goes too.
+  // A project on the older key has no suite that names judged checks, so the example's judged checks go too.
   const r = run((p) => {
     p(
       "ont.config.json",
       /"testSuites": \[[\s\S]*?\n  \],/.exec(readFileSync(join(EXAMPLE, "ont.config.json"), "utf8"))[0],
       '"tests": { "dir": ".", "match": "\\\\.test\\\\.mjs$", "cover": ["inv", "rule", "derived", "action"] },',
     );
-    p("checks.md", /^\| `check\.member\.limit-refusal-explained` .*\n/m.exec(readFileSync(join(EXAMPLE, "checks.md"), "utf8"))[0], "");
+    const catalogue = readFileSync(join(EXAMPLE, "checks.md"), "utf8");
+    for (const row of catalogue.match(/^\| `check\.[^`]+` +\|.*\| judged +\|.*\n/gm)) p("checks.md", row, "");
   });
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, / tested \d+ /);
@@ -395,7 +396,7 @@ test("[check.ticket.gap-readiness] --gap says what each target waits for", () =>
         "## Tentative",
       ].join("\n\n"),
     );
-    p("checks.md", "| `check.screens.refusal-understandable` | `view.desk`, `action.checkout` |", "| `check.screens.refusal-understandable` | `view.desk`, `action.checkout`, `view.catalog` |");
+    p("checks.md", /^\| `check\.screens\.refusal-understandable` +\| `view\.desk`, `action\.checkout` +\|/m.exec(readFileSync(join(EXAMPLE, "checks.md"), "utf8"))[0], "| `check.screens.refusal-understandable` | `view.desk`, `action.checkout`, `view.catalog` |");
   }, "--gap");
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /\n {2}action\.cancel-hold {2}target, ready · checks: check\.hold\.cancel, /);

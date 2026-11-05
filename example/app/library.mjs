@@ -90,6 +90,7 @@ export function memberView(state, member, today) {
       due: l.due,
       overdue: isOverdue(l, today),
       renewals: l.renewals,
+      waiting: waitingHolds(state, state.items[l.item].title).length,
     }));
   const holds = state.holds
     .filter((h) => h.member === member && !h.closed)

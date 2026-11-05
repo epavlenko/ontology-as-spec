@@ -221,6 +221,7 @@
     "rule.run-recorded",
     "rule.run-settles-question",
     "rule.scoped-ids",
+    "rule.screens-kept",
     "rule.second-vocabulary",
     "rule.slice-one-change",
     "rule.source-precedence",
@@ -233,7 +234,8 @@
     "rule.unconfirmed-tentative",
     "rule.unreachable-reported",
     "rule.value-checked-against-source",
-    "rule.verdict-kept"
+    "rule.verdict-kept",
+    "rule.view-state-judged"
   ],
   "retired": {
     "field.map-row.does-not-do": null,
@@ -614,6 +616,26 @@
       "given": "a judged check that ran",
       "when": "the run is reported",
       "then": "its verdict is kept outside the repository, named by the check and the date"
+    },
+    {
+      "id": "check.check.view-states-judged",
+      "section": "Check",
+      "concepts": [
+        "rule.view-state-judged"
+      ],
+      "given": "an implemented view whose note describes its states",
+      "when": "a reviewer compares the note with the catalogue",
+      "then": "every state the note describes has a judged check whose THEN says what the note says for it"
+    },
+    {
+      "id": "check.check.screens-outside",
+      "section": "Check",
+      "concepts": [
+        "rule.screens-kept"
+      ],
+      "given": "a run of a view's judged checks",
+      "when": "a reviewer looks for its screens",
+      "then": "they are outside the repository, named by view, state and date, and the owner can open them"
     },
     {
       "id": "check.check.redundant",

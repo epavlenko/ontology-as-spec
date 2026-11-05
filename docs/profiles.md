@@ -26,6 +26,8 @@ Required, and checked by the tool: every judged check of implemented concepts is
 
 Recommended: every value a model writes that people read has a judged check, run on a fixed sample. `JUDGE` names the model the project trusts to judge, and `JUDGE_VERDICTS` a directory outside the repository. The suite is kept apart and run before a release, or when a prompt or a model changes, since each run costs a call to a model.
 
+<!-- ont: rule.view-state-judged@f32539, rule.screens-kept@17d4e6 -->
+
 ## Interface
 
 For a product with screens.
@@ -42,6 +44,22 @@ Configure an end-to-end suite that covers actions and views ([part 6](parts/chec
 ```
 
 Required, and checked by the tool: every implemented action and view has a test in that suite.
+
+The note of each screen in the ontology says what it shows in each state and what can be done there. Each of those states gets a judged check, whose THEN is what the note says for it, and a judged test sets the state up, takes a snapshot of the screen, the text a program can read of it, and hands it to the judge with the check's case ([part 6](parts/checks-and-tests.md#checks-a-model-judges)). Configure the judged suite to cover views too:
+
+```json
+{
+  "name": "judged",
+  "dir": "judged",
+  "match": "\\.judged\\.mjs$",
+  "cover": ["view"],
+  "checks": ["check.screens.loans-empty"]
+}
+```
+
+Required, and checked by the tool: every implemented view has a test in that suite. That the test is judged and that every state of the note has a check, the tool cannot see; a reviewer reads the note next to the catalogue for that. A state whose concepts are not built yet keeps its judged check as a target, which `--gap` lists.
+
+The test keeps each snapshot with `keepScreen` from `tools/ont-check/judge.mjs`, and the image of the screen when the product's command line took one, in the directory `JUDGE_SCREENS` names, outside the repository, by date, view and state. The judge checks that the screen shows what the note says; the layout and the style are the owner's to judge, on those screens, as the mockup's are.
 
 Recommended: when the product carries `data-ont` labels, a test that every implemented screen shows the elements its map lists; and a [blind walk](parts/target-and-reality.md#walking-the-product-blind) before a release.
 

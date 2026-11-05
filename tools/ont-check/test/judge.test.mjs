@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { blindPrompt, judge, judgePrompt } from "../judge.mjs";
+import { blindPrompt, judge, judgePrompt, keepScreen } from "../judge.mjs";
 
 // A stand-in judge: it keeps what it was given and answers by a rule the test chooses.
 const fixture = () => {
@@ -80,4 +80,22 @@ test("[action.derive-blind] a blind derivation gives the model the ontology, the
   assert.match(prompt, /<<< catalogue\n\| `check\.loan\.renew-twice`/);
   assert.match(prompt, /GIVEN ana renewed twice\nWHEN she renews again/);
   assert.doesNotMatch(prompt, /THEN/);
+});
+
+test("[check.check.screen-kept] keeps the snapshot of a view's state by date, view and state, and nothing without a directory", () => {
+  const dir = mkdtempSync(join(tmpdir(), "screens-"));
+  try {
+    const screens = join(dir, "screens");
+    const image = join(dir, "shot.png");
+    writeFileSync(image, "png");
+    const written = keepScreen({ view: "view.member.loans", state: "empty", text: "nothing on loan, no holds\n", image, screens, date: "2026-11-05" });
+    assert.deepEqual(readdirSync(screens).sort(), ["2026-11-05-view.member.loans-empty.png", "2026-11-05-view.member.loans-empty.txt"]);
+    assert.equal(readFileSync(join(screens, "2026-11-05-view.member.loans-empty.txt"), "utf8"), "nothing on loan, no holds\n");
+    assert.equal(written.length, 2);
+    const none = join(dir, "none");
+    assert.deepEqual(keepScreen({ view: "view.member.loans", state: "empty", text: "x", screens: undefined }), []);
+    assert.ok(!existsSync(none));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

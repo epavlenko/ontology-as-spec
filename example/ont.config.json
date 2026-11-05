@@ -72,9 +72,13 @@
       "name": "judged",
       "dir": "judged",
       "match": "\\.judged\\.mjs$",
-      "cover": [],
+      "cover": ["view"],
       "checks": [
-        "check.member.limit-refusal-explained"
+        "check.member.limit-refusal-explained",
+        "check.screens.loans-shown",
+        "check.screens.loans-renew-held",
+        "check.screens.loans-renew-exhausted",
+        "check.screens.loans-empty"
       ]
     }
   ],

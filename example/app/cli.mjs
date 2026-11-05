@@ -10,6 +10,7 @@ import { join } from "node:path";
 import {
   checkout,
   emptyState,
+  MAX_RENEWALS,
   memberView,
   placeHold,
   Refusal,
@@ -99,10 +100,19 @@ try {
     // ont: view.member.loans
     case "loans": {
       const v = memberView(state, a, today);
+      // Renewal in the order renew() refuses it: the limit first, then the queue (D-04, D-08).
+      const renewal = (l) =>
+        l.renewals >= MAX_RENEWALS
+          ? `renew: refused, renewed ${l.renewals} of ${MAX_RENEWALS}`
+          : l.waiting
+            ? `renew: refused, ${l.waiting} waiting`
+            : "renew: possible";
       for (const l of v.loans)
-        console.log(`loan  ${l.item}  ${l.title}  due ${l.due}${l.overdue ? "  OVERDUE" : ""}`);
+        console.log(
+          `loan  ${l.item}  ${l.title}  due ${l.due}${l.overdue ? "  OVERDUE" : ""}  renewed ${l.renewals} of ${MAX_RENEWALS}  ${renewal(l)}`,
+        );
       for (const h of v.holds) console.log(`hold  ${h.title}  position ${h.position}`);
-      if (!v.loans.length && !v.holds.length) console.log("nothing on loan, no holds");
+      if (!v.loans.length && !v.holds.length) console.log("nothing on loan, no holds; to borrow something, look in the catalog");
       break;
     }
     default:

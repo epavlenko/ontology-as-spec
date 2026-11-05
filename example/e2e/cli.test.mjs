@@ -37,7 +37,7 @@ test("[check.loan.return-closes-loan] a returned item leaves the member's loans"
   cli("checkout", "dune-1", "ana", "--today", "2026-10-01");
   assert.match(cli("loans", "ana", "--today", "2026-10-23").out, /dune-1 {2}Dune {2}due 2026-10-22 {2}OVERDUE/);
   assert.equal(cli("return", "dune-1", "--today", "2026-10-23").out, "returned dune-1");
-  assert.equal(cli("loans", "ana", "--today", "2026-10-23").out, "nothing on loan, no holds");
+  assert.equal(cli("loans", "ana", "--today", "2026-10-23").out, "nothing on loan, no holds; to borrow something, look in the catalog");
 });
 
 test("[check.loan.renew-while-held] renewal moves the due date and is refused while someone waits", (t) => {

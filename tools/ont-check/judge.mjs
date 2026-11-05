@@ -8,8 +8,8 @@
 // first line holds both words, is not a verdict: judge() fails rather than guess.
 // ont: rule.judge-sees-the-check, rule.verdict-kept
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { extname, join } from "node:path";
 import { parseChecks, read } from "./lib.mjs";
 
 export const judgePrompt = (check, output) =>
@@ -57,6 +57,27 @@ export const verdictOf = (answer) => {
   const word = first.match(/^(PASS|FAIL)(?=$|[\s.,:;—–-])/)?.[1];
   return word && !(/\bPASS\b/.test(first) && /\bFAIL\b/.test(first)) ? word : null;
 };
+
+// The screens of a view's judged checks (D-83): the snapshot of each state, and its image when the
+// product took one, in the directory JUDGE_SCREENS names, by date, view and state, for the owner to
+// judge layout and style on. Returns the files written; nothing without JUDGE_SCREENS.
+// ont: rule.screens-kept
+export function keepScreen({ view, state, text, image, screens = process.env.JUDGE_SCREENS, date = new Date().toISOString().slice(0, 10) }) {
+  if (!screens) return [];
+  mkdirSync(screens, { recursive: true });
+  const base = join(screens, `${date}-${view}-${state}`);
+  const written = [];
+  if (text !== undefined) {
+    writeFileSync(`${base}.txt`, text);
+    written.push(`${base}.txt`);
+  }
+  if (image) {
+    const to = `${base}${extname(image) || ".png"}`;
+    copyFileSync(image, to);
+    written.push(to);
+  }
+  return written;
+}
 
 export function judge({
   checks,
