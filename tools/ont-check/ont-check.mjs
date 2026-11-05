@@ -2,7 +2,7 @@
 // contracts and reference pages, the mockup and its map, the decision log, the implementation table,
 // the check catalogue, the tests, the tickets, the documentation, and the older verification map.
 // Usage: node tools/ont-check/ont-check.mjs [--config path/to/ont.config.json] [--coverage]
-//          [--gap [path/to/ticket.md]] [--next] [--decisions]
+//          [--gap [path/to/ticket.md]] [--next] [--decisions] [--review <base>]
 // --coverage also prints which checks and test suites prove each implemented concept, and where code names it.
 // --gap also prints the work left: target concepts with their checks, untested checks, divergences;
 //   with a ticket, only its slice, and the exit code is 1 until the slice is done. Without one, each
@@ -37,6 +37,7 @@ import {
 } from "./lib.mjs";
 import { buildContracts, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf } from "./docs.mjs";
+import { renderReview, reviewChange } from "./review.mjs";
 
 const groupBy = (xs, key) =>
   xs.reduce((m, x) => m.set(key(x), [...(m.get(key(x)) ?? []), x]), new Map());
@@ -252,7 +253,7 @@ if (cfg.approachIds) {
   const actual = existsSync(cfg.approachIds.out) ? read(cfg.approachIds.out) : "";
   report(
     "generated approach IDs differ from the ontology (run gen-approach.mjs)",
-    actual === renderApproach(ONT, retired) ? [] : [relative(cfg.base, cfg.approachIds.out)],
+    actual === renderApproach(ONT, retired, cfg.checks ? parseChecks(read(cfg.checks.file)) : []) ? [] : [relative(cfg.base, cfg.approachIds.out)],
   );
 }
 
@@ -1085,6 +1086,23 @@ if (flag("--next") > 0) {
       ].join("\n"),
     );
   }
+}
+
+// --review <base>: the checks to review for the change from base to the working tree, for a reviewer
+// that did not write it (D-77).
+// ont: derived.review-checks, rule.reviewed-before-merge
+if (flag("--review") > 0) {
+  const base = process.argv[flag("--review") + 1];
+  if (!base || base.startsWith("--")) {
+    console.log("ERROR · --review needs a base: a branch, a tag or a commit");
+    process.exit(2);
+  }
+  const r = reviewChange({ cfg, base, checks, approachChecks: approach?.manualChecks, implRows, ids });
+  if (r.error) {
+    console.log(`ERROR · ${r.error}`);
+    process.exit(2);
+  }
+  console.log(renderReview(r, base, cfg.base));
 }
 
 console.log(

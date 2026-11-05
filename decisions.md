@@ -613,6 +613,15 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
+### D-77 · Before a change is merged, an agent that did not write it reviews it against the manual checks it touches
+
+- Date: 2026-11-05 · Status: tentative
+- Source: the owner's answers of 2026-11-05 to question 539, option a, "a reviewer skill in the approach: before a merge an agent of another provider, not the author, takes the diff, and the tool itself selects the manual checks whose concepts the diff touches; a verdict for each", and to question 545, option a, the plan whose first step this is (translated from Russian). The details below are the thread's; the owner accepts them when the branch is merged.
+- Decision: `ont-check --review <base>` lists the checks to review for the change from `base` to the working tree (`derived.review-checks`): the manual checks of the project whose concepts the change touches, through a changed definition row or its notes, a changed check of the catalogue, a changed file that names the concept in `ont:` or is in its implementation row, a changed doc section anchored to it, or a changed ticket that lists it; and the manual checks of the approach for the kinds of artifact the change touches, such as the Decision section for a changed decision log. The approach's manual checks travel with the tool in `approach.json`. Before a change is merged, an agent of another provider that did not write it reviews it with `skills/change-review/SKILL.md` and gives each listed check a verdict: pass, fail, not run with the reason, or not applicable with the reason (`rule.reviewed-before-merge`). The review reports only what would mislead or break a check (`rule.findings-mislead`). Keeping the verdicts, a pass for code errors and security, and the look of the interface are later steps of the same plan. Adds to `action.critique-change`.
+- Why: 57 manual checks of the approach and the manual checks of each project had no one assigned to run them, and no record shows that any ran. A reviewer that did not write a change and gets only the checks it touches can run them once, at the point where a mistake still costs little.
+- Rejected: turning the meaning checks into judged checks in CI (they concern a change, not the product's output, and a model call on every run costs more than one review of the diff); leaving the review to the central process of one owner's projects (the approach would then not give it to every project); a reviewer of the same provider as the author (it tends to share the author's blind spots).
+- Concepts: `derived.review-checks`, `rule.reviewed-before-merge`, `action.critique-change`, `concept.approach-ids`.
+
 ## Open questions
 
 ## History

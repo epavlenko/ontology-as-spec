@@ -9,6 +9,7 @@ node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --coverag
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --gap [ticket.md]   # also: the work left and what each target waits for, or one ticket's slice (exit 1 until done)
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --next   # also: the next slice of what is ready, as IDs: and Checks: lines for a ticket
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --decisions   # also: every decision entry, in force, tentative or superseded, and the later entries that name it
+node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --review main   # also: the manual checks a change since main touches, the project's and the approach's, for a reviewer (D-77)
 node tools/ont-check/format-ontology.mjs --config path/to/ont.config.json   # kind order, Kind cells and aligned definition tables
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/gen-reference.mjs --config path/to/ont.config.json   # reference pages from the ontology and the checks

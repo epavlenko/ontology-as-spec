@@ -67,21 +67,22 @@ To adopt the approach, start with ten definition rows for the concepts your team
 
 ## What's in this repository
 
-| Path | What it is |
-| ---- | ---------- |
-| [example/](example/README.md) | a fictional lending library described end to end: ontology, decisions, mockup, map, checks, a ticket, code and tests |
-| [docs/reference.md](docs/reference.md) | every concept, rule and check of the approach, generated from its ontology |
-| [docs/principles.md](docs/principles.md) | the principles and the failures each one prevents |
-| [docs/parts/](docs/parts/README.md) | the nine parts, one file each: what it is, why, how it works, how it fails |
-| [docs/profiles.md](docs/profiles.md) | recipes for a property of a product: model output, interface, model and data scenarios |
-| [docs/lifecycle.md](docs/lifecycle.md) | how a change travels: new concept, rename, removal, superseded decision, implementation, adoption |
-| [docs/comparison.md](docs/comparison.md) | spec-driven development tools and older practices, with links to primary sources |
-| [docs/limitations.md](docs/limitations.md) | weaknesses, open questions and open proposals |
-| [templates/](templates/README.md) | starting files for every artifact |
-| [skills/ontology-as-spec/](skills/ontology-as-spec/SKILL.md) | an agent skill that walks an agent through adopting the approach and points back here (MIT) |
-| [tools/ont-check/](tools/ont-check/README.md) | the check, the decision guard, and the generators of tooltips, contracts and reference pages; Node, no dependencies |
-| [ontology.md](ontology.md), [checks.md](checks.md) | the approach described with itself: its concepts, rules and checks, checked like any product |
-| [decisions.md](decisions.md) | decisions about this repository |
+| Path                                                         | What it is                                                                                                           |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| [example/](example/README.md)                                | a fictional lending library described end to end: ontology, decisions, mockup, map, checks, a ticket, code and tests |
+| [docs/reference.md](docs/reference.md)                       | every concept, rule and check of the approach, generated from its ontology                                           |
+| [docs/principles.md](docs/principles.md)                     | the principles and the failures each one prevents                                                                    |
+| [docs/parts/](docs/parts/README.md)                          | the nine parts, one file each: what it is, why, how it works, how it fails                                           |
+| [docs/profiles.md](docs/profiles.md)                         | recipes for a property of a product: model output, interface, model and data scenarios                               |
+| [docs/lifecycle.md](docs/lifecycle.md)                       | how a change travels: new concept, rename, removal, superseded decision, implementation, adoption                    |
+| [docs/comparison.md](docs/comparison.md)                     | spec-driven development tools and older practices, with links to primary sources                                     |
+| [docs/limitations.md](docs/limitations.md)                   | weaknesses, open questions and open proposals                                                                        |
+| [templates/](templates/README.md)                            | starting files for every artifact                                                                                    |
+| [skills/ontology-as-spec/](skills/ontology-as-spec/SKILL.md) | an agent skill that walks an agent through adopting the approach and points back here (MIT)                          |
+| [skills/change-review/](skills/change-review/SKILL.md)       | an agent skill that reviews a change before merge against the manual checks it touches (MIT)                         |
+| [tools/ont-check/](tools/ont-check/README.md)                | the check, the decision guard, and the generators of tooltips, contracts and reference pages; Node, no dependencies  |
+| [ontology.md](ontology.md), [checks.md](checks.md)           | the approach described with itself: its concepts, rules and checks, checked like any product                         |
+| [decisions.md](decisions.md)                                 | decisions about this repository                                                                                      |
 
 ## How it compares
 

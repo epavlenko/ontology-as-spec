@@ -2,12 +2,13 @@
 
 ## What it is
 
-How implementation work is framed for agents so that it stays inside the ontology and can run without supervision. Four habits:
+How implementation work is framed for agents so that it stays inside the ontology and can run without supervision. Five habits:
 
 1. **Start from the gap.** What is left to build is computed, not listed by hand: target concepts without an implementation, automatic checks without a test, known divergences. `ont-check.mjs --gap` prints it and says what each target waits for; `--next` proposes the next slice of what is ready.
 2. **Cut a slice.** A ticket takes a part of the gap: the concepts and checks to build now, what to leave, what it depends on, what the agent may do. What the slice means is already in the ontology and the check catalogue; the ticket does not repeat it.
 3. **Finish on commands.** The finish condition is derived: `--gap` with the ticket prints `SLICE_DONE`, and the tests pass. That block is the finish condition, for the agent and for any loop that runs the agent until done.
-4. **Deliver in slices, each closed by a test.** Slices are ordered by dependency, and each ends with a control test that shows it works before the next one builds on it.
+4. **Review before merge.** An agent of another provider that did not write the slice reviews it against the checks `ont-check --review <base>` lists, with a verdict for each ([part 7](agent-rules.md#an-independent-critic)).
+5. **Deliver in slices, each closed by a test.** Slices are ordered by dependency, and each ends with a control test that shows it works before the next one builds on it.
 
 <!-- ont: ent.ticket@030195, rule.ticket-without-behavior@6b6048, action.cut-slice@2b0910, field.ticket.why-now@32d849, field.ticket.out-of-scope@c3f1a2, field.ticket.pre-authorized@5d1fa4, edge.ticket.depends-on@80b97a -->
 ## Tickets are slices of the gap
