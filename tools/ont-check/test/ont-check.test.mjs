@@ -763,16 +763,30 @@ test("[check.doc-section.undeclared] names a section without an anchor, and not 
   assert.doesNotMatch(r.out, /An example heading|a list item/);
 });
 
-test("[check.doc-section.undeclared] reads sections as CommonMark does: other headings, HTML blocks, anchors on several lines", async () => {
+test("[check.doc-section.undeclared] reads sections as CommonMark does: other headings, the seven kinds of HTML block, anchors on several lines", async () => {
   const { undeclaredSections } = await import("../docs.mjs");
   const named = (text) => undeclaredSections(text).map((s) => s.heading);
   // A heading of another level ends the paragraph before it, and borrows no anchor.
   assert.deepEqual(named("<!-- ont: -->\n# Page\nUnderlined\n----------\n"), ["Underlined"]);
   // A rule of dashes after a heading is a rule, not an underline.
   assert.deepEqual(named("# Page\n---\n"), []);
-  // Nothing inside an HTML comment or another HTML block is a section.
-  assert.deepEqual(named("<!-- a note\n## hidden\n-->\n"), []);
-  assert.deepEqual(named("<div>\n## hidden\n</div>\n"), []);
+  // Nothing inside an HTML block is a section, whichever of the seven kinds it is, and each ends where
+  // its kind ends: a closing tag, the end of a comment or other markup, or a blank line.
+  for (const block of [
+    "<!-- a note\n## hidden\n-->",
+    "<script>\n\n## hidden\n</script>",
+    "<?x\n## hidden\n?>",
+    "<!DOCTYPE\n## hidden\n>",
+    "<![CDATA[\n## hidden\n]]>",
+    "<div>\n## hidden\n</div>",
+    "<custom-tag>\n## hidden",
+  ])
+    assert.deepEqual(named(`${block}\n\n## after\n`), ["## after"], block);
+  // A block tag interrupts a paragraph; another tag does not, and inline HTML starts no block at all.
+  assert.deepEqual(named("Intro\n<div>\n## hidden\n</div>\n"), []);
+  assert.deepEqual(named("Intro\n<custom-tag>\n## shown\n"), ["## shown"]);
+  assert.deepEqual(named("<em>hello</em>\n## shown\n"), ["## shown"]);
+  assert.deepEqual(named("<pre>x</pre>\n## shown\n"), ["## shown"]);
   // An anchor written on several lines declares the section under it.
   assert.deepEqual(named("<!-- ont: action.renew,\n  action.return -->\n## Renewing\n"), []);
   assert.deepEqual(named("Intro.\n\n## Plain\n"), ["## Plain"]);

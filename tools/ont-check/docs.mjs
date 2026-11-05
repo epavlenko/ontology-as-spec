@@ -44,9 +44,28 @@ const ATX_HEADING = /^ {0,3}(#{1,6})(?:[ \t]|$)/;
 const UNDERLINE = /^ {0,3}-+[ \t]*$/;
 // A paragraph that starts like a list item, a quote or a table row is not underlined into a heading.
 const NOT_A_PARAGRAPH = /^ {0,3}(?:[-*+][ \t]|\d+[.)][ \t]|>|\|)/;
-// HTML blocks hold no sections: a comment runs to the line that closes it, other blocks to a blank line.
-const COMMENT_START = /^ {0,3}<!--/;
-const HTML_START = /^ {0,3}<\/?[A-Za-z][A-Za-z0-9-]*(?:[ \t>]|\/>|$)/;
+// HTML blocks hold no sections. Their seven kinds as CommonMark 0.31 has them, section 4.6: how each
+// starts, the line that ends it (null: a blank line ends it), and whether it can interrupt a paragraph.
+const BLOCK_TAGS =
+  "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul";
+const ATTRIBUTE = `\\s+[A-Za-z_:][A-Za-z0-9_.:-]*(?:\\s*=\\s*(?:[^\\s"'=<>\`]+|'[^']*'|"[^"]*"))?`;
+const HTML_BLOCKS = [
+  { start: /^ {0,3}<(?:script|pre|style|textarea)(?:[\s>]|$)/i, end: /<\/(?:script|pre|style|textarea)>/i, interrupts: true },
+  { start: /^ {0,3}<!--/, end: /-->/, interrupts: true },
+  { start: /^ {0,3}<\?/, end: /\?>/, interrupts: true },
+  { start: /^ {0,3}<![A-Za-z]/, end: />/, interrupts: true },
+  { start: /^ {0,3}<!\[CDATA\[/, end: /\]\]>/, interrupts: true },
+  { start: new RegExp(`^ {0,3}</?(?:${BLOCK_TAGS})(?:[ \\t]|/?>|$)`, "i"), end: null, interrupts: true },
+  {
+    start: new RegExp(`^ {0,3}(?:<[A-Za-z][A-Za-z0-9-]*(?:${ATTRIBUTE})*\\s*/?>|</[A-Za-z][A-Za-z0-9-]*\\s*>)[ \\t]*$`),
+    end: null,
+    interrupts: false,
+  },
+];
+// The kind of HTML block a line starts, or null; the end of the first kind may be on the same line,
+// after its start, so it is looked for past the opening characters.
+const htmlBlock = (l, inParagraph) =>
+  HTML_BLOCKS.find((b) => (b.interrupts || !inParagraph) && b.start.test(l)) ?? null;
 export const undeclaredSections = (text) => {
   const found = [];
   const check = (above, line, heading) => ANCHOR_LINE.test(above) || found.push({ line, heading });
@@ -65,11 +84,12 @@ export const undeclaredSections = (text) => {
         continue;
       }
       if (html) {
-        html.text += `\n${l}`;
-        if (html.comment ? l.includes("-->") : !l.trim()) {
+        if (html.kind.end ? html.kind.end.test(l) : !l.trim()) {
+          if (html.kind.end) html.text += `\n${l}`;
           above = html.text.trim();
           html = null;
-        }
+        } else html.text += `\n${l}`;
+        if (!html && !l.trim()) para = null;
         continue;
       }
       if (!l.trim()) {
@@ -83,15 +103,14 @@ export const undeclaredSections = (text) => {
       } else if (para && UNDERLINE.test(l)) {
         if (!NOT_A_PARAGRAPH.test(para.text)) check(para.above, para.line, para.text);
         para = null;
-      } else if (COMMENT_START.test(l)) {
+      } else if (htmlBlock(l, !!para)) {
+        const kind = htmlBlock(l, !!para);
         para = null;
-        if (!l.includes("-->", l.indexOf("<!--") + 4)) {
-          html = { comment: true, text: l };
+        const opening = l.trimStart().slice(0, 4);
+        if (!(kind.end && kind.end.test(l.trimStart().slice(opening.startsWith("<!--") ? 4 : 1)))) {
+          html = { kind, text: l };
           continue;
         }
-      } else if (!para && HTML_START.test(l)) {
-        html = { comment: false, text: l };
-        continue;
       } else if (!para) para = { line, above, text: l.trim() };
       above = l.trim();
     }
