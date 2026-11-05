@@ -88,6 +88,15 @@ test("[check.agent-rules.review-ticket-changed] lists the approach's checks of t
   assert.ok(listed(out, "approach").includes("check.ticket.no-behavior"), out);
 });
 
+test("[check.agent-rules.review-doc-changed] counts a changed section as touched when another section of its page has the same anchor", () => {
+  const out = review({
+    before: (dir) => appendFileSync(join(dir, "help/borrowing.md"), "\n<!-- ont: action.return -->\n## Returning late\n\nBring it back anyway.\n"),
+    after: (dir) => patch(dir, "help/borrowing.md", "The loan closes at once", "The loan closes at the desk at once"),
+  });
+  assert.match(out, /Touched concepts \(1\): action\.return\n/);
+  assert.ok(listed(out, "approach").includes("check.doc-section.anchored"), out);
+});
+
 test("[check.agent-rules.review-nothing] says there is nothing to review when nothing changed", () => {
   const out = review();
   assert.match(out, /REVIEW HEAD: nothing to review \(0 files changed\)/);

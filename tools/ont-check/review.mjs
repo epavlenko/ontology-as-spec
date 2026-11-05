@@ -10,13 +10,13 @@ import { codeNames, parseChecks, parseGlossary } from "./lib.mjs";
 
 // Sections of the approach's catalogue whose manual checks concern each kind of artifact.
 export const KIND_SECTIONS = {
-  ontology: ["Concept", "Retired ID"],
+  ontology: ["Concept"],
   decisions: ["Decision"],
   catalogue: ["Check"],
-  code: ["Implementation row", "Divergence"],
+  code: ["Implementation row"],
   mockup: ["Mockup element", "Map row"],
-  tests: ["Test", "Check", "Test suite"],
-  docs: ["Doc section", "Doc set", "Reference page"],
+  tests: ["Test", "Check"],
+  docs: ["Doc section"],
   tickets: ["Ticket"],
   "agent rules": ["Agent rules"],
 };
@@ -45,14 +45,17 @@ const signatures = (md, classes) => {
 };
 const changedKeys = (a, b) => [...new Set([...a.keys(), ...b.keys()])].filter((k) => a.get(k) !== b.get(k));
 
-// The sections of a doc page by their anchor: the text from one anchor to the next.
+// The sections of a doc page by their anchor: the text from one anchor to the next. Two sections of a
+// page may explain the same concepts, so each key also counts which of them it is.
 const docSections = (text) => {
   const anchors = parseAnchors(text);
+  const seen = new Map();
   return new Map(
-    anchors.map((a, i) => [
-      a.refs.map((r) => r.id).sort().join(","),
-      text.slice(a.index + a.raw.length, anchors[i + 1]?.index).trim(),
-    ]),
+    anchors.map((a, i) => {
+      const ids = a.refs.map((r) => r.id).sort().join(",");
+      seen.set(ids, (seen.get(ids) ?? 0) + 1);
+      return [`${ids}#${seen.get(ids)}`, text.slice(a.index + a.raw.length, anchors[i + 1]?.index).trim()];
+    }),
   );
 };
 
@@ -97,7 +100,7 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
     if (doc) {
       kinds.add("docs");
       const [a, b] = [docSections(before(f)), docSections(now(f))];
-      for (const key of changedKeys(a, b)) add(key.split(",").filter(Boolean));
+      for (const key of changedKeys(a, b)) add(key.split("#")[0].split(",").filter(Boolean));
     }
     if (own.has(f) || doc) continue;
     const rel = relative(cfg.root, f);
