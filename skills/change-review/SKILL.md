@@ -33,7 +33,7 @@ It prints the files changed, the concepts the change touches, the kinds of artif
 
 Each check comes with its GIVEN, WHEN and THEN. If it prints `nothing to review`, say so; your review is then only the errors you see in the diff.
 
-Read the rest of the check's output too. An `ERROR` there is a finding in itself: the change breaks the ontology's references.
+Read the rest of the check's output too. An `ERROR` there is a finding. Tell apart the errors the change brings from those the base already had: run the same check on a checkout of the base in a temporary directory (`git worktree add /tmp/base <base>`), and remove it after. Report the errors the base already had apart, as earlier problems; they do not block this change unless it touches them.
 
 ## 2. Give each check a verdict
 
@@ -67,7 +67,7 @@ Findings:
 Verdict: ready to merge | fix first | cannot tell (with what is missing)
 ```
 
-`ready to merge` only when no check fails and no finding remains. A `not run` check does not block on its own, but say who has to run it before the merge.
+`ready to merge` only when no check fails and no finding of this change remains. A check that already failed on the base and that the change does not touch is an earlier problem: report it, and do not let it block. A `not run` check does not block on its own, but say who has to run it before the merge.
 
 ## Licence
 
