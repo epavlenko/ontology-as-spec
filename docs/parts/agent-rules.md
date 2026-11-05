@@ -87,7 +87,7 @@ The configuration lists the instruction files under `agentInstructions`. The che
 
 What the tool cannot tell is which lines are process rules, and whether a rule written in prose is stricter or looser than the approach. A reviewer reads the instructions for that: a process rule that names no source is a finding, and so is a departure without an entry.
 
-<!-- ont: action.critique-change@79fa01, derived.review-checks@0f35f9, rule.reviewed-before-merge@7ac9d0 -->
+<!-- ont: action.critique-change@79fa01, derived.review-checks@9ae058, rule.reviewed-before-merge@7ac9d0 -->
 
 ## An independent critic
 
