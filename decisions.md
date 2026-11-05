@@ -620,21 +620,22 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: turning the meaning checks into judged checks in CI (they concern a change, not the product's output, and a model call on every run costs more than one review of the diff); leaving the review to the central process of one owner's projects (the approach would then not give it to every project); a reviewer of the same provider as the author (it tends to share the author's blind spots).
 - Concepts: `derived.review-checks`, `rule.reviewed-before-merge`, `action.critique-change`, `concept.approach-ids`.
 
-## Tentative
-
 ### D-78 · A manual check of implemented concepts has a current record of a run
 
-- Date: 2026-11-05 · Status: tentative
-- Source: the owner's answers of 2026-11-05 to question 540, option a, "ont-check lists the manual checks of implemented concepts that have no record of a run after the last change of their concepts; the place of the records is set in the configuration; by default this is information, and it becomes an error by a key, as D-66", and to question 545, option a, the plan whose second step this is (translated from Russian). The details below are the thread's, among them keeping the record apart from the evidence; the owner accepts them when the branch is merged.
+- Date: 2026-11-05 · Status: accepted
+- Source: the owner's answers of 2026-11-05 to question 540, option a, "ont-check lists the manual checks of implemented concepts that have no record of a run after the last change of their concepts; the place of the records is set in the configuration; by default this is information, and it becomes an error by a key, as D-66", and to question 545, option a, the plan whose second step this is (translated from Russian). The details below are the thread's, among them keeping the record apart from the evidence; the owner accepted them with his answer of 2026-11-05 to question 554, "yes" to push and merge.
 - Decision: a run of a manual check is recorded as one file in the directory the configuration names, `"manualRuns": { "dir": "verify/runs", "require": false }`, named by its UTC time, the check and a short random suffix, with the lines `Check`, `Time`, `Commit`, `Stamp`, `Verdict` (pass, fail, not-run or not-applicable), `By` and, optionally, `Evidence` (`ent.manual-run`). The stamp covers the check's case and the stamps of its concepts, as doc sections are stamped (D-23), and `--review` prints it for each check. The current run of a check is its latest pass or fail, by time and then by file name, whose stamp is the check's stamp now (`derived.current-run`). The check lists the manual checks of implemented concepts that have no current run, as information, or as an error when `require` is set (`inv.manual-checks-run`); it lists a check whose current run failed as information whatever `require` says. It fails on a record it cannot read and on two records that share the check, the time and the author (`inv.manual-runs-well-formed`). The record may sit in the repository, where CI sees it; the evidence it links to stays outside (`rule.manual-evidence-kept`). The reviewer of D-77 writes a record for each verdict, the only files it creates; the author commits them with the change (`rule.run-recorded`).
 - Why: no record showed whether any manual check had ever run, so a claim that none had could be neither confirmed nor refuted. A record that goes stale when the check or its concepts change says what a date cannot: that the check ran on what the product now is.
 - Rejected: records only outside the repository (CI would never see them, and `require` would mean nothing there); requiring that the current run passes (the owner's answer asks that checks are run; whether a failure blocks is a separate choice); one file for all runs (parallel branches would conflict on it); a date without a time (two runs on one day could not be ordered).
 - Concepts: `ent.manual-run`, `derived.current-run`, `inv.manual-checks-run`, `inv.manual-runs-well-formed`, `rule.run-recorded`, `rule.manual-evidence-kept`.
 
+## Tentative
+
 ## Open questions
 
 ## History
 
+- 2026-11-05: D-78 accepted by the owner.
 - 2026-11-05: D-77 accepted by the owner.
 - 2026-11-05: D-75 accepted by the owner.
 - 2026-11-04: D-65 accepted by the owner.
