@@ -65,7 +65,10 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
   if (git(top, "rev-parse", "--verify", "--quiet", `${base}^{commit}`) === null) return { error: `--review: no commit ${base}` };
   const changed = [
     ...new Set([...lines(git(top, "diff", "--name-only", base, "--")), ...lines(git(top, "ls-files", "--others", "--exclude-standard"))]),
-  ].map((f) => resolve(top, f));
+  ]
+    .map((f) => resolve(top, f))
+    // The records of manual runs are the review's own result, not part of the change it reviews (D-82).
+    .filter((f) => !(cfg.manualRuns && inDir(f, cfg.manualRuns.dir)));
   const before = (f) => git(top, "show", `${base}:${relative(top, f).split(sep).join("/")}`) ?? "";
   const now = (f) => (existsSync(f) ? readFileSync(f, "utf8") : "");
   const diffLines = (f) =>

@@ -649,6 +649,15 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
+### D-82 · `--review` leaves the records of manual runs out of the change it reviews
+
+- Date: 2026-11-05 · Status: tentative
+- Source: the thread's proposal, from the trial run of the third step of the plan of question 545 on 2026-11-05, where the records the reviewer wrote widened a second `--review`; the owner accepts it when the branch is merged.
+- Decision: the files under the directory of `manualRuns` are the review's own records; they touch nothing of the change under review, so `--review` leaves them out (`derived.review-checks`). Adds to D-77 and D-78.
+- Why: the reviewer writes a record for each verdict and the author commits them with the change (D-78). In the example the records sit inside the doc set of the run guides, so a second `--review` counted them as changed docs and handed the reviewer three checks of documentation about its own records.
+- Rejected: reviewing the records as part of the change (the review would widen itself, and the records are its result, not its subject); requiring the records directory outside every doc set (a rule of form that leaves the cause in place).
+- Concepts: `derived.review-checks`.
+
 ## Open questions
 
 ## History

@@ -127,6 +127,16 @@ test("[check.agent-rules.review-path-unchecked] fails on a concept under reviewP
   assert.match(out, /ERROR · concepts under reviewPaths without a manual check in the catalogue \(1\):\n {2}edge\.loan\.item\n/);
 });
 
+test("[check.agent-rules.review-skips-runs] leaves the records of manual runs out of the change it reviews", () => {
+  const out = review({
+    after: (dir) => {
+      mkdirSync(join(dir, "verify/runs"), { recursive: true });
+      writeFileSync(join(dir, "verify/runs/20261105T090000Z-check.loan.overdue-in-real-time-a1b2.md"), "Check: check.loan.overdue-in-real-time\n");
+    },
+  });
+  assert.match(out, /REVIEW HEAD: nothing to review \(0 files changed\)/);
+});
+
 test("[check.agent-rules.review-nothing] says there is nothing to review when nothing changed", () => {
   const out = review();
   assert.match(out, /REVIEW HEAD: nothing to review \(0 files changed\)/);
