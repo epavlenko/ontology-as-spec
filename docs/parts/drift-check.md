@@ -1,6 +1,6 @@
 # 5. Drift check
 
-<!-- ont: -->
+<!-- ont: inv.references-defined@060f13, inv.concept-referenced@b457ed -->
 ## What it is
 
 One script that reads every artifact holding or referring to meaning and checks that the references are whole. It exits non-zero on drift and runs in two places: a pre-commit hook on the paths it covers, and CI. The generic version is [`tools/ont-check`](../../tools/ont-check/README.md).
@@ -37,7 +37,7 @@ A separate script, `guard-decisions.mjs`, checks history rather than state: it r
 
 What the script cannot see, beyond the manual checks, is meaning and code behavior. It does not know whether a definition is right, and code that contradicts the ontology where no test looks passes. [Limitations](../limitations.md) lists these with possible remedies.
 
-<!-- ont: -->
+<!-- ont: inv.references-defined@060f13, inv.tooltips-generated@b5fdb9 -->
 ## Design choices
 
 - **One parser for the generator and the check.** If the two read the glossary differently, a malformed row can pass the check and still break the tooltips.
@@ -46,7 +46,7 @@ What the script cannot see, beyond the manual checks, is meaning and code behavi
 - **Plain text output, one line per finding.** Agents read it and fix the exact line.
 - **No dependencies.** It runs wherever Node runs, in a hook, in CI, in an agent's sandbox.
 
-<!-- ont: -->
+<!-- ont: rule.code-names-concepts@701aa5 -->
 ## How it fails in practice
 
 - **The hook covers too few paths.** If code changes do not trigger the check, the implementation table goes stale without a signal. Include the code paths that implement concepts: the check reads their `ont:` names, and a change there is the reminder.

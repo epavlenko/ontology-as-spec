@@ -35,16 +35,21 @@ export const parseAnchors = (text) =>
 
 // Every section of a hand-written page declares what it explains (D-84): the line right above each
 // heading of the second or third level, outside examples, is an anchor, with IDs or empty,
-// "<!-- ont: -->", when the section explains no concept. Returns the headings that declare nothing,
+// "<!-- ont: -->", when the section explains no concept. Headings are read as CommonMark reads them:
+// a line of hashes, or a paragraph underlined with dashes. Returns the headings that declare nothing,
 // with their line numbers. Text above the first such heading is the page's intro and declares nothing.
 // ont: inv.section-declared
 const ANCHOR_LINE = /^ {0,3}<!--\s*ont:[^>]*-->\s*$/;
-// An ATX heading as CommonMark reads it: up to three spaces, the hashes, then a space, a tab or the end.
 const SECTION_HEADING = /^ {0,3}#{2,3}(?:[ \t]|$)/;
+const UNDERLINE = /^ {0,3}-+[ \t]*$/;
+// A paragraph that starts like a list item, a quote or a table row is not underlined into a heading.
+const NOT_A_PARAGRAPH = /^ {0,3}(?:[-*+][ \t]|\d+[.)][ \t]|>|\|)/;
 export const undeclaredSections = (text) => {
   const found = [];
+  const check = (above, line, heading) => ANCHOR_LINE.test(above) || found.push({ line, heading });
   let line = 0;
   let above = "";
+  let para = null;
   for (const run of markdownRuns(text)) {
     const ls = run.text.split("\n");
     if (run.text.endsWith("\n")) ls.pop();
@@ -52,10 +57,22 @@ export const undeclaredSections = (text) => {
       line++;
       if (run.code) {
         above = "code";
+        para = null;
         continue;
       }
-      if (SECTION_HEADING.test(l) && !ANCHOR_LINE.test(above)) found.push({ line, heading: l.trim() });
-      if (l.trim()) above = l.trim();
+      if (!l.trim()) {
+        para = null;
+        continue;
+      }
+      if (SECTION_HEADING.test(l)) {
+        check(above, line, l.trim());
+        para = null;
+      } else if (para && UNDERLINE.test(l)) {
+        if (!NOT_A_PARAGRAPH.test(para.text)) check(para.above, para.line, para.text);
+        para = null;
+      } else if (ANCHOR_LINE.test(l)) para = null;
+      else if (!para) para = { line, above, text: l.trim() };
+      above = l.trim();
     }
   }
   return found;

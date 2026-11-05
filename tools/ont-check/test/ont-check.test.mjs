@@ -752,15 +752,15 @@ test("[check.doc-section.undeclared] names a section without an anchor, and not 
     p(
       "help/borrowing.md",
       "<!-- ont: action.return@",
-      `## Opening hours\n\nThe desk is open every day.\n\n  ## Indented\n\nText.\n\n###\tTabbed\n\nText.\n\n${f}md\n## An example heading\n${f}\n\n<!-- ont: action.return@`,
+      `## Opening hours\n\nThe desk is open every day.\n\n  ## Indented\n\nText.\n\n###\tTabbed\n\nText.\n\nUnderlined\n----------\n\nText.\n\n- a list item\n---\n\n${f}md\n## An example heading\n${f}\n\n<!-- ont: action.return@`,
     ),
   );
   assert.equal(r.code, 1, r.out);
   assert.match(
     r.out,
-    /ERROR · help docs sections that declare nothing [^\n]*\(3\):\n {2}help\/borrowing\.md:\d+ {2}## Opening hours\n {2}help\/borrowing\.md:\d+ {2}## Indented\n {2}help\/borrowing\.md:\d+ {2}###\tTabbed\n/,
+    /ERROR · help docs sections that declare nothing [^\n]*\(4\):\n {2}help\/borrowing\.md:\d+ {2}## Opening hours\n {2}help\/borrowing\.md:\d+ {2}## Indented\n {2}help\/borrowing\.md:\d+ {2}###\tTabbed\n {2}help\/borrowing\.md:\d+ {2}Underlined\n/,
   );
-  assert.doesNotMatch(r.out, /An example heading/);
+  assert.doesNotMatch(r.out, /An example heading|a list item/);
 });
 
 test("[check.doc-section.declared-empty] accepts a section with an empty anchor, which stamping leaves empty", () => {

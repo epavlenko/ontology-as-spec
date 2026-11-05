@@ -84,21 +84,21 @@ Hartwig Grabowski, [The Spec Growth Engine: Spec-Anchored, Code-Coupled, Drift-E
 - **False sense of control.** She asks whether agents follow the spec, and saw them ignore and over-apply instructions. This applies fully. The check guarantees that the artifacts agree with each other. It does not guarantee that code agrees with them. See [limitations](limitations.md#the-check-reads-names-in-code-not-what-code-does).
 - **The model-driven development parallel.** She warns that spec-as-source may combine "the downsides of both MDD and LLMs: Inflexibility and non-determinism." This applies. A model writing code from the ontology is not deterministic, so this approach does not promise the same code twice. It promises that every behavior the ontology states is proven by a check, and treats a behavior the ontology does not state as a gap in the ontology. Its deterministic generators only restate the ontology: tooltips, a JSON Schema for stored fields, reference pages.
 
-<!-- ont: -->
+<!-- ont: ent.decision@4607b2, rule.slice-one-change@8c5fb0 -->
 ## The objection from learning
 
 Kent Beck, quoted by Martin Fowler in [Fragments: January 8](https://martinfowler.com/fragments/2026-01-08.html) (2026): descriptions of SDD "emphasize writing the whole specification before implementation", which "encodes the (to me bizarre) assumption that you aren't going to learn anything during implementation that would change the specification." Fowler adds that "the learning loop of experimentation is essential to the model building".
 
 The objection is right about specifications that are frozen. This approach answers it in three ways. First, the ontology is never frozen. It changes through the decision log whenever implementation or users teach something, and the log keeps the reason. Second, implementation is sliced, and each slice ends with a control test, so learning arrives early and in small pieces. Third, the up-front description is there to buy autonomy, not to be correct. A precise target lets an agent work longer without a human. What it learns comes back as decisions.
 
-<!-- ont: -->
+<!-- ont: inv.concept-referenced@b457ed, ent.divergence@c86a47, ent.mockup-element@54a519 -->
 ## Where this approach is stronger
 
 - One concept is referenced by the glossary, the interface, the decisions, the implementation table, the check catalogue, the tickets, the tests and the documentation, and a check keeps those references whole in both directions.
 - The boundary between target, implemented and divergent is explicit and maintained.
 - Interface elements are bound to concepts, and what the interface deliberately does not do is written in the ontology with them. No tool reviewed here does either.
 
-<!-- ont: -->
+<!-- ont: rule.code-names-concepts@701aa5, inv.test-does-what-check-says@2b7515 -->
 ## What the check does not see
 
 - The check reads the names that code gives its concepts, not what the code does: code that contradicts the ontology where no test looks passes the check. The Spec Growth Engine's drift gate reads code structure instead.
