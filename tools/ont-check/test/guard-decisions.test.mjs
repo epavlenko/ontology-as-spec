@@ -44,7 +44,7 @@ const run = (edit, prepare = () => {}) => {
 };
 
 const allowed = [
-  ["[check.decision.free-sections] a new accepted entry", (t) => t.replace("## Tentative", "### D-07 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative")],
+  ["[check.decision.free-sections] a new accepted entry", (t) => t.replace("## Tentative", "### D-17 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative")],
   ["[check.decision.free-sections] an edit of a tentative entry", (t) => t.replace("a week may be needed", "two weeks may be needed")],
   ["[check.decision.free-sections] a new open question", (t) => t.replace("## Open questions\n", "## Open questions\n\n- Another question?\n")],
 ];
@@ -92,9 +92,9 @@ test("[check.decision.guard-off] says GUARD_OFF before the first commit", () => 
 });
 
 test("[check.decision.uncommitted-named] names accepted entries that are not committed yet", () => {
-  const [plain, staged] = run((t) => t.replace("## Tentative", "### D-07 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative"));
+  const [plain, staged] = run((t) => t.replace("## Tentative", "### D-17 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Decision: x.\n\n## Tentative"));
   assert.equal(plain.code, 0, plain.out);
-  assert.match(plain.out, /accepted entries not in HEAD yet, protected once committed \(1\): D-07/);
+  assert.match(plain.out, /accepted entries not in HEAD yet, protected once committed \(1\): D-17/);
   assert.match(plain.out, /GUARD_OK/);
   assert.doesNotMatch(staged.out, /not in HEAD yet/);
 });
@@ -103,15 +103,15 @@ test("[check.decision.uncommitted-named] names accepted entries that are not com
 // tentative one accepted now. A log that names no source is not asked for one.
 const sourced = (dir) => {
   const log = join(dir, "decisions.md");
-  const entry = "### D-07 · A sourced rule\n\n- Date: 2026-10-26 · Status: accepted\n- Source: the owner's message of 2026-10-26\n- Decision: x.\n\n";
+  const entry = "### D-17 · A sourced rule\n\n- Date: 2026-10-26 · Status: accepted\n- Source: the owner's message of 2026-10-26\n- Decision: x.\n\n";
   writeFileSync(log, readFileSync(log, "utf8").replace("## Tentative", `${entry}## Tentative`));
 };
 const another = (source) => (t) =>
-  t.replace("## Tentative", `### D-08 · Another rule\n\n- Date: 2026-10-26 · Status: accepted\n${source}- Decision: y.\n\n## Tentative`);
+  t.replace("## Tentative", `### D-18 · Another rule\n\n- Date: 2026-10-26 · Status: accepted\n${source}- Decision: y.\n\n## Tentative`);
 test("[check.decision.unsourced-acceptance] refuses an entry accepted without a source once the log names sources", () => {
   for (const r of run(another(""), sourced)) {
     assert.equal(r.code, 1, r.out);
-    assert.match(r.out, /entries accepted since HEAD without a source, while the log names sources \(1\): D-08/);
+    assert.match(r.out, /entries accepted since HEAD without a source, while the log names sources \(1\): D-18/);
     assert.match(r.out, /Name on a Source line where each was decided/);
   }
   for (const r of run((t) => t.replace("Status: tentative", "Status: accepted"), sourced)) {
@@ -129,12 +129,12 @@ test("[check.decision.unsourced-acceptance] asks a source only after the first o
   const two = (a, b) => (t) =>
     t.replace(
       "## Tentative",
-      `### D-07 · One\n\n- Date: 2026-10-26 · Status: accepted\n${a}- Decision: x.\n\n### D-08 · Two\n\n- Date: 2026-10-26 · Status: accepted\n${b}- Decision: y.\n\n## Tentative`,
+      `### D-17 · One\n\n- Date: 2026-10-26 · Status: accepted\n${a}- Decision: x.\n\n### D-18 · Two\n\n- Date: 2026-10-26 · Status: accepted\n${b}- Decision: y.\n\n## Tentative`,
     );
   for (const r of run(two("", src))) assert.equal(r.code, 0, r.out);
   for (const r of run(two(src, ""))) {
     assert.equal(r.code, 1, r.out);
-    assert.match(r.out, /without a source, while the log names sources \(1\): D-08/);
+    assert.match(r.out, /without a source, while the log names sources \(1\): D-18/);
   }
 });
 
@@ -152,13 +152,13 @@ test("[check.decision.unsourced-acceptance] checks the sources of a log that is 
       log,
       text.replace(
         "## Tentative",
-        "### D-07 · One\n\n- Date: 2026-10-26 · Status: accepted\n- Source: the owner's message of 2026-10-26\n- Decision: x.\n\n### D-08 · Two\n\n- Date: 2026-10-26 · Status: accepted\n- Decision: y.\n\n## Tentative",
+        "### D-17 · One\n\n- Date: 2026-10-26 · Status: accepted\n- Source: the owner's message of 2026-10-26\n- Decision: x.\n\n### D-18 · Two\n\n- Date: 2026-10-26 · Status: accepted\n- Decision: y.\n\n## Tentative",
       ),
     );
     const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json")], { cwd: dir, encoding: "utf8" });
     assert.equal(r.status, 1, r.stdout);
     assert.match(r.stdout, /not in HEAD, no accepted entry to protect yet/);
-    assert.match(r.stdout, /without a source, while the log names sources \(1\): D-08/);
+    assert.match(r.stdout, /without a source, while the log names sources \(1\): D-18/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -187,7 +187,7 @@ test("[check.decision.meaning-changed] fails on a definition changed with no dec
     writeFileSync(onto, changed.replace("## Revision history\n\n", "## Revision history\n\n- 2026-10-28: `rule.renewal`: three renewals.\n"));
     assert.equal(guard().code, 0);
     writeFileSync(onto, changed);
-    writeFileSync(log, entries.replace("## Tentative", "### D-07 · Three renewals\n\n- Date: 2026-10-28 · Status: tentative\n- Decision: `rule.renewal` allows three.\n\n## Tentative"));
+    writeFileSync(log, entries.replace("## Tentative", "### D-17 · Three renewals\n\n- Date: 2026-10-28 · Status: tentative\n- Decision: `rule.renewal` allows three.\n\n## Tentative"));
     assert.equal(guard().code, 0);
     // Formatting is not meaning: the Kind cell and the alignment may change freely.
     writeFileSync(log, entries);

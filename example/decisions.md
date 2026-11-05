@@ -56,6 +56,14 @@ Log rules:
 - Rejected: the entity in every ID (rules, invariants and actions often involve several entities, and their owner would be arbitrary); keeping global field names and renaming on the first collision (the rename then happens in a larger ontology).
 - Concepts: `field.loan.due-date`, `field.loan.renewals`, `field.member.borrow-limit`, `field.item.condition`, `edge.item.copy-of`, `edge.hold.waits-for`.
 
+### D-07 · When both renewals are used, the renew button stays visible and disabled, with the reason
+
+- Date: 2026-11-05 · Status: accepted
+- Decision: on `view.member.loans`, a loan that has used both renewals of `rule.renewal` shows the renew button visible and disabled, with the reason that both renewals are used, as D-04 does while someone waits for the title.
+- Why: the owner chose this on 2026-11-05. A hidden button reads as a bug, as D-04 says, and a refusal that comes only after the press leaves the member guessing; the reason next to the button says it at once.
+- Rejected: hiding the button (looks broken); leaving it enabled and refusing on the press (the member learns the rule only by trying).
+- Concepts: `view.member.loans`, `action.renew`, `rule.renewal`.
+
 ## Tentative
 
 ### D-05 · A reserved item waits three days

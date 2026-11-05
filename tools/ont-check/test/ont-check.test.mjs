@@ -212,24 +212,24 @@ const entry = (n, lines) =>
 
 test("[check.decision.partial-supersession] lists an entry that replaces only part of another as information", () => {
   const r = run((p) =>
-    p("decisions.md", "## Tentative", `${entry("07", ["Decision: supersedes the button part of D-04."])}\n\n${entry("08", ["Decision: D-02 no longer applies to holds on items."]).replace("\n\n## Tentative", "")}`),
+    p("decisions.md", "## Tentative", `${entry("17", ["Decision: supersedes the button part of D-04."])}\n\n${entry("18", ["Decision: D-02 no longer applies to holds on items."]).replace("\n\n## Tentative", "")}`),
   );
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /info · entries replaced only in part and not yet superseded whole[^\n]*\n {2}D-07 → D-04\n {2}D-08 → D-02/);
+  assert.match(r.out, /info · entries replaced only in part and not yet superseded whole[^\n]*\n {2}D-17 → D-04\n {2}D-18 → D-02/);
 });
 
 test("[check.decision.partial-supersession] an entry superseded whole leaves the list of partial replacements", () => {
   const r = run((p) =>
-    p("decisions.md", "## Tentative", `${entry("07", ["Decision: supersedes the button part of D-04."])}\n\n${entry("08", ["Supersedes: D-04", "Decision: renewal is shown differently."]).replace("\n\n## Tentative", "")}`),
+    p("decisions.md", "## Tentative", `${entry("17", ["Decision: supersedes the button part of D-04."])}\n\n${entry("18", ["Supersedes: D-04", "Decision: renewal is shown differently."]).replace("\n\n## Tentative", "")}`),
   );
   assert.equal(r.code, 0, r.out);
   assert.doesNotMatch(r.out, /entries replaced only in part/);
 });
 
 test("[check.decision.named-by] --decisions names the later entries that mention an entry", () => {
-  const r = run((p) => p("decisions.md", "## Tentative", entry("07", ["Decision: adds a second reminder to the rule of D-04."])), "--decisions");
+  const r = run((p) => p("decisions.md", "## Tentative", entry("17", ["Decision: adds a second reminder to the rule of D-04."])), "--decisions");
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| in force +\| D-07 +\|/);
+  assert.match(r.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| in force +\| D-07, D-17 +\|/);
   // The last entry ends at the next heading: the history after it, which lists D-01…D-05, names nothing.
   assert.match(r.out, /\| D-01 +\| A loan is 21 days with a fixed rule, not a per-title setting +\| in force +\| +\|/);
 });
@@ -277,21 +277,21 @@ test("[check.concept.formatted] format-ontology.mjs writes the kind order and th
 });
 
 test("[check.decision.in-force-report] --decisions lists each entry as in force, tentative or superseded", () => {
-  const r = run((p) => p("decisions.md", "## Tentative", entry("07", ["Supersedes: D-04", "Decision: renewal is shown differently."])), "--decisions");
+  const r = run((p) => p("decisions.md", "## Tentative", entry("17", ["Supersedes: D-04", "Decision: renewal is shown differently."])), "--decisions");
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| superseded by D-07 +\|/);
+  assert.match(r.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| superseded by D-17 +\|/);
   assert.match(r.out, /\| D-05 +\| A reserved item waits three days +\| tentative +\|/);
-  assert.match(r.out, /\| D-07 +\| Entry 07 +\| in force +\|/);
+  assert.match(r.out, /\| D-17 +\| Entry 17 +\| in force +\|/);
 });
 
 test("[check.decision.tentative-supersedes-nothing] a tentative entry's Supersedes line takes effect when it is accepted", () => {
-  const proposal = entry("07", ["Supersedes: D-04", "Decision: renewal is shown differently."]).replace("Status: accepted", "Status: tentative");
+  const proposal = entry("17", ["Supersedes: D-04", "Decision: renewal is shown differently."]).replace("Status: accepted", "Status: tentative");
   const before = run((p) => p("decisions.md", "## Tentative", proposal), "--decisions");
   assert.equal(before.code, 0, before.out);
-  assert.match(before.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| in force +\| D-07 +\|/);
-  assert.match(before.out, /\| D-07 +\| Entry 07 +\| tentative +\|/);
+  assert.match(before.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| in force +\| D-07, D-17 +\|/);
+  assert.match(before.out, /\| D-17 +\| Entry 17 +\| tentative +\|/);
   const after = run((p) => p("decisions.md", "## Tentative", proposal.replace("Status: tentative", "Status: accepted")), "--decisions");
-  assert.match(after.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| superseded by D-07 +\|/);
+  assert.match(after.out, /\| D-04 +\| Renewal is refused while someone waits, and the member sees why +\| superseded by D-17 +\|/);
   // A deferral that a tentative entry would supersede stays on the list of deferrals.
   const e = (n, lines) => entry(n, lines).replace("\n\n## Tentative", "");
   const deferral = run((p) =>
@@ -299,13 +299,13 @@ test("[check.decision.tentative-supersedes-nothing] a tentative entry's Supersed
       "decisions.md",
       "## Tentative",
       [
-        e("07", ["Return when: a second branch opens", "Decision: one branch for now."]),
-        e("08", ["Supersedes: D-07", "Decision: a second branch now."]).replace("Status: accepted", "Status: tentative"),
+        e("17", ["Return when: a second branch opens", "Decision: one branch for now."]),
+        e("18", ["Supersedes: D-17", "Decision: a second branch now."]).replace("Status: accepted", "Status: tentative"),
         "## Tentative",
       ].join("\n\n"),
     ),
   );
-  assert.match(deferral.out, /deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-07: a second branch opens\n/);
+  assert.match(deferral.out, /deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-17: a second branch opens\n/);
 });
 
 // Checks a model judges run in the suites that name them (D-60).
@@ -390,8 +390,8 @@ test("[check.ticket.gap-readiness] --gap says what each target waits for", () =>
       "decisions.md",
       "## Tentative",
       [
-        "### D-07 · Entry 07\n\n- Date: 2026-10-22 · Status: tentative\n- Decision: reminders by text message too, `hook.due-reminder`.",
-        "### D-08 · Entry 08\n\n- Date: 2026-10-22 · Status: accepted\n- Return when: a second branch opens\n- Decision: the catalogue screen waits, `view.catalog`.",
+        "### D-17 · Entry 17\n\n- Date: 2026-10-22 · Status: tentative\n- Decision: reminders by text message too, `hook.due-reminder`.",
+        "### D-18 · Entry 18\n\n- Date: 2026-10-22 · Status: accepted\n- Return when: a second branch opens\n- Decision: the catalogue screen waits, `view.catalog`.",
         "## Tentative",
       ].join("\n\n"),
     );
@@ -400,8 +400,8 @@ test("[check.ticket.gap-readiness] --gap says what each target waits for", () =>
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /\n {2}action\.cancel-hold {2}target, ready · checks: check\.hold\.cancel, /);
   assert.match(r.out, /\n {2}rule\.pickup-window {2}target, in ticket issues\/0003-serve-the-hold-queue\.md · /);
-  assert.match(r.out, /\n {2}hook\.due-reminder {2}target, waits for the owner \(D-07\) · /);
-  assert.match(r.out, /\n {2}view\.catalog {2}target, deferred until a second branch opens \(D-08\) · /);
+  assert.match(r.out, /\n {2}hook\.due-reminder {2}target, waits for the owner \(D-17\) · /);
+  assert.match(r.out, /\n {2}view\.catalog {2}target, deferred until a second branch opens \(D-18\) · /);
   assert.match(r.out, /\n {2}view\.desk {2}target, waits for view\.catalog · /);
 });
 
@@ -415,12 +415,12 @@ test("[check.ticket.next-slice] --next proposes the next slice, or says what the
       p(
         "decisions.md",
         "## Tentative",
-        "### D-07 · Entry 07\n\n- Date: 2026-10-22 · Status: accepted\n- Return when: a second branch opens\n- Decision: later: `action.set-borrow-limit`, `field.item.condition`, `hook.due-reminder`, `action.cancel-hold`, `view.catalog`, `view.title.page`, `view.desk`.\n\n## Tentative",
+        "### D-17 · Entry 17\n\n- Date: 2026-10-22 · Status: accepted\n- Return when: a second branch opens\n- Decision: later: `action.set-borrow-limit`, `field.item.condition`, `hook.due-reminder`, `action.cancel-hold`, `view.catalog`, `view.title.page`, `view.desk`.\n\n## Tentative",
       ),
     "--next",
   );
   assert.equal(none.code, 0, none.out);
-  assert.match(none.out, /NEXT · nothing ready: 8 are in tickets; 7 are deferred until a second branch opens \(D-07\)\n/);
+  assert.match(none.out, /NEXT · nothing ready: 8 are in tickets; 7 are deferred until a second branch opens \(D-17\)\n/);
 });
 
 test("[check.ticket.next-slice] --next says what the gap still holds when no target is left", () => {
@@ -606,16 +606,16 @@ test("[check.agent-rules.retired-id] a retired ID of the project stays retired w
 test("[check.agent-rules.unknown-entry] fails on an entry the agent instructions cite that is missing or superseded", () => {
   const r = run((p) => {
     p("AGENTS.md", "(`rule.start-from-ids`)", "(`rule.start-from-ids`, D-63, D-04)");
-    p("decisions.md", "## Tentative", entry("07", ["Supersedes: D-04", "Decision: renewal is shown differently."]));
+    p("decisions.md", "## Tentative", entry("17", ["Supersedes: D-04", "Decision: renewal is shown differently."]));
   });
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /decision entries the agent instructions cite that the log does not have \(1\):\n {2}AGENTS\.md: D-63\n/);
-  assert.match(r.out, /superseded decision entries the agent instructions cite \(cite the entry in force\) \(1\):\n {2}AGENTS\.md: D-04, superseded by D-07\n/);
+  assert.match(r.out, /superseded decision entries the agent instructions cite \(cite the entry in force\) \(1\):\n {2}AGENTS\.md: D-04, superseded by D-17\n/);
 });
 
 test("[check.decision.departure-malformed] fails on an entry that extends or overrides the approach wrongly", () => {
   const ok = run((p) =>
-    p("decisions.md", "## Tentative", entry("07", ["Layer: process", "Overrides: `rule.commit-finished-work`", "Decision: agents leave commits to the owner."])),
+    p("decisions.md", "## Tentative", entry("17", ["Layer: process", "Overrides: `rule.commit-finished-work`", "Decision: agents leave commits to the owner."])),
   );
   assert.equal(ok.code, 0, ok.out);
   const e = (n, lines) => entry(n, lines).replace("\n\n## Tentative", "");
@@ -624,8 +624,8 @@ test("[check.decision.departure-malformed] fails on an entry that extends or ove
       "decisions.md",
       "## Tentative",
       [
-        e("07", ["Layer: process", "Overrides: `rule.commit-unfinished-work`", "Decision: x."]),
-        e("08", ["Extends: `rule.commit-finished-work`", "Decision: y."]),
+        e("17", ["Layer: process", "Overrides: `rule.commit-unfinished-work`", "Decision: x."]),
+        e("18", ["Extends: `rule.commit-finished-work`", "Decision: y."]),
         "## Tentative",
       ].join("\n\n"),
     ),
@@ -633,7 +633,7 @@ test("[check.decision.departure-malformed] fails on an entry that extends or ove
   assert.equal(bad.code, 1, bad.out);
   assert.match(
     bad.out,
-    /process entries that extend or override the approach wrongly \(2\):\n {2}D-07: rule\.commit-unfinished-work is not a concept of the approach\n {2}D-08: no Layer: process line\n/,
+    /process entries that extend or override the approach wrongly \(2\):\n {2}D-17: rule\.commit-unfinished-work is not a concept of the approach\n {2}D-18: no Layer: process line\n/,
   );
 });
 
@@ -644,8 +644,8 @@ test("[check.decision.departure-malformed] checks every Extends and Overrides li
       "decisions.md",
       "## Tentative",
       [
-        e("07", ["Layer: process", "Overrides: `rule.number-by-role`", "Overrides: `rule.target-not-tuning`", "Decision: x."]),
-        e("08", ["Layer: product", "Overrides:", "Decision: y."]),
+        e("17", ["Layer: process", "Overrides: `rule.number-by-role`", "Overrides: `rule.target-not-tuning`", "Decision: x."]),
+        e("18", ["Layer: product", "Overrides:", "Decision: y."]),
         "## Tentative",
       ].join("\n\n"),
     ),
@@ -653,15 +653,15 @@ test("[check.decision.departure-malformed] checks every Extends and Overrides li
   assert.equal(r.code, 1, r.out);
   assert.match(
     r.out,
-    /wrongly \(3\):\n {2}D-07: rule\.target-not-tuning is retired, now rule\.number-by-role\n {2}D-08: no Layer: process line\n {2}D-08: an Extends or Overrides line that names no rule of the approach\n/,
+    /wrongly \(3\):\n {2}D-17: rule\.target-not-tuning is retired, now rule\.number-by-role\n {2}D-18: no Layer: process line\n {2}D-18: an Extends or Overrides line that names no rule of the approach\n/,
   );
   const history = run((p) =>
     p(
       "decisions.md",
       "## Tentative",
       [
-        e("07", ["Layer: process", "Overrides: `rule.target-not-tuning`", "Decision: x."]),
-        e("08", ["Supersedes: D-07", "Layer: process", "Overrides: `rule.number-by-role`", "Decision: y."]),
+        e("17", ["Layer: process", "Overrides: `rule.target-not-tuning`", "Decision: x."]),
+        e("18", ["Supersedes: D-17", "Layer: process", "Overrides: `rule.number-by-role`", "Decision: y."]),
         "## Tentative",
       ].join("\n\n"),
     ),
@@ -704,16 +704,16 @@ test("[check.decision.deferrals-listed] lists the deferrals in force with their 
       "decisions.md",
       "## Tentative",
       [
-        e("07", ["Return when: a second branch opens", "Decision: one branch for now."]),
-        e("08", ["Return when: members ask for text messages", "Decision: reminders by e-mail only."]),
-        e("09", ["Supersedes: D-08", "Decision: reminders by e-mail and text message."]),
+        e("17", ["Return when: a second branch opens", "Decision: one branch for now."]),
+        e("18", ["Return when: members ask for text messages", "Decision: reminders by e-mail only."]),
+        e("19", ["Supersedes: D-18", "Decision: reminders by e-mail and text message."]),
         e("10", ["Return when: a third branch opens", "Decision: no mobile app."]).replace("Status: accepted", "Status: tentative"),
         "## Tentative",
       ].join("\n\n"),
     ),
   );
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /info · deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-07: a second branch opens\n/);
+  assert.match(r.out, /info · deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-17: a second branch opens\n/);
   // A tentative deferral is not in force: it waits with the other tentative entries.
   assert.match(r.out, /waiting for the owner's answer \(2\):\n {2}D-10 · Entry 10\n {2}D-05 · /);
 });
@@ -804,7 +804,7 @@ const cases = [
   ["[check.mockup-element.map-and-mockup-differ] a map row for an element the mockup lost", "IDs in the map but not in the mockup",
     (p) => p("mockup/index.html", 'data-ont="hook.due-reminder"', "")],
   ["[check.decision.unknown-reference] a decision reference without an entry", "decision references without an entry",
-    (p) => p("ontology.md", "(D-03)", "(D-09)")],
+    (p) => p("ontology.md", "(D-03)", "(D-19)")],
   ["[check.decision.duplicate-number] a duplicated decision entry", "duplicate entries in the decision log",
     (p) => p("decisions.md", "### D-02 ·", "### D-01 ·")],
   ["[check.concept.unknown-id] an unknown ID in the decision log", "IDs in the decision log but not in the glossary",
@@ -908,7 +908,7 @@ const cases = [
   ["[check.doc-set.duplicate-name] two doc sets with the same name", "doc sets with the same name",
     (p) => p("ont.config.json", '"docSets": [', '"docSets": [\n    { "name": "help", "dir": "help", "cover": [] },')],
   ["[check.decision.supersedes-older] a Supersedes line naming no entry", "Supersedes lines that name no older entry",
-    (p) => p("decisions.md", "## Tentative", entry("07", ["Supersedes: D-09", "Decision: x."]))],
+    (p) => p("decisions.md", "## Tentative", entry("17", ["Supersedes: D-19", "Decision: x."]))],
   ["[check.decision.supersedes-older] a Supersedes line naming a newer entry", "Supersedes lines that name no older entry",
     (p) => p("decisions.md", "- Date: 2026-10-17 · Status: accepted\n- Decision: a hold is placed on a title", "- Date: 2026-10-17 · Status: accepted\n- Supersedes: D-04\n- Decision: a hold is placed on a title")],
 ];
