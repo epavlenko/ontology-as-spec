@@ -728,21 +728,22 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: counting mentions as links (a sentence is not a relation); a single root that every entity must reach (it invites an entity that means nothing); requiring every rule, invariant or derived value to name what it constrains or reads (links of meaning, for a profile, not for every project); a switch in the configuration (the owner chose every project).
 - Concepts: `inv.ontology-connected`, `rule.link-is-real`, `field.concept.type`, `inv.typed-fields`, `edge.agent-rules.sources`, `edge.contract.entity`, `edge.reference-page.concepts`, `edge.profile.section`, `edge.tool-copy.last-decision`.
 
-## Tentative
-
 ### D-90 · The ontology is shown to people as a tree of its tables
 
-- Date: 2026-11-18 · Status: tentative
-- Source: the owner's messages of 2026-11-18. After a tree drawn from the graph, rooted at the entity with the most links, with the labels and directions of links and the rows folded away: "Build me a clearer and simpler tree, but with the whole ontology in it. There are too many small details." After the tree described below: "I like this view. Let's fix the rules of visualizing the ontology in the protocol" (translated from Russian). The rules below are the thread's account of that second tree; the owner accepts them when the branch is merged.
+- Date: 2026-11-18 · Status: accepted
+- Source: the owner's messages of 2026-11-18. After a tree drawn from the graph, rooted at the entity with the most links, with the labels and directions of links and the rows folded away: "Build me a clearer and simpler tree, but with the whole ontology in it. There are too many small details." After the tree described below: "I like this view. Let's fix the rules of visualizing the ontology in the protocol" (translated from Russian). The rules below are the thread's account of that second tree; the owner accepted them with his answer of 2026-11-18 to question 926, option a, "yes" to merge.
 - Decision: `gen-tree.mjs` writes the ontology of the configuration and its external ones as one page for people (`ent.ontology-tree`). Each table is a branch in its order, named by its entity, or by its heading when it has none; under it, the rows grouped by kind in the configured order with their counts, then any class the configuration does not list, as an external ontology may use, empty kinds left out. A row shows its term, with its ID and definition on hover; a field or relation of type `ref` or `refs` shows the entity it refers to, and many for `refs`; a view shows the entities it shows. Rules and invariants are marked. Nothing else is shown: no notes, no links drawn as a graph, no history (`rule.tree-structure-only`). Every definition row is in the tree exactly once (`inv.tree-complete`), and the generator refuses to write a tree that would drop one. A labels file may replace the terms, the kinds, the headings and the page's own words for a reader of another language, and an ID, a kind or a heading it names that the tree does not show is an error; the page's own words are a fixed list, always accepted. The page is written on demand and not kept in the repository. Adds to D-89.
 - Why: the owner reads the ontology to judge it, and the definition tables are long. A tree of the tables shows everything once, in the place where the ontology keeps it; the graph shows how entities are linked but buries the rows in detail. The tree is not a hierarchy of classes, as an ontology editor would draw it: the rows under an entity are its table, not kinds of it.
 - Rejected: the graph as the view for people (the owner called its details small and too many); a tree rooted at the most linked entity (the same details, and a root that changes when links change); a page kept in the repository and checked as current (a host such as GitHub does not show an HTML page, and the reference page already restates every concept in the repository); a key in the configuration (the page is written on demand).
 - Concepts: `ent.ontology-tree`, `edge.ontology-tree.concepts`, `rule.tree-structure-only`, `inv.tree-complete`.
 
+## Tentative
+
 ## Open questions
 
 ## History
 
+- 2026-11-18: D-90 accepted by the owner.
 - 2026-11-18: D-84, D-85, D-86, D-87, D-88 and D-89 accepted by the owner.
 - 2026-11-05: D-83 accepted by the owner.
 - 2026-11-05: D-82 accepted by the owner.
