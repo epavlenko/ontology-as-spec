@@ -400,54 +400,79 @@ export function parseOtherWords(md, heading) {
     .map((m) => ({ word: m[1], id: m[2] }));
 }
 
-// The text a reader of a page sees, line by line so that line numbers stay: in Markdown without code
-// blocks, inline code, HTML comments, block quotes and quoted phrases; in HTML without scripts, styles,
-// comments, tags and their attributes, and quoted phrases. A word in a quote is cited, not used.
-const QUOTED = /"[^"\n]*"|\u201c[^\u201d\n]*\u201d|\u00ab[^\u00bb\n]*\u00bb/g;
+// The text a reader of a page sees, with everything else blanked so that line numbers stay: in
+// Markdown without code blocks, code spans, HTML comments, block quotes and quoted phrases; in HTML the
+// text between tags, attributes left out, character references decoded, and in a script only the text
+// between the tags of the markup it writes, since a mockup often builds its screens there, without the
+// expressions it puts in. A word in a quote is cited, not used. A phrase may run over a line break, but
+// not over a blank line.
 const blankOut = (s) => s.replace(/[^\n]/g, " ");
-export const proseLines = (md) =>
+const PARA = String.raw`(?:[^\n]|\n(?![ \t]*\n))`;
+const QUOTED = new RegExp(String.raw`"(?:(?!")${PARA})*"|“(?:(?!”)${PARA})*”|«(?:(?!»)${PARA})*»`, "g");
+const CODE_SPAN = new RegExp(String.raw`(\`+)(?!\`)(?:(?!\1)${PARA})*?(?<!\`)\1(?!\`)`, "g");
+export const proseText = (md) =>
   markdownRuns(md)
     .map((r) => (r.code ? blankOut(r.text) : r.text))
     .join("")
     .replace(/<!--[\s\S]*?-->/g, blankOut)
-    .split("\n")
-    .map((l) => (/^ {0,3}>/.test(l) ? "" : l.replace(/`[^`\n]*`/g, "").replace(QUOTED, "")));
-// A mockup often builds its screens in a script, so in a script only the text of its strings is kept,
-// the HTML of a template included, and the code around them is blanked: names in code are not text.
-const scriptStrings = (js) => {
+    .replace(CODE_SPAN, blankOut)
+    .replace(/^ {0,3}>.*$/gm, blankOut)
+    .replace(QUOTED, blankOut);
+const TAG = /<\/?[A-Za-z][^\s/>]*(?:[^>"']|"[^"]*"|'[^']*')*>/g;
+const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+const decode = (s) =>
+  s.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (m, d, h, n) =>
+    d || h ? String.fromCodePoint(parseInt(d ?? h, d ? 10 : 16)) : (ENTITIES[n.toLowerCase()] ?? m),
+  );
+// Text between tags; in a script, only text that has a tag on both sides, so code and strings that are
+// not markup stay out.
+const between = (html, script) => {
   let out = "";
-  const stack = []; // "'", '"', "`" for a string, "{" for code inside a template's ${…}
-  for (let i = 0; i < js.length; i++) {
-    const c = js[i];
-    const top = stack.at(-1);
-    const keep = (ch) => (out += ch === "\n" ? "\n" : " ");
-    if (top === "'" || top === '"' || top === "`") {
-      if (c === "\\") { out += "  "; i++; continue; }
-      if (c === top) { stack.pop(); keep(c); continue; }
-      if (top === "`" && c === "$" && js[i + 1] === "{") { stack.push("{"); out += "  "; i++; continue; }
-      out += c;
-      continue;
-    }
-    if (c === "/" && js[i + 1] === "/") { while (i < js.length && js[i] !== "\n") keep(js[i++]); if (i < js.length) keep(js[i]); continue; }
-    if (c === "/" && js[i + 1] === "*") { const end = js.indexOf("*/", i + 2); const stop = end < 0 ? js.length : end + 2; while (i < stop) keep(js[i++]); i--; continue; }
-    if (c === "'" || c === '"' || c === "`") stack.push(c);
-    else if (c === "{" && (top === "{" || top === "{{")) stack.push("{{");
-    else if (c === "}" && (top === "{" || top === "{{")) stack.pop();
-    keep(c);
+  let last = 0;
+  let open = !script;
+  for (const m of html.matchAll(TAG)) {
+    const gap = html.slice(last, m.index);
+    out += open ? gap : blankOut(gap);
+    out += blankOut(m[0]);
+    last = m.index + m[0].length;
+    open = true;
   }
+  out += script ? blankOut(html.slice(last)) : html.slice(last);
   return out;
 };
-export const visibleLines = (html) =>
+const withoutExpressions = (s) => {
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(/\$\{[^{}]*\}/g, blankOut);
+  } while (s !== prev);
+  return s;
+};
+export const visibleText = (html) =>
   html
     .replace(/<style\b[\s\S]*?<\/style\s*>/gi, blankOut)
-    .replace(/(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)/gi, (_, a, js, b) => blankOut(a) + scriptStrings(js) + blankOut(b))
     .replace(/<!--[\s\S]*?-->/g, blankOut)
-    .replace(/<[^>]*>/g, blankOut)
+    .split(/(<script\b[^>]*>[\s\S]*?<\/script\s*>)/i)
+    .map((part, i) =>
+      i % 2
+        ? (() => {
+            const m = part.match(/^(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)$/i);
+            return blankOut(m[1]) + between(withoutExpressions(m[2]), true) + blankOut(m[3]);
+          })()
+        : between(part, false),
+    )
+    .join("")
     .split("\n")
-    .map((l) => l.replace(QUOTED, ""));
-// A word or phrase as a whole word, in any case: "queue entry" is not found in "queue entryway".
+    .map((l) => decode(l))
+    .join("\n")
+    .replace(QUOTED, blankOut);
+// A word or phrase as a whole word, in any case: "queue entry" is not found in "queue entryway". The
+// spaces of a phrase match any run of white space, a line break included.
 export const wordPattern = (word) =>
-  new RegExp(`(?<![\\p{L}\\p{N}_-])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}(?![\\p{L}\\p{N}_-])`, "iu");
+  new RegExp(
+    String.raw`(?<![\p{L}\p{N}_-])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, String.raw`\s+`)}(?![\p{L}\p{N}_-])`,
+    "giu",
+  );
 
 export const renderGlossary = (ONT, sourceName) =>
   `// Generated by tools/ont-check/gen-glossary.mjs from ${sourceName}. Do not edit by hand.

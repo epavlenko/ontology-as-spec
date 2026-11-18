@@ -64,13 +64,13 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 
 ## Other word
 
-| Kind      | ID                        | Term                 | Type              | Definition                                                                                                                                                               |
-| --------- | ------------------------- | -------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Entity    | `ent.other-word`          | Other word           |                   | A word people may use for a concept that is not its term. It is listed so that the text a project writes uses the term instead.                                          |
-| Field     | `field.other-word.word`   | Word                 | text              | The word or phrase, in the form it would be written; each form is a row of its own.                                                                                      |
-| Relation  | `edge.other-word.concept` | Means                | ref `ent.concept` | The concept the word would stand for.                                                                                                                                    |
-| Invariant | `inv.other-word-not-used` | Other words not used |                   | The tickets, the pages of the doc sets and the text of the mockup, between its tags and in the strings of its scripts, do not use a listed word outside code and quotes. |
-|           | `inv.other-word-resolves` | Other words resolve  |                   | A listed word means a defined concept that is not retired, is no concept's term, and is listed once.                                                                     |
+| Kind      | ID                        | Term                 | Type              | Definition                                                                                                                                                                                  |
+| --------- | ------------------------- | -------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.other-word`          | Other word           |                   | A word people may use for a concept that is not its term. It is listed so that the text a project writes uses the term instead.                                                             |
+| Field     | `field.other-word.word`   | Word                 | text              | The word or phrase, in the form it would be written; each form is a row of its own.                                                                                                         |
+| Relation  | `edge.other-word.concept` | Means                | ref `ent.concept` | The concept the word would stand for.                                                                                                                                                       |
+| Invariant | `inv.other-word-not-used` | Other words not used |                   | The tickets, the pages of the doc sets and the text of the mockup, between its tags and between the tags of the markup its scripts write, do not use a listed word outside code and quotes. |
+|           | `inv.other-word-resolves` | Other words resolve  |                   | A listed word means a defined concept that is not retired, is no concept's term, and is listed once.                                                                                        |
 
 ## Decision
 

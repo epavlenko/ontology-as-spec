@@ -27,8 +27,8 @@ import {
   parseImplemented,
   parseOtherWords,
   parseRetired,
-  proseLines,
-  visibleLines,
+  proseText,
+  visibleText,
   wordPattern,
   read,
   renderApproach,
@@ -955,17 +955,21 @@ if (otherWords.length) {
   }
   report("other words that do not resolve (a defined concept, not a term, listed once)", bad);
   const texts = [
-    ...(cfg.tickets ? listFiles(cfg.tickets.dir, cfg.tickets.match).map((f) => [f, proseLines]) : []),
-    ...cfg.docSets.flatMap((d) => listFiles(d.dir, d.match).filter((f) => !generatedPages.has(f)).map((f) => [f, proseLines])),
-    ...cfg.mockup.map((f) => [f, visibleLines]),
+    ...(cfg.tickets ? listFiles(cfg.tickets.dir, cfg.tickets.match).map((f) => [f, proseText]) : []),
+    ...cfg.docSets.flatMap((d) => listFiles(d.dir, d.match).filter((f) => !generatedPages.has(f)).map((f) => [f, proseText])),
+    ...cfg.mockup.map((f) => [f, visibleText]),
   ];
   const used = [];
-  for (const [f, lines] of [...new Map(texts)])
-    lines(read(f)).forEach((line, i) => {
-      for (const w of otherWords)
-        if (glossary.has(w.id) && wordPattern(w.word).test(line))
-          used.push(`${relative(cfg.base, f)}:${i + 1}  "${w.word}" → ${ONT[w.id].name} (${w.id})`);
-    });
+  for (const [f, seen] of new Map(texts)) {
+    const text = seen(read(f));
+    for (const w of otherWords) {
+      if (!glossary.has(w.id)) continue;
+      for (const m of text.matchAll(wordPattern(w.word))) {
+        const line = text.slice(0, m.index).split("\n").length;
+        used.push(`${relative(cfg.base, f)}:${line}  "${w.word}" → ${ONT[w.id].name} (${w.id})`);
+      }
+    }
+  }
   report("other words used where the term belongs (write the term instead)", used);
 }
 
