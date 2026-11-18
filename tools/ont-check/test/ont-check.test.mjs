@@ -1176,8 +1176,10 @@ test("[check.ontology-tree.structure] tables in order, kinds in order with count
 });
 
 test("[check.ontology-tree.labels] a labels file replaces terms, kinds and headings, and a key the tree does not show is refused", () => {
-  const t = tree(null, { "ent.loan": "Lending", field: "Fields", Screens: "Screen list", "edge.loan.member": "Borrowed by" });
+  const t = tree(null, { "ent.loan": "Lending", field: "Fields", Screens: "Screen list", "edge.loan.member": "Borrowed by", "expand-all": "Open all", many: "several" });
   assert.equal(t.code, 0, t.out);
+  assert.match(t.html, />Open all<\/button>/);
+  assert.doesNotMatch(t.html, /several/, "the example has no refs, and the word is accepted all the same");
   assert.match(t.html, /<b data-ont="ent\.loan"[^>]*>Lending<\/b> <span class="en">Loan<\/span>/);
   assert.match(t.html, /<span class="g">Fields <small>2<\/small>/);
   assert.match(t.html, /<summary><b class="v">Screen list<\/b>/);

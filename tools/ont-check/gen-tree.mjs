@@ -107,9 +107,10 @@ ${sections.html.join("\n")}
 `;
 }
 
-// The labels file: keys are IDs of the ontologies shown, classes of the configuration, headings of
-// tables without an entity, or the words above. Any other key is an error, so that a typo or a retired
-// ID does not leave a term untranslated without anyone noticing.
+// The labels file: keys are IDs of the ontologies shown, the classes the tree groups rows by, headings
+// of tables without an entity, or the words above. Any other key is an error, so that a typo or a
+// retired ID does not leave a term untranslated without anyone noticing. The words are a fixed list and
+// always accepted, even where one page does not need them, so one file serves every ontology.
 export function loadLabels(text, known) {
   const labels = JSON.parse(text);
   const unknown = Object.keys(labels).filter((k) => !known.has(k));
