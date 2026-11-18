@@ -419,20 +419,32 @@ export const proseText = (md) =>
     .replace(/^ {0,3}>.*$/gm, blankOut)
     .replace(QUOTED, blankOut);
 const TAG = /<\/?[A-Za-z][^\s/>]*(?:[^>"']|"[^"]*"|'[^']*')*>/g;
-const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+// Character references: numeric ones, and the named ones a page uses for punctuation and white space.
+// Other names are left as written. A reference never adds a line, so line numbers stay.
+const ENTITIES = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", Tab: " ", NewLine: " ", ensp: " ", emsp: " ",
+  thinsp: " ", shy: "", zwj: "", zwnj: "", ndash: "\u2013", mdash: "\u2014", hellip: "\u2026",
+  lsquo: "\u2018", rsquo: "\u2019", ldquo: "\u201c", rdquo: "\u201d", laquo: "\u00ab", raquo: "\u00bb",
+};
 const decode = (s) =>
-  s.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (m, d, h, n) =>
-    d || h ? String.fromCodePoint(parseInt(d ?? h, d ? 10 : 16)) : (ENTITIES[n.toLowerCase()] ?? m),
-  );
-// Text between tags; in a script, only text that has a tag on both sides, so code and strings that are
-// not markup stay out.
+  s.replace(/&(?:#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6})|([A-Za-z]+));/g, (m, d, h, n) => {
+    if (n) return ENTITIES[n] ?? ENTITIES[n.toLowerCase()] ?? m;
+    const cp = parseInt(d ?? h, d ? 10 : 16);
+    if (cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) return m;
+    return String.fromCodePoint(cp).replace(/[\r\n\t\f\v\u2028\u2029]/g, " ");
+  });
+// Text between tags. In a script, only text with a tag on both sides that holds no code: no quotation
+// mark or backtick that would end the string, no semicolon outside a character reference, no comment,
+// so the code between two templates stays out. Text of a script that holds a quotation mark is
+// therefore not read; written as a character reference, it is.
+const SCRIPT_CODE = /[`'";]|\/\/|\/\*/;
 const between = (html, script) => {
   let out = "";
   let last = 0;
   let open = !script;
   for (const m of html.matchAll(TAG)) {
     const gap = html.slice(last, m.index);
-    out += open ? gap : blankOut(gap);
+    out += open && !(script && SCRIPT_CODE.test(gap.replace(/&#?\w+;/g, ""))) ? gap : blankOut(gap);
     out += blankOut(m[0]);
     last = m.index + m[0].length;
     open = true;
@@ -440,13 +452,24 @@ const between = (html, script) => {
   out += script ? blankOut(html.slice(last)) : html.slice(last);
   return out;
 };
+// The expressions a template puts in, ${…} with the braces inside them counted, are not text.
 const withoutExpressions = (s) => {
-  let prev;
-  do {
-    prev = s;
-    s = s.replace(/\$\{[^{}]*\}/g, blankOut);
-  } while (s !== prev);
-  return s;
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] !== "$" || s[i + 1] !== "{") {
+      out += s[i];
+      continue;
+    }
+    let depth = 0;
+    let j = i + 1;
+    for (; j < s.length; j++) {
+      if (s[j] === "{") depth++;
+      else if (s[j] === "}" && --depth === 0) break;
+    }
+    out += blankOut(s.slice(i, j + 1));
+    i = j;
+  }
+  return out;
 };
 export const visibleText = (html) =>
   html
@@ -467,10 +490,12 @@ export const visibleText = (html) =>
     .join("\n")
     .replace(QUOTED, blankOut);
 // A word or phrase as a whole word, in any case: "queue entry" is not found in "queue entryway". The
-// spaces of a phrase match any run of white space, a line break included.
+// spaces of a phrase match white space with at most one line break, so a phrase does not run over a
+// blank line.
+const PHRASE_SPACE = String.raw`(?=\s)[^\S\n]*(?:\r?\n[^\S\n]*)?`;
 export const wordPattern = (word) =>
   new RegExp(
-    String.raw`(?<![\p{L}\p{N}_-])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, String.raw`\s+`)}(?![\p{L}\p{N}_-])`,
+    String.raw`(?<![\p{L}\p{N}_-])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, PHRASE_SPACE)}(?![\p{L}\p{N}_-])`,
     "giu",
   );
 
