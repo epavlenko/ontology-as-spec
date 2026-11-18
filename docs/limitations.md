@@ -70,6 +70,11 @@ Every section of a doc set declares what it explains, and the check finds the se
 
 The check sees that every piece of the ontology is joined to the rest by IDs. It does not see whether a link is true, and one link joins two pieces however large they are. A graph can pass with a link that relates nothing in the product, or with every entity pointing at one that means nothing. The reviewer of a change reads each link it adds (`rule.link-is-real`); the tool does not.
 
+<!-- ont: inv.typed-fields@7e1493 -->
+### Types are checked only with contracts
+
+The vocabulary of types is checked where contracts are generated: a project without `contracts` in its configuration may write a type the vocabulary does not have, and nothing reports it. The graph does not read such a type as a link, so it cannot join a piece of the ontology; it only goes unnoticed.
+
 <!-- ont: -->
 ## Open questions
 
