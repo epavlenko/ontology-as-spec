@@ -95,6 +95,24 @@ test("[check.concept.shows-unknown] a ref on a row that is no field or relation 
   });
   assert.equal(rule.code, 1, rule.out);
   assert.match(rule.out, /ERROR · type cells that make no link \([^)]*\) \(1\):\n  rule\.loan-period: only a field or relation refers to an entity\n/);
+  // A rule whose class the contracts are told to type still joins nothing by its ref.
+  const typedRule = run((p, dir) => {
+    p("ontology.md", "| Rule      | `rule.loan-period`       | Loan period          |                  |", "| Rule      | `rule.loan-period`       | Loan period          | ref `ent.item`   |");
+    const path = join(dir, "ont.config.json");
+    const config = JSON.parse(readFileSync(path, "utf8"));
+    config.contracts.classes = ["field", "edge", "rule"];
+    writeFileSync(path, JSON.stringify(config, null, 2));
+  });
+  assert.equal(typedRule.code, 1, typedRule.out);
+  assert.match(typedRule.out, /ERROR · type cells that make no link \([^)]*\) \(1\):\n  rule\.loan-period: only a field or relation refers to an entity\n/);
+  // A view whose type is not shows, and a rule with any other type, are named too.
+  const junk = run((p) => {
+    p("ontology.md", "| shows `ent.member`, `ent.loan`, `ent.hold` |", "| showsjunk `ent.member` |");
+    p("ontology.md", "| Rule      | `rule.loan-period`       | Loan period          |                  |", "| Rule      | `rule.loan-period`       | Loan period          | text             |");
+  });
+  assert.equal(junk.code, 1, junk.out);
+  assert.match(junk.out, /  rule\.loan-period: only a field, a relation or a view has a type\n/);
+  assert.match(junk.out, /  view\.member\.loans: a view's type names what it shows, as shows and entities\n/);
   // A field that names what it shows, without contracts, is named as well.
   const field = run((p, dir) => {
     p("ontology.md", "| `field.loan.due-date`    | Due date             | date             |", "| `field.loan.due-date`    | Due date             | shows `ent.loan` |");

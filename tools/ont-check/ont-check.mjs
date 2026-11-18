@@ -812,9 +812,9 @@ for (const ref of cfg.references) {
     near.get(a).add(b);
     near.get(b).add(a);
   };
-  // Only a field or relation refers by `ref` or `refs`, and only a view names what it shows; a type
-  // anywhere else makes no link, and is named here so that it cannot seem to join a piece.
-  const typedClasses = cfg.contracts?.classes ?? ["field", "edge"];
+  // Only a field or relation refers by `ref` or `refs`, and only a view names what it shows, whatever
+  // the configuration lets carry a type in a contract; any other type on another row is named here, so
+  // that it cannot seem to join a piece.
   const glossaryIds = new Set(Object.keys(ONT));
   const badLinks = [];
   for (const t of tables.values()) {
@@ -824,11 +824,19 @@ for (const ref of cfg.references) {
       if (!r.type) continue;
       const ref = r.type.trim().match(REF_TYPE);
       const shows = parseShows(r.type, glossaryIds);
-      if (shows && cls(r.id) !== "view") badLinks.push(`${r.id}: only a view names what it shows`);
-      else if (shows?.error) badLinks.push(`${r.id}: ${shows.error}`);
-      else if (shows) for (const target of shows.targets) link(r.id, target);
-      else if (ref && typedClasses.includes(cls(r.id))) link(r.id, ref[2]);
-      else if (ref) badLinks.push(`${r.id}: only a field or relation refers to an entity`);
+      const kind = cls(r.id);
+      if (kind === "field" || kind === "edge") {
+        if (shows) badLinks.push(`${r.id}: only a view names what it shows`);
+        else if (ref) link(r.id, ref[2]);
+      } else if (kind === "view") {
+        if (shows?.error) badLinks.push(`${r.id}: ${shows.error}`);
+        else if (shows) for (const target of shows.targets) link(r.id, target);
+        else badLinks.push(`${r.id}: a view's type names what it shows, as shows and entities`);
+      } else {
+        badLinks.push(
+          `${r.id}: ${shows ? "only a view names what it shows" : ref ? "only a field or relation refers to an entity" : "only a field, a relation or a view has a type"}`,
+        );
+      }
     }
   }
   report(
