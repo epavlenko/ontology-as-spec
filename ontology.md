@@ -32,6 +32,8 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 |           | `rule.ontology-is-source`      | Ontology is the source   |                            | A model writes the product's code from the ontology, and the mockup is code written the same way; what the code does that the ontology does not say is a gap in the ontology.                                      |
 |           | `rule.behavior-in-ontology`    | Behavior in the ontology |                            | The ontology describes behavior as completely as it can: what every view shows in each state, what the user can do there, and every outcome of every action as a check. Layout and style are the implementation's. |
 |           | `rule.ontology-changes-first`  | Ontology changes first   |                            | A change of behavior starts in the ontology, its rows or its checks, then the code and its tests; a change of code alone changes no behavior.                                                                      |
+|           | `rule.types-not-instances`     | Types, not instances     |                            | A definition row defines a kind of thing in the product, its field, its relation or a rule; one particular object, person or moment is data of those kinds, not a row.                                             |
+|           | `rule.other-thing-new-id`      | Another thing, a new ID  |                            | When a change would make an ID name another thing rather than describe the same thing better, the old ID is retired with its replacement and a decision, and the other thing gets a new ID.                        |
 | Invariant | `inv.one-definition-row`       | One definition row       |                            | Every ID has exactly one definition row, in one table.                                                                                                                                                             |
 |           | `inv.known-classes`            | Known classes            |                            | Every ID belongs to a class the configuration lists.                                                                                                                                                               |
 |           | `inv.kind-named-once`          | Kind named once          |                            | The Kind cell names the kind on the first row of its group and is empty on the rest.                                                                                                                               |
@@ -88,6 +90,7 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 |           | `rule.unconfirmed-tentative`      | Unconfirmed is tentative      |                                  | A choice the owner has not explicitly approved, such as a value an agent picked, is tentative until the owner accepts it.                                                                                                                                                                                                   |
 |           | `rule.number-by-role`             | Numbers by their role         |                                  | Whether a changed number is an entry depends on its role: a rule's value, yes; settings tuned toward a requirement, no; a model's assumptions, a short entry about their topic, tentative when an agent chose them; data people edit in the product, no.                                                                    |
 |           | `rule.source-precedence`          | Sources by precedence         |                                  | When the sources of a choice disagree, the entry follows the owner's latest statement, then the owner's earlier ones, then the project's documents, then answers others gave for the owner; an entry that rests only on the last is tentative.                                                                              |
+|           | `rule.unknown-author-not-owner`   | Unknown author                |                                  | A statement whose author is not certain is not the owner's: an entry that rests only on it is tentative, and a source line does not prove who said it.                                                                                                                                                                      |
 |           | `rule.question-as-tentative`      | Question as a tentative entry |                                  | A question with options and a recommendation is written as a tentative entry: the recommendation is its decision, the other options are rejected; open questions keep only questions without a recommendation.                                                                                                              |
 |           | `rule.run-settles-question`       | A run settles it              |                                  | A question that a run can answer, such as whether something is fast enough, fits a screen or works with a service, is answered by a throwaway prototype before it reaches the owner, and the result is the evidence on its entry; only what no run settles, the meaning of the product or a preference, waits for the owner |
 |           | `rule.deferral-returns`           | Deferred with a condition     |                                  | What is put off, a target concept or anything out of scope, is put off by an entry that says when to take it up again.                                                                                                                                                                                                      |
@@ -216,15 +219,16 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 
 ## Test
 
-| Kind      | ID                              | Term                | Type                 | Definition                                                       |
-| --------- | ------------------------------- | ------------------- | -------------------- | ---------------------------------------------------------------- |
-| Entity    | `ent.test`                      | Test                |                      | Code that implements checks and starts its title with their IDs. |
-| Relation  | `edge.test.checks`              | Implements          | refs `ent.check`     | The checks the test implements.                                  |
-|           | `edge.test.suite`               | In suite            | ref `ent.test-suite` | The suite the test belongs to.                                   |
-| Invariant | `inv.test-names-known-checks`   | Known checks        |                      | A test names only checks the catalogue has.                      |
-|           | `inv.test-only-implemented`     | Only what is built  |                      | A test proves only concepts that are implemented.                |
-|           | `inv.no-manual-tested`          | Manual stays manual |                      | No test implements a manual check.                               |
-|           | `inv.test-does-what-check-says` | Does what it says   |                      | A test does what the check it names says.                        |
+| Kind      | ID                              | Term                | Type                 | Definition                                                                                                                                                                            |
+| --------- | ------------------------------- | ------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.test`                      | Test                |                      | Code that implements checks and starts its title with their IDs.                                                                                                                      |
+| Relation  | `edge.test.checks`              | Implements          | refs `ent.check`     | The checks the test implements.                                                                                                                                                       |
+|           | `edge.test.suite`               | In suite            | ref `ent.test-suite` | The suite the test belongs to.                                                                                                                                                        |
+| Rule      | `rule.validator-test-breaks`    | Broken input        |                      | A test of a check that a validator holds, a program that refuses bad files or data, gives it an input that passes and one broken in that check's way, and expects that check's error. |
+| Invariant | `inv.test-names-known-checks`   | Known checks        |                      | A test names only checks the catalogue has.                                                                                                                                           |
+|           | `inv.test-only-implemented`     | Only what is built  |                      | A test proves only concepts that are implemented.                                                                                                                                     |
+|           | `inv.no-manual-tested`          | Manual stays manual |                      | No test implements a manual check.                                                                                                                                                    |
+|           | `inv.test-does-what-check-says` | Does what it says   |                      | A test does what the check it names says.                                                                                                                                             |
 
 ## Test suite
 
@@ -376,6 +380,8 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `rule.ontology-is-source` | `docs/principles.md` | |
 | `rule.behavior-in-ontology` | `docs/principles.md` | |
 | `rule.ontology-changes-first` | `docs/principles.md` | |
+| `rule.types-not-instances` | `docs/parts/glossary-and-ids.md` | reviewed, not checked |
+| `rule.other-thing-new-id` | `docs/lifecycle.md` | reviewed, not checked |
 | `inv.one-definition-row`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
 | `inv.known-classes`            | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`                                        |                                                                                   |
 | `inv.kind-named-once`          | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`, `tools/ont-check/format-ontology.mjs` |                                                                                   |
@@ -439,6 +445,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `derived.waiting-for-owner`       | `tools/ont-check/ont-check.mjs`                                        |                                                                                              |
 | `derived.deferral-in-force`       | `tools/ont-check/ont-check.mjs`                                        |                                                                                              |
 | `rule.source-precedence`          | `docs/parts/decision-log.md`                                           | reviewed, not checked                                                                        |
+| `rule.unknown-author-not-owner` | `docs/parts/decision-log.md` | reviewed, not checked |
 | `rule.question-as-tentative`      | `docs/parts/decision-log.md`                                           | reviewed; the check lists tentative entries                                                  |
 | `rule.run-settles-question`        | `docs/parts/decision-log.md`, `templates/agents-section.md`            | reviewed, not checked                                                                         |
 | `rule.deferral-returns`           | `docs/parts/decision-log.md`                                           | reviewed; the check lists deferrals with their conditions                                    |
@@ -549,6 +556,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | ID                              | Implemented in                   | Note                  |
 | ------------------------------- | -------------------------------- | --------------------- |
 | `ent.test`                      | `tools/ont-check/ont-check.mjs`  |                       |
+| `rule.validator-test-breaks` | `docs/parts/checks-and-tests.md` | reviewed, not checked |
 | `edge.test.checks`              | `tools/ont-check/ont-check.mjs`  |                       |
 | `edge.test.suite`               | `tools/ont-check/ont-check.mjs`  |                       |
 | `inv.test-names-known-checks`   | `tools/ont-check/ont-check.mjs`  |                       |
@@ -692,6 +700,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-18: what a definition row defines, when a change needs a new ID, an author who is not certain, and a test of a validator that breaks its input: `rule.types-not-instances`, `rule.other-thing-new-id`, `rule.unknown-author-not-owner`, `rule.validator-test-breaks` (D-85, tentative).
 - 2026-11-05: every section of a doc set declares what it explains: `inv.section-declared`, and `rule.anchor-every-section` says an empty anchor declares no concept (D-84, tentative).
 - 2026-11-05: each state of a view is judged on a snapshot, and the screens are kept for the owner: `rule.view-state-judged`, `rule.screens-kept` (D-83, tentative).
 - 2026-11-05: `derived.review-checks` leaves the records of manual runs out of the change it reviews (D-82, tentative).

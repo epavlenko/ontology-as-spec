@@ -24,10 +24,12 @@ A concept arrives with something that will try it: a mockup element, a ticket or
 
 Change the term and, if needed, the definition in its row. Leave the ID. Update the prose where the term appears. Regenerate the tooltips and the reference pages; reread the doc sections the check lists as anchored to a changed definition, then stamp them. If the rename reflects a change of meaning rather than wording, it is a decision.
 
-<!-- ont: action.change-id@7b44e1 -->
+<!-- ont: action.change-id@7b44e1, rule.other-thing-new-id@e25b9e -->
 ## Changing IDs
 
 Rare. It is justified when an ID itself misleads: a class name collides with a term in a neighbouring product, or fields need their entity in the ID because two entities now share a field name. It needs a decision entry that says why the permanence rule is broken. The new IDs replace the old ones in one commit across every artifact except the decision log, and each old ID gets a row under "Retired IDs" with its replacement and the decision. The check confirms nothing was missed: an old ID anywhere but the decision log is reported with its replacement.
+
+An ID also changes when the concept becomes another thing. A better account of the same thing keeps its ID, with a line in the revision history or a decision: "due date" that now counts days the library is open still names the date a loan is due. But if a change would make an ID name something else, say `field.loan.due-date` coming to mean the date a reminder is sent, every artifact that names it would silently point at the new meaning. Then the old ID is retired with its replacement and a decision, and the other thing gets an ID of its own. The tool cannot tell the two cases apart; the reviewer of the change does.
 
 <!-- ont: action.remove-concept@7f8c20 -->
 ## Removing a concept

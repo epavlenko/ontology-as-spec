@@ -35,13 +35,15 @@ A project made with the approach is checked twice. The tool checks the ontology 
 
 The two meet in this repository. The tool is the approach's product, so its own tests are the product layer of the tool, and the checks they implement are the ontology layer of every other project.
 
-<!-- ont: ent.test@af89b6, inv.test-names-known-checks@1384c7, inv.test-only-implemented@059c2e, inv.no-manual-tested@46671b -->
+<!-- ont: ent.test@af89b6, inv.test-names-known-checks@1384c7, inv.test-only-implemented@059c2e, inv.no-manual-tested@46671b, rule.validator-test-breaks@b4a061 -->
 
 ## Tests that name checks
 
 A test starts its title with the IDs of the checks it implements, in square brackets. The tag is plain text in the title, so it works with any test runner and shows up in its output. A test may also name a concept directly, `[field.loan.renewals]`, for something that is not a product check, such as comparing the code's constants with the generated contract.
 
 The tool reads tags anywhere in a test file, not only in titles, because it cannot parse the syntax of every test framework. A string in a fixture that looks like a tag counts as one. When a fixture must contain an invalid tag, build the string from parts, as the tool's own tests do.
+
+Some checks are held by a validator: a program that refuses bad files or data, such as this tool or a project's own check of its records. A test of such a check gives the validator an input that passes and one broken in that check's way, and asserts that the validator reports that check's error. A test that feeds only good input passes even when the validator refuses nothing. The tool's own tests work this way: each breaks the example in one way and expects one message. A check that a person or a model judges has no broken input, and the rule does not apply to it.
 
 <!-- ont: ent.test-suite@6bf22e, inv.suite-covers-classes@39e870, inv.suite-names-unique@f69f85, inv.suite-not-empty@2cd076 -->
 

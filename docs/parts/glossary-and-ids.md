@@ -1,9 +1,11 @@
 # 1. Glossary and permanent IDs
 
-<!-- ont: ent.concept@58346b, inv.one-definition-row@002e65, rule.kind-order@e49569, inv.kind-named-once@608893, inv.field-in-its-entity@c2f44b, rule.concept-with-its-entity@053a4a -->
+<!-- ont: ent.concept@58346b, inv.one-definition-row@002e65, rule.kind-order@e49569, inv.kind-named-once@608893, inv.field-in-its-entity@c2f44b, rule.concept-with-its-entity@053a4a, rule.types-not-instances@4835d0 -->
 ## What it is
 
 The definitions of every concept, one table row each, with a permanent ID that everything else uses: the mockup tooltips, the map, the decision log, the checks, the tickets and the tests. Together these rows are the glossary. They do not sit in a separate section. The ontology has one section per entity, and each section is one table holding the entity and everything that belongs to it: its fields, relations, derived values, rules, invariants, hooks and actions. Screens get a section of their own, because each shows several entities.
+
+A row defines a kind of thing, its field, its relation or a rule, never one particular thing. A loan is a concept; the loan of a copy of a novel to one member on one day is data of it, kept by the product, not a row of the ontology. A project whose ontology describes a world of particular people, places and moments keeps them as data of its kinds as well: a row for each of them would look like a type, and the next agent would build one for a single record.
 
 ```markdown
 ## Loan

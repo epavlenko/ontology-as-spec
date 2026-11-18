@@ -212,6 +212,7 @@
     "rule.one-mockup",
     "rule.ontology-changes-first",
     "rule.ontology-is-source",
+    "rule.other-thing-new-id",
     "rule.partial-noted",
     "rule.product-decisions-only",
     "rule.profile-requires-checkable",
@@ -232,8 +233,11 @@
     "rule.take-ready",
     "rule.ticket-closed-on-done",
     "rule.ticket-without-behavior",
+    "rule.types-not-instances",
     "rule.unconfirmed-tentative",
+    "rule.unknown-author-not-owner",
     "rule.unreachable-reported",
+    "rule.validator-test-breaks",
     "rule.value-checked-against-source",
     "rule.verdict-kept",
     "rule.view-state-judged"
@@ -282,6 +286,26 @@
       "given": "a rule, invariant or action that involves several entities",
       "when": "a reviewer reads its section",
       "then": "it sits with the entity it constrains or changes"
+    },
+    {
+      "id": "check.concept.types-not-instances",
+      "section": "Concept",
+      "concepts": [
+        "rule.types-not-instances"
+      ],
+      "given": "a new definition row",
+      "when": "a reviewer reads it",
+      "then": "it defines a kind of thing, its field, its relation or a rule, not one particular object, person or moment"
+    },
+    {
+      "id": "check.concept.other-thing-new-id",
+      "section": "Concept",
+      "concepts": [
+        "rule.other-thing-new-id"
+      ],
+      "given": "a definition row whose definition changed",
+      "when": "a reviewer compares it with the base",
+      "then": "if the ID now names another thing, the old ID is retired with its replacement and a decision; if the row describes the same thing better, the ID stays"
     },
     {
       "id": "check.concept.code-from-ontology",
@@ -413,6 +437,16 @@
       "given": "the owner's message and an answer a colleague gave for the owner disagree about one choice",
       "when": "the entry is written",
       "then": "it follows the owner's message and names it on its `Source:` line; an entry resting only on the colleague's answer is tentative"
+    },
+    {
+      "id": "check.decision.unknown-author",
+      "section": "Decision",
+      "concepts": [
+        "rule.unknown-author-not-owner"
+      ],
+      "given": "an entry whose source is a statement of an author who is not certain",
+      "when": "the entry is written",
+      "then": "it is tentative, and it does not call the statement the owner's"
     },
     {
       "id": "check.decision.question-as-tentative",
@@ -677,6 +711,16 @@
       "given": "a tagged test",
       "when": "a reviewer reads it with its check",
       "then": "it sets up GIVEN, does WHEN and asserts THEN"
+    },
+    {
+      "id": "check.test.validator-breaks",
+      "section": "Test",
+      "concepts": [
+        "rule.validator-test-breaks"
+      ],
+      "given": "a test of a check that a validator holds",
+      "when": "a reviewer reads it with its check",
+      "then": "it runs the validator on an input that passes and on one broken in that check's way, and asserts that check's error"
     },
     {
       "id": "check.ticket.no-behavior",
