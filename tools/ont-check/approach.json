@@ -46,6 +46,7 @@
     "edge.manual-run.check",
     "edge.map-row.concept",
     "edge.mockup-element.concept",
+    "edge.ontology-tree.concepts",
     "edge.profile.section",
     "edge.reference-page.concepts",
     "edge.retired-id.decision",
@@ -69,6 +70,7 @@
     "ent.manual-run",
     "ent.map-row",
     "ent.mockup-element",
+    "ent.ontology-tree",
     "ent.profile",
     "ent.reference-page",
     "ent.retired-id",
@@ -183,6 +185,7 @@
     "inv.ticket-checks-related",
     "inv.ticket-has-ids",
     "inv.tooltips-generated",
+    "inv.tree-complete",
     "inv.typed-fields",
     "rule.agent-rule-source",
     "rule.agent-rules-point-at-files",
@@ -240,6 +243,7 @@
     "rule.take-ready",
     "rule.ticket-closed-on-done",
     "rule.ticket-without-behavior",
+    "rule.tree-structure-only",
     "rule.types-not-instances",
     "rule.unconfirmed-tentative",
     "rule.unknown-author-not-owner",
@@ -931,6 +935,16 @@
       "given": "a section of a run guide",
       "when": "someone who has not seen the product follows it",
       "then": "they run the check, and the section names the check without restating its case"
+    },
+    {
+      "id": "check.ontology-tree.not-a-hierarchy",
+      "section": "Ontology tree",
+      "concepts": [
+        "rule.tree-structure-only"
+      ],
+      "given": "a change of the tree or of the page that explains it",
+      "when": "a reviewer reads it",
+      "then": "the rows under an entity are shown and described as the rows of its table, never as kinds or parts of it, and the page shows nothing beyond the structure"
     },
     {
       "id": "check.profile.requires-checkable",

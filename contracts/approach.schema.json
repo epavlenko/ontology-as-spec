@@ -625,6 +625,26 @@
         "concepts"
       ]
     },
+    "ontology-tree": {
+      "title": "Ontology tree",
+      "description": "A page for people that shows the whole ontology as a tree: each entity with the rows of its table by kind, and a table without an entity under its heading. Written by a generator when someone wants to see the ontology, not kept in the repository.",
+      "x-ont": "ent.ontology-tree",
+      "type": "object",
+      "properties": {
+        "concepts": {
+          "description": "The definition rows the tree shows.",
+          "x-ont": "edge.ontology-tree.concepts",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ont-ref": "ent.concept"
+          }
+        }
+      },
+      "required": [
+        "concepts"
+      ]
+    },
     "profile": {
       "title": "Profile",
       "description": "A recipe for a property of the product that its ontology shows: what to configure, what is required and what is recommended.",

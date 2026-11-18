@@ -9,7 +9,7 @@ Documentation for people, written by people or agents, with the ontology as its 
 | - | - | - | - |
 | Interface | the mockup | `data-ont` on elements, the map | tooltips |
 | Code | code and tests | test tags, the implementation table | contracts |
-| Documentation | explanations and guides | an anchor on each section | reference pages: terms, fields, checks |
+| Documentation | explanations and guides | an anchor on each section | reference pages: terms, fields, checks; the ontology as a tree |
 
 A section names the concepts it explains in an HTML comment that readers do not see:
 
@@ -51,10 +51,23 @@ Which sets of documentation a team keeps, for whom and where, is process, like t
 
 Help that is part of the product is different. A help screen in the app, or a chat bot's answer to "how does it work", is something a user can open or ask for. Those are concepts of the product, rows in the ontology like any other view or action, and their content is anchored and checked like any page. The test is simple: if a user can open it or ask for it, it is product; if it is a file for the team, it is process.
 
+<!-- ont: ent.ontology-tree@159bb0, edge.ontology-tree.concepts@220135, rule.tree-structure-only@08df2d, inv.tree-complete@d8cc81 -->
+## The ontology as a tree
+
+To read the whole ontology at once, `gen-tree.mjs` writes it as one page: the configured ontology and the external ones, each table a branch in its order, named by its entity, or by its heading when it has no entity, as the screens of the example. Under each entity are the rows of its table, grouped by kind in the order the configuration lists the classes, with their counts. A row shows its term; its ID and definition appear on hover. A field or relation that refers to an entity shows that entity, and "many" when it refers to several; a view shows the entities it shows. Rules and invariants are marked, and an entity with no other rows says so.
+
+The page shows nothing else: no notes, no links drawn as a graph, no history. Every definition row is in it exactly once, so what is missing from the tree is missing from the ontology. It is not a hierarchy of classes, as an ontology editor such as [Protégé](https://protegeproject.github.io/protege/views/class-hierarchy/) draws one: the rows under an entity are its table, not kinds of it.
+
+```bash
+node tools/ont-check/gen-tree.mjs --config ont.config.json --out /tmp/tree.html --labels labels.json
+```
+
+The page is written when someone wants to see the ontology and is not kept in the repository. A labels file, a JSON object, may replace terms by ID, kind labels by class, headings of tables without an entity, and the page's own words, for a reader of another language; the entity keeps its own term beside its label. A key the tree does not show is refused, so a typo or a retired ID does not pass unnoticed.
+
 <!-- ont: rule.anchor-every-section@57e45b, inv.section-declared@1b1726, rule.reread-then-stamp@3d0dd6, rule.readers-words@3dbebd -->
 ## Reference
 
-The fields of a doc section, a doc set and a reference page, their rules and checks are in the reference: [Doc section](../reference.md#doc-section), [Doc set](../reference.md#doc-set) and [Reference page](../reference.md#reference-page). Every section declares what it explains: the concepts it is about, or nothing in an empty anchor. Without that, a section the author forgot to anchor would be checked by nobody, since a mention of a concept does not make a section its explanation and the tool cannot tell which sections should have had one. Whether the anchor names what the section is about, and an empty one stands only above a section that explains nothing, is the reviewer's to judge. A stamp says that someone reread the section, not that they got it right, so stamping without reading silences the signal. Pages explain in the readers' words; a page that copies definitions is a reference page written by hand, and should be generated instead.
+The fields of a doc section, a doc set and a reference page, their rules and checks are in the reference: [Doc section](../reference.md#doc-section), [Doc set](../reference.md#doc-set), [Reference page](../reference.md#reference-page) and [Ontology tree](../reference.md#ontology-tree). Every section declares what it explains: the concepts it is about, or nothing in an empty anchor. Without that, a section the author forgot to anchor would be checked by nobody, since a mention of a concept does not make a section its explanation and the tool cannot tell which sections should have had one. Whether the anchor names what the section is about, and an empty one stands only above a section that explains nothing, is the reviewer's to judge. A stamp says that someone reread the section, not that they got it right, so stamping without reading silences the signal. Pages explain in the readers' words; a page that copies definitions is a reference page written by hand, and should be generated instead.
 
 <!-- ont: rule.anchor-every-section@57e45b, rule.reread-then-stamp@3d0dd6 -->
 ## How it fails in practice

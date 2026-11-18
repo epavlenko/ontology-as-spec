@@ -1111,3 +1111,76 @@ for (const [name, label, edit] of cases)
     assert.equal(r.code, 1, r.out);
     assert.ok(r.out.includes(label), `expected "${label}" in:\n${r.out}`);
   });
+
+// The tree of the ontology (D-90): written from a copy of the example, read back as text.
+const tree = (edit, labels) => {
+  const dir = mkdtempSync(join(tmpdir(), "ont-tree-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    const patch = (file, from, to) => {
+      const path = join(dir, file);
+      const text = readFileSync(path, "utf8");
+      assert.ok(text.includes(from), `fixture text not found in ${file}: ${from}`);
+      writeFileSync(path, text.replace(from, to));
+    };
+    edit?.(patch);
+    const args = [join(TOOLS, "gen-tree.mjs"), "--config", join(dir, "ont.config.json"), "--out", join(dir, "tree.html")];
+    if (labels) {
+      writeFileSync(join(dir, "labels.json"), JSON.stringify(labels));
+      args.push("--labels", join(dir, "labels.json"));
+    }
+    const r = spawnSync("node", args, { encoding: "utf8" });
+    const html = r.status === 0 ? readFileSync(join(dir, "tree.html"), "utf8") : "";
+    return { code: r.status, out: r.stdout + r.stderr, html, md: readFileSync(join(dir, "ontology.md"), "utf8") };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
+const branches = (html) => html.split('<li><details open>').slice(1);
+
+test("[check.ontology-tree.complete] every definition row is in the tree once, in the branch of its table", async () => {
+  const { parseGlossary } = await import(join(TOOLS, "lib.mjs"));
+  const t = tree();
+  assert.equal(t.code, 0, t.out);
+  const { rows } = parseGlossary(t.md);
+  const shown = [...t.html.matchAll(/data-ont="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual([...shown].sort(), rows.map((r) => r.id).sort());
+  const tables = [...new Set(rows.map((r) => r.table))];
+  const bs = branches(t.html);
+  assert.equal(bs.length, tables.length);
+  for (const r of rows) assert.ok(bs[tables.indexOf(r.table)].includes(`data-ont="${r.id}"`), `${r.id} is not in the branch of its table`);
+});
+
+test("[check.ontology-tree.structure] tables in order, kinds in order with counts, terms shown, references and views named", () => {
+  const t = tree((p) => p("ontology.md", "| ref `ent.member` | The member waiting", "| refs `ent.member` | The member waiting"));
+  assert.equal(t.code, 0, t.out);
+  const bs = branches(t.html);
+  assert.deepEqual(bs.map((b) => b.match(/<summary><b[^>]*>([^<]+)<\/b>/)[1]), ["Member", "Title", "Item", "Loan", "Hold", "Screens"]);
+  const loan = bs[3];
+  assert.match(loan, /<summary><b data-ont="ent\.loan"[^>]*>Loan<\/b> <small>13<\/small>/);
+  assert.deepEqual([...loan.matchAll(/<span class="g">([A-Za-z]+) <small>(\d+)<\/small>/g)].map((m) => `${m[1]} ${m[2]}`), [
+    "Field 2", "Relation 2", "Derived 1", "Rule 2", "Invariant 1", "Hook 1", "Action 3",
+  ]);
+  assert.match(loan, /<span class="p" data-ont="field\.loan\.due-date" title="field\.loan\.due-date — [^"]+">Due date<\/span>/);
+  assert.match(loan, /data-ont="edge\.loan\.member"[^>]*>Borrower <i>→ Member<\/i><\/span>/);
+  assert.match(loan, /<span class="p held" data-ont="rule\.loan-period"/);
+  assert.match(bs[4], /data-ont="edge\.hold\.member"[^>]*>Holder <i>→ Member \(many\)<\/i><\/span>/);
+  assert.match(bs[1], /<div class="empty">only the entity itself, no other rows<\/div>/);
+  assert.match(bs[5], /data-ont="view\.desk"[^>]*>Desk <i>shows: Member, Item, Loan<\/i><\/span>/);
+  const text = t.html.replace(/<style>[\s\S]*?<\/style>/, "").replace(/<[^>]+>/g, " ");
+  assert.doesNotMatch(text, /\b(ent|field|edge|derived|concept|rule|inv|hook|action|view)\.[a-z]/, "an ID is shown as text");
+});
+
+test("[check.ontology-tree.labels] a labels file replaces terms, kinds and headings, and a key the tree does not show is refused", () => {
+  const t = tree(null, { "ent.loan": "Выдача", field: "Поля", Screens: "Экраны", "edge.loan.member": "Читатель" });
+  assert.equal(t.code, 0, t.out);
+  assert.match(t.html, /<b data-ont="ent\.loan"[^>]*>Выдача<\/b> <span class="en">Loan<\/span>/);
+  assert.match(t.html, /<span class="g">Поля <small>2<\/small>/);
+  assert.match(t.html, /<summary><b class="v">Экраны<\/b>/);
+  assert.match(t.html, /data-ont="edge\.loan\.member"[^>]*>Читатель <i>→ Member<\/i>/);
+  assert.match(t.html, /data-ont="edge\.loan\.item"[^>]*>Lent item <i>→ Item<\/i>/);
+  const bad = tree(null, { "ent.loan": "Выдача", "ent.shelf": "Полка" });
+  assert.equal(bad.code, 1, bad.out);
+  assert.match(bad.out, /labels name what the tree does not show: ent\.shelf/);
+  assert.equal(bad.html, "");
+});

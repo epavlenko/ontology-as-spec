@@ -1,6 +1,6 @@
 # ont-check
 
-The drift check, the decision guard, and the generators of tooltips, contracts and reference pages. Node 20 or later, no dependencies. Copy the directory into a project with `pin.mjs update`, `approach.json` included: it holds the approach's own IDs, which agent instructions and process entries name. What it checks and why is described in [part 5](../../docs/parts/drift-check.md).
+The drift check, the decision guard, and the generators of tooltips, contracts, reference pages and the ontology tree. Node 20 or later, no dependencies. Copy the directory into a project with `pin.mjs update`, `approach.json` included: it holds the approach's own IDs, which agent instructions and process entries name. What it checks and why is described in [part 5](../../docs/parts/drift-check.md).
 
 ```bash
 node tools/ont-check/gen-glossary.mjs --config path/to/ont.config.json   # glossary → generated tooltips
@@ -13,6 +13,7 @@ node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --review 
 node tools/ont-check/format-ontology.mjs --config path/to/ont.config.json   # kind order, Kind cells and aligned definition tables
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/gen-reference.mjs --config path/to/ont.config.json   # reference pages from the ontology and the checks
+node tools/ont-check/gen-tree.mjs --config path/to/ont.config.json --out tree.html [--labels labels.json]   # the whole ontology as a tree for people, not kept in the repository (D-90)
 node tools/ont-check/gen-approach.mjs  --config ont.config.json   # in the approach's own repository: approach.json from its ontology
 node tools/ont-check/stamp-docs.mjs  --config path/to/ont.config.json [page.md …]   # after rereading: stamp the anchors
 node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK, or GUARD_OFF before the first commit; lists accepted entries not committed yet
@@ -31,6 +32,7 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | `gen-contracts.mjs`   | writes the JSON Schema, one definition per entity, from the Type cells                                                                                                                                                                                                                                                                    |
 | `docs.mjs`            | anchors in documentation, stamps, and the reference page renderer                                                                                                                                                                                                                                                                         |
 | `gen-reference.mjs`   | writes the reference pages listed under `references`                                                                                                                                                                                                                                                                                      |
+| `gen-tree.mjs` | writes the whole ontology, and the external ones, as a tree of its tables for people, with an optional labels file for another language |
 | `stamp-docs.mjs`      | rewrites anchors with the current stamps                                                                                                                                                                                                                                                                                                  |
 | `contracts.mjs`       | the type vocabulary and the schema builder, shared by the generator and the check                                                                                                                                                                                                                                                         |
 | `lib.mjs`             | the one parser every script uses, and the config loader                                                                                                                                                                                                                                                                                   |

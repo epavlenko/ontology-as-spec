@@ -341,6 +341,15 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 | Relation  | `edge.reference-page.concepts` | Restates       | refs `ent.concept` | The concepts the page restates.                                                 |
 | Invariant | `inv.reference-current`        | Current        |                    | A reference page equals what the generator writes now.                          |
 
+## Ontology tree
+
+| Kind      | ID                            | Term               | Type               | Definition                                                                                                                                                                                                                                                                                     |
+| --------- | ----------------------------- | ------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.ontology-tree`           | Ontology tree      |                    | A page for people that shows the whole ontology as a tree: each entity with the rows of its table by kind, and a table without an entity under its heading. Written by a generator when someone wants to see the ontology, not kept in the repository.                                         |
+| Relation  | `edge.ontology-tree.concepts` | Concepts shown     | refs `ent.concept` | The definition rows the tree shows.                                                                                                                                                                                                                                                            |
+| Rule      | `rule.tree-structure-only`    | Only the structure |                    | The tree follows the order of the tables and the configured order of kinds, shows each row by its term with its ID and definition on hover, the entity a field or relation refers to and the entities a view shows, and nothing else. The rows under an entity are its table, not kinds of it. |
+| Invariant | `inv.tree-complete`           | Whole ontology     |                    | Every definition row is in the tree exactly once, in the branch of its table.                                                                                                                                                                                                                  |
+
 ## Profile
 
 | Kind     | ID                                | Term                          | Type                  | Definition                                                                                                                              |
@@ -681,6 +690,15 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `edge.reference-page.concepts` | `tools/ont-check/docs.mjs` | |
 | `inv.reference-current` | `tools/ont-check/docs.mjs`, `tools/ont-check/gen-reference.mjs` |      |
 
+### Ontology tree
+
+| ID | Implemented in | Note |
+| -- | -------------- | ---- |
+| `ent.ontology-tree` | `tools/ont-check/gen-tree.mjs` | |
+| `edge.ontology-tree.concepts` | `tools/ont-check/gen-tree.mjs` | |
+| `rule.tree-structure-only` | `tools/ont-check/gen-tree.mjs` | that the rows are not shown as kinds of the entity is reviewed, not checked |
+| `inv.tree-complete` | `tools/ont-check/gen-tree.mjs` | |
+
 ### Profile
 
 | ID                                | Implemented in     | Note                  |
@@ -714,6 +732,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-18: the ontology shown to people as a tree: `ent.ontology-tree` with `edge.ontology-tree.concepts`, `rule.tree-structure-only` and `inv.tree-complete` (D-90, tentative).
 - 2026-11-18: the ontology is one graph by ID: `inv.ontology-connected` and `rule.link-is-real`; `field.concept.type` lets a view name the entities it shows, and `inv.typed-fields` allows it; the approach's pieces apart are joined by `edge.agent-rules.sources`, `edge.contract.entity`, `edge.reference-page.concepts`, `edge.profile.section` and `edge.tool-copy.last-decision` (D-89, tentative).
 - 2026-11-18: what a definition row defines, when a change needs a new ID, an author who is not certain, and a test of a validator that breaks its input: `rule.types-not-instances` (D-85), `rule.other-thing-new-id` (D-86), `rule.unknown-author-not-owner` (D-87), `rule.validator-test-breaks` (D-88), all tentative.
 - 2026-11-05: every section of a doc set declares what it explains: `inv.section-declared`, and `rule.anchor-every-section` says an empty anchor declares no concept (D-84, tentative).

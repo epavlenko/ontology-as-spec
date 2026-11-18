@@ -270,6 +270,15 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 | ---------------------------- | ----------------------- | ----------------------------------- | -------------- | --------------------------- | ----- |
 | `check.reference-page.stale` | `inv.reference-current` | a reference page was edited by hand | the check runs | it names the page and fails | auto  |
 
+## Ontology tree
+
+| Check | Concepts | GIVEN | WHEN | THEN | Proof |
+| --- | --- | --- | --- | --- | --- |
+| `check.ontology-tree.complete` | `inv.tree-complete`, `edge.ontology-tree.concepts`, `ent.ontology-tree` | an ontology | the tree is written | the IDs its nodes carry are the IDs of the definition rows, each exactly once, in the branch of its table | auto |
+| `check.ontology-tree.structure` | `rule.tree-structure-only` | an ontology with a table without an entity, an entity with no other rows, a field that refers to one entity, a relation that refers to many and a view that shows several | the tree is written | the tables come in their order and the kinds in the configured order with their counts, empty kinds left out; each node shows its term and keeps its ID and definition for the hover; a reference shows its entity, many when it is `refs`; a view shows its entities; an entity with no other rows says so | auto |
+| `check.ontology-tree.labels` | `rule.tree-structure-only` | a labels file that names an ID, a kind and a heading, and one that names an ID the ontology does not have | the tree is written with it | the first replaces those terms, and the entity keeps its own term beside its label; the second is refused with the key it does not know | auto |
+| `check.ontology-tree.not-a-hierarchy` | `rule.tree-structure-only` | a change of the tree or of the page that explains it | a reviewer reads it | the rows under an entity are shown and described as the rows of its table, never as kinds or parts of it, and the page shows nothing beyond the structure | manual |
+
 ## Profile
 
 | Check                              | Concepts                          | GIVEN     | WHEN                | THEN                                                                                                                  | Proof  |
