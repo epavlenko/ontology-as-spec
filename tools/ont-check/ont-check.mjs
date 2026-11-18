@@ -25,7 +25,11 @@ import {
   parseChecks,
   parseGlossary,
   parseImplemented,
+  parseOtherWords,
   parseRetired,
+  proseLines,
+  visibleLines,
+  wordPattern,
   read,
   renderApproach,
   renderGlossary,
@@ -930,6 +934,39 @@ if (cfg.features) {
     "implemented concepts without a verification scenario",
     cfg.features.cover.length ? diff(implemented, featureIds).filter((x) => cover.test(x)) : [],
   );
+}
+
+// Other words (D-91): a word people may use for a concept is listed so that the text a project writes
+// uses the term. The check looks only where the project listed words: tickets, the pages of its doc
+// sets and the text of its mockup, never the log, the ontology or its history, and not in code or quotes.
+// ont: ent.other-word, field.other-word.word, edge.other-word.concept, inv.other-word-not-used, inv.other-word-resolves
+const otherWords = parseOtherWords(md, cfg.headings.otherWords);
+if (otherWords.length) {
+  const terms = new Map(Object.entries(ONT).map(([id, c]) => [c.name.toLowerCase(), id]));
+  const seen = new Set();
+  const bad = [];
+  for (const w of otherWords) {
+    const key = w.word.toLowerCase().replace(/\s+/g, " ");
+    if (seen.has(key)) bad.push(`"${w.word}": listed twice`);
+    seen.add(key);
+    if (retired.has(w.id)) bad.push(`"${w.word}" → ${w.id}: retired, now ${retired.get(w.id) ?? "removed"}`);
+    else if (!glossary.has(w.id)) bad.push(`"${w.word}" → ${w.id}: not in the glossary`);
+    if (terms.has(key)) bad.push(`"${w.word}": the term of ${terms.get(key)}`);
+  }
+  report("other words that do not resolve (a defined concept, not a term, listed once)", bad);
+  const texts = [
+    ...(cfg.tickets ? listFiles(cfg.tickets.dir, cfg.tickets.match).map((f) => [f, proseLines]) : []),
+    ...cfg.docSets.flatMap((d) => listFiles(d.dir, d.match).filter((f) => !generatedPages.has(f)).map((f) => [f, proseLines])),
+    ...cfg.mockup.map((f) => [f, visibleLines]),
+  ];
+  const used = [];
+  for (const [f, lines] of [...new Map(texts)])
+    lines(read(f)).forEach((line, i) => {
+      for (const w of otherWords)
+        if (glossary.has(w.id) && wordPattern(w.word).test(line))
+          used.push(`${relative(cfg.base, f)}:${i + 1}  "${w.word}" → ${ONT[w.id].name} (${w.id})`);
+    });
+  report("other words used where the term belongs (write the term instead)", used);
 }
 
 // Informational: concepts nothing has tried yet. A concept arrives with feedback: a mockup element,

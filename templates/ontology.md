@@ -48,6 +48,13 @@ Is this already in the code, or is it the target? Everything absent from the tab
 
 A divergence is not an error in the ontology. Each line names the IDs involved and becomes a ticket, or a new decision if the target changed.
 
+## Other words
+
+Words people may use for a concept that are not its term, one row each; the check names the tickets, pages and mockup text that use one. Leave the table empty until a word causes confusion.
+
+| Word | Concept |
+| ---- | ------- |
+
 ## Retired IDs
 
 IDs that had to change. The decision log keeps using them; everywhere else the check requires the new ID. A row looks like `| old.id | new.id | D-nn |` with both IDs in backticks; write — for a removed concept.

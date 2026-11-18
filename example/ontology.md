@@ -186,6 +186,14 @@ Places where the code does something the ontology does not want. Concepts that a
 - **Member.** The code still stores `fineCents` on a loan and adds to it when a loan is returned late, although D-03 replaced fines with `concept.suspension`; `inv.suspended-cannot-borrow` is not enforced, so a member with an overdue loan can still borrow. Ticket: #4 Suspend borrowing instead of fines.
 - **Hold.** Nothing serves the queue, so a returned item becomes available to anyone, ahead of the members waiting for it (`concept.reservation`, `inv.queue-order`). Ticket: #3 Serve the hold queue: reservation on return and the pickup window.
 
+## Other words
+
+Words people may use for a concept that are not its term. The tickets, the help pages and the mockup use the term instead; the check names any of them that use one of these words.
+
+| Word | Concept |
+| ---- | ------- |
+| queue entry | `ent.hold` |
+
 ## Retired IDs
 
 IDs that had to change. The decision log keeps using them, because its entries are never edited; everywhere else the check requires the new ID.

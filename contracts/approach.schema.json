@@ -70,6 +70,29 @@
         "decision"
       ]
     },
+    "other-word": {
+      "title": "Other word",
+      "description": "A word people may use for a concept that is not its term. It is listed so that the text a project writes uses the term instead.",
+      "x-ont": "ent.other-word",
+      "type": "object",
+      "properties": {
+        "word": {
+          "description": "The word or phrase, in the form it would be written; each form is a row of its own.",
+          "x-ont": "field.other-word.word",
+          "type": "string"
+        },
+        "concept": {
+          "description": "The concept the word would stand for.",
+          "x-ont": "edge.other-word.concept",
+          "type": "string",
+          "x-ont-ref": "ent.concept"
+        }
+      },
+      "required": [
+        "word",
+        "concept"
+      ]
+    },
     "decision": {
       "title": "Decision",
       "description": "One choice about the product, with its reason and the alternatives rejected.",

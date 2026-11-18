@@ -88,6 +88,19 @@ IDs are permanent, but sometimes one has to change: a class is renamed, a field 
 
 Two concepts that share a term make every sentence that uses the term ambiguous. The check lists such terms as information. Fields and relations of different entities may share one, such as the name of a member and the name of a title, and so may a relation named after the entity it refers to, such as the item of a loan and the item itself. What remains can still be legitimate, so it is a question for a reviewer, not an error.
 
+<!-- ont: ent.other-word@7e2280, field.other-word.word@9694b5, edge.other-word.concept@bc7d4e, inv.other-word-not-used@05bbd9, inv.other-word-resolves@d25e38 -->
+## Other words
+
+The opposite case is one concept with several words: people say "queue entry" where the ontology says Hold, and an agent that meets the word in a ticket builds a second thing. An ontology may list such words under "## Other words", one row each, the word and the ID of the concept it would stand for:
+
+```markdown
+| Word        | Concept    |
+| ----------- | ---------- |
+| queue entry | `ent.hold` |
+```
+
+Where it lists any, the check fails on a ticket, a page of a doc set or the text of the mockup that uses one, and names the file, the line and the term to write instead. The text of the mockup is what lies between its tags, and in its scripts the text of their strings, since a mockup often builds its screens there. A word is matched whole and in any case; each form of it, a plural or a case ending, is a row of its own, because forms differ by language. Where a word appears because it is cited, it is not searched: code and inline code, block quotes, phrases in quotation marks, HTML comments, the attributes of the mockup, the decision log, the ontology and its history. A listed word must mean a defined concept that is not retired, must not be any concept's term, and is listed once. An ontology that lists no words is not searched at all, so the check costs nothing until a project needs it. Like the [SKOS](https://www.w3.org/TR/skos-reference/#labels) hidden label, an other word is recorded to be found, not to be shown.
+
 <!-- ont: ent.concept@58346b, ent.retired-id@b03cc7, ent.contract@67c18d -->
 ## Reference
 

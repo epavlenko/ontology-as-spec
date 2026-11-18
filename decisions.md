@@ -739,6 +739,26 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
+### D-91 · Other words of a concept are listed, and the text a project writes uses the term
+
+- Date: 2026-11-18 · Status: tentative
+- Source: the owner's answer of 2026-11-18 to question 921, option b: "a field 'other words' for the definition (synonyms the concept is not called by) and a check that the text of tickets, documentation and the mockup does not use them; existing IDs do not change"; and his answer of 2026-11-18 to question 927, option c: "into the approach now, but the check works only where a project has written other words itself (an empty table, nothing is checked); a new entry supersedes D-51; the first project to fill the table is the pilot, with a report" (translated from Russian). Question 927 told him the words would be a table of their own, word to concept ID, because a sixth column would break the reading of every project's definition tables. The details below are the thread's; the owner accepts them when the branch is merged.
+- Supersedes: D-51
+- Decision: an ontology may list, under "## Other words" (`headings.otherWords`), words people may use for a concept that are not its term, one row each, such as the word queue entry for `ent.hold` (`ent.other-word`). Where it lists any, the check fails on a ticket, a page of a doc set or the text of the mockup that uses one, naming the file, the line, the term and its ID (`inv.other-word-not-used`). A word is matched whole and in any case; each form of it is a row of its own, since forms differ by language. The text of the mockup is what lies between its tags, and in its scripts the text of their strings, since a mockup often builds its screens in a script; code, inline code, block quotes, quoted phrases, HTML comments and the attributes of the mockup are not searched, and neither are the decision log, the ontology or its history, where a word appears because it is cited. A listed word means a defined concept that is not retired, is no concept's term, and is listed once (`inv.other-word-resolves`). An ontology that lists no words is not searched. The first project that lists words reports what the check caught and what it flagged by mistake, and the approach reviews the check against that report.
+- Why: agents are literal readers, and a word that names a concept in one file and is not its term builds a second thing (principle 1). D-51 put the check off because a word also appears where it belongs and the noise was unknown; here the places where a word is cited are skipped, and only a project that wrote words gets the check, so its report is the pilot D-51 waited for.
+- Rejected: a column for other words in the definition tables (a sixth cell breaks the reading of the tables of every project); a pilot in one project before the approach has it (the owner's answer to question 927, option a); the check for every project without a table to read (option b); guessing the forms of a word (language-dependent; a form is a row).
+- Concepts: `ent.other-word`, `field.other-word.word`, `edge.other-word.concept`, `inv.other-word-not-used`, `inv.other-word-resolves`.
+
+### D-92 · Practices of another project are added as profiles, one at a time
+
+- Date: 2026-11-18 · Status: tentative
+- Source: the owner's answer of 2026-11-18 to question 909, option a: profiles stay recipes, each mechanism switched on by its own section of the configuration, and the practices are moved one by one once the other project's data layer settles (translated from Russian). The owner accepts it when the branch is merged.
+- Decision: the practices another project on the approach brought that not every project needs, a corpus of instances, time and participants, sources of facts, and links of meaning from rules and concepts to what they constrain or describe, are added to the approach one at a time, each as a profile whose mechanism a project switches on with a section of its configuration (D-44, D-61), and each on the owner's yes.
+- Return when: the project that brought them has settled its data layer and proposes one of them, with what it caught there.
+- Why: those practices were shaped by one project whose data layer still changes; moved now, the approach would take a form that project will change.
+- Rejected: moving one now (the same reason); a key in the configuration that names profiles (D-44, D-61).
+- Concepts: `ent.profile`, `rule.profile-requires-checkable`.
+
 ## Open questions
 
 ## History

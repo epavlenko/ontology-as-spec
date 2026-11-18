@@ -42,6 +42,15 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 | `check.retired-id.still-defined`       | `inv.retired-not-defined` | a retired ID also has a definition row                   | the check runs | it names the ID and fails                      | auto  |
 | `check.retired-id.unknown-replacement` | `inv.replacement-exists`  | a retired ID is replaced by an ID with no definition row | the check runs | it names both IDs and fails                    | auto  |
 
+## Other word
+
+| Check | Concepts | GIVEN | WHEN | THEN | Proof |
+| --- | --- | --- | --- | --- | --- |
+| `check.other-word.used` | `inv.other-word-not-used`, `field.other-word.word`, `edge.other-word.concept`, `ent.other-word` | "queue entry" is listed for `ent.hold`, and a ticket, a help page and the text of a mockup element, written in a template string of its script, use it, one of them as "Queue  entry" | the check runs | it names each file and line with the word, the term Hold and its ID, and fails | auto |
+| `check.other-word.cited` | `inv.other-word-not-used` | the listed word only in a code block, in inline code, in a block quote, in quotation marks, in an HTML comment, in an attribute of the mockup such as `title` or `data-ont`, in a comment or a name in the code of the mockup's script, in the decision log and in the ontology | the check runs | it passes | auto |
+| `check.other-word.none-listed` | `inv.other-word-not-used` | no other words are listed, and a page uses "queue entry" | the check runs | it says nothing of other words and passes | auto |
+| `check.other-word.unresolved` | `inv.other-word-resolves` | a word listed for an ID the glossary does not have, one for a retired ID, one that is the term of a concept, and one listed twice | the check runs | it names each with what is wrong and fails | auto |
+
 ## Decision
 
 | Check                                         | Concepts                                                                                                | GIVEN                                                                                                                                                                                        | WHEN                                                         | THEN                                                                                                                                                                                                                                                                  | Proof  |

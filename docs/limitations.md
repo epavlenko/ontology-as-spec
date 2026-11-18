@@ -87,4 +87,4 @@ The vocabulary of types is checked where contracts are generated: a project with
 <!-- ont: -->
 ## Deferred
 
-- **Forbidden terms**: words a decision retired, searched for in the doc sets. Deferred in [D-51](../decisions.md) until one project has piloted them.
+- **Other words**: words a project lists for its concepts are searched for in its tickets, doc sets and mockup (D-91). No project has listed any yet, so how many false alarms the check raises is not known; the first project that lists words reports it.

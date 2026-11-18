@@ -1216,3 +1216,60 @@ test("[check.ontology-tree.unknown-target] a reference or a view that names what
   assert.match(view.out, /  view\.desk: ent\.absent is not an entity of the glossary\n/);
   assert.equal(view.html, "");
 });
+
+// Other words (D-91): the example lists "queue entry" for ent.hold and uses it nowhere.
+const OTHER_WORDS = /ERROR · other words used where the term belongs \(write the term instead\) \((\d+)\):\n((?:  .*\n)*)/;
+
+test("[check.other-word.used] a listed word in a ticket, a help page or the mockup's text is named with the term", () => {
+  const r = run((p) => {
+    p("issues/0004-suspend-instead-of-fines.md", "## Out of scope\n", "## Out of scope\n\n- Moving a queue entry to another title.\n");
+    p("help/holds.md", "You wait for the title, not for a particular copy.", "You wait for the title, not for a particular copy. Your Queue  entry keeps its place.");
+    p("mockup/index.html", ">Place hold</button>", ">Place hold (new queue entry)</button>");
+  });
+  assert.equal(r.code, 1, r.out);
+  const m = r.out.match(OTHER_WORDS);
+  assert.ok(m, r.out);
+  assert.equal(m[1], "3");
+  assert.match(m[2], /issues\/0004-suspend-instead-of-fines\.md:\d+  "queue entry" → Hold \(ent\.hold\)\n/);
+  assert.match(m[2], /help\/holds\.md:6  "queue entry" → Hold \(ent\.hold\)\n/);
+  assert.match(m[2], /mockup\/index\.html:74  "queue entry" → Hold \(ent\.hold\)\n/);
+});
+
+test("[check.other-word.cited] a listed word in code, a quote, a comment, an attribute, the log or the ontology is not a use", () => {
+  const r = run((p) => {
+    p(
+      "help/holds.md",
+      "You wait for the title, not for a particular copy.",
+      'You wait for the title, not for a particular copy. Do not say "queue entry" or `queue entry`.\n\n> A queue entry, as one member put it.\n\n<!-- queue entry -->\n\n```\nqueue entry\n```\n',
+    );
+    p("mockup/index.html", '<button class="act" data-ont="action.place-hold">', '<button class="act" title="queue entry" data-ont="action.place-hold">');
+    p("mockup/index.html", "<script>\n", "<script>\n// a queue entry is a hold\nconst queueEntry = 0;\n");
+    p("decisions.md", "## Open questions", "## Open questions\n\nIs a queue entry a hold?\n");
+    p("ontology.md", "| A member's", "| A member's queue entry, a");
+  });
+  assert.doesNotMatch(r.out, /other words/, r.out);
+});
+
+test("[check.other-word.none-listed] without listed words, no text is searched", () => {
+  const r = run((p) => {
+    p("ontology.md", "| queue entry | `ent.hold` |\n", "");
+    p("help/holds.md", "You wait for the title, not for a particular copy.", "You wait for the title, not for a particular copy. Your queue entry keeps its place.");
+  });
+  assert.equal(r.code, 0, r.out);
+  assert.doesNotMatch(r.out, /other words/);
+});
+
+test("[check.other-word.unresolved] a word for an unknown or retired ID, a term, or a word listed twice fails", () => {
+  const r = run((p) =>
+    p(
+      "ontology.md",
+      "| queue entry | `ent.hold` |\n",
+      "| queue entry | `ent.hold` |\n| Queue entry | `ent.loan` |\n| shelf | `ent.shelf` |\n| due | `field.due-date` |\n| renewals | `field.loan.renewals` |\n",
+    ),
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(
+    r.out,
+    /ERROR · other words that do not resolve \(a defined concept, not a term, listed once\) \(4\):\n  "Queue entry": listed twice\n  "shelf" → ent\.shelf: not in the glossary\n  "due" → field\.due-date: retired, now field\.loan\.due-date\n  "renewals": the term of field\.loan\.renewals\n/,
+  );
+});
