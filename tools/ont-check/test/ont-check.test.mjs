@@ -38,6 +38,40 @@ test("the example is consistent", () => {
   assert.match(r.out, /ONT_OK/);
 });
 
+test("[check.concept.piece-apart] a view that names nothing it shows is a piece apart, with what its note mentions", () => {
+  const r = run((p) => p("ontology.md", "| shows `ent.member`, `ent.loan`, `ent.hold` | A member's", "| | A member's"));
+  assert.equal(r.code, 1, r.out);
+  assert.match(
+    r.out,
+    /ERROR · pieces of the ontology linked by ID to nothing else \([^)]*\) \(1\):\n  view\.member\.loans \(its text mentions ent\.hold, ent\.loan, ent\.member\)\n/,
+  );
+});
+
+test("[check.concept.mention-not-link] an entity named only in a note of another table is a piece apart", () => {
+  const r = run((p) => {
+    p(
+      "ontology.md",
+      "## Screens",
+      "## Shelf\n\n| Kind | ID | Term | Definition |\n| --- | --- | --- | --- |\n| Entity | `ent.shelf` | Shelf | Where items stand in the library. |\n\n## Screens",
+    );
+    p("ontology.md", "- `view.catalog` lists each `ent.title`", "- `view.catalog` lists each `ent.title` by its `ent.shelf`");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · pieces of the ontology linked by ID to nothing else \([^)]*\) \(1\):\n  ent\.shelf\n/);
+});
+
+test("[check.concept.shows-unknown] a view shows an ID that is no entity, and a rule names what it shows", () => {
+  const view = run((p) => p("ontology.md", "| shows `ent.member`, `ent.loan`, `ent.hold` |", "| shows `ent.member`, `ent.loan`, `rule.loan-period` |"));
+  assert.equal(view.code, 1, view.out);
+  assert.match(view.out, /ERROR · shows cells that are wrong \([^)]*\) \(1\):\n  view\.member\.loans: rule\.loan-period is not an entity of the glossary\n/);
+  const rule = run((p) =>
+    p("ontology.md", "| Rule      | `rule.loan-period`       | Loan period          |                  |", "| Rule      | `rule.loan-period`       | Loan period          | shows `ent.loan` |"),
+  );
+  assert.equal(rule.code, 1, rule.out);
+  assert.match(rule.out, /ERROR · shows cells that are wrong \([^)]*\) \(1\):\n  rule\.loan-period: only a view names what it shows\n/);
+  assert.match(rule.out, /rule\.loan-period: only field and edge rows carry a type, and a view its shows/);
+});
+
 test("[check.concept.untried] lists a concept with no mockup element, ticket or code as information", () => {
   const r = run((p) => p("ontology.md", "| `edge.item.copy-of`     | `app/library.mjs` |                                           |\n", ""));
   assert.equal(r.code, 0, r.out);

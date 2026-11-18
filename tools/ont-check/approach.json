@@ -31,8 +31,10 @@
     "derived.target",
     "derived.to-reread",
     "derived.waiting-for-owner",
+    "edge.agent-rules.sources",
     "edge.check.concepts",
     "edge.concept.entity",
+    "edge.contract.entity",
     "edge.decision.concepts",
     "edge.decision.extends",
     "edge.decision.overrides",
@@ -44,6 +46,8 @@
     "edge.manual-run.check",
     "edge.map-row.concept",
     "edge.mockup-element.concept",
+    "edge.profile.section",
+    "edge.reference-page.concepts",
     "edge.retired-id.decision",
     "edge.retired-id.replaced-by",
     "edge.test-suite.checks",
@@ -52,6 +56,7 @@
     "edge.ticket.checks",
     "edge.ticket.concepts",
     "edge.ticket.depends-on",
+    "edge.tool-copy.last-decision",
     "ent.agent-rules",
     "ent.check",
     "ent.concept",
@@ -152,6 +157,7 @@
     "inv.no-restated-definition",
     "inv.one-concept-per-term",
     "inv.one-definition-row",
+    "inv.ontology-connected",
     "inv.reference-current",
     "inv.references-defined",
     "inv.rejected-recorded",
@@ -203,6 +209,7 @@
     "rule.judge-sees-the-check",
     "rule.kind-order",
     "rule.limits-in-ontology",
+    "rule.link-is-real",
     "rule.manual-evidence-kept",
     "rule.map-by-screen",
     "rule.mockup-data-fictional",
@@ -306,6 +313,16 @@
       "given": "a definition row whose definition changed",
       "when": "a reviewer compares it with the base",
       "then": "if the ID now names another thing, the old ID is retired with its replacement and a decision; if the row describes the same thing better, the ID stays"
+    },
+    {
+      "id": "check.concept.link-is-real",
+      "section": "Concept",
+      "concepts": [
+        "rule.link-is-real"
+      ],
+      "given": "a link added by a change, a `ref` or `refs` type or a view's `shows`",
+      "when": "a reviewer reads it with the rows it joins",
+      "then": "it names a relation that holds in the product, and no entity exists only to join others"
     },
     {
       "id": "check.concept.code-from-ontology",

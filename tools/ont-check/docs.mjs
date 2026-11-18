@@ -5,7 +5,7 @@
 // concept its term, type, definition and the notes that name it, for a check its case. The check can
 // then say which sections to reread after one of them changed. Reference pages, which only restate
 // the ontology and the check catalogue, are generated.
-// ont: ent.reference-page, inv.reference-current
+// ont: ent.reference-page, edge.reference-page.concepts, inv.reference-current
 import { createHash } from "node:crypto";
 import { markdownRuns, sectionKey, withoutExamples } from "./lib.mjs";
 

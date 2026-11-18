@@ -24,7 +24,7 @@
           "type": "string"
         },
         "type": {
-          "description": "For fields and relations only: a type from the neutral vocabulary.",
+          "description": "For fields and relations: a type from the neutral vocabulary. For a view: shows and the entities it shows, by ID.",
           "x-ont": "field.concept.type",
           "type": "string"
         },
@@ -505,6 +505,15 @@
           "description": "The files that hold the agents' instructions, listed in the configuration under agentInstructions; the check reads the IDs and entries they mention.",
           "x-ont": "field.agent-rules.files",
           "type": "string"
+        },
+        "sources": {
+          "description": "The entries the instructions name as the source of their rules.",
+          "x-ont": "edge.agent-rules.sources",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ont-ref": "ent.decision"
+          }
         }
       },
       "required": [
@@ -516,8 +525,17 @@
       "description": "A JSON Schema per entity, generated from the types of its fields and relations.",
       "x-ont": "ent.contract",
       "type": "object",
-      "properties": {},
-      "required": []
+      "properties": {
+        "entity": {
+          "description": "The entity whose fields and relations the schema describes.",
+          "x-ont": "edge.contract.entity",
+          "type": "string",
+          "x-ont-ref": "ent.concept"
+        }
+      },
+      "required": [
+        "entity"
+      ]
     },
     "doc-section": {
       "title": "Doc section",
@@ -592,16 +610,37 @@
       "description": "A page that only restates the ontology and the checks, generated, never edited.",
       "x-ont": "ent.reference-page",
       "type": "object",
-      "properties": {},
-      "required": []
+      "properties": {
+        "concepts": {
+          "description": "The concepts the page restates.",
+          "x-ont": "edge.reference-page.concepts",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ont-ref": "ent.concept"
+          }
+        }
+      },
+      "required": [
+        "concepts"
+      ]
     },
     "profile": {
       "title": "Profile",
       "description": "A recipe for a property of the product that its ontology shows: what to configure, what is required and what is recommended.",
       "x-ont": "ent.profile",
       "type": "object",
-      "properties": {},
-      "required": []
+      "properties": {
+        "section": {
+          "description": "The section of the profiles page that holds the recipe.",
+          "x-ont": "edge.profile.section",
+          "type": "string",
+          "x-ont-ref": "ent.doc-section"
+        }
+      },
+      "required": [
+        "section"
+      ]
     },
     "tool-copy": {
       "title": "Tool copy",
@@ -613,10 +652,17 @@
           "description": "The file that names the commit of the copy, its date, the last decision of the approach at that commit and the hash of every file, and lists the files the project keeps in the copy's directory as its own.",
           "x-ont": "field.tool-copy.pin",
           "type": "string"
+        },
+        "lastDecision": {
+          "description": "The approach's last decision at the commit of the copy, which the pin names.",
+          "x-ont": "edge.tool-copy.last-decision",
+          "type": "string",
+          "x-ont-ref": "ent.decision"
         }
       },
       "required": [
-        "pin"
+        "pin",
+        "lastDecision"
       ]
     }
   }

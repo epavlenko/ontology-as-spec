@@ -24,10 +24,10 @@ glossary 40 · retired 6 · mockup 24 · map 23 · implemented 25 · checks 22 �
 DRIFT: 2
 ```
 
-<!-- ont: inv.references-defined@060f13, inv.concept-referenced@b457ed, inv.concept-tried@739910 -->
+<!-- ont: inv.references-defined@060f13, inv.concept-referenced@b457ed, inv.concept-tried@739910, inv.ontology-connected@423c04 -->
 ## Reference
 
-Every automatic check in the [reference](../reference.md) is something this script, or the guard, verifies; each one is implemented by a test in `tools/ont-check/test/` that carries its ID. Every manual check is something it cannot verify, and a reviewer does instead. The checks that run across artifacts are under [Concept](../reference.md#concept): every ID used anywhere is defined, every concept is referred to, and, as information, every concept has been tried by a mockup element, a ticket or code.
+Every automatic check in the [reference](../reference.md) is something this script, or the guard, verifies; each one is implemented by a test in `tools/ont-check/test/` that carries its ID. Every manual check is something it cannot verify, and a reviewer does instead. The checks that run across artifacts are under [Concept](../reference.md#concept): every ID used anywhere is defined, every concept is referred to, the ontology is one graph by ID ([part 1](glossary-and-ids.md#one-graph)), and, as information, every concept has been tried by a mockup element, a ticket or code.
 
 Three flags print reports on top of the check. `--coverage` shows, for each implemented concept, how many checks name it and which suites prove it. `--decisions` lists every entry of the decision log as in force, tentative or superseded by what, and which later entries name it. `--gap` lists the work left by entity: target concepts with their checks, automatic checks without a test and the known divergences; given a ticket, it narrows to the ticket's slice and exits 1 until the slice is done.
 

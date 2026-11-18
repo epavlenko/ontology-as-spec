@@ -65,6 +65,11 @@ A generated reference page shows each concept's definition, which describes the 
 
 Every section of a doc set declares what it explains, and the check finds the sections by their headings. It reads Markdown itself, without a library ([part 5](parts/drift-check.md#design-choices)), and it reads the blocks pages are written in: headings of hashes and underlined ones, code, HTML blocks, rules. A heading inside a block quote or a list item, such as `> ## Notes`, it does not read as a section, so such a section is not required to declare anything. None of the doc sets the approach knows of has one; a project that writes them anchors them by hand, and the reviewer of a change sees them.
 
+<!-- ont: inv.ontology-connected@423c04, rule.link-is-real@452652 -->
+### Joined is not right
+
+The check sees that every piece of the ontology is joined to the rest by IDs. It does not see whether a link is true, and one link joins two pieces however large they are. A graph can pass with a link that relates nothing in the product, or with every entity pointing at one that means nothing. The reviewer of a change reads each link it adds (`rule.link-is-real`); the tool does not.
+
 <!-- ont: -->
 ## Open questions
 

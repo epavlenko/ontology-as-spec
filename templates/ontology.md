@@ -27,9 +27,9 @@ What the product is for, in two sentences. This document describes the **target 
 
 ## Screens
 
-| Kind | ID                | Term       | Definition                |
-| ---- | ----------------- | ---------- | ------------------------- |
-| View | `view.thing.page` | Thing page | One thing with its state. |
+| Kind | ID                | Term       | Type              | Definition                |
+| ---- | ----------------- | ---------- | ----------------- | ------------------------- |
+| View | `view.thing.page` | Thing page | shows `ent.thing` | One thing with its state. |
 
 - `view.thing.page` shows one `ent.thing` with its `field.thing.state`, which nobody edits by hand. While the thing is open the page offers `action.close`; once it is closed it offers nothing, and no screen offers to reopen it (D-01).
 
@@ -57,4 +57,4 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
-- YYYY-MM-DD: first version.
+- YYYY-MM-DD: first version; `view.thing.page` names the entity it shows.

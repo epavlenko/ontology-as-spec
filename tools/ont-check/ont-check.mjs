@@ -435,7 +435,7 @@ if (cfg.decisions) {
 // approach's, and not retired; every entry they cite exists and is in force. In them D-nn is an entry of
 // the project's log. Whether a line is a process rule that should name its source, and whether it is
 // stricter or looser than the approach, is for a reviewer.
-// ont: field.agent-rules.files, inv.agent-rule-references-resolve
+// ont: field.agent-rules.files, edge.agent-rules.sources, inv.agent-rule-references-resolve
 if (cfg.agentInstructions.length) {
   const where = (f) => relative(cfg.base, f);
   report("agent instruction files that do not exist", cfg.agentInstructions.filter((f) => !existsSync(f)).map(where));
@@ -797,6 +797,85 @@ for (const ref of cfg.references) {
     if (clash.length) shared.push(`${ONT[clash[0]].name}: ${clash.join(", ")}`);
   }
   report("terms that name more than one concept (one concept per term is clearer)", shared, false);
+}
+
+// One graph (D-89): every definition row is reached from every other through links by ID. A row is
+// linked to the entity of its table; a field or relation to the entity its `ref`/`refs` type names; a
+// view, which has no entity of its own, to the entities its `shows` cell names. A mention of an ID in
+// a definition or a note is not a link. Each piece apart is named with the IDs of other pieces its
+// text mentions, as a hint of what it may be linked to.
+// ont: inv.ontology-connected, field.concept.type
+{
+  const SHOWS = /^shows\s+(.+)$/;
+  const near = new Map(rows.map((r) => [r.id, new Set()]));
+  const link = (a, b) => {
+    if (a === b || !near.has(a) || !near.has(b)) return;
+    near.get(a).add(b);
+    near.get(b).add(a);
+  };
+  const badShows = [];
+  for (const t of tables.values()) {
+    const entity = t.find((r) => cls(r.id) === "ent")?.id;
+    for (const r of t) {
+      if (entity) link(r.id, entity);
+      const type = r.type ?? "";
+      const ref = type.match(/^refs?\s+(ent\.[a-z0-9-]+)\b/);
+      if (ref) link(r.id, ref[1]);
+      const shows = type.match(SHOWS);
+      if (!shows) continue;
+      if (cls(r.id) !== "view") {
+        badShows.push(`${r.id}: only a view names what it shows`);
+        continue;
+      }
+      for (const target of shows[1].split(",").map((x) => x.trim())) {
+        if (cls(target) === "ent" && ONT[target]) link(r.id, target);
+        else badShows.push(`${r.id}: ${target || "nothing"} is not an entity of the glossary`);
+      }
+    }
+  }
+  report("shows cells that are wrong (only a view names what it shows, and only entities of the glossary)", badShows);
+  const pieces = [];
+  const seen = new Set();
+  for (const r of rows) {
+    if (seen.has(r.id)) continue;
+    const piece = [];
+    const stack = [r.id];
+    seen.add(r.id);
+    while (stack.length) {
+      const x = stack.pop();
+      piece.push(x);
+      for (const y of near.get(x)) if (!seen.has(y)) {
+        seen.add(y);
+        stack.push(y);
+      }
+    }
+    pieces.push(piece);
+  }
+  pieces.sort((a, b) => b.length - a.length);
+  // The hint names entities: those the piece's text mentions, and the entities of the rows it mentions.
+  // A note under a table shared with rows outside the piece counts only where it names the piece.
+  const entityOf = new Map();
+  for (const t of tables.values()) {
+    const entity = t.find((r) => cls(r.id) === "ent")?.id;
+    if (entity) for (const r of t) entityOf.set(r.id, entity);
+  }
+  const apart = pieces.slice(1).map((piece) => {
+    const own = new Set(piece);
+    const head = piece.filter((x) => cls(x) === "ent" || cls(x) === "view");
+    const named = (head.length ? head : piece).sort();
+    const mine = rows.filter((r) => own.has(r.id));
+    const shared = (h) => rows.some((r) => r.heading === h && !own.has(r.id));
+    const text = [
+      ...mine.map((r) => r.line),
+      ...[...new Set(mine.map((r) => r.heading))].flatMap((h) =>
+        (notes.get(h) ?? []).filter((l) => !shared(h) || ids(l).some((x) => own.has(x))),
+      ),
+    ].join("\n");
+    const hint = [...new Set(ids(text).map((x) => entityOf.get(x)).filter((x) => x && !own.has(x)))].sort();
+    const more = piece.length - named.length;
+    return named.join(", ") + (more ? ` and ${more} more` : "") + (hint.length ? ` (its text mentions ${hint.join(", ")})` : "");
+  });
+  report("pieces of the ontology linked by ID to nothing else (a ref or refs field, or shows on a view, joins them)", apart);
 }
 
 // A concept nobody refers to is a dead glossary row.

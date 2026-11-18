@@ -46,10 +46,10 @@ The alternative is a separate glossary table plus per-kind tables (entities, fie
 
 Projects add classes as they need them: `type.*` for kinds of an entity, `trigger.*` for conditions shown to the user, `regime.*` for how a field is maintained, `plan.*` for parts of a composite structure. The class list lives in the check's configuration, with the label of each kind, in the order the rows are grouped. An unknown class is an error rather than silently ignored.
 
-<!-- ont: ent.contract@67c18d, inv.typed-fields@245354, inv.contract-current@955923 -->
+<!-- ont: ent.contract@67c18d, inv.typed-fields@7e1493, inv.contract-current@955923 -->
 ## Types and contracts
 
-Field and relation rows have one more cell, Type, in a vocabulary that belongs to no programming language. The other kinds leave it empty, and a table without fields, such as the screens, may leave the column out.
+Field and relation rows have one more cell, Type, in a vocabulary that belongs to no programming language. A view uses the cell to name the entities it shows, as described under [One graph](#one-graph). The other kinds leave it empty.
 
 | Type | Meaning |
 | ---- | ------- |
@@ -63,6 +63,19 @@ Field and relation rows have one more cell, Type, in a vocabulary that belongs t
 `tools/ont-check/gen-contracts.mjs` turns the types into a JSON Schema with one definition per entity. Each property carries its concept ID (`"x-ont": "field.loan.due-date"`), and references carry their target (`"x-ont-ref": "ent.title"`). Derived values are not in the contract, because they are never stored.
 
 JSON Schema is the neutral part. Any stack can validate data against it or generate types from it, and the approach does not say which. A project decides how its code follows the contract: generated types, validation at the boundary, or a test that compares its constants with the schema, as the example does.
+
+<!-- ont: inv.ontology-connected@423c04, rule.link-is-real@452652, field.concept.type@254bea -->
+## One graph
+
+The ontology is one graph, held together by IDs, not by prose. Every definition row is linked to the entity of its table. A field or relation of type `ref` or `refs` is linked to the entity it names. A view has no entity of its own, because it shows several, so its Type cell names them:
+
+```markdown
+| View | `view.member.loans` | My loans | shows `ent.member`, `ent.loan`, `ent.hold` | A member's open loans and holds. |
+```
+
+The check follows these links and fails on every piece that none of them joins to the rest. A mention of an ID in a definition or a note is not a link: a sentence can name an entity without anything in the structure saying how the two relate. For each piece apart, the check names the entities its own text mentions, as a hint of what it may be linked to.
+
+The check counts links, not their meaning. One link is enough to join two pieces, and the easiest way to join everything is a link that is not true, or an entity that exists only for others to point at. So a link added to join a piece names a relation that holds in the product: a loan refers to its item because the desk lends a particular item. An entity made only to join others is not such a relation. The tool cannot tell a true link from a false one; the reviewer of the change does.
 
 <!-- ont: ent.retired-id@b03cc7, inv.retired-not-defined@6c864b, inv.retired-only-in-log@94f601, inv.replacement-exists@dcf75f -->
 ## Retired IDs

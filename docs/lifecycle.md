@@ -2,10 +2,10 @@
 
 How each kind of change moves through the artifacts. The [agent rules](parts/agent-rules.md) table is the short form of this page.
 
-<!-- ont: action.add-concept@3509fd -->
+<!-- ont: action.add-concept@3509fd, inv.ontology-connected@423c04 -->
 ## A new concept
 
-1. Add a definition row in the section of the entity it constrains or changes: ID, term, type, a definition that says what it is. A field or a relation names the entity in its ID and has a type. `format-ontology.mjs` puts the row in its kind's group and writes the Kind cell.
+1. Add a definition row in the section of the entity it constrains or changes: ID, term, type, a definition that says what it is. A field or a relation names the entity in its ID and has a type. A new entity is joined to the rest in the same change, by a relation of its own or of another entity that refers to it; a view names the entities it shows ([One graph](parts/glossary-and-ids.md#one-graph)). `format-ontology.mjs` puts the row in its kind's group and writes the Kind cell.
 2. If it needs more than one line, add a note under the table. Refer to related concepts by ID; do not restate the definition.
 3. If its class is one the check catalogue requires (invariants and rules by default; also hooks and actions in the example), write its check: a case with data, in the product's terms.
 4. If the concept exists because of a choice, add a decision entry with the rejected alternatives.

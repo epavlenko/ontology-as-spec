@@ -1,7 +1,7 @@
 // Contracts from the ontology: a JSON Schema per entity, built from the Type cells of its field and
 // relation rows. JSON Schema is the neutral format: any stack can validate data against it or
 // generate types from it, and the approach does not prescribe which.
-// ont: ent.contract, inv.typed-fields, inv.contract-current
+// ont: ent.contract, edge.contract.entity, inv.typed-fields, inv.contract-current
 //
 // Type vocabulary (one per Type cell, "optional" may follow any of them):
 //   text · integer · integer 0..2 · integer 1.. · number · boolean · date · datetime
@@ -66,7 +66,9 @@ export function buildContracts(rows, ONT, cfg) {
       continue;
     }
     if (!typed(r.id)) {
-      if (r.type) problems.push(`${r.id}: only ${cfg.contracts.classes.join(" and ")} rows carry a type`);
+      // A view names the entities it shows (D-89); that is a link of the graph, not a property.
+      const shows = cls === "view" && /^shows\s/.test(r.type ?? "");
+      if (r.type && !shows) problems.push(`${r.id}: only ${cfg.contracts.classes.join(" and ")} rows carry a type, and a view its shows`);
       continue;
     }
     if (!r.type) {

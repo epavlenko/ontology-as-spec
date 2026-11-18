@@ -11,7 +11,7 @@
 // file in the copy's directory that the pin does not name. The pin is upstream.json in the copy's
 // directory unless --pin names another file. Files a project keeps in that directory on purpose are
 // listed under "own" in the pin: update leaves them and verify skips them.
-// ont: ent.tool-copy, field.tool-copy.pin, inv.copy-matches-pin, action.update-copy
+// ont: ent.tool-copy, field.tool-copy.pin, edge.tool-copy.last-decision, inv.copy-matches-pin, action.update-copy
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from "node:fs";

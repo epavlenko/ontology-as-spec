@@ -1,6 +1,6 @@
 # Profiles
 
-<!-- ont: ent.profile@d94262, rule.profile-requires-checkable@e0c6e7 -->
+<!-- ont: ent.profile@d94262, edge.profile.section@13d8a5, rule.profile-requires-checkable@e0c6e7 -->
 
 ## What a profile is
 

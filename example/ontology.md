@@ -102,12 +102,12 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 
 ## Screens
 
-| Kind | ID                  | Term       | Definition                                                                                 |
-| ---- | ------------------- | ---------- | ------------------------------------------------------------------------------------------ |
-| View | `view.catalog`      | Catalog    | Titles with search, availability and queue length.                                         |
-|      | `view.title.page`   | Title page | A title with its items, their condition and availability, and the queue.                   |
-|      | `view.member.loans` | My loans   | A member's open loans and holds: due dates, overdue marks, renew buttons, queue positions. |
-|      | `view.desk`         | Desk       | Staff screen for checkout and return, with the reason when a checkout is refused.          |
+| Kind | ID                  | Term       | Type                                       | Definition                                                                                 |
+| ---- | ------------------- | ---------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| View | `view.catalog`      | Catalog    | shows `ent.title`, `ent.item`, `ent.hold`  | Titles with search, availability and queue length.                                         |
+|      | `view.title.page`   | Title page | shows `ent.title`, `ent.item`, `ent.hold`  | A title with its items, their condition and availability, and the queue.                   |
+|      | `view.member.loans` | My loans   | shows `ent.member`, `ent.loan`, `ent.hold` | A member's open loans and holds: due dates, overdue marks, renew buttons, queue positions. |
+|      | `view.desk`         | Desk       | shows `ent.member`, `ent.item`, `ent.loan` | Staff screen for checkout and return, with the reason when a checkout is refused.          |
 
 Each note says what the screen shows in each state and what can be done there. Layout and style are the mockup's.
 
@@ -201,6 +201,7 @@ IDs that had to change. The decision log keeps using them, because its entries a
 
 ## Revision history
 
+- 2026-11-18: the screens name the entities they show: `view.catalog`, `view.title.page`, `view.member.loans`, `view.desk`, so that the ontology is one graph.
 - 2026-11-05: `view.member.loans` with both renewals used: the same, now with its source (D-08, superseding D-07).
 - 2026-11-05: `view.member.loans` with both renewals used keeps the renew button visible and disabled, with the reason (D-07).
 - 2026-11-05: `view.member.loans` with no loans and no holds says so and leads to the catalog.
