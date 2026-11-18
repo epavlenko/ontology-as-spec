@@ -1123,7 +1123,7 @@ const tree = (edit, labels) => {
       assert.ok(text.includes(from), `fixture text not found in ${file}: ${from}`);
       writeFileSync(path, text.replace(from, to));
     };
-    edit?.(patch);
+    edit?.(patch, dir);
     const args = [join(TOOLS, "gen-tree.mjs"), "--config", join(dir, "ont.config.json"), "--out", join(dir, "tree.html")];
     if (labels) {
       writeFileSync(join(dir, "labels.json"), JSON.stringify(labels));
@@ -1142,6 +1142,17 @@ test("[check.ontology-tree.complete] every definition row is in the tree once, i
   const { parseGlossary } = await import(join(TOOLS, "lib.mjs"));
   const t = tree();
   assert.equal(t.code, 0, t.out);
+  const ext = tree((p, dir) => {
+    p("ont.config.json", '"ontology": "ontology.md",', '"ontology": "ontology.md",\n  "external": [{ "ontology": "shelf.md" }],');
+    writeFileSync(
+      join(dir, "shelf.md"),
+      "# Shelf — ontology\n\n## Shelf\n\n| Kind | ID | Term | Definition |\n| --- | --- | --- | --- |\n| Entity | `ent.shelf` | Shelf | Where items stand. |\n| Kind of shelf | `type.shelf.open` | Open shelf | A shelf members reach themselves. |\n| Rule | `rule.shelf-order` | Shelf order | Items stand by call number. |\n",
+    );
+  });
+  assert.equal(ext.code, 0, ext.out);
+  const shelf = branches(ext.html).at(-1);
+  assert.deepEqual([...shelf.matchAll(/<span class="g">([A-Za-z]+) <small>(\d+)<\/small>/g)].map((m) => `${m[1]} ${m[2]}`), ["Rule 1", "type 1"]);
+  assert.match(shelf, /data-ont="type\.shelf\.open"[^>]*>Open shelf<\/span>/);
   const { rows } = parseGlossary(t.md);
   const shown = [...t.html.matchAll(/data-ont="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual([...shown].sort(), rows.map((r) => r.id).sort());

@@ -52,9 +52,10 @@ export function renderOntology(md, { classes, kinds }, label) {
     const mark = cls(r.id) === "rule" || cls(r.id) === "inv" ? " held" : "";
     return `<span class="p${mark}" data-ont="${r.id}" title="${esc(tip(r.id))}">${esc(name(r.id))}${link}${what}</span>`;
   };
+  // The configured classes first, then any other class the rows have, in the order they appear: an
+  // external ontology may use classes this configuration does not list, and its rows are shown too.
   const groups = (rs) =>
-    classes
-      .filter((c) => c !== "ent")
+    [...new Set([...classes.filter((c) => c !== "ent"), ...rs.map((r) => cls(r.id))])]
       .map((c) => {
         const of = rs.filter((r) => cls(r.id) === c);
         if (!of.length) return "";
@@ -75,6 +76,11 @@ export function renderOntology(md, { classes, kinds }, label) {
     return `<li><details open><summary>${head} <small>${t.length}</small></summary>${body}</details></li>`;
   });
   if (problems.length) throw new Error(`the tree names what the glossary does not define:\n  ${problems.join("\n  ")}`);
+  // Every definition row exactly once (inv.tree-complete), held here as well as by the tests, so that a
+  // layout no test foresaw cannot drop a row without the generator saying so.
+  const shown = branches.join("").match(/data-ont="[^"]+"/g) ?? [];
+  const lost = rows.filter((r) => shown.filter((x) => x === `data-ont="${r.id}"`).length !== 1);
+  if (lost.length) throw new Error(`the tree would not show these rows exactly once: ${lost.map((r) => r.id).join(", ")}`);
   const title = (md.match(/^# (.+)$/m) ?? [, "Ontology"])[1];
   const counts = `${rows.length} ${label("concepts") ?? WORDS.concepts} · ${entities} ${label("entities") ?? WORDS.entities}`;
   return `<section><h3>${esc(title)} <small>${esc(counts)}</small></h3><ul class="tree">${branches.join("")}</ul></section>`;
@@ -135,7 +141,7 @@ if (isMain) {
   for (const md of texts) {
     const { ONT, rows } = parseGlossary(md);
     for (const id of Object.keys(ONT)) known.add(id);
-    for (const r of rows) if (cls(r.id) !== "ent" && cfg.classes.includes(cls(r.id))) known.add(cls(r.id));
+    for (const r of rows) if (cls(r.id) !== "ent") known.add(cls(r.id));
     // Only the heading of a table without an entity is shown; an entity's table is named by its term.
     const tables = new Map();
     for (const r of rows) tables.set(r.table, [...(tables.get(r.table) ?? []), r]);
