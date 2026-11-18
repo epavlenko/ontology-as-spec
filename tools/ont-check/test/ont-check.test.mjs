@@ -1296,3 +1296,27 @@ test("[check.other-word.unresolved] a word for an unknown or retired ID, a term,
     /ERROR · other words that do not resolve \(a defined concept, not a term, listed once\) \(4\):\n  "Queue entry": listed twice\n  "shelf" → ent\.shelf: not in the glossary\n  "due" → field\.due-date: retired, now field\.loan\.due-date\n  "renewals": the term of field\.loan\.renewals\n/,
   );
 });
+
+test("[check.other-word.used] the text of a mockup's script is read as JavaScript reads it", () => {
+  const script = [
+    "const r = /[/*]/;",
+    "const a = `<p>queue entry</p>`;",
+    "/* a comment */",
+    'const s = "/*";',
+    "const b = `<p>${/{/.test(x)}queue entry</p>`;",
+    "// ${unfinished",
+    "const c = `<ol>${q.map((n) => `<li>queue entry ${n}</li>`).join(\"\")}</ol>`;",
+    'const d = "<p>" + "queue entry" + "</p>";',
+    "const e = `<p>queue&#32entry, queue&nbsp entry</p>`;",
+    "const f = 1 +// <p>queue entry</p>",
+    "  2;",
+    'const g = `<p>${t["queue entry"]}${k ? { label: "queue entry" }.label : "ok"}</p>`;',
+    'const api = "queue entry";',
+  ];
+  const r = run((p) => p("mockup/index.html", "<script>\n", `<script>\n${script.join("\n")}\n`));
+  assert.equal(r.code, 1, r.out);
+  const m = r.out.match(OTHER_WORDS);
+  assert.ok(m, r.out);
+  const lines = [...m[2].matchAll(/mockup\/index\.html:(\d+) /g)].map((x) => Number(x[1]) - 31);
+  assert.deepEqual(lines, [2, 5, 7, 9, 9]);
+});

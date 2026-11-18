@@ -419,33 +419,43 @@ export const proseText = (md) =>
     .replace(/^ {0,3}>.*$/gm, blankOut)
     .replace(QUOTED, blankOut);
 const TAG = /<\/?[A-Za-z][^\s/>]*(?:[^>"']|"[^"]*"|'[^']*')*>/g;
-// Character references, numeric and named. The names are those of the HTML standard, copied from
-// https://html.spec.whatwg.org/entities.json into html-entities.json (the forms with a semicolon); a
-// name it does not have is left as written. A reference never adds a line, so line numbers stay.
+// Character references, numeric and named, as the HTML standard reads them in text: a numeric one with
+// or without its semicolon, a named one with it, and the legacy names the standard also reads without
+// it, longest first. The names are copied from https://html.spec.whatwg.org/entities.json into
+// html-entities.json; a name it does not have, or a number that is no character, is left as written.
+// A reference never adds a line, so line numbers stay.
 let ENTITIES = null;
-const entity = (name) => (ENTITIES ??= JSON.parse(readFileSync(fileURLToPath(new URL("./html-entities.json", import.meta.url)), "utf8")))[name];
-const decode = (s) =>
-  s.replace(/&(?:#(\d+)|#[xX]([0-9a-fA-F]+)|([A-Za-z][A-Za-z0-9]*));/g, (m, d, h, n) => {
+const entities = () => {
+  if (ENTITIES) return ENTITIES;
+  const { names, legacy } = JSON.parse(readFileSync(fileURLToPath(new URL("./html-entities.json", import.meta.url)), "utf8"));
+  const bare = Object.keys(legacy).sort((x, y) => y.length - x.length);
+  ENTITIES = { names, legacy, pattern: new RegExp(String.raw`&(?:#(\d+);?|#[xX]([0-9a-fA-F]+);?|([A-Za-z][A-Za-z0-9]*);|(${bare.join("|")}))`, "g") };
+  return ENTITIES;
+};
+const decode = (s) => {
+  if (!s.includes("&")) return s;
+  const { names, legacy, pattern } = entities();
+  return s.replace(pattern, (m, d, h, n, old) => {
     let text;
-    if (n) text = entity(n);
+    if (n) text = names[n];
+    else if (old) text = legacy[old];
     else {
       const cp = parseInt(d ?? h, d ? 10 : 16);
       text = cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff) ? undefined : String.fromCodePoint(cp);
     }
     return text === undefined ? m : text.replace(/[\r\n\t\f\v\u2028\u2029]/g, " ");
   });
-// Text between tags. In a script, only text with a tag on both sides that holds no code: no quotation
-// mark or backtick that would end the string, no semicolon outside a character reference, no comment,
-// so the code between two templates stays out. Text of a script that holds a quotation mark is
-// therefore not read; written as a character reference, it is.
-const SCRIPT_CODE = /[`'";]|\/\/|\/\*/;
+};
+
+// Text between tags. In a script it is the text between two tags of the markup one string or template
+// holds, the code around them blanked first.
 const between = (html, script) => {
   let out = "";
   let last = 0;
   let open = !script;
   for (const m of html.matchAll(TAG)) {
     const gap = html.slice(last, m.index);
-    out += open && !(script && SCRIPT_CODE.test(gap.replace(/&#?\w+;/g, ""))) ? gap : blankOut(gap);
+    out += open && !(script && gap.includes(EDGE)) ? gap : blankOut(gap);
     out += blankOut(m[0]);
     last = m.index + m[0].length;
     open = true;
@@ -453,37 +463,99 @@ const between = (html, script) => {
   out += script ? blankOut(html.slice(last)) : html.slice(last);
   return out;
 };
-// The comments of a script are not text: a line comment after a line start, a space or punctuation of
-// code, so that the // of an address in a template stays; and every block comment.
-const withoutComments = (js) =>
-  js.replace(/\/\*[\s\S]*?\*\//g, blankOut).replace(/(^|[\s;,{}()[\]=])\/\/[^\n]*/gm, (m, before) => before + blankOut(m.slice(before.length)));
-// The expressions a template puts in, ${…}, are not text. Their end is found by counting braces outside
-// the strings and comments inside them.
-const skipString = (s, i) => {
-  const q = s[i];
-  for (i++; i < s.length && s[i] !== q; i++) if (s[i] === "\\") i++;
-  return i;
-};
-const withoutExpressions = (s) => {
+
+// A script read once, as JavaScript reads it: the text of its strings and templates is kept, and its
+// code, comments and regular expressions are blanked, newlines kept. In the expressions a template puts
+// in, ${…}, a string is a value, such as a key or a label to choose, and is blanked too; a template
+// there is markup again and is kept.
+// A slash starts a regular expression where an expression may start: after an operator or punctuation,
+// a keyword such as return, or at the start; after a name, a number or a closing bracket it divides.
+// The edge of a string or a template, so that text between tags counts only inside one of them: a
+// string between two templates is not their text.
+const EDGE = "\u0000";
+const REGEX_AFTER = /(?:^|[(,=:[!&|?{};+\-*%<>~^]|\b(?:return|typeof|instanceof|in|of|new|delete|void|throw|case|do|else|yield|await))\s*$/;
+export const scriptText = (js) => {
   let out = "";
-  for (let i = 0; i < s.length; i++) {
-    if (s[i] !== "$" || s[i + 1] !== "{") {
-      out += s[i];
-      continue;
+  let code = ""; // the code read so far on this level, to tell a regular expression from a division
+  let inExpression = 0;
+  let inTemplate = 0; // templates around the current point: only a top-level literal has edges
+  let i = 0;
+  const blank = (to) => {
+    out += blankOut(js.slice(i, to));
+    i = to;
+  };
+  const string = (q) => {
+    const edge = inTemplate ? " " : EDGE;
+    out += edge;
+    i++;
+    while (i < js.length && js[i] !== q && js[i] !== "\n") {
+      if (js[i] === "\\") { out += "  "; i += 2; continue; }
+      out += inExpression ? " " : js[i];
+      i++;
     }
+    if (i < js.length && js[i] === q) { out += edge; i++; }
+  };
+  const template = () => {
+    const outer = inExpression;
+    inExpression = 0;
+    const edge = inTemplate ? " " : EDGE;
+    inTemplate++;
+    out += edge;
+    i++;
+    while (i < js.length && js[i] !== "`") {
+      if (js[i] === "\\") { out += blankOut(js.slice(i, i + 2)); i += 2; continue; }
+      if (js[i] === "$" && js[i + 1] === "{") {
+        out += "  ";
+        i += 2;
+        inExpression++;
+        const outer = inExpression;
+        level("}");
+        inExpression = outer - 1;
+        if (js[i] === "}") { out += " "; i++; }
+        continue;
+      }
+      out += js[i++];
+    }
+    if (js[i] === "`") { out += edge; i++; }
+    inTemplate--;
+    inExpression = outer;
+  };
+  const level = (close) => {
+    const saved = code;
+    code = "";
     let depth = 0;
-    let j = i + 1;
-    for (; j < s.length; j++) {
-      const c = s[j];
-      if (c === "'" || c === '"' || c === "`") j = skipString(s, j);
-      else if (c === "/" && s[j + 1] === "*") j = s.indexOf("*/", j + 2) < 0 ? s.length : s.indexOf("*/", j + 2) + 1;
-      else if (c === "/" && s[j + 1] === "/") j = s.indexOf("\n", j) < 0 ? s.length : s.indexOf("\n", j) - 1;
-      else if (c === "{") depth++;
-      else if (c === "}" && --depth === 0) break;
+    while (i < js.length) {
+      const c = js[i];
+      if (close && c === "}" && depth === 0) break;
+      if (c === "/" && js[i + 1] === "/") { const e = js.indexOf("\n", i); blank(e < 0 ? js.length : e); continue; }
+      if (c === "/" && js[i + 1] === "*") { const e = js.indexOf("*/", i + 2); blank(e < 0 ? js.length : e + 2); continue; }
+      if (c === "'" || c === '"') { string(c); code += "0"; continue; }
+      if (c === "`") { template(); code += "0"; continue; }
+      if (c === "/" && REGEX_AFTER.test(code)) {
+        let j = i + 1;
+        let cls = false;
+        for (; j < js.length && js[j] !== "\n"; j++) {
+          if (js[j] === "\\") j++;
+          else if (js[j] === "[") cls = true;
+          else if (js[j] === "]") cls = false;
+          else if (js[j] === "/" && !cls) break;
+        }
+        j++;
+        while (j < js.length && /[a-z]/i.test(js[j])) j++;
+        blank(j);
+        code += "0";
+        continue;
+      }
+      if (c === "{") depth++;
+      else if (c === "}") depth--;
+      if (!/\s/.test(c)) code += c;
+      else if (!code.endsWith(" ")) code += " ";
+      out += c === "\n" ? "\n" : " ";
+      i++;
     }
-    out += blankOut(s.slice(i, j + 1));
-    i = j;
-  }
+    code = saved;
+  };
+  level(null);
   return out;
 };
 export const visibleText = (html) =>
@@ -495,7 +567,7 @@ export const visibleText = (html) =>
       i % 2
         ? (() => {
             const m = part.match(/^(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)$/i);
-            return blankOut(m[1]) + between(withoutComments(withoutExpressions(m[2])), true) + blankOut(m[3]);
+            return blankOut(m[1]) + between(scriptText(m[2]), true).replaceAll(EDGE, " ") + blankOut(m[3]);
           })()
         : between(part, false),
     )
