@@ -35,13 +35,19 @@ export function renderOntology(md, { classes, kinds }, label) {
   for (const r of rows) tables.set(r.table, [...(tables.get(r.table) ?? []), r]);
   const name = (id) => label(id) ?? ONT[id].name;
   const tip = (id) => `${id} — ${ONT[id].def}`;
+  // A target the glossary does not define would be drawn as a bare ID or dropped, so it is refused:
+  // the check reports the same rows, and the tree is written once they are fixed.
+  const problems = [];
   const node = (r) => {
     const m = (r.type ?? "").trim().match(REF_TYPE);
-    const link =
-      m && (cls(r.id) === "field" || cls(r.id) === "edge")
-        ? ` <i>→ ${esc(ids.has(m[2]) ? name(m[2]) : m[2])}${m[1] === "refs" ? ` (${esc(label("many") ?? WORDS.many)})` : ""}</i>`
-        : "";
-    const shows = cls(r.id) === "view" ? parseShows(r.type, ids)?.targets : null;
+    const refers = m && (cls(r.id) === "field" || cls(r.id) === "edge");
+    if (refers && !ids.has(m[2])) problems.push(`${r.id}: ${m[2]} is not an entity of the glossary`);
+    const link = refers
+      ? ` <i>→ ${esc(ids.has(m[2]) ? name(m[2]) : m[2])}${m[1] === "refs" ? ` (${esc(label("many") ?? WORDS.many)})` : ""}</i>`
+      : "";
+    const parsed = cls(r.id) === "view" ? parseShows(r.type, ids) : null;
+    if (parsed?.error) problems.push(`${r.id}: ${parsed.error}`);
+    const shows = parsed?.targets;
     const what = shows ? ` <i>${esc(label("shows") ?? WORDS.shows)} ${shows.map((x) => esc(name(x))).join(", ")}</i>` : "";
     const mark = cls(r.id) === "rule" || cls(r.id) === "inv" ? " held" : "";
     return `<span class="p${mark}" data-ont="${r.id}" title="${esc(tip(r.id))}">${esc(name(r.id))}${link}${what}</span>`;
@@ -68,6 +74,7 @@ export function renderOntology(md, { classes, kinds }, label) {
     const body = inner ? `<ul>${inner}</ul>` : `<div class="empty">${esc(label("no-rows") ?? WORDS["no-rows"])}</div>`;
     return `<li><details open><summary>${head} <small>${t.length}</small></summary>${body}</details></li>`;
   });
+  if (problems.length) throw new Error(`the tree names what the glossary does not define:\n  ${problems.join("\n  ")}`);
   const title = (md.match(/^# (.+)$/m) ?? [, "Ontology"])[1];
   const counts = `${rows.length} ${label("concepts") ?? WORDS.concepts} · ${entities} ${label("entities") ?? WORDS.entities}`;
   return `<section><h3>${esc(title)} <small>${esc(counts)}</small></h3><ul class="tree">${branches.join("")}</ul></section>`;
@@ -125,7 +132,10 @@ if (isMain) {
   for (const md of texts) {
     const { ONT, rows } = parseGlossary(md);
     for (const id of Object.keys(ONT)) known.add(id);
-    for (const r of rows) known.add(r.heading);
+    // Only the heading of a table without an entity is shown; an entity's table is named by its term.
+    const tables = new Map();
+    for (const r of rows) tables.set(r.table, [...(tables.get(r.table) ?? []), r]);
+    for (const t of tables.values()) if (!t.some((r) => cls(r.id) === "ent")) known.add(t[0].heading);
   }
   const labelsFile = opt("--labels");
   const label = labelsFile ? loadLabels(read(labelsFile), known) : () => null;

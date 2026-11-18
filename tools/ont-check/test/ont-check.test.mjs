@@ -1152,7 +1152,10 @@ test("[check.ontology-tree.complete] every definition row is in the tree once, i
 });
 
 test("[check.ontology-tree.structure] tables in order, kinds in order with counts, terms shown, references and views named", () => {
-  const t = tree((p) => p("ontology.md", "| ref `ent.member` | The member waiting", "| refs `ent.member` | The member waiting"));
+  const t = tree((p) => {
+    p("ontology.md", "| ref `ent.member` | The member waiting", "| refs `ent.member` | The member waiting");
+    p("ontology.md", "| Concept   | `concept.suspension`", "| Field | `field.member.favourite` | Favourite title | ref `ent.title` | The title the member reads most. |\n| Concept   | `concept.suspension`");
+  });
   assert.equal(t.code, 0, t.out);
   const bs = branches(t.html);
   assert.deepEqual(bs.map((b) => b.match(/<summary><b[^>]*>([^<]+)<\/b>/)[1]), ["Member", "Title", "Item", "Loan", "Hold", "Screens"]);
@@ -1164,6 +1167,7 @@ test("[check.ontology-tree.structure] tables in order, kinds in order with count
   assert.match(loan, /<span class="p" data-ont="field\.loan\.due-date" title="field\.loan\.due-date — [^"]+">Due date<\/span>/);
   assert.match(loan, /data-ont="edge\.loan\.member"[^>]*>Borrower <i>→ Member<\/i><\/span>/);
   assert.match(loan, /<span class="p held" data-ont="rule\.loan-period"/);
+  assert.match(bs[0], /data-ont="field\.member\.favourite"[^>]*>Favourite title <i>→ Title<\/i><\/span>/);
   assert.match(bs[4], /data-ont="edge\.hold\.member"[^>]*>Holder <i>→ Member \(many\)<\/i><\/span>/);
   assert.match(bs[1], /<div class="empty">only the entity itself, no other rows<\/div>/);
   assert.match(bs[5], /data-ont="view\.desk"[^>]*>Desk <i>shows: Member, Item, Loan<\/i><\/span>/);
@@ -1172,15 +1176,30 @@ test("[check.ontology-tree.structure] tables in order, kinds in order with count
 });
 
 test("[check.ontology-tree.labels] a labels file replaces terms, kinds and headings, and a key the tree does not show is refused", () => {
-  const t = tree(null, { "ent.loan": "Выдача", field: "Поля", Screens: "Экраны", "edge.loan.member": "Читатель" });
+  const t = tree(null, { "ent.loan": "Lending", field: "Fields", Screens: "Screen list", "edge.loan.member": "Borrowed by" });
   assert.equal(t.code, 0, t.out);
-  assert.match(t.html, /<b data-ont="ent\.loan"[^>]*>Выдача<\/b> <span class="en">Loan<\/span>/);
-  assert.match(t.html, /<span class="g">Поля <small>2<\/small>/);
-  assert.match(t.html, /<summary><b class="v">Экраны<\/b>/);
-  assert.match(t.html, /data-ont="edge\.loan\.member"[^>]*>Читатель <i>→ Member<\/i>/);
+  assert.match(t.html, /<b data-ont="ent\.loan"[^>]*>Lending<\/b> <span class="en">Loan<\/span>/);
+  assert.match(t.html, /<span class="g">Fields <small>2<\/small>/);
+  assert.match(t.html, /<summary><b class="v">Screen list<\/b>/);
+  assert.match(t.html, /data-ont="edge\.loan\.member"[^>]*>Borrowed by <i>→ Member<\/i>/);
   assert.match(t.html, /data-ont="edge\.loan\.item"[^>]*>Lent item <i>→ Item<\/i>/);
-  const bad = tree(null, { "ent.loan": "Выдача", "ent.shelf": "Полка" });
-  assert.equal(bad.code, 1, bad.out);
-  assert.match(bad.out, /labels name what the tree does not show: ent\.shelf/);
-  assert.equal(bad.html, "");
+  for (const key of ["ent.shelf", "Loan"]) {
+    const bad = tree(null, { "ent.loan": "Lending", [key]: "Unused" });
+    assert.equal(bad.code, 1, bad.out);
+    assert.match(bad.out, new RegExp(`labels name what the tree does not show: ${key.replace(".", "\\.")}\n`));
+    assert.equal(bad.html, "");
+  }
+});
+
+test("[check.ontology-tree.unknown-target] a reference or a view that names what the glossary does not define is refused", () => {
+  const ok = tree();
+  assert.equal(ok.code, 0, ok.out);
+  const ref = tree((p) => p("ontology.md", "| ref `ent.member` | The member waiting", "| ref `ent.absent` | The member waiting"));
+  assert.equal(ref.code, 1, ref.out);
+  assert.match(ref.out, /the tree names what the glossary does not define:\n  edge\.hold\.member: ent\.absent is not an entity of the glossary\n/);
+  assert.equal(ref.html, "");
+  const view = tree((p) => p("ontology.md", "| shows `ent.member`, `ent.item`, `ent.loan` |", "| shows `ent.absent` |"));
+  assert.equal(view.code, 1, view.out);
+  assert.match(view.out, /  view\.desk: ent\.absent is not an entity of the glossary\n/);
+  assert.equal(view.html, "");
 });

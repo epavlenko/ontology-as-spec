@@ -56,13 +56,13 @@ Help that is part of the product is different. A help screen in the app, or a ch
 
 To read the whole ontology at once, `gen-tree.mjs` writes it as one page: the configured ontology and the external ones, each table a branch in its order, named by its entity, or by its heading when it has no entity, as the screens of the example. Under each entity are the rows of its table, grouped by kind in the order the configuration lists the classes, with their counts. A row shows its term; its ID and definition appear on hover. A field or relation that refers to an entity shows that entity, and "many" when it refers to several; a view shows the entities it shows. Rules and invariants are marked, and an entity with no other rows says so.
 
-The page shows nothing else: no notes, no links drawn as a graph, no history. Every definition row is in it exactly once, so what is missing from the tree is missing from the ontology. It is not a hierarchy of classes, as an ontology editor such as [Protégé](https://protegeproject.github.io/protege/views/class-hierarchy/) draws one: the rows under an entity are its table, not kinds of it.
+The page shows nothing else: no notes, no links drawn as a graph, no history. Every definition row is in it exactly once, so what is missing from the tree is missing from the ontology. A reference or a view that names an entity the glossary does not define stops the generator with the row, as it fails the check, so the tree never draws a bare ID or drops a link. It is not a hierarchy of classes, as an ontology editor such as [Protégé](https://protegeproject.github.io/protege/views/class-hierarchy/) draws one: the rows under an entity are its table, not kinds of it.
 
 ```bash
 node tools/ont-check/gen-tree.mjs --config ont.config.json --out /tmp/tree.html --labels labels.json
 ```
 
-The page is written when someone wants to see the ontology and is not kept in the repository. A labels file, a JSON object, may replace terms by ID, kind labels by class, headings of tables without an entity, and the page's own words, for a reader of another language; the entity keeps its own term beside its label. A key the tree does not show is refused, so a typo or a retired ID does not pass unnoticed.
+The page is written when someone wants to see the ontology and is not kept in the repository. A labels file, a JSON object, may replace terms by ID, kind labels by class, headings of tables without an entity, which are the only headings it shows, and the page's own words, for a reader of another language; the entity keeps its own term beside its label. A key the tree does not show is refused, so a typo or a retired ID does not pass unnoticed.
 
 <!-- ont: rule.anchor-every-section@57e45b, inv.section-declared@1b1726, rule.reread-then-stamp@3d0dd6, rule.readers-words@3dbebd -->
 ## Reference
