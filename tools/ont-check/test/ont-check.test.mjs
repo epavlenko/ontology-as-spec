@@ -95,6 +95,16 @@ test("[check.concept.shows-unknown] a ref on a row that is no field or relation 
   });
   assert.equal(rule.code, 1, rule.out);
   assert.match(rule.out, /ERROR · type cells that make no link \([^)]*\) \(1\):\n  rule\.loan-period: only a field or relation refers to an entity\n/);
+  // A field that names what it shows, without contracts, is named as well.
+  const field = run((p, dir) => {
+    p("ontology.md", "| `field.loan.due-date`    | Due date             | date             |", "| `field.loan.due-date`    | Due date             | shows `ent.loan` |");
+    const path = join(dir, "ont.config.json");
+    const config = JSON.parse(readFileSync(path, "utf8"));
+    delete config.contracts;
+    writeFileSync(path, JSON.stringify(config, null, 2));
+  });
+  assert.equal(field.code, 1, field.out);
+  assert.match(field.out, /ERROR · type cells that make no link \([^)]*\) \(1\):\n  field\.loan\.due-date: only a view names what it shows\n/);
 });
 
 test("[check.concept.shows-unknown] the contract generator refuses a view that shows no entity of the glossary", () => {

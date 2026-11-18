@@ -824,14 +824,11 @@ for (const ref of cfg.references) {
       if (!r.type) continue;
       const ref = r.type.trim().match(REF_TYPE);
       const shows = parseShows(r.type, glossaryIds);
-      if (typedClasses.includes(cls(r.id))) {
-        if (ref) link(r.id, ref[2]);
-      } else if (cls(r.id) === "view" && shows) {
-        if (shows.error) badLinks.push(`${r.id}: ${shows.error}`);
-        else for (const target of shows.targets) link(r.id, target);
-      } else if (ref || shows) {
-        badLinks.push(`${r.id}: ${shows ? "only a view names what it shows" : "only a field or relation refers to an entity"}`);
-      }
+      if (shows && cls(r.id) !== "view") badLinks.push(`${r.id}: only a view names what it shows`);
+      else if (shows?.error) badLinks.push(`${r.id}: ${shows.error}`);
+      else if (shows) for (const target of shows.targets) link(r.id, target);
+      else if (ref && typedClasses.includes(cls(r.id))) link(r.id, ref[2]);
+      else if (ref) badLinks.push(`${r.id}: only a field or relation refers to an entity`);
     }
   }
   report(
