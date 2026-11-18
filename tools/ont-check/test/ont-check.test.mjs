@@ -1183,7 +1183,7 @@ test("[check.ontology-tree.labels] a labels file replaces terms, kinds and headi
   assert.match(t.html, /<summary><b class="v">Screen list<\/b>/);
   assert.match(t.html, /data-ont="edge\.loan\.member"[^>]*>Borrowed by <i>→ Member<\/i>/);
   assert.match(t.html, /data-ont="edge\.loan\.item"[^>]*>Lent item <i>→ Item<\/i>/);
-  for (const key of ["ent.shelf", "Loan"]) {
+  for (const key of ["ent.shelf", "Loan", "ent"]) {
     const bad = tree(null, { "ent.loan": "Lending", [key]: "Unused" });
     assert.equal(bad.code, 1, bad.out);
     assert.match(bad.out, new RegExp(`labels name what the tree does not show: ${key.replace(".", "\\.")}\n`));

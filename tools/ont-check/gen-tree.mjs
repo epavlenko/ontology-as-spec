@@ -128,10 +128,13 @@ if (isMain) {
   if (!out) throw new Error("--out is not set: the file to write the tree to");
   const files = [cfg.ontology, ...cfg.external.map((e) => e.ontology)];
   const texts = files.map(read);
-  const known = new Set([...cfg.classes, ...Object.keys(WORDS)]);
+  // The page's own words are always on it. A kind is shown as the label of a group, so only a class
+  // other than the entity's that some row of the ontologies shown has; an entity is named by its term.
+  const known = new Set(Object.keys(WORDS));
   for (const md of texts) {
     const { ONT, rows } = parseGlossary(md);
     for (const id of Object.keys(ONT)) known.add(id);
+    for (const r of rows) if (cls(r.id) !== "ent" && cfg.classes.includes(cls(r.id))) known.add(cls(r.id));
     // Only the heading of a table without an entity is shown; an entity's table is named by its term.
     const tables = new Map();
     for (const r of rows) tables.set(r.table, [...(tables.get(r.table) ?? []), r]);

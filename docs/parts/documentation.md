@@ -62,7 +62,7 @@ The page shows nothing else: no notes, no links drawn as a graph, no history. Ev
 node tools/ont-check/gen-tree.mjs --config ont.config.json --out /tmp/tree.html --labels labels.json
 ```
 
-The page is written when someone wants to see the ontology and is not kept in the repository. A labels file, a JSON object, may replace terms by ID, kind labels by class, headings of tables without an entity, which are the only headings it shows, and the page's own words, for a reader of another language; the entity keeps its own term beside its label. A key the tree does not show is refused, so a typo or a retired ID does not pass unnoticed.
+The page is written when someone wants to see the ontology and is not kept in the repository. A labels file, a JSON object, may replace terms by ID, the labels of the kinds it groups rows by, by class, headings of tables without an entity, which are the only headings it shows, and the page's own words, for a reader of another language; the entity keeps its own term beside its label. A key the tree does not show is refused, so a typo or a retired ID does not pass unnoticed.
 
 <!-- ont: rule.anchor-every-section@57e45b, inv.section-declared@1b1726, rule.reread-then-stamp@3d0dd6, rule.readers-words@3dbebd -->
 ## Reference
