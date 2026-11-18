@@ -63,13 +63,56 @@ test("[check.concept.mention-not-link] an entity named only in a note of another
 test("[check.concept.shows-unknown] a view shows an ID that is no entity, and a rule names what it shows", () => {
   const view = run((p) => p("ontology.md", "| shows `ent.member`, `ent.loan`, `ent.hold` |", "| shows `ent.member`, `ent.loan`, `rule.loan-period` |"));
   assert.equal(view.code, 1, view.out);
-  assert.match(view.out, /ERROR · shows cells that are wrong \([^)]*\) \(1\):\n  view\.member\.loans: rule\.loan-period is not an entity of the glossary\n/);
+  assert.match(view.out, /ERROR · type cells that make no link \([^)]*\) \(1\):\n  view\.member\.loans: rule\.loan-period is not an entity of the glossary\n/);
   const rule = run((p) =>
     p("ontology.md", "| Rule      | `rule.loan-period`       | Loan period          |                  |", "| Rule      | `rule.loan-period`       | Loan period          | shows `ent.loan` |"),
   );
   assert.equal(rule.code, 1, rule.out);
-  assert.match(rule.out, /ERROR · shows cells that are wrong \([^)]*\) \(1\):\n  rule\.loan-period: only a view names what it shows\n/);
+  assert.match(rule.out, /ERROR · type cells that make no link \([^)]*\) \(1\):\n  rule\.loan-period: only a view names what it shows\n/);
   assert.match(rule.out, /rule\.loan-period: only field and edge rows carry a type, and a view its shows/);
+});
+
+test("[check.concept.shows-unknown] a ref on a row that is no field or relation joins nothing, with contracts or without", () => {
+  // An entity whose only tie would be a ref in its own Type cell stays a piece apart.
+  const shelf = (p) =>
+    p(
+      "ontology.md",
+      "## Screens",
+      "## Shelf\n\n| Kind | ID | Term | Type | Definition |\n| --- | --- | --- | --- | --- |\n| Entity | `ent.shelf` | Shelf | ref `ent.item` | Where items stand in the library. |\n\n## Screens",
+    );
+  const entity = run(shelf);
+  assert.equal(entity.code, 1, entity.out);
+  assert.match(entity.out, /ERROR · type cells that make no link \([^)]*\) \(1\):\n  ent\.shelf: only a field or relation refers to an entity\n/);
+  assert.match(entity.out, /ERROR · pieces of the ontology linked by ID to nothing else \([^)]*\) \(1\):\n  ent\.shelf \(its text mentions ent\.item\)\n/);
+  assert.match(entity.out, /ent\.shelf: an entity carries no type/);
+  // A rule with a ref, in a project without contracts, is named too.
+  const rule = run((p, dir) => {
+    p("ontology.md", "| Rule      | `rule.loan-period`       | Loan period          |                  |", "| Rule      | `rule.loan-period`       | Loan period          | ref `ent.item`   |");
+    const path = join(dir, "ont.config.json");
+    const config = JSON.parse(readFileSync(path, "utf8"));
+    delete config.contracts;
+    writeFileSync(path, JSON.stringify(config, null, 2));
+  });
+  assert.equal(rule.code, 1, rule.out);
+  assert.match(rule.out, /ERROR · type cells that make no link \([^)]*\) \(1\):\n  rule\.loan-period: only a field or relation refers to an entity\n/);
+});
+
+test("[check.concept.shows-unknown] the contract generator refuses a view that shows no entity of the glossary", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ont-check-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    const onto = join(dir, "ontology.md");
+    writeFileSync(onto, readFileSync(onto, "utf8").replace("| shows `ent.member`, `ent.loan`, `ent.hold` |", "| shows `ent.member`, `ent.shelf` |"));
+    const r = spawnSync("node", [join(TOOLS, "gen-contracts.mjs"), "--config", join(dir, "ont.config.json")], { encoding: "utf8" });
+    assert.notEqual(r.status, 0, r.stdout);
+    assert.match(r.stdout + r.stderr, /view\.member\.loans: ent\.shelf is not an entity of the glossary/);
+    writeFileSync(onto, readFileSync(onto, "utf8").replace("| shows `ent.member`, `ent.shelf` |", "| shows |"));
+    const empty = spawnSync("node", [join(TOOLS, "gen-contracts.mjs"), "--config", join(dir, "ont.config.json")], { encoding: "utf8" });
+    assert.notEqual(empty.status, 0, empty.stdout);
+    assert.match(empty.stdout + empty.stderr, /view\.member\.loans: shows names no entity/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("[check.concept.untried] lists a concept with no mockup element, ticket or code as information", () => {

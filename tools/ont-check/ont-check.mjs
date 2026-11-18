@@ -35,7 +35,7 @@ import {
   sectionKey,
   tagIds,
 } from "./lib.mjs";
-import { buildContracts, renderContracts } from "./contracts.mjs";
+import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, runStamp } from "./manual-runs.mjs";
@@ -806,34 +806,38 @@ for (const ref of cfg.references) {
 // text mentions, as a hint of what it may be linked to.
 // ont: inv.ontology-connected, field.concept.type
 {
-  const SHOWS = /^shows\s+(.+)$/;
   const near = new Map(rows.map((r) => [r.id, new Set()]));
   const link = (a, b) => {
     if (a === b || !near.has(a) || !near.has(b)) return;
     near.get(a).add(b);
     near.get(b).add(a);
   };
-  const badShows = [];
+  // Only a field or relation refers by `ref` or `refs`, and only a view names what it shows; a type
+  // anywhere else makes no link, and is named here so that it cannot seem to join a piece.
+  const typedClasses = cfg.contracts?.classes ?? ["field", "edge"];
+  const glossaryIds = new Set(Object.keys(ONT));
+  const badLinks = [];
   for (const t of tables.values()) {
     const entity = t.find((r) => cls(r.id) === "ent")?.id;
     for (const r of t) {
       if (entity) link(r.id, entity);
-      const type = r.type ?? "";
-      const ref = type.match(/^refs?\s+(ent\.[a-z0-9-]+)\b/);
-      if (ref) link(r.id, ref[1]);
-      const shows = type.match(SHOWS);
-      if (!shows) continue;
-      if (cls(r.id) !== "view") {
-        badShows.push(`${r.id}: only a view names what it shows`);
-        continue;
-      }
-      for (const target of shows[1].split(",").map((x) => x.trim())) {
-        if (cls(target) === "ent" && ONT[target]) link(r.id, target);
-        else badShows.push(`${r.id}: ${target || "nothing"} is not an entity of the glossary`);
+      if (!r.type) continue;
+      const ref = r.type.trim().match(REF_TYPE);
+      const shows = parseShows(r.type, glossaryIds);
+      if (typedClasses.includes(cls(r.id))) {
+        if (ref) link(r.id, ref[2]);
+      } else if (cls(r.id) === "view" && shows) {
+        if (shows.error) badLinks.push(`${r.id}: ${shows.error}`);
+        else for (const target of shows.targets) link(r.id, target);
+      } else if (ref || shows) {
+        badLinks.push(`${r.id}: ${shows ? "only a view names what it shows" : "only a field or relation refers to an entity"}`);
       }
     }
   }
-  report("shows cells that are wrong (only a view names what it shows, and only entities of the glossary)", badShows);
+  report(
+    "type cells that make no link (a field or relation refers by ref or refs, a view names the entities it shows)",
+    badLinks,
+  );
   const pieces = [];
   const seen = new Set();
   for (const r of rows) {

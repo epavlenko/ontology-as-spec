@@ -39,6 +39,20 @@ export function parseType(text, glossary) {
   return { error: `unknown type "${text}"` };
 }
 
+// The links a Type cell makes in the graph of the ontology (D-89). A field or relation refers to one
+// entity by `ref` or `refs`, optionally `optional`; a view names the entities it shows. Each returns
+// { targets } or { error }, or null when the cell makes no link of its kind.
+export const REF_TYPE = /^(refs?)\s+(ent\.[a-z0-9-]+)(?:\s+optional)?$/;
+export function parseShows(text, glossary) {
+  const m = (text ?? "").trim().match(/^shows(?:\s+(.*))?$/);
+  if (!m) return null;
+  const targets = (m[1] ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (!targets.length) return { error: "shows names no entity" };
+  const bad = targets.filter((x) => !/^ent\.[a-z0-9-]+$/.test(x) || !glossary.has(x));
+  if (bad.length) return { error: `${bad.join(", ")} ${bad.length > 1 ? "are not entities" : "is not an entity"} of the glossary` };
+  return { targets };
+}
+
 const words = (name) => name.split("-");
 const CASES = {
   camel: (n) => words(n).map((w, i) => (i ? w[0].toUpperCase() + w.slice(1) : w)).join(""),
@@ -55,6 +69,7 @@ export function buildContracts(rows, ONT, cfg) {
   for (const r of rows) {
     const [cls, entity, ...rest] = r.id.split(".");
     if (cls === "ent") {
+      if (r.type) problems.push(`${r.id}: an entity carries no type`);
       defs[entity] = {
         title: ONT[r.id].name,
         description: ONT[r.id].def,
@@ -67,8 +82,9 @@ export function buildContracts(rows, ONT, cfg) {
     }
     if (!typed(r.id)) {
       // A view names the entities it shows (D-89); that is a link of the graph, not a property.
-      const shows = cls === "view" && /^shows\s/.test(r.type ?? "");
-      if (r.type && !shows) problems.push(`${r.id}: only ${cfg.contracts.classes.join(" and ")} rows carry a type, and a view its shows`);
+      const shows = cls === "view" ? parseShows(r.type, glossary) : null;
+      if (shows?.error) problems.push(`${r.id}: ${shows.error}`);
+      else if (r.type && !shows) problems.push(`${r.id}: only ${cfg.contracts.classes.join(" and ")} rows carry a type, and a view its shows`);
       continue;
     }
     if (!r.type) {
