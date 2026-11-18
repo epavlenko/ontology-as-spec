@@ -1231,21 +1231,22 @@ test("[check.other-word.used] a listed word in a ticket, a help page or the mock
     p(
       "mockup/index.html",
       "<script>\n",
-      '<script>\nconst u = `<p>&#10;&#1114112; x</p>`; const q = /"/; const w = `<p>A queue&#32;entry</p>`;\nconst v = `<p>a queue\nentry</p>`;\nconst t2 = `<p>queue&Tab;entry</p>`;\n',
+      '<script>\nconst u = `<p>&#10;&#1114112; x</p>`; const q = /"/; const w = `<p>A queue&#32;entry</p>`;\nconst v = `<p>a queue\nentry</p>`;\nconst t2 = `<p>queue&Tab;entry</p>`;\nconst t3 = `<p>${"{"}queue&#000000032;entry, queue&ThinSpace;entry</p>`;\n',
     );
     p("help/borrowing.md", "Bring the item to the desk.", "Bring the item to the desk. A ``code`` span, then a queue entry.");
   });
   assert.equal(r.code, 1, r.out);
   const m = r.out.match(OTHER_WORDS);
   assert.ok(m, r.out);
-  assert.equal(m[1], "7");
+  assert.equal(m[1], "9");
+  assert.equal(m[2].split("\n").filter((l) => l.includes("mockup/index.html:36 ")).length, 2);
   assert.match(m[2], /mockup\/index\.html:35  "queue entry" → Hold \(ent\.hold\)\n/);
   assert.match(m[2], /mockup\/index\.html:32  "queue entry" → Hold \(ent\.hold\)\n/);
   assert.match(m[2], /mockup\/index\.html:33  "queue entry" → Hold \(ent\.hold\)\n/);
   assert.match(m[2], /help\/borrowing\.md:6  "queue entry" → Hold \(ent\.hold\)\n/);
   assert.match(m[2], /issues\/0004-suspend-instead-of-fines\.md:\d+  "queue entry" → Hold \(ent\.hold\)\n/);
   assert.match(m[2], /help\/holds\.md:6  "queue entry" → Hold \(ent\.hold\)\n/);
-  assert.match(m[2], /mockup\/index\.html:78  "queue entry" → Hold \(ent\.hold\)\n/);
+  assert.match(m[2], /mockup\/index\.html:79  "queue entry" → Hold \(ent\.hold\)\n/);
 });
 
 test("[check.other-word.cited] a listed word in code, a quote, a comment, an attribute, the log or the ontology is not a use", () => {
@@ -1259,7 +1260,7 @@ test("[check.other-word.cited] a listed word in code, a quote, a comment, an att
     p(
       "mockup/index.html",
       "<script>\n",
-      '<script>\n// a queue entry is a hold\nconst api = "queue entry"; const r = /[/*]/;\nconst h = `<p title="a > queue entry">${t["queue entry"]}</p>`;\nconst a = `<p>ok</p>`; // queue entry\nconst b = `<p>ok</p>`;\nconst c = `<p>${f ? { label: "queue entry" }.label : "ok"}</p>`;\n',
+      '<script>\n// a queue entry is a hold\nconst api = "queue entry"; const r = /[/*]/;\nconst h = `<p title="a > queue entry">${t["queue entry"]}</p>`;\nconst a = `<p>ok</p>`; // queue entry\nconst b = `<p>ok</p>`;\nconst c = `<p>${f ? { label: "queue entry" }.label : "ok"}</p>`;\n// <p>queue entry</p>\n/* <p>queue entry</p> */\n',
     );
     p("help/borrowing.md", "Bring the item to the desk.", "Bring the item to the desk. In ``queue entry`` and in «a\nqueue entry\nquoted».");
     p("decisions.md", "## Open questions", "## Open questions\n\nIs a queue entry a hold?\n");

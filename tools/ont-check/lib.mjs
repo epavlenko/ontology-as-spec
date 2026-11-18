@@ -419,19 +419,20 @@ export const proseText = (md) =>
     .replace(/^ {0,3}>.*$/gm, blankOut)
     .replace(QUOTED, blankOut);
 const TAG = /<\/?[A-Za-z][^\s/>]*(?:[^>"']|"[^"]*"|'[^']*')*>/g;
-// Character references: numeric ones, and the named ones a page uses for punctuation and white space.
-// Other names are left as written. A reference never adds a line, so line numbers stay.
-const ENTITIES = {
-  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", Tab: " ", NewLine: " ", ensp: " ", emsp: " ",
-  thinsp: " ", shy: "", zwj: "", zwnj: "", ndash: "\u2013", mdash: "\u2014", hellip: "\u2026",
-  lsquo: "\u2018", rsquo: "\u2019", ldquo: "\u201c", rdquo: "\u201d", laquo: "\u00ab", raquo: "\u00bb",
-};
+// Character references, numeric and named. The names are those of the HTML standard, copied from
+// https://html.spec.whatwg.org/entities.json into html-entities.json (the forms with a semicolon); a
+// name it does not have is left as written. A reference never adds a line, so line numbers stay.
+let ENTITIES = null;
+const entity = (name) => (ENTITIES ??= JSON.parse(readFileSync(fileURLToPath(new URL("./html-entities.json", import.meta.url)), "utf8")))[name];
 const decode = (s) =>
-  s.replace(/&(?:#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6})|([A-Za-z]+));/g, (m, d, h, n) => {
-    if (n) return ENTITIES[n] ?? ENTITIES[n.toLowerCase()] ?? m;
-    const cp = parseInt(d ?? h, d ? 10 : 16);
-    if (cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) return m;
-    return String.fromCodePoint(cp).replace(/[\r\n\t\f\v\u2028\u2029]/g, " ");
+  s.replace(/&(?:#(\d+)|#[xX]([0-9a-fA-F]+)|([A-Za-z][A-Za-z0-9]*));/g, (m, d, h, n) => {
+    let text;
+    if (n) text = entity(n);
+    else {
+      const cp = parseInt(d ?? h, d ? 10 : 16);
+      text = cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff) ? undefined : String.fromCodePoint(cp);
+    }
+    return text === undefined ? m : text.replace(/[\r\n\t\f\v\u2028\u2029]/g, " ");
   });
 // Text between tags. In a script, only text with a tag on both sides that holds no code: no quotation
 // mark or backtick that would end the string, no semicolon outside a character reference, no comment,
@@ -452,7 +453,17 @@ const between = (html, script) => {
   out += script ? blankOut(html.slice(last)) : html.slice(last);
   return out;
 };
-// The expressions a template puts in, ${…} with the braces inside them counted, are not text.
+// The comments of a script are not text: a line comment after a line start, a space or punctuation of
+// code, so that the // of an address in a template stays; and every block comment.
+const withoutComments = (js) =>
+  js.replace(/\/\*[\s\S]*?\*\//g, blankOut).replace(/(^|[\s;,{}()[\]=])\/\/[^\n]*/gm, (m, before) => before + blankOut(m.slice(before.length)));
+// The expressions a template puts in, ${…}, are not text. Their end is found by counting braces outside
+// the strings and comments inside them.
+const skipString = (s, i) => {
+  const q = s[i];
+  for (i++; i < s.length && s[i] !== q; i++) if (s[i] === "\\") i++;
+  return i;
+};
 const withoutExpressions = (s) => {
   let out = "";
   for (let i = 0; i < s.length; i++) {
@@ -463,8 +474,12 @@ const withoutExpressions = (s) => {
     let depth = 0;
     let j = i + 1;
     for (; j < s.length; j++) {
-      if (s[j] === "{") depth++;
-      else if (s[j] === "}" && --depth === 0) break;
+      const c = s[j];
+      if (c === "'" || c === '"' || c === "`") j = skipString(s, j);
+      else if (c === "/" && s[j + 1] === "*") j = s.indexOf("*/", j + 2) < 0 ? s.length : s.indexOf("*/", j + 2) + 1;
+      else if (c === "/" && s[j + 1] === "/") j = s.indexOf("\n", j) < 0 ? s.length : s.indexOf("\n", j) - 1;
+      else if (c === "{") depth++;
+      else if (c === "}" && --depth === 0) break;
     }
     out += blankOut(s.slice(i, j + 1));
     i = j;
@@ -480,7 +495,7 @@ export const visibleText = (html) =>
       i % 2
         ? (() => {
             const m = part.match(/^(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)$/i);
-            return blankOut(m[1]) + between(withoutExpressions(m[2]), true) + blankOut(m[3]);
+            return blankOut(m[1]) + between(withoutComments(withoutExpressions(m[2])), true) + blankOut(m[3]);
           })()
         : between(part, false),
     )

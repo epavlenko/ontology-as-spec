@@ -443,7 +443,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `ent.other-word` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` | |
 | `field.other-word.word` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` | |
 | `edge.other-word.concept` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` | |
-| `inv.other-word-not-used` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` | |
+| `inv.other-word-not-used` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`, `tools/ont-check/html-entities.json` | |
 | `inv.other-word-resolves` | `tools/ont-check/ont-check.mjs` | |
 
 ### Decision
