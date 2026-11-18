@@ -685,23 +685,50 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: failing only on a section whose heading names a concept by its term or ID (the rest would stay unchecked); keeping the anchors a manual check (the owner chose the automatic one).
 - Concepts: `inv.section-declared`, `rule.anchor-every-section`.
 
-### D-85 · Four rules every project needs: types and data, another thing, an author not certain, a broken input
+### D-85 · A definition row defines a kind of thing, never one particular thing
 
 - Date: 2026-11-18 · Status: tentative
-- Source: the owner's message of 2026-11-18, after two independent reviews of fifty practices that a project on the approach brought from its own ontology: "Implement what everyone needs" (translated from Russian). Which practices everyone needs, and their wording, are the thread's: neither review named a new practice for every project that the other accepted; these four come from one review in the narrow wording it gave them, and the other review did not object to that wording. The owner accepts them when the branch is merged.
-- Decision: a definition row defines a kind of thing in the product, its field, its relation or a rule; one particular object, person or moment is data of those kinds and gets no row (`rule.types-not-instances`). The approach does not ask a project to keep its data in the repository. When a change would make an ID name another thing rather than describe the same thing better, the old ID is retired with its replacement and a decision, and the other thing gets a new ID (`rule.other-thing-new-id`); a better account of the same thing keeps its ID with a history line or a decision, as before (D-59). A statement whose author is not certain is not the owner's: an entry that rests only on it is tentative, and a `Source:` line does not prove who said it (`rule.unknown-author-not-owner`, adds to D-47). A test of a check that a validator holds, a program that refuses bad files or data, gives it an input that passes and one broken in that check's way, and expects that check's error (`rule.validator-test-breaks`); a judgement of a person or a model is not tested this way. The tool sees none of the four in the text, so each has a manual check that the reviewer of a change judges (`rule.strongest-step`).
-- Why: an object kept as a row of the ontology looks like a concept of the product, and the next agent builds a type for one record. An ID that silently comes to name another thing keeps its old references, which now point at the wrong meaning. A sentence from a meeting whose speaker nobody is sure of, written down as the owner's, becomes a decision he never made. A test that only feeds a validator good input passes even when the validator refuses nothing.
-- Rejected: a new ID for every change of meaning (it breaks principle 2, and D-59 keeps the ID with a history line or a decision); a layer of instances, categories of types and a status for every fact in every project (a profile's business, for projects whose ontology holds data); a negative test for every check of a product (a person's or a model's verdict has no broken input).
-- Concepts: `rule.types-not-instances`, `rule.other-thing-new-id`, `rule.unknown-author-not-owner`, `rule.validator-test-breaks`, `inv.ids-permanent`, `rule.source-precedence`, `inv.auto-check-tested`.
+- Source: the owner's message of 2026-11-18, after two independent reviews of fifty practices that another project on the approach brought from its own ontology: "Implement what everyone needs" (translated from Russian). Which practices everyone needs, and the wording below, are the thread's: neither review named a new practice for every project that the other accepted; this one comes from one review in the narrow wording it gave, and the other review did not object to that wording. The owner accepts it when the branch is merged.
+- Decision: a definition row defines a kind of thing in the product, its field, its relation or a rule; one particular object, person or moment is data of those kinds and gets no row (`rule.types-not-instances`). The approach does not ask a project to keep its data in the repository. The tool cannot tell a kind from a particular thing, so the reviewer of a change judges it (`check.concept.types-not-instances`, `rule.strongest-step`).
+- Why: an object kept as a row of the ontology looks like a concept of the product, and the next agent builds a type for one record.
+- Rejected: a layer of instances with its own check in every project (a profile's business, for projects whose ontology holds data); categories of kinds, such as object, event or phase, for every project (the same).
+- Concepts: `rule.types-not-instances`, `ent.concept`.
 
-### D-86 · A mention in the ontology's text stops counting as a reference only through a profile, later
+### D-86 · An ID that would name another thing is retired, and the other thing gets a new one
+
+- Date: 2026-11-18 · Status: tentative
+- Source: the owner's message of 2026-11-18, after two independent reviews of fifty practices that another project on the approach brought from its own ontology: "Implement what everyone needs" (translated from Russian). Which practices everyone needs, and the wording below, are the thread's: neither review named a new practice for every project that the other accepted; this one comes from one review in the narrow wording it gave, and the other review did not object to that wording. The owner accepts it when the branch is merged.
+- Decision: when a change would make an ID name another thing rather than describe the same thing better, the old ID is retired with its replacement and a decision, and the other thing gets a new ID (`rule.other-thing-new-id`). A better account of the same thing keeps its ID with a history line or a decision, as before (D-59). The tool cannot tell the two apart, so the reviewer of a change judges it (`check.concept.other-thing-new-id`). Adds to D-09.
+- Why: an ID that silently comes to name another thing keeps its old references, which now point at the wrong meaning.
+- Rejected: a new ID for every change of meaning (it breaks principle 2, and D-59 keeps the ID with a history line or a decision).
+- Concepts: `rule.other-thing-new-id`, `inv.ids-permanent`, `action.change-id`, `ent.retired-id`.
+
+### D-87 · A statement whose author is not certain is not the owner's
+
+- Date: 2026-11-18 · Status: tentative
+- Source: the owner's message of 2026-11-18, after two independent reviews of fifty practices that another project on the approach brought from its own ontology: "Implement what everyone needs" (translated from Russian). Which practices everyone needs, and the wording below, are the thread's: neither review named a new practice for every project that the other accepted; this one comes from one review in the narrow wording it gave, and the other review did not object to that wording. The owner accepts it when the branch is merged.
+- Decision: a statement whose author is not certain, a line of a transcript with no speaker or a note that says someone suggested it, is not the owner's: an entry that rests only on it is tentative, and a `Source:` line naming it does not prove who said it (`rule.unknown-author-not-owner`). The reviewer of a change judges it (`check.decision.unknown-author`). Adds to D-47.
+- Why: a sentence from a meeting whose speaker nobody is sure of, written down as the owner's, becomes a decision he never made.
+- Rejected: a status for every fact of the ontology, canon, proposal or reading (a profile's business, for projects that take in material the owner has not approved).
+- Concepts: `rule.unknown-author-not-owner`, `rule.source-precedence`, `field.decision.source`.
+
+### D-88 · A test of a validator's check gives it a broken input
+
+- Date: 2026-11-18 · Status: tentative
+- Source: the owner's message of 2026-11-18, after two independent reviews of fifty practices that another project on the approach brought from its own ontology: "Implement what everyone needs" (translated from Russian). Which practices everyone needs, and the wording below, are the thread's: neither review named a new practice for every project that the other accepted; this one comes from one review in the narrow wording it gave, and the other review did not object to that wording. The owner accepts it when the branch is merged.
+- Decision: a test of a check that a validator holds, a program that refuses bad files or data, gives it an input that passes and one broken in that check's way, and expects that check's error (`rule.validator-test-breaks`). A judgement of a person or a model is not tested this way. The tool cannot see what a test feeds the validator, so the reviewer of a change judges it (`check.test.validator-breaks`).
+- Why: a test that only feeds a validator good input passes even when the validator refuses nothing.
+- Rejected: a broken input for every check of a product (a person's or a model's verdict has none).
+- Concepts: `rule.validator-test-breaks`, `ent.test`, `inv.auto-check-tested`.
+
+### D-89 · A mention in the ontology's text stops counting as a reference only through a mechanism a project turns on, later
 
 - Date: 2026-11-18 · Status: tentative
 - Source: the owner's answer of 2026-11-17 to a question in another project on the approach, option c: the check of links between concepts stays in that project for now and comes into the approach once it has taken hold there (translated from Russian); and the owner's message of 2026-11-18, "how best to add the rest, so that rules and mechanisms apply depending on the case and the field" (translated from Russian), which the thread answered with a question still open. The details below are the thread's.
 - Decision: `inv.concept-referenced` keeps counting a mention of an ID in the ontology's text as a reference. Changing that, together with rules, invariants, concepts and derived values that name what they constrain, describe and read, is put off. When it is taken up, it is a mechanism a project turns on in its configuration, as the profiles describe, not a rule for every project.
-- Why: both reviews found the hole: a sentence of a note makes a concept referenced. A trial of the stricter count on a copy of the tool left the approach, the example and the templates almost untouched, but projects on the approach would find from two to forty concepts unreferenced when they update their copy; that is the cost of moving them, not a proof that they do not need the check. The project that built the check is still reviewing it.
+- Why: both reviews found the hole: a sentence of a note makes a concept referenced. A trial of the stricter count on a copy of the tool left the approach, the example and the templates almost untouched, while projects whose concepts are tied only by such sentences would have to rework them; that is the cost of moving them, not a proof that they do not need the check.
 - Rejected: the stricter count for every project now (the owner's answer puts it off); dropping the change (both reviews found the hole).
-- Return when: the project that built the check meets the condition its own log sets for bringing it in, its next version merged with the rules of the check unchanged, or the owner answers how the approach adds mechanisms by the field of a project.
+- Return when: the owner decides that the check has taken hold in the project that built it, or answers how the approach adds mechanisms by the field of a project.
 - Concepts: `inv.concept-referenced`, `ent.profile`.
 
 ## Open questions

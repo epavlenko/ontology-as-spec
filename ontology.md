@@ -700,7 +700,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
-- 2026-11-18: what a definition row defines, when a change needs a new ID, an author who is not certain, and a test of a validator that breaks its input: `rule.types-not-instances`, `rule.other-thing-new-id`, `rule.unknown-author-not-owner`, `rule.validator-test-breaks` (D-85, tentative).
+- 2026-11-18: what a definition row defines, when a change needs a new ID, an author who is not certain, and a test of a validator that breaks its input: `rule.types-not-instances` (D-85), `rule.other-thing-new-id` (D-86), `rule.unknown-author-not-owner` (D-87), `rule.validator-test-breaks` (D-88), all tentative.
 - 2026-11-05: every section of a doc set declares what it explains: `inv.section-declared`, and `rule.anchor-every-section` says an empty anchor declares no concept (D-84, tentative).
 - 2026-11-05: each state of a view is judged on a snapshot, and the screens are kept for the owner: `rule.view-state-judged`, `rule.screens-kept` (D-83, tentative).
 - 2026-11-05: `derived.review-checks` leaves the records of manual runs out of the change it reviews (D-82, tentative).
