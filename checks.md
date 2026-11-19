@@ -301,3 +301,20 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 | -------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | `check.tool-copy.removed-file-deleted` | `action.update-copy`, `field.tool-copy.pin`, `ent.tool-copy` | a copy pinned at a commit whose tool has `sub/b.mjs`, and a later commit that removed it                          | the copy is updated to the later commit | `sub/b.mjs` and its emptied directory are gone, every other file is the later commit's, the tests are not copied, and the pin names the commit, its last decision and the hash of every file | auto  |
 | `check.tool-copy.extra-file`           | `inv.copy-matches-pin`, `field.tool-copy.pin`                | the copy's directory holds `old/stale.mjs`, which its pin does not name, a file edited by hand and a file deleted | the pin is verified                     | it names the extra file, the changed one and the missing one, and fails; a file the pin lists as the project's own is neither named nor deleted                                              | auto  |
+
+## Formal form
+
+| Check | Concepts | GIVEN | WHEN | THEN | Proof |
+| --- | --- | --- | --- | --- | --- |
+| `check.formal-form.missing` | `inv.form-per-row`, `ent.formal-form` | a project whose configuration turns the oracle on, with an action row that has no form in its section's behavior block | the check runs | it names the row and fails | auto |
+| `check.formal-form.unknown-name` | `inv.form-names-defined`, `edge.formal-form.concept` | a form that reads a field its entity does not have, and one that calls a derived value that has no form | the check runs | it names both and fails | auto |
+| `check.formal-form.out-of-order` | `rule.form-follows-rows` | a block whose forms are not in the order of the rows, a form that starts with an ID of another section, and a block that is not folded | the check runs | it names each and fails | auto |
+| `check.formal-form.not-the-product` | `rule.oracle-not-the-product`, `concept.oracle` | a change that adds or changes formal forms | a reviewer reads it | nothing runs the oracle as the product, and the code is still written by a model from the ontology | manual |
+| `check.formal-form.code-compared` | `rule.code-compared-with-oracle` | a project with an oracle and code | a reviewer reads its comparison test | it runs the code and the oracle on the same random sequences of implemented actions, fails on a difference that is not a known divergence with its condition, fails when nothing is compared, and keeps a failing sequence to repeat it | manual |
+
+## Trace
+
+| Check | Concepts | GIVEN | WHEN | THEN | Proof |
+| --- | --- | --- | --- | --- | --- |
+| `check.trace.untraced` | `inv.trace-per-check`, `ent.trace`, `edge.trace.check` | a check with no trace and no line that says why, and a trace that names no check of the catalogue | the check runs | it names both and fails | auto |
+| `check.trace.fails` | `inv.traces-pass` | a trace whose THEN does not hold on the oracle | `--run` runs | it names the check and what differed, and exits 1 | auto |

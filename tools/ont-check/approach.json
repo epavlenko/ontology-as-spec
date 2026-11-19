@@ -15,6 +15,7 @@
     "concept.approach-ids",
     "concept.completeness-axis",
     "concept.ontology-layer",
+    "concept.oracle",
     "concept.product-layer",
     "derived.current-run",
     "derived.deferral-in-force",
@@ -42,6 +43,7 @@
     "edge.divergence.concepts",
     "edge.doc-section.explains",
     "edge.doc-section.set",
+    "edge.formal-form.concept",
     "edge.implementation-row.concept",
     "edge.manual-run.check",
     "edge.map-row.concept",
@@ -59,6 +61,7 @@
     "edge.ticket.concepts",
     "edge.ticket.depends-on",
     "edge.tool-copy.last-decision",
+    "edge.trace.check",
     "ent.agent-rules",
     "ent.check",
     "ent.concept",
@@ -67,6 +70,7 @@
     "ent.divergence",
     "ent.doc-section",
     "ent.doc-set",
+    "ent.formal-form",
     "ent.implementation-row",
     "ent.manual-run",
     "ent.map-row",
@@ -80,6 +84,7 @@
     "ent.test-suite",
     "ent.ticket",
     "ent.tool-copy",
+    "ent.trace",
     "field.agent-rules.files",
     "field.check.given",
     "field.check.proof",
@@ -146,6 +151,8 @@
     "inv.doc-set-names-unique",
     "inv.dynamic-ids-declared",
     "inv.field-in-its-entity",
+    "inv.form-names-defined",
+    "inv.form-per-row",
     "inv.ids-permanent",
     "inv.implementation-files-exist",
     "inv.implementation-true",
@@ -190,6 +197,8 @@
     "inv.ticket-checks-related",
     "inv.ticket-has-ids",
     "inv.tooltips-generated",
+    "inv.trace-per-check",
+    "inv.traces-pass",
     "inv.tree-complete",
     "inv.typed-fields",
     "rule.agent-rule-source",
@@ -201,6 +210,7 @@
     "rule.check-not-redundant",
     "rule.chosen-value-checked",
     "rule.cite-decisions",
+    "rule.code-compared-with-oracle",
     "rule.code-names-concepts",
     "rule.code-reviewed-for-errors",
     "rule.commit-finished-work",
@@ -213,6 +223,7 @@
     "rule.divergence-becomes-work",
     "rule.divergence-contradicts",
     "rule.findings-mislead",
+    "rule.form-follows-rows",
     "rule.guide-runs-check",
     "rule.judge-sees-the-check",
     "rule.kind-order",
@@ -227,6 +238,7 @@
     "rule.one-mockup",
     "rule.ontology-changes-first",
     "rule.ontology-is-source",
+    "rule.oracle-not-the-product",
     "rule.other-thing-new-id",
     "rule.partial-noted",
     "rule.product-decisions-only",
@@ -960,6 +972,27 @@
       "given": "a profile",
       "when": "a reviewer reads it",
       "then": "everything it requires is enforced through the configuration and the catalogue, and the rest is listed as recommended"
+    },
+    {
+      "id": "check.formal-form.not-the-product",
+      "section": "Formal form",
+      "concepts": [
+        "rule.oracle-not-the-product",
+        "concept.oracle"
+      ],
+      "given": "a change that adds or changes formal forms",
+      "when": "a reviewer reads it",
+      "then": "nothing runs the oracle as the product, and the code is still written by a model from the ontology"
+    },
+    {
+      "id": "check.formal-form.code-compared",
+      "section": "Formal form",
+      "concepts": [
+        "rule.code-compared-with-oracle"
+      ],
+      "given": "a project with an oracle and code",
+      "when": "a reviewer reads its comparison test",
+      "then": "it runs the code and the oracle on the same random sequences of implemented actions, fails on a difference that is not a known divergence with its condition, fails when nothing is compared, and keeps a failing sequence to repeat it"
     }
   ]
 }

@@ -707,6 +707,40 @@
         "pin",
         "lastDecision"
       ]
+    },
+    "formal-form": {
+      "title": "Formal form",
+      "description": "The behavior of a definition row in the form language: how a derived value or a rule is computed, what an invariant refuses, what an action or a hook does.",
+      "x-ont": "ent.formal-form",
+      "type": "object",
+      "properties": {
+        "concept": {
+          "description": "The row whose behavior the form states; the form starts with its ID.",
+          "x-ont": "edge.formal-form.concept",
+          "type": "string",
+          "x-ont-ref": "ent.concept"
+        }
+      },
+      "required": [
+        "concept"
+      ]
+    },
+    "trace": {
+      "title": "Trace",
+      "description": "A check's case as steps the oracle runs: the GIVEN and the WHEN as actions and days, the THEN as outcomes, notifications and assertions.",
+      "x-ont": "ent.trace",
+      "type": "object",
+      "properties": {
+        "check": {
+          "description": "The check whose case the trace runs.",
+          "x-ont": "edge.trace.check",
+          "type": "string",
+          "x-ont-ref": "ent.check"
+        }
+      },
+      "required": [
+        "check"
+      ]
     }
   }
 }

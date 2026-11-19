@@ -382,6 +382,33 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 
 A fix to the tool is made in the approach and reaches a project with its next copy; a copy is never edited in place.
 
+## Formal form
+
+| Kind      | ID                               | Term                       | Type              | Definition                                                                                                                                                                                            |
+| --------- | -------------------------------- | -------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.formal-form`                | Formal form                |                   | The behavior of a definition row in the form language: how a derived value or a rule is computed, what an invariant refuses, what an action or a hook does.                                           |
+| Relation  | `edge.formal-form.concept`       | States                     | ref `ent.concept` | The row whose behavior the form states; the form starts with its ID.                                                                                                                                  |
+| Concept   | `concept.oracle`                 | Oracle                     |                   | The ontology run by the tool from its formal forms, with actions and days as steps; traces and code are compared with it.                                                                             |
+| Rule      | `rule.form-follows-rows`         | Forms follow the rows      |                   | A section's forms sit in one folded behavior block under its table, in the order of the rows, each starting with its row's ID.                                                                        |
+|           | `rule.oracle-not-the-product`    | Not the product            |                   | The oracle checks the ontology and the code; it is never deployed or run as the product, whose code a model writes from the ontology.                                                                 |
+|           | `rule.code-compared-with-oracle` | Code compared              |                   | A project with an oracle runs its code and the oracle on the same random sequences of implemented actions; a difference fails unless it is a known divergence, and a run that compares nothing fails. |
+| Invariant | `inv.form-per-row`               | A form per row             |                   | When the configuration turns the oracle on, every derived, rule, invariant, hook and action row has a formal form.                                                                                    |
+|           | `inv.form-names-defined`         | Forms name what is defined |                   | Every name in a form is an ID that has a form, a field or relation of the entity it is read on, a parameter, a loop variable or a word of the language.                                               |
+
+- The form language and the statements of actions and hooks are described in `docs/parts/oracle.md`. A form restates its row's definition and the notes under its table; where the two disagree, the row is the meaning and the form is fixed, like code (D-73, D-93).
+- `concept.oracle` keeps records of entities and a log of steps, each with its actor and day. Models are text and are not stored as records.
+
+## Trace
+
+| Kind      | ID                    | Term               | Type            | Definition                                                                                                                                                            |
+| --------- | --------------------- | ------------------ | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.trace`           | Trace              |                 | A check's case as steps the oracle runs: the GIVEN and the WHEN as actions and days, the THEN as outcomes, notifications and assertions.                              |
+| Relation  | `edge.trace.check`    | Traces             | ref `ent.check` | The check whose case the trace runs.                                                                                                                                  |
+| Invariant | `inv.trace-per-check` | Every check traced |                 | When the oracle is on, every check of the catalogue has a trace or a line of the catalogue that says why it has none, and every trace names a check of the catalogue. |
+|           | `inv.traces-pass`     | Traces pass        |                 | Every trace holds on the oracle.                                                                                                                                      |
+
+- A trace sits in a folded traces block of its check's section in the catalogue, starting with the check's ID; the sample collection of the catalogue is a block of its own. A check without a trace is listed on a `- Not traced:` line with the reason.
+
 ## Implementation status
 
 Where each concept is realised. Tool files enforce or generate; pages of `docs/` state the rules people follow and the procedures they carry out.
@@ -736,6 +763,21 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `edge.tool-copy.last-decision` | `tools/ont-check/pin.mjs` | |
 | `inv.copy-matches-pin` | `tools/ont-check/pin.mjs` | |
 | `action.update-copy` | `tools/ont-check/pin.mjs`, `docs/lifecycle.md` | |
+
+### Formal form
+
+| ID | Implemented in | Note |
+| -- | -------------- | ---- |
+| `ent.formal-form`, `edge.formal-form.concept`, `concept.oracle` | `tools/ont-check/oracle.mjs`, `tools/ont-check/expr.mjs` | |
+| `rule.form-follows-rows`, `inv.form-per-row`, `inv.form-names-defined` | `tools/ont-check/oracle.mjs`, `tools/ont-check/ont-check.mjs` | |
+| `rule.oracle-not-the-product` | `docs/parts/oracle.md` | reviewed, not checked |
+| `rule.code-compared-with-oracle` | `docs/parts/oracle.md` | reviewed, not checked; the example's comparison test is one |
+
+### Trace
+
+| ID | Implemented in | Note |
+| -- | -------------- | ---- |
+| `ent.trace`, `edge.trace.check`, `inv.trace-per-check`, `inv.traces-pass` | `tools/ont-check/oracle.mjs`, `tools/ont-check/ont-check.mjs` | |
 
 ### Known divergences between code and ontology
 

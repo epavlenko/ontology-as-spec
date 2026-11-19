@@ -759,10 +759,20 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
+### D-93 · The ontology runs as an oracle: formal forms under the tables, traces in the catalogue, a small form language
+
+- Date: 2026-11-19 · Status: tentative
+- Source: the owner's answers of 2026-11-19 to questions 932 (option a: the ontology as an oracle, with the code still written by a model), 935 and 938 (option a of each: a behavior block under each entity's table, its forms in the order of the rows, each starting with its ID, the block folded; definitions stay in the tables; traces as blocks in the catalogue), 941 (option a: a small form language of the approach's own, chosen after a run that compared it with FEEL) and 933 (option a, "only not in /tmp": a throwaway prototype on the example, kept off the public repository) (translated from Russian). Tentative: this branch is the prototype the owner asked for, not its adoption.
+- Decision: a definition row of a derived value, a rule, an invariant, a hook or an action may carry a formal form: its behavior in a small form language, in a folded behavior block under its entity's table. The tool's interpreter, the oracle, runs the forms: an action is a step with an actor and a day, refused by the forms it names or carried out by its statements, and a hook runs on a day or after an action. A check of the catalogue carries a trace, its case as steps and observations, in a folded traces block of its section, or a line that says why it has none; `--run` runs every trace on the oracle. The oracle is not the product: a model still writes the code (D-73), and a project compares its code with the oracle on random sequences of implemented actions, where only a known divergence may differ. The state of the oracle is records of entities and a log of steps; models are text, not stored as records.
+- Why: the check reads the names code gives its concepts, not what code does (docs/limitations.md). A run of the forms tells whether the ontology says enough to decide every case, and a comparison with the code tells whether the code does what the ontology says. Written next to their rows, the forms are read with the definitions they restate.
+- Rejected: forms in a file of their own (read apart from the definitions they restate); forms in a column of the tables (an action's statements do not fit a cell); definitions written as forms too (the tables are the overview people read); FEEL as the form language (nine packages, names in camelCase instead of the ontology's words, and traps a run found: a hyphen read as minus on loop variables, a filter hiding a parameter of the same name); the ontology executed as the product (D-73).
+- Concepts: `ent.formal-form`, `ent.trace`, `concept.oracle`, `rule.form-follows-rows`, `rule.oracle-not-the-product`, `rule.code-compared-with-oracle`, `inv.form-per-row`, `inv.form-names-defined`, `inv.trace-per-check`, `inv.traces-pass`.
+
 ## Open questions
 
 ## History
 
+- 2026-11-19: D-93, tentative, on the prototype branch: formal forms, traces and the oracle.
 - 2026-11-19: D-91 and D-92 accepted by the owner; D-91 supersedes D-51.
 - 2026-11-18: D-90 accepted by the owner.
 - 2026-11-18: D-84, D-85, D-86, D-87, D-88 and D-89 accepted by the owner.
