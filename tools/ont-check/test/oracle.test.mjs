@@ -138,10 +138,12 @@ test("[check.formal-form.cycle] a derived value and a rule that read themselves 
   const r = run((p) => {
     p("ontology.md", "derived.overdue(loan) = loan.returned-on = null and today > loan.due-date", "derived.overdue(loan) = loan.returned-on = null and derived.overdue(loan)");
     p("ontology.md", "rule.loan-period = 21 days", "rule.loan-period = rule.loan-period");
+    p("ontology.md", '  says "{item} is already on loan"\n', '  says "{item} is already on loan"\n  refuse by inv.one-loan-per-item\n');
   });
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /derived\.overdue: depends on itself through derived\.overdue → derived\.overdue/);
   assert.match(r.out, /rule\.loan-period: depends on itself through rule\.loan-period → rule\.loan-period/);
+  assert.match(r.out, /inv\.one-loan-per-item: depends on itself through inv\.one-loan-per-item → inv\.one-loan-per-item/);
 });
 
 test("[check.formal-form.write-out-of-type] a write below an integer's range and one outside a one-of list stop the run with the form, the field and its type", () => {
@@ -151,6 +153,12 @@ test("[check.formal-form.write-out-of-type] a write below an integer's range and
   const odd = run((p) => p("ontology.md", "    set item.condition = condition", '    set item.condition = "broken"'), "--run");
   assert.equal(odd.code, 1, odd.out);
   assert.match(odd.out, /action\.return writes "broken" to field\.item\.condition, outside its type one of good, worn, damaged/);
+  const text = run((p) => p("ontology.md", "  set loan.returned-on = today", '  set loan.returned-on = "banana"'), "--run");
+  assert.equal(text.code, 1, text.out);
+  assert.match(text.out, /action\.return writes "banana" to field\.loan\.returned-on, outside its type date optional/);
+  const other = run((p) => p("ontology.md", "item = item, member = member", "item = item, member = item"), "--run");
+  assert.equal(other.code, 1, other.out);
+  assert.match(other.out, /action\.checkout writes "[a-z]+-\d+" to edge\.loan\.member, outside its type ref ent\.member/);
 });
 
 test("[check.formal-form.unknown-name] names are typed by entity: a relation leads on, a loop variable is seen only inside its loop", () => {

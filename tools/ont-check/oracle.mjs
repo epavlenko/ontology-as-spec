@@ -3,6 +3,7 @@
 // entities, and the structural checks of forms and traces. The oracle checks the ontology and the
 // code; it is not the product (rule.oracle-not-the-product).
 // ont: ent.formal-form, edge.formal-form.concept, concept.oracle, ent.trace, edge.trace.check
+import { parseType } from "./contracts.mjs";
 import { FormError, addDays, evaluate, idOf, names, parse, schemaOf } from "./expr.mjs";
 import { sectionKey } from "./lib.mjs";
 
@@ -189,14 +190,25 @@ const readsOf = (n, out = new Set()) => {
   return out;
 };
 
-// Derived values, concepts and rule values that read themselves, directly or through others: each
+// The rules and invariants a list of statements names by `refuse by`, inside `each` and `if` too.
+const refusalsOf = (list, out = new Set()) => {
+  for (const st of list ?? []) {
+    if (st.s === "refuse-by") out.add(st.id);
+    if (st.s === "each" || st.s === "if") refusalsOf(st.body, out);
+  }
+  return out;
+};
+
+// Derived values, concepts and rule values that read themselves, and refusals that name themselves
+// by `refuse by`, directly or through others: each
 // cycle once, from its first form in the order of the forms. An expression has no loops of its own,
 // so these are the only way one could fail to end.
 export function cycles(forms) {
   const deps = new Map();
   for (const f of forms.values()) {
     const trees = [f.e, f.value, ...Object.values(f.values ?? {})].filter(Boolean);
-    if (trees.length) deps.set(f.id, [...readsOf(trees)].filter((x) => forms.has(x)));
+    const refusals = refusalsOf(f.body);
+    if (trees.length || refusals.size) deps.set(f.id, [...readsOf(trees), ...refusals].filter((x) => forms.has(x)));
   }
   const found = [];
   const seen = new Set();
@@ -321,26 +333,34 @@ export function checkForms({ forms, problems }, rows) {
 
 // ---------- the interpreter ----------
 
-// Whether a value is of a field's type, as its row writes it: `integer 1..`, `integer 1..9`,
-// `one of a, b, c`, `date`, `datetime`, `ref ent.x`, `boolean`. Empty is always allowed; a type the
-// oracle does not read is not checked.
+// Whether a value is of a field's type, read with the vocabulary of the contracts (`parseType`):
+// text, integer with its bounds, number, boolean, date, datetime, one of …, ref and refs of an entity,
+// each optionally `optional`. A reference must name a record of its entity. Empty is not checked:
+// a record starts with every field empty, and `optional` matters only to the product's contract.
 // ont: inv.writes-in-type
-export function ofType(type, v, schema, byId) {
+export function ofType(type, v, schema, state) {
   if (v === null || v === undefined || !type) return true;
-  const t = type.replace(/^optional\s+/, "").trim();
-  let m;
-  if ((m = t.match(/^integer(?:\s+(-?\d+)?\.\.(-?\d+)?)?$/))) {
-    return Number.isInteger(v) && (m[1] === undefined || v >= Number(m[1])) && (m[2] === undefined || v <= Number(m[2]));
-  }
-  if ((m = t.match(/^one of (.+)$/))) return m[1].split(",").map((x) => x.trim()).includes(v);
-  if (t === "date") return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
-  if (t === "datetime") return typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v);
-  if (t === "boolean") return v === true || v === false;
-  if ((m = t.match(/^ref ent\.([a-z0-9-]+)$/))) {
-    const e = schema.entities[m[1]];
-    return !e || (byId.has(v) && byId.get(v) !== undefined);
-  }
-  return true;
+  const t = parseType(type, { has: () => true });
+  if (t.error) return true;
+  const one = (s, x) => {
+    if (s.enum) return s.enum.includes(x);
+    if (s["x-ont-ref"]) {
+      const e = schema.entities[s["x-ont-ref"].slice(4)];
+      return typeof x === "string" && Boolean(e) && (state[e.collection] ?? []).some((o) => o.id === x);
+    }
+    if (s.type === "string") {
+      if (typeof x !== "string") return false;
+      if (s.format === "date") return /^\d{4}-\d{2}-\d{2}$/.test(x);
+      if (s.format === "date-time") return /^\d{4}-\d{2}-\d{2}T/.test(x);
+      return true;
+    }
+    if (s.type === "integer") return Number.isInteger(x) && (s.minimum === undefined || x >= s.minimum) && (s.maximum === undefined || x <= s.maximum);
+    if (s.type === "number") return typeof x === "number" && Number.isFinite(x);
+    if (s.type === "boolean") return x === true || x === false;
+    if (s.type === "array") return Array.isArray(x) && x.every((y) => one(s.items, y));
+    return true;
+  };
+  return one(t.schema, v);
 }
 
 export class Oracle {
@@ -396,7 +416,7 @@ export class Oracle {
   // and the ontology does not say what happens, so the run stops rather than keep the value.
   typed(ent, f, v, owner, c) {
     const field = this.schema.entities[ent].fields[f];
-    if (field && !ofType(field.type, v, this.schema, c.byId)) {
+    if (field && !ofType(field.type, v, this.schema, c.state)) {
       throw new FormError("eval", `${owner} writes ${JSON.stringify(v)} to ${field.id}, outside its type ${field.type}; the ontology does not say what happens`);
     }
     return v;
