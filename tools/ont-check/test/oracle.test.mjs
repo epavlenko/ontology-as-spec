@@ -161,6 +161,11 @@ test("[check.formal-form.write-out-of-type] a write below an integer's range and
   const day = run((p) => p("ontology.md", "  set loan.returned-on = today", '  set loan.returned-on = "2026-02-30"'), "--run");
   assert.equal(day.code, 1, day.out);
   assert.match(day.out, /action\.return writes "2026-02-30" to field\.loan\.returned-on, outside its type date optional/);
+  for (const at of ["2026-10-01T00:00:00+99:99", "2026-10-01T00:00:00+00:60"]) {
+    const zone = run((p) => p("ontology.md", "placed-at = now", `placed-at = "${at}"`), "--run");
+    assert.equal(zone.code, 1, zone.out);
+    assert.match(zone.out, new RegExp(`action\\.place-hold writes "${at.replace(/\+/g, "\\+")}" to field\\.hold\\.placed-at, outside its type datetime`));
+  }
   const other = run((p) => p("ontology.md", "item = item, member = member", "item = item, member = item"), "--run");
   assert.equal(other.code, 1, other.out);
   assert.match(other.out, /action\.checkout writes "[a-z]+-\d+" to edge\.loan\.member, outside its type ref ent\.member/);

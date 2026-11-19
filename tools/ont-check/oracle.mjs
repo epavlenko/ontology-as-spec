@@ -369,8 +369,11 @@ export function ofType(type, v, schema, state) {
       if (typeof x !== "string") return false;
       if (s.format === "date") return calendarDate(x);
       if (s.format === "date-time") {
-        const m = x.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/);
-        return Boolean(m) && calendarDate(m[1]) && Number(m[2]) < 24 && Number(m[3]) < 60 && Number(m[4]) < 60;
+        // RFC 3339, as JSON Schema's date-time: hours below 24, minutes and seconds below 60, in the
+        // time and in the offset alike.
+        const m = x.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))?$/);
+        const below = (v, n) => v === undefined || Number(v) < n;
+        return Boolean(m) && calendarDate(m[1]) && below(m[2], 24) && below(m[3], 60) && below(m[4], 60) && below(m[6], 24) && below(m[7], 60);
       }
       return true;
     }
