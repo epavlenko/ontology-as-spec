@@ -146,7 +146,7 @@ test("[check.concept.shows-unknown] the contract generator refuses a view that s
 test("[check.concept.untried] lists a concept with no mockup element, ticket or code as information", () => {
   const r = run((p) => p("ontology.md", "| `edge.item.copy-of`     | `app/library.mjs` |                                           |\n", ""));
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /info · concepts with no mockup element, ticket or implementation yet \(1\):\n  edge\.item\.copy-of/);
+  assert.match(r.out, /info · concepts with no mockup element, ticket or implementation yet \(7\):\n(?:  .*\n)*  edge\.item\.copy-of\n/);
 });
 
 test("accepts the older single tests key as one unnamed suite", () => {
@@ -158,7 +158,15 @@ test("accepts the older single tests key as one unnamed suite", () => {
       '"tests": { "dir": ".", "match": "\\\\.test\\\\.mjs$", "cover": ["inv", "rule", "derived", "action"] },',
     );
     const catalogue = readFileSync(join(EXAMPLE, "checks.md"), "utf8");
-    for (const row of catalogue.match(/^\| `check\.[^`]+` +\|.*\| judged +\|.*\n/gm)) p("checks.md", row, "");
+    for (const row of catalogue.match(/^\| `check\.[^`]+` +\|.*\| judged +\|.*\n/gm)) {
+      p("checks.md", row, "");
+      // The example's oracle lists a screen check it does not trace; the line goes with the check.
+      const id = row.match(/`(check\.[^`]+)`/)[1];
+      const line = catalogue.match(new RegExp(`^- Not traced: \`${id.replace(/\./g, "\\.")}\`.*\n`, "m"));
+      if (line) p("checks.md", line[0], "");
+      const trace = catalogue.match(new RegExp(`^${id.replace(/\./g, "\\.")}\n(?: {2}.*\n)+`, "m"));
+      if (trace) p("checks.md", trace[0], "");
+    }
   });
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, / tested \d+ /);
@@ -521,12 +529,12 @@ test("[check.ticket.next-slice] --next proposes the next slice, or says what the
       p(
         "decisions.md",
         "## Tentative",
-        "### D-17 · Entry 17\n\n- Date: 2026-10-22 · Status: accepted\n- Return when: a second branch opens\n- Decision: later: `action.set-borrow-limit`, `field.item.condition`, `hook.due-reminder`, `action.cancel-hold`, `view.catalog`, `view.title.page`, `view.desk`.\n\n## Tentative",
+        "### D-17 · Entry 17\n\n- Date: 2026-10-22 · Status: accepted\n- Return when: a second branch opens\n- Decision: later: `action.set-borrow-limit`, `field.item.condition`, `hook.due-reminder`, `action.cancel-hold`, `view.catalog`, `view.title.page`, `view.desk`, `field.loan.returned-on`, `field.loan.reminded`, `field.hold.placed-at`, `field.hold.state`, `field.hold.reserved-on`, `edge.hold.reserved-item`.\n\n## Tentative",
       ),
     "--next",
   );
   assert.equal(none.code, 0, none.out);
-  assert.match(none.out, /NEXT · nothing ready: 8 are in tickets; 7 are deferred until a second branch opens \(D-17\)\n/);
+  assert.match(none.out, /NEXT · nothing ready: 8 are in tickets; 13 are deferred until a second branch opens \(D-17\)\n/);
 });
 
 test("[check.ticket.next-slice] --next says what the gap still holds when no target is left", () => {
@@ -786,7 +794,7 @@ test("[check.agent-rules.approach-ids-stale] the approach IDs next to the tool m
     const stale = node("ont-check.mjs");
     assert.equal(stale.status, 1, stale.stdout);
     assert.match(stale.stdout, /generated approach IDs differ from the ontology \(run gen-approach\.mjs\) \(1\):\n {2}approach-ids\.json\n/);
-    assert.match(node("gen-approach.mjs").stdout, /approach-ids\.json: 40 IDs/);
+    assert.match(node("gen-approach.mjs").stdout, /approach-ids\.json: 46 IDs/);
     const fresh = node("ont-check.mjs");
     assert.equal(fresh.status, 0, fresh.stdout);
   } finally {
@@ -1164,16 +1172,16 @@ test("[check.ontology-tree.complete] every definition row is in the tree once, i
 
 test("[check.ontology-tree.structure] tables in order, kinds in order with counts, terms shown, references and views named", () => {
   const t = tree((p) => {
-    p("ontology.md", "| ref `ent.member` | The member waiting", "| refs `ent.member` | The member waiting");
+    p("ontology.md", "| ref `ent.member`                           | The member waiting", "| refs `ent.member`                           | The member waiting");
     p("ontology.md", "| Concept   | `concept.suspension`", "| Field | `field.member.favourite` | Favourite title | ref `ent.title` | The title the member reads most. |\n| Concept   | `concept.suspension`");
   });
   assert.equal(t.code, 0, t.out);
   const bs = branches(t.html);
   assert.deepEqual(bs.map((b) => b.match(/<summary><b[^>]*>([^<]+)<\/b>/)[1]), ["Member", "Title", "Item", "Loan", "Hold", "Screens"]);
   const loan = bs[3];
-  assert.match(loan, /<summary><b data-ont="ent\.loan"[^>]*>Loan<\/b> <small>13<\/small>/);
+  assert.match(loan, /<summary><b data-ont="ent\.loan"[^>]*>Loan<\/b> <small>15<\/small>/);
   assert.deepEqual([...loan.matchAll(/<span class="g">([A-Za-z]+) <small>(\d+)<\/small>/g)].map((m) => `${m[1]} ${m[2]}`), [
-    "Field 2", "Relation 2", "Derived 1", "Rule 2", "Invariant 1", "Hook 1", "Action 3",
+    "Field 4", "Relation 2", "Derived 1", "Rule 2", "Invariant 1", "Hook 1", "Action 3",
   ]);
   assert.match(loan, /<span class="p" data-ont="field\.loan\.due-date" title="field\.loan\.due-date — [^"]+">Due date<\/span>/);
   assert.match(loan, /data-ont="edge\.loan\.member"[^>]*>Borrower <i>→ Member<\/i><\/span>/);
@@ -1192,7 +1200,7 @@ test("[check.ontology-tree.labels] a labels file replaces terms, kinds and headi
   assert.match(t.html, />Open all<\/button>/);
   assert.doesNotMatch(t.html, /several/, "the example has no refs, and the word is accepted all the same");
   assert.match(t.html, /<b data-ont="ent\.loan"[^>]*>Lending<\/b> <span class="en">Loan<\/span>/);
-  assert.match(t.html, /<span class="g">Fields <small>2<\/small>/);
+  assert.match(t.html, /<span class="g">Fields <small>4<\/small>/);
   assert.match(t.html, /<summary><b class="v">Screen list<\/b>/);
   assert.match(t.html, /data-ont="edge\.loan\.member"[^>]*>Borrowed by <i>→ Member<\/i>/);
   assert.match(t.html, /data-ont="edge\.loan\.item"[^>]*>Lent item <i>→ Item<\/i>/);
@@ -1207,7 +1215,7 @@ test("[check.ontology-tree.labels] a labels file replaces terms, kinds and headi
 test("[check.ontology-tree.unknown-target] a reference or a view that names what the glossary does not define is refused", () => {
   const ok = tree();
   assert.equal(ok.code, 0, ok.out);
-  const ref = tree((p) => p("ontology.md", "| ref `ent.member` | The member waiting", "| ref `ent.absent` | The member waiting"));
+  const ref = tree((p) => p("ontology.md", "| ref `ent.member`                           | The member waiting", "| ref `ent.absent`                           | The member waiting"));
   assert.equal(ref.code, 1, ref.out);
   assert.match(ref.out, /the tree names what the glossary does not define:\n  edge\.hold\.member: ent\.absent is not an entity of the glossary\n/);
   assert.equal(ref.html, "");

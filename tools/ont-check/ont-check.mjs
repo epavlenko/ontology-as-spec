@@ -2,7 +2,7 @@
 // contracts and reference pages, the mockup and its map, the decision log, the implementation table,
 // the check catalogue, the tests, the tickets, the documentation, and the older verification map.
 // Usage: node tools/ont-check/ont-check.mjs [--config path/to/ont.config.json] [--coverage]
-//          [--gap [path/to/ticket.md]] [--next] [--decisions] [--review <base>]
+//          [--gap [path/to/ticket.md]] [--next] [--decisions] [--review <base>] [--run]
 // --coverage also prints which checks and test suites prove each implemented concept, and where code names it.
 // --gap also prints the work left: target concepts with their checks, untested checks, divergences;
 //   with a ticket, only its slice, and the exit code is 1 until the slice is done. Without one, each
@@ -10,6 +10,7 @@
 // --next also prints the next slice to build, as IDs: and Checks: lines for a ticket.
 // --decisions also prints every entry of the decision log: in force, tentative or superseded by what,
 //   and the later entries that name it.
+// --run also runs every trace of the catalogue on the oracle (D-93) and prints each check's result.
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -43,6 +44,7 @@ import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contrac
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, runStamp } from "./manual-runs.mjs";
+import { checkForms, checkTraces, readForms, readTraces, runTrace } from "./oracle.mjs";
 
 const groupBy = (xs, key) =>
   xs.reduce((m, x) => m.set(key(x), [...(m.get(key(x)) ?? []), x]), new Map());
@@ -1293,6 +1295,45 @@ console.log(
     ...cfg.docSets.map((d) => `${d.name || "docs"} ${bySet.get(d.name).size}`),
   ].join(" · "),
 );
+// The oracle (D-93): with "oracle" in the configuration, every derived, rule, invariant, hook and
+// action row has a formal form in its section's folded behavior block, every name of a form is
+// defined, and every check has a trace or a line that says why not; --run runs the traces.
+// ont: rule.form-follows-rows, inv.form-per-row, inv.form-names-defined, inv.trace-per-check, inv.traces-pass
+if (cfg.oracle) {
+  const formsRead = readForms(md, rows);
+  const f = checkForms(formsRead, rows);
+  report("formal forms that break the form of their block (rule.form-follows-rows)", f.problems);
+  report("rows without a formal form", f.missing);
+  report("names in formal forms that are not defined", f.badNames);
+  const checksMd = cfg.checks ? read(cfg.checks.file) : "";
+  const tracesRead = readTraces(checksMd);
+  const t = checkTraces(tracesRead, checks, checksMd);
+  report("traces that break the form of their block", t.problems);
+  report("checks with no trace and no Not traced line", t.untraced);
+  report("traces or Not traced lines that name no check of the catalogue", t.unknown);
+  report("checks with both a trace and a Not traced line", t.both);
+  if (flag("--run") > 0) {
+    const failed = [];
+    let passed = 0;
+    for (const c of checks) {
+      const tr = tracesRead.traces.get(c.id);
+      if (!tr) {
+        console.log(`RUN ${c.id} · skip · ${t.skipped.get(c.id) ?? "no trace"}`);
+        continue;
+      }
+      const r = runTrace(rows, formsRead, tracesRead.sample, tr);
+      if (r.ok) passed++;
+      else failed.push(`${c.id}: ${r.error}`);
+      console.log(`RUN ${c.id} · ${r.ok ? "ok" : `fail · ${r.error}`}`);
+    }
+    console.log(`RUN ${passed} passed · ${failed.length} failed · ${t.skipped.size} not traced`);
+    report("traces that do not hold on the oracle", failed);
+  }
+} else if (flag("--run") > 0) {
+  console.log('ERROR · --run needs "oracle": true in the configuration');
+  errors.push("--run");
+}
+
 if (errors.length) {
   console.log(`DRIFT: ${errors.length}`);
   process.exit(1);

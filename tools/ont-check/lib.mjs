@@ -152,6 +152,8 @@ export function loadConfig(configPath, text) {
     // repository of a method: their IDs and checks are known, but they are not this ontology's.
     external: (raw.external ?? []).map((e) => ({ ontology: at(e.ontology), checks: at(e.checks) })),
     notYetShown: raw.notYetShown ?? [],
+    // The oracle (D-93): formal forms in behavior blocks of the ontology, traces in the catalogue.
+    oracle: Boolean(raw.oracle),
   };
 }
 

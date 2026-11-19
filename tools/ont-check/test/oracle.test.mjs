@@ -1,0 +1,136 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { evaluate, names, parse, schemaOf } from "../expr.mjs";
+
+const TOOLS = fileURLToPath(new URL("../", import.meta.url));
+const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
+
+// Each case copies the example, breaks one thing in its forms or traces, and expects the check to
+// name exactly that (D-93).
+const run = (edit, ...args) => {
+  const dir = mkdtempSync(join(tmpdir(), "ont-oracle-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    const patch = (file, from, to) => {
+      const path = join(dir, file);
+      const text = readFileSync(path, "utf8");
+      assert.ok(text.includes(from), `fixture text not found in ${file}: ${from}`);
+      writeFileSync(path, text.replace(from, to));
+    };
+    edit?.(patch);
+    const r = spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), ...args], { encoding: "utf8" });
+    return { code: r.status, out: r.stdout + r.stderr };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
+
+test("the example's forms and traces are consistent, and every trace holds on the oracle", () => {
+  const r = run(null, "--run");
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /RUN 26 passed · 0 failed · 10 not traced/);
+  assert.match(r.out, /ONT_OK/);
+});
+
+test("[check.formal-form.missing] an action row without a form is named", () => {
+  const cancel = /\naction\.cancel-hold\(title, member, reason: optional text\) by member or staff\n(?: {2}.*\n)+/;
+  const r = run((p) => {
+    const text = readFileSync(join(EXAMPLE, "ontology.md"), "utf8");
+    p("ontology.md", text.match(cancel)[0], "\n");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · rows without a formal form \(1\):\n  action\.cancel-hold \(Hold\)\n/);
+});
+
+test("[check.formal-form.unknown-name] a field the entity does not have and a call to a form that does not exist are named", () => {
+  const r = run((p) => {
+    p("ontology.md", "derived.overdue(loan) = loan.returned-on = null and today > loan.due-date", "derived.overdue(loan) = loan.returned-on = null and today > loan.due");
+    p("ontology.md", "and not concept.reservation(item)", "and not concept.booking(item)");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · names in formal forms that are not defined \(2\):/);
+  assert.match(r.out, /derived\.available: concept\.booking/);
+  assert.match(r.out, /derived\.overdue: loan\.due\n/);
+});
+
+test("[check.formal-form.out-of-order] a form out of the order of the rows, a form of another section and an unfolded block are named", () => {
+  const r = run((p) => {
+    p("ontology.md", "derived.overdue(loan) = loan.returned-on = null and today > loan.due-date\nrule.loan-period = 21 days", "rule.loan-period = 21 days\nderived.overdue(loan) = loan.returned-on = null and today > loan.due-date");
+    p("ontology.md", "inv.one-loan-per-item\n", "inv.one-loan-per-item\n  refuse when false\nderived.queue-position(hold) = 1\n");
+    p("ontology.md", '<details><summary>Behavior</summary>\n\n```behavior\nconcept.suspension', '```behavior\nconcept.suspension');
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · formal forms that break the form of their block \(rule\.form-follows-rows\) \(3\):/);
+  assert.match(r.out, /section Member: the behavior block at line \d+ is not folded in <details>/);
+  assert.match(r.out, /section Item, line \d+: derived\.queue-position is not a row of this section/);
+  assert.match(r.out, /section Loan, line \d+: derived\.overdue is out of the order of the rows/);
+});
+
+test("[check.trace.untraced] a check without a trace or a reason, and a trace of no check, are named", () => {
+  const r = run((p) => {
+    p("checks.md", "check.item.one-open-loan\n  given", "check.item.no-such-check\n  given");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · checks with no trace and no Not traced line \(1\):\n  check\.item\.one-open-loan\n/);
+  assert.match(r.out, /ERROR · traces or Not traced lines that name no check of the catalogue \(1\):\n  check\.item\.no-such-check\n/);
+});
+
+test("[check.trace.untraced] a check with both a trace and a Not traced line is named", () => {
+  const r = run((p) => {
+    p("checks.md", "- Not traced: `check.hold.state-unreadable`", "- Not traced: `check.hold.cancel` — wrongly skipped.\n- Not traced: `check.hold.state-unreadable`");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · checks with both a trace and a Not traced line \(1\):\n  check\.hold\.cancel\n/);
+});
+
+test("[check.trace.fails] a trace whose THEN does not hold fails --run with the check and what differed", () => {
+  const r = run((p) => p("checks.md", 'says "dune-1 is already on loan"', 'says "dune-2 is already on loan"'), "--run");
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /RUN check\.item\.one-open-loan · fail · .*says «dune-1 is already on loan», not «dune-2 is already on loan»/);
+  assert.match(r.out, /RUN 25 passed · 1 failed · 10 not traced/);
+});
+
+test("[check.trace.fails] a refusal expected from another invariant than the one that refuses fails", () => {
+  const r = run((p) => p("checks.md", "outcome refused by inv.one-loan-per-item", "outcome refused by inv.within-limit"), "--run");
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /RUN check\.item\.one-open-loan · fail · .*outcome 1 is refused by inv\.one-loan-per-item/);
+});
+
+test("[check.trace.fails] a changed form breaks the traces that depend on it", () => {
+  const r = run((p) => p("ontology.md", "rule.loan-period = 21 days", "rule.loan-period = 20 days"), "--run");
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /RUN check\.loan\.due-in-21-days · fail/);
+});
+
+// The language itself, on a small schema.
+const rows = [
+  { id: "ent.loan", heading: "Loan", line: "| Entity | `ent.loan` | Loan | | x |", type: null },
+  { id: "field.loan.due-date", heading: "Loan", line: "| Field | `field.loan.due-date` | Due | date | x |", type: "date" },
+  { id: "edge.loan.item", heading: "Loan", line: "| Relation | `edge.loan.item` | Item | ref ent.item | x |", type: "ref ent.item" },
+  { id: "ent.item", heading: "Item", line: "| Entity | `ent.item` | Item | | x |", type: null },
+  { id: "edge.item.copy-of", heading: "Item", line: "| Relation | `edge.item.copy-of` | Copy | ref ent.title | x |", type: "ref ent.title" },
+  { id: "ent.title", heading: "Title", line: "| Entity | `ent.title` | Title | | x |", type: null },
+];
+const schema = schemaOf(rows);
+
+test("[check.formal-form.unknown-name] names are typed by entity: a relation leads on, a loop variable is seen only inside its loop", () => {
+  const ok = names(parse("loan.item.copy-of = loan.item.copy-of and some i in items where i.copy-of = loan.item.copy-of"), { schema, scope: { loan: "loan" }, forms: new Map() });
+  assert.deepEqual(ok.bad, []);
+  const bad = names(parse("loan.item.due-date = null or (some i in items where true) and i.copy-of = null"), { schema, scope: { loan: "loan" }, forms: new Map() });
+  assert.deepEqual(bad.bad, ["item.due-date", "i"]);
+});
+
+test("the language computes dates across a month, compares an object with its id, and ends every expression", () => {
+  const state = { loans: [{ id: "l1", item: "i1", "due-date": "2026-01-30" }], items: [{ id: "i1", "copy-of": "T" }], titles: [{ id: "T" }] };
+  const byId = new Map([...state.loans, ...state.items, ...state.titles].map((o) => [o.id, o]));
+  const ctx = { state, byId, today: "2026-01-30" };
+  assert.equal(evaluate(parse("today + 3 days"), ctx, {}), "2026-02-02");
+  assert.equal(evaluate(parse("some l in loans where l.item = the item \"i1\""), { ...ctx, byId }, {}), true);
+  assert.equal(evaluate(parse("(first l in loans where true by l.due-date).item.copy-of"), ctx, {}), "T");
+  assert.equal(evaluate(parse("count(l in loans where l.due-date > today)"), ctx, {}), 0);
+});
