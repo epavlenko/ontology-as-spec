@@ -342,6 +342,15 @@ export function checkForms({ forms, problems }, rows) {
 
 // ---------- the interpreter ----------
 
+// The days whose last UTC minute had a leap second, from the IERS list
+// (https://hpiers.obspm.fr/iers/bul/bulc/ntp/leap-seconds.list); none was inserted after 2016-12-31.
+const LEAP_DAYS = new Set([
+  "1972-06-30", "1972-12-31", "1973-12-31", "1974-12-31", "1975-12-31", "1976-12-31", "1977-12-31",
+  "1978-12-31", "1979-12-31", "1981-06-30", "1982-06-30", "1983-06-30", "1985-06-30", "1987-12-31",
+  "1989-12-31", "1990-12-31", "1992-06-30", "1993-06-30", "1994-06-30", "1995-12-31", "1997-06-30",
+  "1998-12-31", "2005-12-31", "2008-12-31", "2012-06-30", "2015-06-30", "2016-12-31",
+]);
+
 // A day that exists on the calendar, written YYYY-MM-DD: 2026-02-30 and 2026-99-99 are not.
 const calendarDate = (x) => {
   const m = typeof x === "string" && x.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -370,15 +379,16 @@ export function ofType(type, v, schema, state) {
       if (s.format === "date") return calendarDate(x);
       if (s.format === "date-time") {
         // RFC 3339 date-time, as JSON Schema reads it: T and Z in either case, the offset required,
-        // hours below 24 and minutes below 60 in the time and in the offset, seconds up to 60 for a
-        // leap second, which falls on the last minute of a day in UTC.
+        // hours below 24 and minutes below 60 in the time and in the offset, and a second of 60 only
+        // on the last minute, in UTC, of a day when a leap second was inserted.
         const m = x.match(/^(\d{4}-\d{2}-\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/);
         if (!m || !calendarDate(m[1])) return false;
         const [h, mi, s, oh, om] = [m[2], m[3], m[4], m[7] ?? "0", m[8] ?? "0"].map(Number);
         if (h > 23 || mi > 59 || s > 60 || oh > 23 || om > 59) return false;
         if (s < 60) return true;
-        const utc = (((h * 60 + mi - (m[6] === "-" ? -1 : 1) * (oh * 60 + om)) % 1440) + 1440) % 1440;
-        return utc === 1439;
+        const [y, mo, d] = m[1].split("-").map(Number);
+        const at = new Date(Date.UTC(y, mo - 1, d, h, mi) - (m[6] === "-" ? -1 : 1) * (oh * 60 + om) * 60000);
+        return at.getUTCHours() === 23 && at.getUTCMinutes() === 59 && LEAP_DAYS.has(at.toISOString().slice(0, 10));
       }
       return true;
     }

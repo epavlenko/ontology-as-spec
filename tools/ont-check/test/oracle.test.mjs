@@ -171,10 +171,10 @@ test("[check.formal-form.write-out-of-type] a write below an integer's range and
   assert.match(other.out, /action\.checkout writes "[a-z]+-\d+" to edge\.loan\.member, outside its type ref ent\.member/);
 });
 
-test("[check.formal-form.write-out-of-type] a datetime is read as RFC 3339: lowercase t and z, offsets and a leap second at the end of a UTC day", () => {
+test("[check.formal-form.write-out-of-type] a datetime is read as RFC 3339: lowercase t and z, offsets, and a second of 60 only where a leap second was inserted", () => {
   const schema = { entities: {} };
-  for (const ok of ["2026-10-01t00:00:00z", "1990-12-31T23:59:60Z", "1990-12-31T15:59:60-08:00", "2026-10-01T00:00:00.000123Z", "2026-10-01T23:59:59-23:59"]) assert.ok(ofType("datetime", ok, schema, {}), ok);
-  for (const bad of ["2026-10-01T00:00:00", "2026-10-01T12:00:60Z", "2026-10-01T00:00Z", "2026-02-30T00:00:00Z", "2026-10-01T24:00:00Z"]) assert.ok(!ofType("datetime", bad, schema, {}), bad);
+  for (const ok of ["2026-10-01t00:00:00z", "1990-12-31T23:59:60Z", "1990-12-31T15:59:60-08:00", "1991-01-01T00:59:60+01:00", "2016-12-31T23:59:60.5Z", "2026-10-01T00:00:00.000123Z", "2026-10-01T23:59:59-23:59"]) assert.ok(ofType("datetime", ok, schema, {}), ok);
+  for (const bad of ["2026-10-01T00:00:00", "2026-10-01T12:00:60Z", "2026-10-01T00:00Z", "2026-02-30T00:00:00Z", "2026-10-01T24:00:00Z", "1990-12-30T23:59:60Z", "1990-12-31T00:59:60+01:00", "1990-12-30T15:59:60-08:00", "1990-12-30T23:59:60.5z", "2026-12-31T23:59:60Z"]) assert.ok(!ofType("datetime", bad, schema, {}), bad);
 });
 
 test("[check.formal-form.unknown-name] names are typed by entity: a relation leads on, a loop variable is seen only inside its loop", () => {
