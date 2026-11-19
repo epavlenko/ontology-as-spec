@@ -180,6 +180,41 @@ export function readForms(md, rows) {
   return { forms, order, problems };
 }
 
+// The IDs a tree of an expression reads: the forms it calls and the rules whose values it reads.
+const readsOf = (n, out = new Set()) => {
+  if (!n || typeof n !== "object") return out;
+  if (Array.isArray(n)) { for (const x of n) readsOf(x, out); return out; }
+  if ((n.k === "call" || n.k === "ref") && n.id) out.add(n.id);
+  for (const v of Object.values(n)) if (v && typeof v === "object") readsOf(v, out);
+  return out;
+};
+
+// Derived values, concepts and rule values that read themselves, directly or through others: each
+// cycle once, from its first form in the order of the forms. An expression has no loops of its own,
+// so these are the only way one could fail to end.
+export function cycles(forms) {
+  const deps = new Map();
+  for (const f of forms.values()) {
+    const trees = [f.e, f.value, ...Object.values(f.values ?? {})].filter(Boolean);
+    if (trees.length) deps.set(f.id, [...readsOf(trees)].filter((x) => forms.has(x)));
+  }
+  const found = [];
+  const seen = new Set();
+  const visit = (id, path) => {
+    const at = path.indexOf(id);
+    if (at >= 0) {
+      const c = [...path.slice(at), id];
+      const key = [...new Set(c)].sort().join(" ");
+      if (!seen.has(key)) { seen.add(key); found.push(c); }
+      return;
+    }
+    if (path.length > deps.size) return;
+    for (const d of deps.get(id) ?? []) visit(d, [...path, id]);
+  };
+  for (const id of deps.keys()) visit(id, []);
+  return found;
+}
+
 // The structural checks: a form for every row of a required class, every name defined.
 export function checkForms({ forms, problems }, rows) {
   const schema = schemaOf(rows);
@@ -211,6 +246,7 @@ export function checkForms({ forms, problems }, rows) {
         const t = names(st.target, { schema, scope, forms });
         for (const b of t.bad) badNames.push(`${f.id}: ${b}`);
         if (t.type.ent && !schema.entities[t.type.ent].fields[st.f]) badNames.push(`${f.id}: ${t.type.ent}.${st.f}`);
+        else if (!t.type.ent && !t.type.unknownOk && !t.bad.length) badNames.push(`${f.id}: set ${st.f} on a value that has no fields`);
         check(f, st.e, scope);
       }
       if (st.s === "each") {
@@ -233,6 +269,23 @@ export function checkForms({ forms, problems }, rows) {
     const t = names(tree, { schema, scope, forms }).type;
     return t.ent ?? "scalar";
   };
+  // The refusals a form names are checked in its scope at the point it names them, and so on down
+  // the chain of refusals they name in turn; a chain that comes back to a form stops there.
+  const reached = new Set();
+  const named = (list, s, chain) => {
+    for (const st of list ?? []) {
+      if (st.s === "let") s = { ...s, [st.name]: entityType(st.e, s) };
+      if (st.s === "refuse-by" && forms.has(st.id) && !chain.includes(st.id)) {
+        const g = forms.get(st.id);
+        reached.add(g.id);
+        const rs = { ...s, ...Object.fromEntries(Object.keys(g.values ?? {}).map((k) => [k, "scalar"])) };
+        walkStmts(g, g.body, rs);
+        named(g.body, rs, [...chain, g.id]);
+      }
+      if (st.s === "each") named(st.body, { ...s, [st.v]: schema.byCollection[st.c]?.name ?? "scalar" }, chain);
+      if (st.s === "if") named(st.body, s, chain);
+    }
+  };
   for (const f of forms.values()) {
     const scope = scopeOf(f);
     if (f.e) check(f, f.e, scope);
@@ -247,29 +300,48 @@ export function checkForms({ forms, problems }, rows) {
     if (f.class === "hook" && f.on !== "day") {
       const a = forms.get(f.on);
       if (!a) { badNames.push(`${f.id}: ${f.on}`); continue; }
-      walkStmts(f, f.body, walkStmts(a, a.body, scopeOf(a, { actor: "scalar" })));
+      const s = walkStmts(a, a.body, scopeOf(a, { actor: "scalar" }));
+      walkStmts(f, f.body, s);
+      named(f.body, s, [f.id]);
       continue;
     }
-    const after = walkStmts(f, f.body, scope);
-    // The refusals an action names are checked in its scope at the point it names them.
-    const named = (list, s) => {
-      for (const st of list ?? []) {
-        if (st.s === "let") s = { ...s, [st.name]: entityType(st.e, s) };
-        if (st.s === "refuse-by" && forms.has(st.id)) {
-          const g = forms.get(st.id);
-          const rs = { ...s, ...Object.fromEntries(Object.keys(g.values ?? {}).map((k) => [k, "scalar"])) };
-          walkStmts(g, g.body, rs);
-        }
-        if (st.s === "each" || st.s === "if") named(st.body, s);
-      }
-    };
-    named(f.body, scopeOf(f));
-    void after;
+    walkStmts(f, f.body, scope);
+    named(f.body, scopeOf(f), [f.id]);
   }
+  // A rule's or an invariant's refusal that no action or hook names is never read in a scope, so its
+  // names cannot be checked; it is reported, an invariant that only holds `always` excepted.
+  for (const g of forms.values()) {
+    if ((g.class !== "rule" && g.class !== "inv") || reached.has(g.id)) continue;
+    if ((g.body ?? []).some((st) => st.s !== "always")) badNames.push(`${g.id}: no action or hook names it, so its names are not checked`);
+  }
+  // ont: inv.forms-end
+  for (const c of cycles(forms)) badNames.push(`${c[0]}: depends on itself through ${c.join(" → ")}`);
   return { missing, badNames: [...new Set(badNames)], problems };
 }
 
 // ---------- the interpreter ----------
+
+// Whether a value is of a field's type, as its row writes it: `integer 1..`, `integer 1..9`,
+// `one of a, b, c`, `date`, `datetime`, `ref ent.x`, `boolean`. Empty is always allowed; a type the
+// oracle does not read is not checked.
+// ont: inv.writes-in-type
+export function ofType(type, v, schema, byId) {
+  if (v === null || v === undefined || !type) return true;
+  const t = type.replace(/^optional\s+/, "").trim();
+  let m;
+  if ((m = t.match(/^integer(?:\s+(-?\d+)?\.\.(-?\d+)?)?$/))) {
+    return Number.isInteger(v) && (m[1] === undefined || v >= Number(m[1])) && (m[2] === undefined || v <= Number(m[2]));
+  }
+  if ((m = t.match(/^one of (.+)$/))) return m[1].split(",").map((x) => x.trim()).includes(v);
+  if (t === "date") return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  if (t === "datetime") return typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v);
+  if (t === "boolean") return v === true || v === false;
+  if ((m = t.match(/^ref ent\.([a-z0-9-]+)$/))) {
+    const e = schema.entities[m[1]];
+    return !e || (byId.has(v) && byId.get(v) !== undefined);
+  }
+  return true;
+}
 
 export class Oracle {
   constructor(rows, formsRead, sample) {
@@ -320,6 +392,15 @@ export class Oracle {
   text(parts, c, env) {
     return parts.map((p) => (p.e ? String(idOf(evaluate(p.e, c, env)) ?? "") : p.s)).join("");
   }
+  // A value written to a field outside the field's type: the forms let through what the rows forbid,
+  // and the ontology does not say what happens, so the run stops rather than keep the value.
+  typed(ent, f, v, owner, c) {
+    const field = this.schema.entities[ent].fields[f];
+    if (field && !ofType(field.type, v, this.schema, c.byId)) {
+      throw new FormError("eval", `${owner} writes ${JSON.stringify(v)} to ${field.id}, outside its type ${field.type}; the ontology does not say what happens`);
+    }
+    return v;
+  }
   // Runs statements; returns { outcome } on a refusal or an empty case, else null.
   exec(list, c, env, owner, effects) {
     for (const st of list) {
@@ -336,14 +417,15 @@ export class Oracle {
         const e = this.schema.entities[st.ent];
         const rec = { id: `${st.ent}-${++this.seq}` };
         for (const k of Object.keys(e.fields)) if (k !== "id") rec[k] = null;
-        for (const x of st.fields) rec[x.f] = idOf(evaluate(x.e, c, env));
+        for (const x of st.fields) rec[x.f] = this.typed(st.ent, x.f, idOf(evaluate(x.e, c, env)), owner, c);
         c.state[e.collection].push(rec);
         c.byId.set(rec.id, rec);
       } else if (st.s === "set") {
         let t = evaluate(st.target, c, env);
         if (typeof t === "string") t = c.byId.get(t);
         if (!t || typeof t !== "object") throw new FormError("eval", `set ${st.f} on nothing`);
-        t[st.f] = idOf(evaluate(st.e, c, env));
+        const ent = Object.values(this.schema.entities).find((e) => c.state[e.collection]?.includes(t));
+        t[st.f] = ent ? this.typed(ent.name, st.f, idOf(evaluate(st.e, c, env)), owner, c) : idOf(evaluate(st.e, c, env));
       } else if (st.s === "each") {
         const items = [...(c.state[st.c] ?? [])].filter((x) => !st.where || evaluate(st.where, c, { ...env, [st.v]: x }) === true);
         for (const x of items) { const r = this.exec(st.body, c, { ...env, [st.v]: x }, owner, effects); if (r) return r; }

@@ -1,6 +1,6 @@
 # The parts
 
-Nine parts. The first three hold meaning, the next three tie artifacts to it, the next two make agents work inside it, and the last ties documentation to it.
+Nine parts, and a tenth as a prototype. The first three hold meaning, the next three tie artifacts to it, the next two make agents work inside it, and the ninth ties documentation to it. The tenth, the oracle, runs the ontology; it is tentative (D-93).
 
 | #   | Part                                               | Holds or ties                                                             |
 | --- | -------------------------------------------------- | ------------------------------------------------------------------------- |

@@ -135,7 +135,7 @@ Later parts, when the product has them: the mockup, the first implementation of 
 ## Read more
 
 - The method and why it works: `README.md` and `docs/principles.md`.
-- The nine parts, one page each: `docs/parts/`.
+- The nine parts and the oracle prototype, one page each: `docs/parts/`.
 - Adopting it in a running project, step by step, and updating the copy of the tool: `docs/lifecycle.md`.
 - Every rule and check of the approach: `docs/reference.md`.
 - A fictional lending library described end to end: `example/`. Run `node tools/ont-check/ont-check.mjs --config example/ont.config.json` in the clone to see `ONT_OK`.

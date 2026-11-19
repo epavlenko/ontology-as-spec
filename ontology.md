@@ -394,6 +394,8 @@ A fix to the tool is made in the approach and reaches a project with its next co
 |           | `rule.code-compared-with-oracle` | Code compared              |                   | A project with an oracle runs its code and the oracle on the same random sequences of implemented actions; a difference fails unless it is a known divergence, and a run that compares nothing fails. |
 | Invariant | `inv.form-per-row`               | A form per row             |                   | When the configuration turns the oracle on, every derived, rule, invariant, hook and action row has a formal form.                                                                                    |
 |           | `inv.form-names-defined`         | Forms name what is defined |                   | Every name in a form is an ID that has a form, a field or relation of the entity it is read on, a parameter, a loop variable or a word of the language.                                               |
+|           | `inv.forms-end`                  | Forms end                  |                   | No derived value, concept or rule value reads itself, directly or through other forms.                                                                                                                |
+|           | `inv.writes-in-type`             | Writes in type             |                   | A value an action or a hook writes to a field is of the field's type; a run that would write another stops and names the form.                                                                        |
 
 - The form language and the statements of actions and hooks are described in `docs/parts/oracle.md`. A form restates its row's definition and the notes under its table; where the two disagree, the row is the meaning and the form is fixed, like code (D-73, D-93).
 - `concept.oracle` keeps records of entities and a log of steps, each with its actor and day. Models are text and are not stored as records.
@@ -769,7 +771,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | ID | Implemented in | Note |
 | -- | -------------- | ---- |
 | `ent.formal-form`, `edge.formal-form.concept`, `concept.oracle` | `tools/ont-check/oracle.mjs`, `tools/ont-check/expr.mjs` | |
-| `rule.form-follows-rows`, `inv.form-per-row`, `inv.form-names-defined` | `tools/ont-check/oracle.mjs`, `tools/ont-check/ont-check.mjs` | |
+| `rule.form-follows-rows`, `inv.form-per-row`, `inv.form-names-defined`, `inv.forms-end`, `inv.writes-in-type` | `tools/ont-check/oracle.mjs`, `tools/ont-check/ont-check.mjs` | |
 | `rule.oracle-not-the-product` | `docs/parts/oracle.md` | reviewed, not checked |
 | `rule.code-compared-with-oracle` | `docs/parts/oracle.md` | reviewed, not checked; the example's comparison test is one |
 

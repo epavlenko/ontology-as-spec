@@ -4,7 +4,7 @@ This repository describes an approach to product development: product meaning ke
 
 ## Layout
 
-- `docs/` explains the approach: principles, the nine parts, lifecycle, comparison, limitations. It is a doc set of the approach's ontology: sections carry anchors, and `docs/reference.md` is generated. A rule of the approach is changed in `ontology.md` and `checks.md`, then explained here; never edit `docs/reference.md`.
+- `docs/` explains the approach: principles, the nine parts and the oracle prototype, lifecycle, comparison, limitations. It is a doc set of the approach's ontology: sections carry anchors, and `docs/reference.md` is generated. A rule of the approach is changed in `ontology.md` and `checks.md`, then explained here; never edit `docs/reference.md`.
 - `example/` is a fictional lending library described with the approach, end to end.
 - `templates/` holds starting files; the set must pass the check.
 - `tools/ont-check/` is the check, the decision guard, and the generators of tooltips, contracts, reference pages and the approach's IDs (`approach.json`, copied with the tool), with tests.

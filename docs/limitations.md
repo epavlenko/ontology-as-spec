@@ -18,7 +18,7 @@ The ontology is the source of the code, and a model writes it. Two runs write di
 <!-- ont: inv.test-does-what-check-says@2b7515 -->
 ### A tag says what a test implements, not that it does
 
-An invariant such as "an item is on at most one open loan" is written in prose, and the check catalogue gives the case with data that proves it. A test names the check in a tag, and the check requires such a test for every automatic check of implemented concepts. It cannot see whether the test actually does what the check says: a test tagged `[check.item.one-open-loan]` that asserts nothing passes. Manual checks are run by people, and nothing records that they were.
+An invariant such as "an item is on at most one open loan" is written in prose, and the check catalogue gives the case with data that proves it. A test names the check in a tag, and the check requires such a test for every automatic check of implemented concepts. It cannot see whether the test actually does what the check says: a test tagged `[check.item.one-open-loan]` that asserts nothing passes. Manual checks are run by a person or an agent; a project may record each run (`manualRuns` in the configuration of the tool, D-78), and the check then lists manual checks without a current run, but it cannot see whether a recorded run was done as its guide says.
 
 <!-- ont: inv.no-restated-definition@21be03 -->
 ### Notes can still restate a definition

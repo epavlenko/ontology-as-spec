@@ -120,6 +120,39 @@ const rows = [
 ];
 const schema = schemaOf(rows);
 
+test("[check.formal-form.unchecked-name] an invariant no action names, one named only by another invariant, and a field set on a value that is not a record are named", () => {
+  const r = run((p) => {
+    p("ontology.md", "  refuse by inv.borrower-renews\n", "");
+    p("ontology.md", "  refuse by inv.damaged-not-lent\n", "");
+    p("ontology.md", '  says "{item} is already on loan"\n', '  says "{item} is already on loan"\n  refuse by inv.damaged-not-lent\n');
+    p("ontology.md", 'refuse when item.condition = "damaged"', 'refuse when item.state = "damaged"');
+    p("ontology.md", "  set member.borrow-limit = limit", "  let n = 1\n  set n.ghost = limit\n  set member.borrow-limit = limit");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /inv\.borrower-renews: no action or hook names it, so its names are not checked/);
+  assert.match(r.out, /inv\.damaged-not-lent: item\.state/);
+  assert.match(r.out, /action\.set-borrow-limit: set ghost on a value that has no fields/);
+});
+
+test("[check.formal-form.cycle] a derived value and a rule that read themselves are named with the forms they go through", () => {
+  const r = run((p) => {
+    p("ontology.md", "derived.overdue(loan) = loan.returned-on = null and today > loan.due-date", "derived.overdue(loan) = loan.returned-on = null and derived.overdue(loan)");
+    p("ontology.md", "rule.loan-period = 21 days", "rule.loan-period = rule.loan-period");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /derived\.overdue: depends on itself through derived\.overdue → derived\.overdue/);
+  assert.match(r.out, /rule\.loan-period: depends on itself through rule\.loan-period → rule\.loan-period/);
+});
+
+test("[check.formal-form.write-out-of-type] a write below an integer's range and one outside a one-of list stop the run with the form, the field and its type", () => {
+  const low = run((p) => p("ontology.md", "  set member.borrow-limit = limit", "  set member.borrow-limit = limit - 3"), "--run");
+  assert.equal(low.code, 1, low.out);
+  assert.match(low.out, /action\.set-borrow-limit writes 0 to field\.member\.borrow-limit, outside its type integer 1\.\./);
+  const odd = run((p) => p("ontology.md", "    set item.condition = condition", '    set item.condition = "broken"'), "--run");
+  assert.equal(odd.code, 1, odd.out);
+  assert.match(odd.out, /action\.return writes "broken" to field\.item\.condition, outside its type one of good, worn, damaged/);
+});
+
 test("[check.formal-form.unknown-name] names are typed by entity: a relation leads on, a loop variable is seen only inside its loop", () => {
   const ok = names(parse("loan.item.copy-of = loan.item.copy-of and some i in items where i.copy-of = loan.item.copy-of"), { schema, scope: { loan: "loan" }, forms: new Map() });
   assert.deepEqual(ok.bad, []);
