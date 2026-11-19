@@ -110,6 +110,22 @@ const KNOWN = [
     },
   },
   {
+    // A member renews a loan another member borrowed: the code renews it, the oracle refuses by the invariant.
+    // Allowed effect: that one loan renewed in the code, as the code renews any loan; nothing else.
+    ticket: "#5 Only the borrower renews a loan",
+    when: (step, o) => step.action === "action.renew" && o.eval(`some l in loans where l.item = "${step.args.item}" and l.returned-on = null and l.member != "${step.actor}"`) === true,
+    allows: (step, r) => {
+      if (!(r.codeAccepted && r.oracle.kind === "refused" && r.oracle.by === "inv.borrower-renews")) return false;
+      const { code, oracle } = r.obs;
+      const line = oracle.loans.find((x) => x.split(" ")[1] === step.args.item);
+      if (!line) return false;
+      const [m, item, due, renewals] = line.split(" ");
+      const moved = library.addDays(due, library.RENEW_DAYS);
+      const renewed = `${m} ${item} ${moved} ${Number(renewals) + 1} ${step.day > moved ? "overdue" : ""}`;
+      return same(code.loans, oracle.loans.map((x) => (x === line ? renewed : x)).sort()) && same(code.queues, oracle.queues) && same(code.available, oracle.available);
+    },
+  },
+  {
     // A returned item of a title someone waits for: the oracle reserves it, the code makes it available.
     // Allowed effect: that one item available in the code, not in the oracle; nothing else.
     ticket: "#3 Serve the hold queue",
@@ -123,10 +139,10 @@ const KNOWN = [
   },
 ];
 
-export function compare(seeds, length, lib = library) {
+export function compare(seeds, length, lib = library, make = sequence) {
   const result = { compared: 0, accepted: {}, refused: {}, known: Object.fromEntries(KNOWN.map((k) => [k.ticket, 0])), failures: [] };
   for (const seed of seeds) {
-    const steps = sequence(seed, length);
+    const steps = make(seed, length);
     const s = codeState();
     const o = new Oracle(rows, forms, sample);
     for (let i = 0; i < steps.length; i++) {
@@ -220,4 +236,23 @@ test("a difference hidden inside known divergence #3 is caught: a return of a he
   };
   const r = compare(SEEDS.slice(0, 500), 30, broken);
   assert.ok(r.failures.length > 0, "the difference inside the known divergence was not caught");
+});
+
+// One fixed sequence: ana borrows dune-1, ben renews it.
+const strangerRenews = () => [
+  { day: "2026-10-01", action: "action.checkout", args: { item: "dune-1", member: "ana" }, actor: "staff" },
+  { day: "2026-10-05", action: "action.renew", args: { item: "dune-1" }, actor: "ben" },
+];
+
+test("known divergence #5 is met when a member renews another member's loan", () => {
+  const r = compare([1], 2, library, strangerRenews);
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.known["#5 Only the borrower renews a loan"], 1);
+});
+
+test("a difference hidden inside known divergence #5 is caught: a renewal of another member's loan that adds 15 days", () => {
+  const broken = { ...library, renew: (s, a) => { const loan = library.renew(s, a); loan.due = library.addDays(loan.due, 1); return loan; } };
+  const r = compare([1], 2, broken, strangerRenews);
+  assert.equal(r.failures.length, 1, "the difference inside the known divergence was not caught");
+  assert.match(r.failures[0], /loans differ/);
 });

@@ -59,6 +59,15 @@ test("[check.member.borrow-limit] a member cannot exceed the borrow limit", () =
   assert.throws(() => checkout(s, { item: "dune-2", member: "ben", today: "2026-10-01" }), /1 of 1/);
 });
 
+test("[check.loan.checkout-first-reason] of two refusals the limit is named, the first in the order of the rows", () => {
+  const s = library();
+  checkout(s, { item: "dune-2", member: "ben", today: "2026-10-01" });
+  checkout(s, { item: "dune-1", member: "ana", today: "2026-10-01" });
+  const before = JSON.stringify(s);
+  assert.throws(() => checkout(s, { item: "dune-1", member: "ben", today: "2026-10-02" }), /ben already has 1 of 1 loans/);
+  assert.equal(JSON.stringify(s), before);
+});
+
 test("[check.loan.renew-twice] renewal adds 14 days, at most twice", () => {
   const s = library();
   checkout(s, { item: "dune-1", member: "ana", today: "2026-10-01" });

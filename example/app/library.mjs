@@ -30,10 +30,11 @@ export const isAvailable = (state, item) => !openLoanOf(state, item);
 export function checkout(state, { item, member, today }) {
   if (!state.items[item]) throw new Refusal(`No item ${item}`);
   if (!state.members[member]) throw new Refusal(`No member ${member}`);
-  if (openLoanOf(state, item)) throw new Refusal(`Item ${item} is already on loan`);
+  // Refusals in the order of their rows in the ontology (D-12): the limit before the open loan.
   const limit = state.members[member].borrowLimit ?? DEFAULT_LIMIT;
   const mine = openLoans(state).filter((l) => l.member === member).length;
   if (mine >= limit) throw new Refusal(`${member} already has ${mine} of ${limit} loans`);
+  if (openLoanOf(state, item)) throw new Refusal(`Item ${item} is already on loan`);
   const loan = {
     id: `L${state.loans.length + 1}`,
     item,

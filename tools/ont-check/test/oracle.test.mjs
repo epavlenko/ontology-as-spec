@@ -35,7 +35,7 @@ const run = (edit, ...args) => {
 test("the example's forms and traces are consistent, and every trace holds on the oracle", () => {
   const r = run(null, "--run");
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /RUN 26 passed · 0 failed · 10 not traced/);
+  assert.match(r.out, /RUN 30 passed · 0 failed · 10 not traced/);
   assert.match(r.out, /ONT_OK/);
 });
 
@@ -94,7 +94,7 @@ test("[check.trace.fails] a trace whose THEN does not hold fails --run with the 
   const r = run((p) => p("checks.md", 'says "dune-1 is already on loan"', 'says "dune-2 is already on loan"'), "--run");
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /RUN check\.item\.one-open-loan · fail · .*says «dune-1 is already on loan», not «dune-2 is already on loan»/);
-  assert.match(r.out, /RUN 25 passed · 1 failed · 10 not traced/);
+  assert.match(r.out, /RUN 29 passed · 1 failed · 10 not traced/);
 });
 
 test("[check.trace.fails] a refusal expected from another invariant than the one that refuses fails", () => {

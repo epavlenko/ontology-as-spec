@@ -48,6 +48,10 @@ window.ONT = {
   "name": "One loan per item",
   "def": "An item is on at most one open loan."
  },
+ "inv.damaged-not-lent": {
+  "name": "Damaged not lent",
+  "def": "A damaged item is not lent until it is repaired."
+ },
  "ent.loan": {
   "name": "Loan",
   "def": "An item lent to a member, from checkout until return."
@@ -92,6 +96,10 @@ window.ONT = {
   "name": "No renewal when held",
   "def": "A loan cannot be renewed while someone waits for the title."
  },
+ "inv.borrower-renews": {
+  "name": "Borrower renews",
+  "def": "Only the member who borrowed the item renews its loan."
+ },
  "hook.due-reminder": {
   "name": "Due reminder",
   "def": "Two days before the due date the member is notified once, with renew if allowed."
@@ -106,7 +114,7 @@ window.ONT = {
  },
  "action.renew": {
   "name": "Renew",
-  "def": "Move the due date by the renewal rule. Refused while someone waits for the title."
+  "def": "Move the due date by the renewal rule. Only the borrower renews; refused while someone waits for the title."
  },
  "ent.hold": {
   "name": "Hold",
@@ -158,7 +166,7 @@ window.ONT = {
  },
  "hook.hold-expire": {
   "name": "Hold expired",
-  "def": "After the pickup window the reservation passes to the next hold."
+  "def": "After the pickup window the reservation passes to the next hold, and its member is notified."
  },
  "action.place-hold": {
   "name": "Place hold",
@@ -166,7 +174,7 @@ window.ONT = {
  },
  "action.cancel-hold": {
   "name": "Cancel hold",
-  "def": "Leave the queue. Staff cancelling for a member give a reason."
+  "def": "Leave the queue. Staff cancelling for a member give a reason. A reserved item passes to the next hold."
  },
  "view.catalog": {
   "name": "Catalog",

@@ -58,7 +58,7 @@ test("[check.agent-rules.review-definition-changed] lists the manual check of a 
   const out = review({
     before: (dir) => patch(dir, "checks.md", "| `check.loan.overdue-in-real-time`", RENEW_EXPLAINED + "| `check.loan.overdue-in-real-time`"),
     after: (dir) =>
-      patch(dir, "ontology.md", "Refused while someone waits for the title.  |", "Refused, with the reason, while someone waits for the title. |"),
+      patch(dir, "ontology.md", "refused while someone waits for the title. |", "refused, with the reason, while someone waits for the title. |"),
   });
   assert.match(out, /Touched concepts \(1\): action\.renew\n/);
   assert.deepEqual(listed(out, "project"), ["check.loan.renew-explained"]);

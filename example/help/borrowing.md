@@ -1,6 +1,6 @@
 # Borrowing and returning
 
-<!-- ont: action.checkout@2dacd8, rule.loan-period@d00fc7, field.loan.due-date@4e4dcc -->
+<!-- ont: action.checkout@47bc05, rule.loan-period@d00fc7, field.loan.due-date@4e4dcc -->
 ## Borrowing
 
 Bring the item to the desk. The librarian lends it to you, and the loan is due 21 days later. Every title has the same loan period, so a book and a drill are both due in three weeks.
@@ -17,7 +17,7 @@ The desk says why in one line. The usual reasons are that the item is already on
 
 "My loans" lists everything you have, with its due date. The day after the due date, a loan is marked overdue. Nothing else happens on that day: there are no fines.
 
-<!-- ont: action.return@684468 -->
+<!-- ont: action.return@c952fa -->
 ## Returning
 
 Bring the item back to the desk. The loan closes at once and disappears from your list.

@@ -146,7 +146,7 @@ test("[check.concept.shows-unknown] the contract generator refuses a view that s
 test("[check.concept.untried] lists a concept with no mockup element, ticket or code as information", () => {
   const r = run((p) => p("ontology.md", "| `edge.item.copy-of`     | `app/library.mjs` |                                           |\n", ""));
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /info · concepts with no mockup element, ticket or implementation yet \(7\):\n(?:  .*\n)*  edge\.item\.copy-of\n/);
+  assert.match(r.out, /info · concepts with no mockup element, ticket or implementation yet \(8\):\n(?:  .*\n)*  edge\.item\.copy-of\n/);
 });
 
 test("accepts the older single tests key as one unnamed suite", () => {
@@ -367,8 +367,8 @@ test("[check.concept.formatted] format-ontology.mjs writes the kind order and th
     const cfg = join(dir, "ont.config.json");
     const node = (script) => spawnSync("node", [join(TOOLS, script), "--config", cfg], { encoding: "utf8" });
     const onto = join(dir, "ontology.md");
-    const invariant = "| Invariant | `inv.no-renew-when-held` | No renewal when held |                  | A loan cannot be renewed while someone waits for the title.                        |\n";
-    const hook = "| Hook      | `hook.due-reminder`      | Due reminder         |                  | Two days before the due date the member is notified once, with renew if allowed.   |\n";
+    const invariant = "|           | `inv.borrower-renews`    | Borrower renews      |                  | Only the member who borrowed the item renews its loan.                                                      |\n";
+    const hook = "| Hook      | `hook.due-reminder`      | Due reminder         |                  | Two days before the due date the member is notified once, with renew if allowed.                            |\n";
     const text = readFileSync(onto, "utf8");
     assert.ok(text.includes(invariant + hook), "fixture rows not found");
     writeFileSync(
@@ -512,7 +512,8 @@ test("[check.ticket.gap-readiness] --gap says what each target waits for", () =>
     p("checks.md", /^\| `check\.screens\.refusal-understandable` +\| `view\.desk`, `action\.checkout` +\|/m.exec(readFileSync(join(EXAMPLE, "checks.md"), "utf8"))[0], "| `check.screens.refusal-understandable` | `view.desk`, `action.checkout`, `view.catalog` |");
   }, "--gap");
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /\n {2}action\.cancel-hold {2}target, ready · checks: check\.hold\.cancel, /);
+  assert.match(r.out, /\n {2}field\.loan\.returned-on {2}target, ready\n/);
+  assert.match(r.out, /\n {2}action\.cancel-hold {2}target, waits for the owner \(D-10\) · checks: check\.hold\.cancel, /);
   assert.match(r.out, /\n {2}rule\.pickup-window {2}target, in ticket issues\/0003-serve-the-hold-queue\.md · /);
   assert.match(r.out, /\n {2}hook\.due-reminder {2}target, waits for the owner \(D-17\) · /);
   assert.match(r.out, /\n {2}view\.catalog {2}target, deferred until a second branch opens \(D-18\) · /);
@@ -520,7 +521,15 @@ test("[check.ticket.gap-readiness] --gap says what each target waits for", () =>
 });
 
 test("[check.ticket.next-slice] --next proposes the next slice, or says what the targets wait for", () => {
-  const r = run(null, "--next");
+  // In the example, cancelling a hold waits for the owner (D-10) and for the reservation of ticket #3, so the Loan slice is next.
+  const now = run(null, "--next");
+  assert.equal(now.code, 0, now.out);
+  assert.match(now.out, /NEXT · Loan\nIDs: `field\.loan\.returned-on`, `field\.loan\.reminded`, `hook\.due-reminder`\n/);
+  // With D-10 accepted and the passing on of a reservation out of the check, cancelling a hold waits for nothing.
+  const r = run((p) => {
+    p("decisions.md", "reservation on\n\n- Date: 2026-11-19 · Status: tentative", "reservation on\n\n- Date: 2026-11-19 · Status: accepted");
+    p("checks.md", /^\| `check\.hold\.cancel-passes-on` +\| `action\.cancel-hold`, `concept\.reservation`/m.exec(readFileSync(join(EXAMPLE, "checks.md"), "utf8"))[0], "| `check.hold.cancel-passes-on` | `action.cancel-hold`");
+  }, "--next");
   assert.equal(r.code, 0, r.out);
   // A check that names both brings the cancel-hold action into the slice of the borrow limit.
   assert.match(r.out, /NEXT · Member\nIDs: `action\.set-borrow-limit`, `action\.cancel-hold`\nChecks: `check\.member\.set-borrow-limit`, `check\.member\.set-limit-unknown-member`, [^\n]*`check\.hold\.state-unreadable`\n/);
@@ -534,7 +543,7 @@ test("[check.ticket.next-slice] --next proposes the next slice, or says what the
     "--next",
   );
   assert.equal(none.code, 0, none.out);
-  assert.match(none.out, /NEXT · nothing ready: 8 are in tickets; 13 are deferred until a second branch opens \(D-17\)\n/);
+  assert.match(none.out, /NEXT · nothing ready: 9 are in tickets; 13 are deferred until a second branch opens \(D-17\); 1 wait for the owner \(D-12, D-13\)\n/);
 });
 
 test("[check.ticket.next-slice] --next says what the gap still holds when no target is left", () => {
@@ -794,7 +803,7 @@ test("[check.agent-rules.approach-ids-stale] the approach IDs next to the tool m
     const stale = node("ont-check.mjs");
     assert.equal(stale.status, 1, stale.stdout);
     assert.match(stale.stdout, /generated approach IDs differ from the ontology \(run gen-approach\.mjs\) \(1\):\n {2}approach-ids\.json\n/);
-    assert.match(node("gen-approach.mjs").stdout, /approach-ids\.json: 46 IDs/);
+    assert.match(node("gen-approach.mjs").stdout, /approach-ids\.json: 48 IDs/);
     const fresh = node("ont-check.mjs");
     assert.equal(fresh.status, 0, fresh.stdout);
   } finally {
@@ -805,8 +814,10 @@ test("[check.agent-rules.approach-ids-stale] the approach IDs next to the tool m
 test("[check.decision.waiting-listed] lists a tentative entry as waiting for the owner's answer", () => {
   const r = run();
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /info · tentative entries, waiting for the owner's answer \(1\):\n {2}D-05 · A reserved item waits three days\n/);
-  const accepted = run((p) => p("decisions.md", "Status: tentative", "Status: accepted"));
+  assert.match(r.out, /info · tentative entries, waiting for the owner's answer \(6\):\n {2}D-05 · A reserved item waits three days\n {2}D-09 · /);
+  const accepted = run((p) => {
+    for (let i = 0; i < 6; i++) p("decisions.md", "Status: tentative", "Status: accepted");
+  });
   assert.equal(accepted.code, 0, accepted.out);
   assert.doesNotMatch(accepted.out, /waiting for the owner's answer/);
 });
@@ -821,7 +832,7 @@ test("[check.decision.deferrals-listed] lists the deferrals in force with their 
         e("17", ["Return when: a second branch opens", "Decision: one branch for now."]),
         e("18", ["Return when: members ask for text messages", "Decision: reminders by e-mail only."]),
         e("19", ["Supersedes: D-18", "Decision: reminders by e-mail and text message."]),
-        e("10", ["Return when: a third branch opens", "Decision: no mobile app."]).replace("Status: accepted", "Status: tentative"),
+        e("20", ["Return when: a third branch opens", "Decision: no mobile app."]).replace("Status: accepted", "Status: tentative"),
         "## Tentative",
       ].join("\n\n"),
     ),
@@ -829,7 +840,7 @@ test("[check.decision.deferrals-listed] lists the deferrals in force with their 
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /info · deferrals in force, each with the condition for taking it up again \(1\):\n {2}D-17: a second branch opens\n/);
   // A tentative deferral is not in force: it waits with the other tentative entries.
-  assert.match(r.out, /waiting for the owner's answer \(2\):\n {2}D-10 · Entry 10\n {2}D-05 · /);
+  assert.match(r.out, /waiting for the owner's answer \(7\):\n {2}D-20 · Entry 20\n {2}D-05 · /);
 });
 
 test("[check.doc-section.reread-after-change] a changed definition marks the sections to reread, and stamping clears it", () => {
@@ -1035,7 +1046,10 @@ const cases = [
   ["[check.retired-id.still-defined] a retired ID that is still defined", "retired IDs still defined in the glossary",
     (p) => p("ontology.md", "| `edge.copy-of`         |", "| `edge.item.copy-of`    |")],
   ["[check.test-suite.uncovered-concept] an implemented invariant no test names", "implemented concepts without a test in the unit suite",
-    (p) => p("app/library.test.mjs", "[check.item.one-open-loan] ", "")],
+    (p) => {
+      p("app/library.test.mjs", "[check.item.one-open-loan] ", "");
+      p("app/library.test.mjs", "[check.loan.checkout-first-reason] ", "");
+    }],
   ["[check.concept.unknown-id] a test tag with an unknown ID", "IDs in unit tests but not in the glossary",
     (p) => p("app/library.test.mjs", "[field.loan.renewals, field.member.borrow-limit]", "[field.loan.renewal-" + "count]")],
   ["[check.test.proves-unbuilt] a test that proves a concept the table does not list", "IDs in unit tests but not in the implementation table",
@@ -1179,9 +1193,9 @@ test("[check.ontology-tree.structure] tables in order, kinds in order with count
   const bs = branches(t.html);
   assert.deepEqual(bs.map((b) => b.match(/<summary><b[^>]*>([^<]+)<\/b>/)[1]), ["Member", "Title", "Item", "Loan", "Hold", "Screens"]);
   const loan = bs[3];
-  assert.match(loan, /<summary><b data-ont="ent\.loan"[^>]*>Loan<\/b> <small>15<\/small>/);
+  assert.match(loan, /<summary><b data-ont="ent\.loan"[^>]*>Loan<\/b> <small>16<\/small>/);
   assert.deepEqual([...loan.matchAll(/<span class="g">([A-Za-z]+) <small>(\d+)<\/small>/g)].map((m) => `${m[1]} ${m[2]}`), [
-    "Field 4", "Relation 2", "Derived 1", "Rule 2", "Invariant 1", "Hook 1", "Action 3",
+    "Field 4", "Relation 2", "Derived 1", "Rule 2", "Invariant 2", "Hook 1", "Action 3",
   ]);
   assert.match(loan, /<span class="p" data-ont="field\.loan\.due-date" title="field\.loan\.due-date — [^"]+">Due date<\/span>/);
   assert.match(loan, /data-ont="edge\.loan\.member"[^>]*>Borrower <i>→ Member<\/i><\/span>/);

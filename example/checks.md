@@ -127,6 +127,7 @@ check.member.set-limit-unknown-member
 | Check                      | Concepts                                   | GIVEN                      | WHEN                                | THEN                                 | Proof | Covers  |
 | -------------------------- | ------------------------------------------ | -------------------------- | ----------------------------------- | ------------------------------------ | ----- | ------- |
 | `check.item.one-open-loan` | `inv.one-loan-per-item`, `action.checkout` | `dune-1` is on loan to ana | the desk checks out `dune-1` to ben | refused: `dune-1` is already on loan | auto  | refusal |
+| `check.item.damaged-not-lent` | `inv.damaged-not-lent`, `field.item.condition`, `action.checkout` | `dune-1` came back damaged | the desk checks out `dune-1` to ana | refused: `dune-1` is damaged and is not lent until repaired, and nothing changes | auto | refusal |
 
 <details><summary>Traces</summary>
 
@@ -139,6 +140,16 @@ check.item.one-open-loan
   then
     outcome refused by inv.one-loan-per-item
     says "dune-1 is already on loan"
+check.item.damaged-not-lent
+  given
+    2026-10-01 staff action.checkout item=dune-1 member=ben
+    2026-10-05 staff action.return item=dune-1 condition=damaged
+  when
+    2026-10-06 staff action.checkout item=dune-1 member=ana
+  then
+    outcome refused by inv.damaged-not-lent
+    says "dune-1 is damaged and is not lent until repaired"
+    assert no l in loans where l.member = "ana"
 ```
 
 </details>
@@ -150,10 +161,12 @@ check.item.one-open-loan
 | `check.loan.due-in-21-days`       | `rule.loan-period`, `field.loan.due-date`, `action.checkout`            | nothing is on loan                                             | the desk checks out `dune-1` to ana on 2026-10-01                              | the loan is due on 2026-10-22                                                                            | auto   | success          |
 | `check.loan.renew-twice`          | `rule.renewal`, `field.loan.renewals`, `action.renew`                   | ana's loan of `dune-1` is due on 2026-10-22                    | ana renews it, then again, then a third time                                   | due 2026-11-05, then 2026-11-19; the third renewal is refused                                            | auto   | success, refusal |
 | `check.loan.renew-while-held`     | `inv.no-renew-when-held`, `action.renew`                                | ben has `dune-2`, ana has `dune-1` and waits for Dune          | ben renews `dune-2`                                                            | refused, and ben is told that someone is waiting                                                         | auto   | refusal          |
+| `check.loan.renew-only-borrower` | `inv.borrower-renews`, `action.renew` | ana has `dune-1` and nobody waits for Dune | ben renews `dune-1` | refused, ben is told that `dune-1` is lent to ana, and the due date stays | auto | refusal |
+| `check.loan.checkout-first-reason` | `action.checkout`, `inv.within-limit`, `inv.one-loan-per-item` | ana's borrow limit is 1 and she has `dune-2`; `dune-1` is on loan to ben | the desk checks out `dune-1` to ana | refused with the limit, the first of the two reasons in the order of the rows | auto | refusal |
 | `check.loan.overdue-after-due`    | `derived.overdue`, `view.member.loans`                                  | ana's loan is due on 2026-10-22                                | ana looks at her loans on 2026-10-22 and on 2026-10-23                         | not overdue on the 22nd, overdue on the 23rd                                                             | auto   |                  |
 | `check.loan.overdue-in-real-time` | `derived.overdue`                                                       | ana borrowed an item and nobody sets the date by hand          | its due date passes on the calendar                                            | her loans show it overdue the next day without anyone doing anything                                     | manual |                  |
 | `check.loan.return-closes-loan`   | `action.return`, `view.member.loans`                                    | ana has `dune-1`                                               | the desk takes `dune-1` back                                                   | ana has nothing on loan                                                                                  | auto   | success          |
-| `check.loan.nothing-to-act-on`    | `action.checkout`, `action.return`, `action.renew`                      | no item has the code `dune-9`, and `dune-2` is on the shelf    | ana checks out `dune-9`, the desk takes back `dune-2`, and ana renews `dune-2` | each is refused with a message that names the item, as unknown or not on loan, and nothing changes       | auto   | empty            |
+| `check.loan.nothing-to-act-on`    | `action.checkout`, `action.return`, `action.renew`                      | no item has the code `dune-9`, and `dune-2` is on the shelf    | the desk checks out `dune-9` to ana, the desk takes back `dune-2`, and ana renews `dune-2` | each is refused with a message that names the item, as unknown or not on loan, and nothing changes       | auto   | empty            |
 | `check.loan.state-unreadable`     | `action.checkout`, `action.return`, `action.renew`, `action.place-hold` | the state file holds something that is not the library's state | the desk runs any of these commands                                            | it stops with a message that the state cannot be read, exits with status 3 and leaves the file as it was | auto   | error            |
 | `check.loan.due-reminder`         | `hook.due-reminder`, `action.renew`                                     | ana's loan is due on 2026-10-22 and nobody waits for Dune      | the day 2026-10-20 is processed                                                | ana is notified once, with the renew action offered                                                      | auto   |                  |
 
@@ -191,6 +204,25 @@ check.loan.renew-while-held
   then
     outcome refused by inv.no-renew-when-held
     says "someone is waiting for Dune"
+check.loan.renew-only-borrower
+  given
+    2026-10-01 staff action.checkout item=dune-1 member=ana
+  when
+    2026-10-05 ben action.renew item=dune-1
+  then
+    outcome refused by inv.borrower-renews
+    says "dune-1 is lent to ana"
+    assert (first l in loans where l.item = "dune-1" by l.due-date).due-date = "2026-10-22"
+check.loan.checkout-first-reason
+  given
+    2026-10-01 staff action.set-borrow-limit member=ana limit=1
+    2026-10-01 staff action.checkout item=dune-2 member=ana
+    2026-10-01 staff action.checkout item=dune-1 member=ben
+  when
+    2026-10-02 staff action.checkout item=dune-1 member=ana
+  then
+    outcome refused by inv.within-limit
+    says "ana already has 1 of 1 loans"
 check.loan.overdue-after-due
   given
     2026-10-01 staff action.checkout item=dune-1 member=ana
@@ -247,8 +279,9 @@ check.loan.due-reminder
 | `check.hold.reserved-for-holder-only`  | `concept.reservation`, `action.checkout`        | `dune-1` is reserved for ana                                    | the desk checks it out to ben, then to ana                   | refused for ben; for ana it succeeds and closes her hold                             | auto  | refusal          |
 | `check.hold.served-in-order`           | `inv.queue-order`                               | ana placed her hold before carl                                 | a copy of Dune comes back                                    | it is reserved for ana, not carl                                                     | auto  |                  |
 | `check.hold.window-still-open`         | `rule.pickup-window`                            | `dune-1` was reserved for ana on 2026-10-10                     | the day 2026-10-13 is processed                              | the reservation still stands                                                         | auto  |                  |
-| `check.hold.expiry-passes-on`          | `hook.hold-expire`, `rule.pickup-window`        | `dune-1` was reserved for ana on 2026-10-10 and carl waits next | the day 2026-10-14 is processed                              | ana's hold is closed as expired and `dune-1` is reserved for carl                    | auto  |                  |
+| `check.hold.expiry-passes-on`          | `hook.hold-expire`, `rule.pickup-window`        | `dune-1` was reserved for ana on 2026-10-10 and carl waits next | the day 2026-10-14 is processed                              | ana's hold is closed as expired, `dune-1` is reserved for carl and carl is notified  | auto  |                  |
 | `check.hold.cancel`                    | `action.cancel-hold`, `derived.queue-position`  | ana and carl wait for Dune, in that order                       | ana cancels her hold                                         | she leaves the queue and carl is at position 1                                       | auto  | success          |
+| `check.hold.cancel-passes-on` | `action.cancel-hold`, `concept.reservation` | `dune-1` was reserved for ana on 2026-10-10 and carl waits next | ana cancels her hold on 2026-10-11 | `dune-1` is reserved for carl from that day and carl is notified | auto | |
 | `check.hold.nothing-to-act-on`         | `action.place-hold`, `action.cancel-hold`       | no title has the code `atlas`, and ben has no hold on Dune      | ana places a hold on `atlas`, and ben cancels a hold on Dune | each is refused with a message that names the title, and nothing changes             | auto  | empty            |
 | `check.hold.unknown-member`            | `action.place-hold`                             | no member is called `zoe`, and both copies of Dune are out      | zoe places a hold on Dune                                    | it is refused with a message that names the member, and nothing changes              | auto  | empty            |
 | `check.hold.staff-cancel-needs-reason` | `action.cancel-hold`                            | ana waits for Dune                                              | the desk cancels her hold without a reason                   | refused, and the desk is asked for the reason                                        | auto  | refusal          |
@@ -351,6 +384,21 @@ check.hold.expiry-passes-on
   then
     assert (first h in holds where h.member = "ana" by h.placed-at).state = "expired"
     assert (first h in holds where h.member = "carl" by h.placed-at).reserved-item = "dune-1"
+    notified carl by hook.hold-expire on 2026-10-14 says "dune-1 is waiting for you until 2026-10-17"
+check.hold.cancel-passes-on
+  given
+    2026-10-01 staff action.checkout item=dune-1 member=ben
+    2026-10-01 staff action.checkout item=dune-2 member=ben
+    2026-10-02 ana action.place-hold title=Dune member=ana
+    2026-10-03 carl action.place-hold title=Dune member=carl
+    2026-10-10 staff action.return item=dune-1 condition=good
+  when
+    2026-10-11 ana action.cancel-hold title=Dune member=ana
+  then
+    outcome ok
+    assert (first h in holds where h.member = "carl" by h.placed-at).reserved-item = "dune-1"
+    assert (first h in holds where h.member = "carl" by h.placed-at).reserved-on = "2026-10-11"
+    notified carl by action.cancel-hold on 2026-10-11 says "dune-1 is waiting for you until 2026-10-14"
 check.hold.cancel
   given
     2026-10-01 staff action.checkout item=dune-1 member=ben

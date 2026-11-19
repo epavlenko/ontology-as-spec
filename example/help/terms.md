@@ -27,18 +27,18 @@ Every word the library app uses, with its meaning. Only what the app does today 
 
 ## Loan
 
-| Term                 | Definition                                                                         |
-| -------------------- | ---------------------------------------------------------------------------------- |
-| Loan                 | An item lent to a member, from checkout until return.                              |
-| Due date             | When the item must be back: checkout plus the loan period, moved by renewals.      |
-| Renewals             | How many times the loan was renewed. A fact the system counts.                     |
-| Overdue              | The loan is open and the due date has passed.                                      |
-| Loan period          | 21 days from checkout.                                                             |
-| Renewal rule         | Up to 2 renewals per loan, each adds 14 days to the current due date.              |
-| No renewal when held | A loan cannot be renewed while someone waits for the title.                        |
-| Check out            | Open a loan for an item and a member. Refused with a reason if a rule would break. |
-| Return               | Close the loan and record the item's condition.                                    |
-| Renew                | Move the due date by the renewal rule. Refused while someone waits for the title.  |
+| Term                 | Definition                                                                                                  |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Loan                 | An item lent to a member, from checkout until return.                                                       |
+| Due date             | When the item must be back: checkout plus the loan period, moved by renewals.                               |
+| Renewals             | How many times the loan was renewed. A fact the system counts.                                              |
+| Overdue              | The loan is open and the due date has passed.                                                               |
+| Loan period          | 21 days from checkout.                                                                                      |
+| Renewal rule         | Up to 2 renewals per loan, each adds 14 days to the current due date.                                       |
+| No renewal when held | A loan cannot be renewed while someone waits for the title.                                                 |
+| Check out            | Open a loan for an item and a member. Refused with a reason if a rule would break.                          |
+| Return               | Close the loan and record the item's condition.                                                             |
+| Renew                | Move the due date by the renewal rule. Only the borrower renews; refused while someone waits for the title. |
 
 ## Hold
 

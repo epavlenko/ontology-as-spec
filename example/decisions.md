@@ -83,6 +83,41 @@ Log rules:
 - Why tentative: not tested with members who visit only on weekends; a week may be needed.
 - Concepts: `rule.pickup-window`, `concept.reservation`, `hook.hold-expire`.
 
+### D-09 · The next hold's member is notified when a reservation passes on
+
+- Date: 2026-11-19 · Status: tentative
+- Course: when the pickup window ends, `hook.hold-expire` passes the reserved item to the next hold and notifies its member, as `hook.hold-ready` notifies the head of the queue.
+- Why tentative: the definition of `hook.hold-expire` did not say; the oracle's form showed the gap. The agent proposed this and the owner chose on 2026-11-19 to record it as tentative.
+- Concepts: `hook.hold-expire`, `hook.hold-ready`, `concept.reservation`.
+
+### D-10 · A cancelled hold passes its reservation on
+
+- Date: 2026-11-19 · Status: tentative
+- Course: when a hold with a reserved item is cancelled, `action.cancel-hold` passes the item to the next hold and notifies its member, as `hook.hold-expire` does; with nobody next, the item becomes available.
+- Why tentative: the ontology did not say what happens to the reservation; the agent proposed this and the owner chose on 2026-11-19 to record it as tentative.
+- Concepts: `action.cancel-hold`, `concept.reservation`, `hook.hold-expire`.
+
+### D-11 · Only the borrower renews a loan
+
+- Date: 2026-11-19 · Status: tentative
+- Course: `action.renew` is refused unless the member renewing is the one who borrowed the item (`inv.borrower-renews`).
+- Why tentative: the notes said renewal is done "by the member", not which one; the agent proposed this and the owner chose on 2026-11-19 to record it as tentative. The code does not know who renews yet: ticket #5 Only the borrower renews a loan.
+- Concepts: `action.renew`, `inv.borrower-renews`, `edge.loan.member`.
+
+### D-12 · Of several refusals, the first in the order of the rows is named
+
+- Date: 2026-11-19 · Status: tentative
+- Course: when several refusals of an action apply, the message names one, the first in the order its row stands in the ontology. Checkout: `inv.within-limit`, `inv.suspended-cannot-borrow`, `inv.one-loan-per-item`, `inv.damaged-not-lent`, then the reservation; renewal: `rule.renewal`, `inv.no-renew-when-held`, `inv.borrower-renews`.
+- Why tentative: the ontology did not say which reason comes first; the agent proposed this and the owner chose on 2026-11-19 to record it as tentative. With this order a member renewing another's loan that used both renewals hears about the renewals first.
+- Concepts: `action.checkout`, `action.renew`, `inv.within-limit`, `inv.one-loan-per-item`.
+
+### D-13 · A damaged item is refused by its own invariant
+
+- Date: 2026-11-19 · Status: tentative
+- Course: `inv.damaged-not-lent` refuses checkout of a damaged item until it is repaired, instead of a refusal written only in the definition of `field.item.condition`.
+- Why tentative: the refusal had no row of its own, so no check proved it; the agent proposed this and the owner chose on 2026-11-19 to record it as tentative.
+- Concepts: `inv.damaged-not-lent`, `field.item.condition`, `action.checkout`.
+
 ## Open questions
 
 - Should staff be able to extend a borrow limit for a single loan, or only change `field.member.borrow-limit`?
