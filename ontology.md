@@ -739,7 +739,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 
 ### Known divergences between code and ontology
 
-None known.
+- **Other word.** The check reads a mockup's script with a small lexer, not a parser of JavaScript, and a rare construct still misleads it: a method named like a keyword with a space before it, `obj . if() / 2`, makes it read the division as the start of a regular expression, so the text after it on that line is not searched for other words (`inv.other-word-not-used`). Ticket: #5 Read a mockup's script without the lexer's misses.
 
 ## Retired IDs
 
