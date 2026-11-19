@@ -85,6 +85,7 @@
   "tickets": {
     "dir": "issues"
   },
+  "oracle": true,
   "notYetShown": [
     "view",
     "action",

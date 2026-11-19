@@ -73,6 +73,17 @@
           "minimum": 0,
           "maximum": 2
         },
+        "returnedOn": {
+          "description": "The day the item came back; empty while the loan is open.",
+          "x-ont": "field.loan.returned-on",
+          "type": "string",
+          "format": "date"
+        },
+        "reminded": {
+          "description": "Whether the due reminder was sent for this loan, so that it is sent once.",
+          "x-ont": "field.loan.reminded",
+          "type": "boolean"
+        },
         "item": {
           "description": "The item this loan lends.",
           "x-ont": "edge.loan.item",
@@ -89,6 +100,7 @@
       "required": [
         "dueDate",
         "renewals",
+        "reminded",
         "item",
         "member"
       ]
@@ -99,6 +111,28 @@
       "x-ont": "ent.hold",
       "type": "object",
       "properties": {
+        "placedAt": {
+          "description": "When the member joined the queue; it orders the queue.",
+          "x-ont": "field.hold.placed-at",
+          "type": "string",
+          "format": "date-time"
+        },
+        "state": {
+          "description": "Waiting in the queue, served by a checkout, cancelled, or expired after the pickup window.",
+          "x-ont": "field.hold.state",
+          "enum": [
+            "waiting",
+            "served",
+            "cancelled",
+            "expired"
+          ]
+        },
+        "reservedOn": {
+          "description": "The day a returned item was set aside for this hold.",
+          "x-ont": "field.hold.reserved-on",
+          "type": "string",
+          "format": "date"
+        },
         "waitsFor": {
           "description": "The hold is a place in this title's queue.",
           "x-ont": "edge.hold.waits-for",
@@ -110,9 +144,17 @@
           "x-ont": "edge.hold.member",
           "type": "string",
           "x-ont-ref": "ent.member"
+        },
+        "reservedItem": {
+          "description": "The returned item set aside for this hold, for the pickup window.",
+          "x-ont": "edge.hold.reserved-item",
+          "type": "string",
+          "x-ont-ref": "ent.item"
         }
       },
       "required": [
+        "placedAt",
+        "state",
         "waitsFor",
         "member"
       ]

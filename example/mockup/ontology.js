@@ -60,6 +60,14 @@ window.ONT = {
   "name": "Renewals",
   "def": "How many times the loan was renewed. A fact the system counts."
  },
+ "field.loan.returned-on": {
+  "name": "Returned on",
+  "def": "The day the item came back; empty while the loan is open."
+ },
+ "field.loan.reminded": {
+  "name": "Reminded",
+  "def": "Whether the due reminder was sent for this loan, so that it is sent once."
+ },
  "edge.loan.item": {
   "name": "Lent item",
   "def": "The item this loan lends."
@@ -104,6 +112,18 @@ window.ONT = {
   "name": "Hold",
   "def": "A member's place in the queue for a title whose items are all out."
  },
+ "field.hold.placed-at": {
+  "name": "Placed at",
+  "def": "When the member joined the queue; it orders the queue."
+ },
+ "field.hold.state": {
+  "name": "State",
+  "def": "Waiting in the queue, served by a checkout, cancelled, or expired after the pickup window."
+ },
+ "field.hold.reserved-on": {
+  "name": "Reserved on",
+  "def": "The day a returned item was set aside for this hold."
+ },
  "edge.hold.waits-for": {
   "name": "waits-for",
   "def": "The hold is a place in this title's queue."
@@ -111,6 +131,10 @@ window.ONT = {
  "edge.hold.member": {
   "name": "Holder",
   "def": "The member waiting in the queue."
+ },
+ "edge.hold.reserved-item": {
+  "name": "Reserved item",
+  "def": "The returned item set aside for this hold, for the pickup window."
  },
  "derived.queue-position": {
   "name": "Queue position",

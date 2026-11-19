@@ -17,7 +17,7 @@ The desk says why in one line. The usual reasons are that the item is already on
 
 "My loans" lists everything you have, with its due date. The day after the due date, a loan is marked overdue. Nothing else happens on that day: there are no fines.
 
-<!-- ont: action.return@c5fc35 -->
+<!-- ont: action.return@684468 -->
 ## Returning
 
 Bring the item back to the desk. The loan closes at once and disappears from your list.

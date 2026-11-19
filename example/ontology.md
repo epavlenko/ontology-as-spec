@@ -18,6 +18,8 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 
 **Types** are written in a vocabulary that belongs to no programming language: `text`, `integer` with an optional range such as `integer 0..2`, `number`, `boolean`, `date`, `datetime`, `one of` a list of values, `ref` or `refs` an entity, and `optional` after any of them. Derived values have no type in the contract, because they are never stored.
 
+**Behavior blocks** (tentative: the approach's oracle prototype): under a table, a folded block states the behavior of its rows in the form language, each form starting with its row's ID, in the order of the rows. `ont-check.mjs --run` runs the traces of `checks.md` on them.
+
 `tools/ont-check/ont-check.mjs` checks the kind order, the Kind cells, that every field and relation sits in its entity's table and has a valid type, and that the generated contracts are current.
 
 ## Member
@@ -30,6 +32,25 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 | Invariant | `inv.within-limit`            | Within the limit        |             | Open loans never exceed the member's borrow limit.                                                   |
 |           | `inv.suspended-cannot-borrow` | Suspended cannot borrow |             | A member with an overdue loan cannot check out or place holds until it is back.                      |
 | Action    | `action.set-borrow-limit`     | Set borrow limit        |             | Change a member's borrow limit. Refused while the member has more open loans than the new limit.     |
+
+<details><summary>Behavior</summary>
+
+```behavior
+concept.suspension(member) = some l in loans where l.member = member and derived.overdue(l)
+inv.within-limit
+  refuse when count(l in loans where l.member = member and l.returned-on = null) >= member.borrow-limit
+  says "{member} already has {count(l in loans where l.member = member and l.returned-on = null)} of {member.borrow-limit} loans"
+inv.suspended-cannot-borrow
+  refuse when concept.suspension(member)
+  says "{member} has an overdue item: {(first l in loans where l.member = member and derived.overdue(l) by l.due-date).item}"
+action.set-borrow-limit(member, limit: integer) by staff
+  let open = count(l in loans where l.member = member and l.returned-on = null)
+  refuse when open > limit
+  says "{member} has {open} open loans, more than {limit}"
+  set member.borrow-limit = limit
+```
+
+</details>
 
 - `concept.suspension` starts the moment one of the member's loans becomes `derived.overdue`. It replaces money fines, which do not exist (D-03).
 - `inv.suspended-cannot-borrow` blocks `action.checkout` and `action.place-hold`. Nobody can override it at the desk.
@@ -53,6 +74,17 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 | Derived   | `derived.available`     | Available         |                            | The item is not on loan, not reserved and not damaged.                                |
 | Invariant | `inv.one-loan-per-item` | One loan per item |                            | An item is on at most one open loan.                                                  |
 
+<details><summary>Behavior</summary>
+
+```behavior
+derived.available(item) = item.condition != "damaged" and (no l in loans where l.item = item and l.returned-on = null) and not concept.reservation(item)
+inv.one-loan-per-item
+  refuse when some l in loans where l.item = item and l.returned-on = null
+  says "{item} is already on loan"
+```
+
+</details>
+
 - `field.item.condition` is set by staff during `action.return`; members never edit it.
 - An item is reserved through `concept.reservation`, described under Hold.
 
@@ -63,6 +95,8 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 | Entity    | `ent.loan`               | Loan                 |                  | An item lent to a member, from checkout until return.                              |
 | Field     | `field.loan.due-date`    | Due date             | date             | When the item must be back: checkout plus the loan period, moved by renewals.      |
 |           | `field.loan.renewals`    | Renewals             | integer 0..2     | How many times the loan was renewed. A fact the system counts.                     |
+|           | `field.loan.returned-on` | Returned on          | date optional    | The day the item came back; empty while the loan is open.                          |
+|           | `field.loan.reminded`    | Reminded             | boolean          | Whether the due reminder was sent for this loan, so that it is sent once.          |
 | Relation  | `edge.loan.item`         | Lent item            | ref `ent.item`   | The item this loan lends.                                                          |
 |           | `edge.loan.member`       | Borrower             | ref `ent.member` | The member who borrowed the item.                                                  |
 | Derived   | `derived.overdue`        | Overdue              |                  | The loan is open and the due date has passed.                                      |
@@ -74,7 +108,55 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 |           | `action.return`          | Return               |                  | Close the loan and record the item's condition.                                    |
 |           | `action.renew`           | Renew                |                  | Move the due date by the renewal rule. Refused while someone waits for the title.  |
 
+<details><summary>Behavior</summary>
+
+```behavior
+derived.overdue(loan) = loan.returned-on = null and today > loan.due-date
+rule.loan-period = 21 days
+rule.renewal
+  limit = 2
+  adds = 14 days
+  refuse when loan.renewals >= limit
+  says "both renewals of {loan.item} are used"
+inv.no-renew-when-held
+  refuse when some h in holds where h.state = "waiting" and h.waits-for = loan.item.copy-of
+  says "someone is waiting for {loan.item.copy-of}"
+hook.due-reminder on day
+  each l in loans where l.returned-on = null and not l.reminded and today = l.due-date - 2 days:
+    notify l.member "{l.item} is due on {l.due-date}" offering action.renew(item = l.item)
+    set l.reminded = true
+action.checkout(item, member) by staff
+  refuse by inv.one-loan-per-item
+  refuse when item.condition = "damaged"
+  says "{item} is damaged and is not lent until repaired"
+  refuse when some h in holds where h.state = "waiting" and h.reserved-item = item and h.member != member
+  says "{item} is reserved for someone else"
+  refuse by inv.within-limit
+  refuse by inv.suspended-cannot-borrow
+  create loan: item = item, member = member, due-date = today + rule.loan-period, renewals = 0, reminded = false
+  each h in holds where h.state = "waiting" and h.reserved-item = item and h.member = member:
+    set h.state = "served"
+action.return(item, condition: optional text) by staff
+  let loan = first l in loans where l.item = item and l.returned-on = null by l.due-date
+  empty when loan = null
+  says "{item} is not on loan"
+  set loan.returned-on = today
+  if condition != null:
+    set item.condition = condition
+action.renew(item) by member
+  let loan = first l in loans where l.item = item and l.returned-on = null by l.due-date
+  empty when loan = null
+  says "{item} is not on loan"
+  refuse by rule.renewal
+  refuse by inv.no-renew-when-held
+  set loan.due-date = loan.due-date + rule.renewal.adds
+  set loan.renewals = loan.renewals + 1
+```
+
+</details>
+
 - `field.loan.due-date` and `field.loan.renewals` are set by the system at `action.checkout` and `action.renew`; nobody types them in.
+- `field.loan.returned-on` is set by `action.return`; a loan is open while it is empty. `field.loan.reminded` is set by `hook.due-reminder`.
 - `rule.loan-period` is the same for every title (D-01).
 - `action.checkout` and `action.return` are done by staff, `action.renew` by the member. Checkout is refused when it would break `inv.one-loan-per-item`, `inv.within-limit` or `inv.suspended-cannot-borrow`.
 - `action.return` triggers `hook.hold-ready` when someone waits for the title.
@@ -82,22 +164,64 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 
 ## Hold
 
-| Kind      | ID                       | Term           | Type             | Definition                                                                            |
-| --------- | ------------------------ | -------------- | ---------------- | ------------------------------------------------------------------------------------- |
-| Entity    | `ent.hold`               | Hold           |                  | A member's place in the queue for a title whose items are all out.                    |
-| Relation  | `edge.hold.waits-for`    | waits-for      | ref `ent.title`  | The hold is a place in this title's queue.                                            |
-|           | `edge.hold.member`       | Holder         | ref `ent.member` | The member waiting in the queue.                                                      |
-| Derived   | `derived.queue-position` | Queue position |                  | The hold's place in the title's queue, by placement time.                             |
-| Concept   | `concept.reservation`    | Reservation    |                  | A returned item set aside for the head of the queue for the pickup window.            |
-| Rule      | `rule.pickup-window`     | Pickup window  |                  | A reserved item waits 3 days for the member at the head of the queue.                 |
-| Invariant | `inv.queue-order`        | Queue order    |                  | Holds are served in the order they were placed. Nobody reorders the queue.            |
-| Hook      | `hook.hold-ready`        | Hold ready     |                  | On return of a held title the item is reserved and the head of the queue is notified. |
-|           | `hook.hold-expire`       | Hold expired   |                  | After the pickup window the reservation passes to the next hold.                      |
-| Action    | `action.place-hold`      | Place hold     |                  | Join the title's queue. Only when no item is available.                               |
-|           | `action.cancel-hold`     | Cancel hold    |                  | Leave the queue. Staff cancelling for a member give a reason.                         |
+| Kind      | ID                        | Term           | Type                                       | Definition                                                                                 |
+| --------- | ------------------------- | -------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Entity    | `ent.hold`                | Hold           |                                            | A member's place in the queue for a title whose items are all out.                         |
+| Field     | `field.hold.placed-at`    | Placed at      | datetime                                   | When the member joined the queue; it orders the queue.                                     |
+|           | `field.hold.state`        | State          | one of waiting, served, cancelled, expired | Waiting in the queue, served by a checkout, cancelled, or expired after the pickup window. |
+|           | `field.hold.reserved-on`  | Reserved on    | date optional                              | The day a returned item was set aside for this hold.                                       |
+| Relation  | `edge.hold.waits-for`     | waits-for      | ref `ent.title`                            | The hold is a place in this title's queue.                                                 |
+|           | `edge.hold.member`        | Holder         | ref `ent.member`                           | The member waiting in the queue.                                                           |
+|           | `edge.hold.reserved-item` | Reserved item  | ref `ent.item` optional                    | The returned item set aside for this hold, for the pickup window.                          |
+| Derived   | `derived.queue-position`  | Queue position |                                            | The hold's place in the title's queue, by placement time.                                  |
+| Concept   | `concept.reservation`     | Reservation    |                                            | A returned item set aside for the head of the queue for the pickup window.                 |
+| Rule      | `rule.pickup-window`      | Pickup window  |                                            | A reserved item waits 3 days for the member at the head of the queue.                      |
+| Invariant | `inv.queue-order`         | Queue order    |                                            | Holds are served in the order they were placed. Nobody reorders the queue.                 |
+| Hook      | `hook.hold-ready`         | Hold ready     |                                            | On return of a held title the item is reserved and the head of the queue is notified.      |
+|           | `hook.hold-expire`        | Hold expired   |                                            | After the pickup window the reservation passes to the next hold.                           |
+| Action    | `action.place-hold`       | Place hold     |                                            | Join the title's queue. Only when no item is available.                                    |
+|           | `action.cancel-hold`      | Cancel hold    |                                            | Leave the queue. Staff cancelling for a member give a reason.                              |
+
+<details><summary>Behavior</summary>
+
+```behavior
+derived.queue-position(hold) = 1 + count(h in holds where h.state = "waiting" and h.waits-for = hold.waits-for and h.placed-at < hold.placed-at)
+concept.reservation(item) = some h in holds where h.state = "waiting" and h.reserved-item = item
+rule.pickup-window = 3 days
+inv.queue-order
+  always every h in holds where h.reserved-item = null or h.state != "waiting" or (no e in holds where e.state = "waiting" and e.waits-for = h.waits-for and e.reserved-item = null and e.placed-at < h.placed-at)
+hook.hold-ready on action.return
+  let head = first h in holds where h.state = "waiting" and h.waits-for = item.copy-of and h.reserved-item = null by h.placed-at
+  if head != null:
+    set head.reserved-item = item
+    set head.reserved-on = today
+    notify head.member "{item} is waiting for you until {today + rule.pickup-window}"
+hook.hold-expire on day
+  each h in holds where h.state = "waiting" and h.reserved-item != null and today > h.reserved-on + rule.pickup-window:
+    set h.state = "expired"
+    let next = first n in holds where n.state = "waiting" and n.waits-for = h.waits-for and n.reserved-item = null by n.placed-at
+    if next != null:
+      set next.reserved-item = h.reserved-item
+      set next.reserved-on = today
+action.place-hold(title, member) by member
+  refuse by inv.suspended-cannot-borrow
+  refuse when some i in items where i.copy-of = title and derived.available(i)
+  says "a copy of {title} is available"
+  create hold: waits-for = title, member = member, placed-at = now, state = "waiting"
+action.cancel-hold(title, member, reason: optional text) by member or staff
+  let hold = first h in holds where h.state = "waiting" and h.waits-for = title and h.member = member by h.placed-at
+  empty when hold = null
+  says "{member} has no hold on {title}"
+  refuse when actor = "staff" and (reason = null or reason = "")
+  says "give the reason for cancelling the hold of {member}"
+  set hold.state = "cancelled"
+```
+
+</details>
 
 - A reserved item is not `derived.available` to anyone but the member it waits for.
 - `rule.pickup-window` is tentative (D-05).
+- `field.hold.placed-at` orders the queue. `edge.hold.reserved-item` and `field.hold.reserved-on` record `concept.reservation`; `field.hold.state` says how the hold ended.
 - `hook.hold-expire` closes the expired hold before serving the next one.
 
 ## Screens
