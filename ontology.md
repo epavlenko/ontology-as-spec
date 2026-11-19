@@ -400,12 +400,12 @@ A fix to the tool is made in the approach and reaches a project with its next co
 
 ## Trace
 
-| Kind      | ID                    | Term               | Type            | Definition                                                                                                                                                            |
-| --------- | --------------------- | ------------------ | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entity    | `ent.trace`           | Trace              |                 | A check's case as steps the oracle runs: the GIVEN and the WHEN as actions and days, the THEN as outcomes, notifications and assertions.                              |
-| Relation  | `edge.trace.check`    | Traces             | ref `ent.check` | The check whose case the trace runs.                                                                                                                                  |
+| Kind      | ID                    | Term               | Type            | Definition                                                                                                                                                                                                                                                 |
+| --------- | --------------------- | ------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.trace`           | Trace              |                 | A check's case as steps the oracle runs: the GIVEN and the WHEN as actions and days, the THEN as outcomes, notifications and assertions.                                                                                                                   |
+| Relation  | `edge.trace.check`    | Traces             | ref `ent.check` | The check whose case the trace runs.                                                                                                                                                                                                                       |
 | Invariant | `inv.trace-per-check` | Every check traced |                 | When the oracle is on, every check of the catalogue has a trace, and every trace names a check of the catalogue. A check may instead have a line that says why it has none only when it sits in a section of views, is manual or covers the error outcome. |
-|           | `inv.traces-pass`     | Traces pass        |                 | Every trace holds on the oracle.                                                                                                                                      |
+|           | `inv.traces-pass`     | Traces pass        |                 | Every trace holds on the oracle.                                                                                                                                                                                                                           |
 
 - A trace sits in a folded traces block of its check's section in the catalogue, starting with the check's ID; the sample collection of the catalogue is a block of its own. A check without a trace is listed on a `- Not traced:` line with the reason.
 
