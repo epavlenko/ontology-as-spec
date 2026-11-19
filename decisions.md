@@ -757,8 +757,6 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: moving one now (the same reason); a key in the configuration that names profiles (D-44, D-61).
 - Concepts: `ent.profile`, `rule.profile-requires-checkable`.
 
-## Tentative
-
 ### D-93 · The ontology runs as an oracle: formal forms under the tables, traces in the catalogue, a small form language
 
 - Date: 2026-11-19 · Status: accepted
@@ -767,6 +765,8 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: the check reads the names code gives its concepts, not what code does (docs/limitations.md). A run of the forms tells whether the ontology says enough to decide every case, and a comparison with the code tells whether the code does what the ontology says. Written next to their rows, the forms are read with the definitions they restate.
 - Rejected: forms in a file of their own (read apart from the definitions they restate); forms in a column of the tables (an action's statements do not fit a cell); definitions written as forms too (the tables are the overview people read); FEEL as the form language (nine packages, names in camelCase instead of the ontology's words, and traps a run found: a hyphen read as minus on loop variables, a filter hiding a parameter of the same name); the ontology executed as the product (D-73).
 - Concepts: `ent.formal-form`, `ent.trace`, `concept.oracle`, `rule.form-follows-rows`, `rule.oracle-not-the-product`, `rule.code-compared-with-oracle`, `inv.form-per-row`, `inv.form-names-defined`, `inv.forms-end`, `inv.writes-in-type`, `inv.trace-per-check`, `inv.traces-pass`.
+
+## Tentative
 
 ## Open questions
 

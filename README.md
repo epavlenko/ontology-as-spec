@@ -64,7 +64,7 @@ node tools/ont-check/ont-check.mjs --config example/ont.config.json --run   # th
 
 Then open `example/mockup/index.html` in a browser and hover over the elements. Rename a `data-ont` value or delete a row from `example/mockup/ontology-map.md`, run the check again, and read what it reports.
 
-With `--run`, the tool runs the example's ontology as an oracle: each check of the catalogue is replayed as steps on the formal forms written under the tables, and its THEN must hold. The example's code is compared with the oracle on random sequences of the actions it implements; a difference fails its test unless it is a known divergence with a ticket. See [the oracle](docs/parts/oracle.md).
+With `--run`, the tool runs the example's ontology as an oracle: each check of the catalogue that has a trace is replayed as steps on the formal forms written under the tables, and its THEN must hold; a check of a screen, of the real calendar or of an error the oracle does not have says why it has no trace (30 traced and 10 not in the example). The example's code is compared with the oracle on random sequences of the actions it implements; a difference fails its test unless it is a known divergence with a ticket. See [the oracle](docs/parts/oracle.md).
 
 To adopt the approach, start with ten definition rows for the concepts your team argues about most, then grow the ontology until it describes the product's behavior. See [Adopting the approach](docs/lifecycle.md#adopting-the-approach) and the [templates](templates/README.md).
 
