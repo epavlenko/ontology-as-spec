@@ -369,11 +369,16 @@ export function ofType(type, v, schema, state) {
       if (typeof x !== "string") return false;
       if (s.format === "date") return calendarDate(x);
       if (s.format === "date-time") {
-        // RFC 3339, as JSON Schema's date-time: hours below 24, minutes and seconds below 60, in the
-        // time and in the offset alike.
-        const m = x.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))?$/);
-        const below = (v, n) => v === undefined || Number(v) < n;
-        return Boolean(m) && calendarDate(m[1]) && below(m[2], 24) && below(m[3], 60) && below(m[4], 60) && below(m[6], 24) && below(m[7], 60);
+        // RFC 3339 date-time, as JSON Schema reads it: T and Z in either case, the offset required,
+        // hours below 24 and minutes below 60 in the time and in the offset, seconds up to 60 for a
+        // leap second, which falls on the last minute of a day in UTC.
+        const m = x.match(/^(\d{4}-\d{2}-\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/);
+        if (!m || !calendarDate(m[1])) return false;
+        const [h, mi, s, oh, om] = [m[2], m[3], m[4], m[7] ?? "0", m[8] ?? "0"].map(Number);
+        if (h > 23 || mi > 59 || s > 60 || oh > 23 || om > 59) return false;
+        if (s < 60) return true;
+        const utc = (((h * 60 + mi - (m[6] === "-" ? -1 : 1) * (oh * 60 + om)) % 1440) + 1440) % 1440;
+        return utc === 1439;
       }
       return true;
     }

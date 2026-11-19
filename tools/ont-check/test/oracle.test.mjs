@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { evaluate, names, parse, schemaOf } from "../expr.mjs";
 import { parseGlossary } from "../lib.mjs";
-import { Oracle, readForms, readTraces } from "../oracle.mjs";
+import { Oracle, ofType, readForms, readTraces } from "../oracle.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
 const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
@@ -161,7 +161,7 @@ test("[check.formal-form.write-out-of-type] a write below an integer's range and
   const day = run((p) => p("ontology.md", "  set loan.returned-on = today", '  set loan.returned-on = "2026-02-30"'), "--run");
   assert.equal(day.code, 1, day.out);
   assert.match(day.out, /action\.return writes "2026-02-30" to field\.loan\.returned-on, outside its type date optional/);
-  for (const at of ["2026-10-01T00:00:00+99:99", "2026-10-01T00:00:00+00:60"]) {
+  for (const at of ["2026-10-01T00:00:00+99:99", "2026-10-01T00:00:00+00:60", "2026-10-01T00:00:00", "2026-10-01T12:00:60Z"]) {
     const zone = run((p) => p("ontology.md", "placed-at = now", `placed-at = "${at}"`), "--run");
     assert.equal(zone.code, 1, zone.out);
     assert.match(zone.out, new RegExp(`action\\.place-hold writes "${at.replace(/\+/g, "\\+")}" to field\\.hold\\.placed-at, outside its type datetime`));
@@ -169,6 +169,12 @@ test("[check.formal-form.write-out-of-type] a write below an integer's range and
   const other = run((p) => p("ontology.md", "item = item, member = member", "item = item, member = item"), "--run");
   assert.equal(other.code, 1, other.out);
   assert.match(other.out, /action\.checkout writes "[a-z]+-\d+" to edge\.loan\.member, outside its type ref ent\.member/);
+});
+
+test("[check.formal-form.write-out-of-type] a datetime is read as RFC 3339: lowercase t and z, offsets and a leap second at the end of a UTC day", () => {
+  const schema = { entities: {} };
+  for (const ok of ["2026-10-01t00:00:00z", "1990-12-31T23:59:60Z", "1990-12-31T15:59:60-08:00", "2026-10-01T00:00:00.000123Z", "2026-10-01T23:59:59-23:59"]) assert.ok(ofType("datetime", ok, schema, {}), ok);
+  for (const bad of ["2026-10-01T00:00:00", "2026-10-01T12:00:60Z", "2026-10-01T00:00Z", "2026-02-30T00:00:00Z", "2026-10-01T24:00:00Z"]) assert.ok(!ofType("datetime", bad, schema, {}), bad);
 });
 
 test("[check.formal-form.unknown-name] names are typed by entity: a relation leads on, a loop variable is seen only inside its loop", () => {
