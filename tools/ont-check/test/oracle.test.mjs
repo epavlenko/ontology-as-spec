@@ -127,11 +127,13 @@ test("[check.formal-form.unchecked-name] an invariant no action names, one named
     p("ontology.md", '  says "{item} is already on loan"\n', '  says "{item} is already on loan"\n  refuse by inv.damaged-not-lent\n');
     p("ontology.md", 'refuse when item.condition = "damaged"', 'refuse when item.state = "damaged"');
     p("ontology.md", "  set member.borrow-limit = limit", "  let n = 1\n  set n.ghost = limit\n  set member.borrow-limit = limit");
+    p("ontology.md", '  says "{item} is damaged and is not lent until repaired"\n', '  says "{item} is damaged and is not lent until repaired"\n  each i in items:\n    always false\n');
   });
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /inv\.borrower-renews: no action or hook names it, so its names are not checked/);
   assert.match(r.out, /inv\.damaged-not-lent: item\.state/);
   assert.match(r.out, /action\.set-borrow-limit: set ghost on a value that has no fields/);
+  assert.match(r.out, /inv\.damaged-not-lent: always holds only at the top of an invariant/);
 });
 
 test("[check.formal-form.cycle] a derived value and a rule that read themselves are named with the forms they go through", () => {
@@ -156,6 +158,9 @@ test("[check.formal-form.write-out-of-type] a write below an integer's range and
   const text = run((p) => p("ontology.md", "  set loan.returned-on = today", '  set loan.returned-on = "banana"'), "--run");
   assert.equal(text.code, 1, text.out);
   assert.match(text.out, /action\.return writes "banana" to field\.loan\.returned-on, outside its type date optional/);
+  const day = run((p) => p("ontology.md", "  set loan.returned-on = today", '  set loan.returned-on = "2026-02-30"'), "--run");
+  assert.equal(day.code, 1, day.out);
+  assert.match(day.out, /action\.return writes "2026-02-30" to field\.loan\.returned-on, outside its type date optional/);
   const other = run((p) => p("ontology.md", "item = item, member = member", "item = item, member = item"), "--run");
   assert.equal(other.code, 1, other.out);
   assert.match(other.out, /action\.checkout writes "[a-z]+-\d+" to edge\.loan\.member, outside its type ref ent\.member/);

@@ -326,12 +326,29 @@ export function checkForms({ forms, problems }, rows) {
     if ((g.class !== "rule" && g.class !== "inv") || reached.has(g.id)) continue;
     if ((g.body ?? []).some((st) => st.s !== "always")) badNames.push(`${g.id}: no action or hook names it, so its names are not checked`);
   }
+  // `always` holds after every step only at the top of an invariant; anywhere else nothing would
+  // run it, so it is refused rather than accepted and ignored.
+  const nestedAlways = (f, list, top) => {
+    for (const st of list ?? []) {
+      if (st.s === "always" && !(top && f.class === "inv")) badNames.push(`${f.id}: always holds only at the top of an invariant`);
+      if (st.s === "each" || st.s === "if") nestedAlways(f, st.body, false);
+    }
+  };
+  for (const f of forms.values()) nestedAlways(f, f.body, true);
   // ont: inv.forms-end
   for (const c of cycles(forms)) badNames.push(`${c[0]}: depends on itself through ${c.join(" → ")}`);
   return { missing, badNames: [...new Set(badNames)], problems };
 }
 
 // ---------- the interpreter ----------
+
+// A day that exists on the calendar, written YYYY-MM-DD: 2026-02-30 and 2026-99-99 are not.
+const calendarDate = (x) => {
+  const m = typeof x === "string" && x.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return false;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return d.getUTCFullYear() === Number(m[1]) && d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[3]);
+};
 
 // Whether a value is of a field's type, read with the vocabulary of the contracts (`parseType`):
 // text, integer with its bounds, number, boolean, date, datetime, one of …, ref and refs of an entity,
@@ -350,8 +367,11 @@ export function ofType(type, v, schema, state) {
     }
     if (s.type === "string") {
       if (typeof x !== "string") return false;
-      if (s.format === "date") return /^\d{4}-\d{2}-\d{2}$/.test(x);
-      if (s.format === "date-time") return /^\d{4}-\d{2}-\d{2}T/.test(x);
+      if (s.format === "date") return calendarDate(x);
+      if (s.format === "date-time") {
+        const m = x.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/);
+        return Boolean(m) && calendarDate(m[1]) && Number(m[2]) < 24 && Number(m[3]) < 60 && Number(m[4]) < 60;
+      }
       return true;
     }
     if (s.type === "integer") return Number.isInteger(x) && (s.minimum === undefined || x >= s.minimum) && (s.maximum === undefined || x <= s.maximum);
@@ -394,7 +414,7 @@ export class Oracle {
     for (const list of Object.values(state)) for (const o of list) byId.set(o.id, o);
     const self = this;
     const c = {
-      state, byId, today: this.today, now: `${this.today}T${String(this.seq).padStart(6, "0")}`, actor,
+      state, byId, today: this.today, now: `${this.today}T00:00:00.${String(this.seq).padStart(6, "0")}Z`, actor,
       ruleValue(id) {
         const f = self.forms.get(id);
         if (!f) throw new FormError("name", `no form ${id}`);
@@ -491,7 +511,7 @@ export class Oracle {
     for (const p of f.params) if (env[p.name] && typeof env[p.name] === "object") env[p.name] = c.byId.get(env[p.name].id);
     const effects = { notifications: [], offers: [] };
     this.seq++;
-    c.now = `${this.today}T${String(this.seq).padStart(6, "0")}`;
+    c.now = `${this.today}T00:00:00.${String(this.seq).padStart(6, "0")}Z`;
     const r = this.exec(f.body, c, env, id, effects);
     if (r) return r;
     for (const h of this.order.map((x) => this.forms.get(x)).filter((h) => h.class === "hook" && h.on === id)) {
