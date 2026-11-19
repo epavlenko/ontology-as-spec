@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { evaluate, names, parse, schemaOf } from "../expr.mjs";
+import { parseGlossary } from "../lib.mjs";
+import { Oracle, readForms, readTraces } from "../oracle.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
 const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
@@ -133,4 +135,44 @@ test("the language computes dates across a month, compares an object with its id
   assert.equal(evaluate(parse("some l in loans where l.item = the item \"i1\""), { ...ctx, byId }, {}), true);
   assert.equal(evaluate(parse("(first l in loans where true by l.due-date).item.copy-of"), ctx, {}), "T");
   assert.equal(evaluate(parse("count(l in loans where l.due-date > today)"), ctx, {}), 0);
+});
+
+test("[check.trace.untraced] a trace replaced by a Not traced line is refused when the oracle can run the check", () => {
+  const trace = /\ncheck\.item\.one-open-loan\n(?: {2}.*\n)+/;
+  const r = run((p) => {
+    const text = readFileSync(join(EXAMPLE, "checks.md"), "utf8");
+    p("checks.md", text.match(trace)[0], "\n");
+    p("checks.md", "- Not traced: `check.hold.state-unreadable`", "- Not traced: `check.item.one-open-loan` — skipped for now.\n- Not traced: `check.hold.state-unreadable`");
+  }, "--run");
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /ERROR · checks on a Not traced line that the oracle can run \([^)]*\) \(1\):\n  check\.item\.one-open-loan\n/);
+});
+
+test("[check.trace.fails] a reminder sent a day late, or with another text, fails the trace of the reminder", () => {
+  const late = run((p) => p("ontology.md", "today = l.due-date - 2 days", "today = l.due-date - 1 days"), "--run");
+  assert.equal(late.code, 1, late.out);
+  assert.match(late.out, /RUN check\.loan\.due-reminder · fail · .*ana was not notified by hook\.due-reminder on 2026-10-20/);
+  const text = run((p) => {
+    p("ontology.md", 'notify l.member "{l.item} is due on {l.due-date}"', 'notify l.member "unrelated message"');
+    p("ontology.md", 'notify head.member "{item} is waiting for you until {today + rule.pickup-window}"', 'notify head.member "unrelated message"');
+  }, "--run");
+  assert.equal(text.code, 1, text.out);
+  assert.match(text.out, /RUN check\.loan\.due-reminder · fail/);
+  assert.match(text.out, /RUN check\.hold\.reserve-on-return · fail/);
+});
+
+test("the oracle logs every step with its actor and day, refused or not", () => {
+  const md = readFileSync(join(EXAMPLE, "ontology.md"), "utf8");
+  const { rows } = parseGlossary(md);
+  const sample = readTraces(readFileSync(join(EXAMPLE, "checks.md"), "utf8")).sample;
+  const o = new Oracle(rows, readForms(md, rows), sample);
+  o.advance("2026-10-01");
+  o.act("action.checkout", { item: "dune-1", member: "ana" }, "staff");
+  o.act("action.checkout", { item: "dune-1", member: "ben" }, "staff");
+  o.advance("2026-10-02");
+  assert.deepEqual(o.log.map((e) => [e.day, e.actor, e.step, e.outcome ?? "", e.by ?? ""]), [
+    ["2026-10-01", "staff", "action.checkout", "ok", ""],
+    ["2026-10-01", "staff", "action.checkout", "refused", "inv.one-loan-per-item"],
+    ["2026-10-02", "system", "day", "", ""],
+  ]);
 });

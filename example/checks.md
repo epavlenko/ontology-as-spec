@@ -228,7 +228,7 @@ check.loan.due-reminder
     2026-10-20 day
     2026-10-21 day
   then
-    notified ana by hook.due-reminder offering action.renew once
+    notified ana by hook.due-reminder on 2026-10-20 offering action.renew says "dune-1 is due on 2026-10-22" once
 ```
 
 </details>
@@ -290,7 +290,7 @@ check.hold.reserve-on-return
     2026-10-10 staff action.return item=dune-1 condition=good
   then
     outcome ok
-    notified ana by hook.hold-ready
+    notified ana by hook.hold-ready on 2026-10-10 says "dune-1 is waiting for you until 2026-10-13"
     assert (first h in holds where h.member = "ana" by h.placed-at).reserved-item = "dune-1"
     assert (first h in holds where h.member = "ana" by h.placed-at).reserved-on + rule.pickup-window = "2026-10-13"
 check.hold.reserved-not-available

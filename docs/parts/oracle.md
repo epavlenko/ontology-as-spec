@@ -43,10 +43,10 @@ action.renew(item) by member
 
 The check reports a row of a derived value, rule, invariant, hook or action without a form, a form out of the order of the rows or outside a folded block, and every name a form uses that the ontology does not define, typed by entity: `loan.due` fails when the loan has no field `due`.
 
-<!-- ont: ent.trace@eb1f36, edge.trace.check@1c9da9, inv.trace-per-check@6130cc, inv.traces-pass@523e74 -->
+<!-- ont: ent.trace@eb1f36, edge.trace.check@1c9da9, inv.trace-per-check@c610c1, inv.traces-pass@523e74 -->
 ## Traces
 
-A trace is a check's case as steps: the GIVEN and the WHEN as actions and days, the THEN as outcomes, messages, notifications and assertions. It sits in a folded traces block of its check's section in the catalogue; a sample block holds the collection every trace starts from. A check that the oracle cannot run, such as a screen judged on the mockup, is listed on a `- Not traced:` line with the reason.
+A trace is a check's case as steps: the GIVEN and the WHEN as actions and days, the THEN as outcomes, messages, notifications and assertions. It sits in a folded traces block of its check's section in the catalogue; a sample block holds the collection every trace starts from. A check that the oracle cannot run is listed on a `- Not traced:` line with the reason; the check allows that only for a check that names a view, is manual or covers the error outcome, so that a trace cannot be dropped by writing a reason. A notification is checked by its recipient, hook, day and text: `notified ana by hook.due-reminder on 2026-10-20 offering action.renew says "dune-1 is due" once`. The oracle logs every step, with its actor and day.
 
 ```text
 check.loan.renew-while-held

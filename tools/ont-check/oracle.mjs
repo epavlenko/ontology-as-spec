@@ -350,7 +350,7 @@ export class Oracle {
         if (evaluate(st.e, c, env) === true) { const r = this.exec(st.body, c, env, owner, effects); if (r) return r; }
       } else if (st.s === "notify") {
         const to = idOf(evaluate(st.to, c, env));
-        const n = { to, by: owner, text: this.text(st.text, c, env), offers: [] };
+        const n = { to, by: owner, day: this.today, text: this.text(st.text, c, env), offers: [] };
         if (st.offer) {
           const args = Object.fromEntries(st.offer.args.map((a) => [a.name, idOf(evaluate(a.e, c, env))]));
           effects.offers.push({ n, id: st.offer.id, args, actor: to });
@@ -363,6 +363,11 @@ export class Oracle {
   // An action: its entity parameters must name objects, the actor must have its role, then its
   // statements run on a copy of the state, which replaces the state only when nothing refuses.
   act(id, args, actor, dry = false) {
+    const r = this.attempt(id, args, actor, dry);
+    if (!dry && r.kind !== "ok") this.log.push({ day: this.today, actor, step: id, args, outcome: r.kind, by: r.by, message: r.message });
+    return r;
+  }
+  attempt(id, args, actor, dry) {
     const f = this.forms.get(id);
     if (!f || f.class !== "action") throw new FormError("trace", `no action form ${id}`);
     const byId = this.byId();
@@ -392,7 +397,8 @@ export class Oracle {
     }
     if (dry) return { kind: "ok", by: id, message: "" };
     this.state = state;
-    this.settle(effects);
+    this.settle(effects, id);
+    this.log.push({ day: this.today, actor, step: id, args, outcome: "ok" });
     return { kind: "ok", by: id, message: "" };
   }
   // Every day from the day after today up to date is processed in turn; the first step only sets it.
@@ -411,7 +417,8 @@ export class Oracle {
       if (r) throw new FormError("eval", `${h.id} refused on ${date}: ${r.message}`);
     }
     this.state = state;
-    this.settle(effects);
+    this.settle(effects, `day ${date}`);
+    this.log.push({ day: date, actor: "system", step: "day" });
   }
   // ont: inv.traces-pass
   holdsAlways(when) {
@@ -513,11 +520,15 @@ export function runTrace(rows, formsRead, sample, t) {
       } else if ((m = x.match(/^says "(.*)"$/))) {
         const r = outcomes[i];
         if (!r || !r.message.includes(m[1])) throw new FormError("then", `line ${s.line}: outcome ${i + 1} says «${r?.message}», not «${m[1]}»`);
-      } else if ((m = x.match(/^notified (\S+) by (hook\.[a-z0-9-]+)(?: offering (action\.[a-z0-9-]+))?( once)?$/))) {
-        const hits = notified.filter((n) => n.to === m[1] && n.by === m[2]);
-        if (!hits.length) throw new FormError("then", `line ${s.line}: ${m[1]} was not notified by ${m[2]}`);
-        if (m[4] && hits.length !== 1) throw new FormError("then", `line ${s.line}: ${m[1]} was notified ${hits.length} times by ${m[2]}`);
-        if (m[3] && !hits.every((n) => n.offers.includes(m[3]))) throw new FormError("then", `line ${s.line}: the notification does not offer ${m[3]}`);
+      } else if ((m = x.match(/^notified (\S+) by (hook\.[a-z0-9-]+) on (\d{4}-\d{2}-\d{2})(?: offering (action\.[a-z0-9-]+))? says "(.*)"( once)?$/))) {
+        // Who, by which hook, on which day, what it says and offers; "once": no other notification
+        // of that hook to that member during WHEN.
+        const [, to, by, day, offer, text, once] = m;
+        const all = notified.filter((n) => n.to === to && n.by === by);
+        const hits = all.filter((n) => n.day === day && n.text.includes(text));
+        if (!hits.length) throw new FormError("then", `line ${s.line}: ${to} was not notified by ${by} on ${day} with «${text}»; notified: ${all.map((n) => `${n.day} «${n.text}»`).join(", ") || "never"}`);
+        if (once && all.length !== 1) throw new FormError("then", `line ${s.line}: ${to} was notified ${all.length} times by ${by}`);
+        if (offer && !hits.every((n) => n.offers.includes(offer))) throw new FormError("then", `line ${s.line}: the notification does not offer ${offer}`);
       } else if ((m = x.match(/^not notified (\S+)$/))) {
         if (notified.some((n) => n.to === m[1])) throw new FormError("then", `line ${s.line}: ${m[1]} was notified`);
       } else step(o, x, null);
@@ -534,11 +545,15 @@ export const notTraced = (md) =>
   new Map([...md.matchAll(/^- Not traced: `(check\.[a-z0-9.-]+)`\s+—\s+(.+)$/gm)].map((m) => [m[1], m[2].trim()]));
 
 // ont: inv.trace-per-check
+// A check may go without a trace only when the oracle cannot run it: it names a view, its proof is
+// manual, or it covers the error outcome (an error of the implementation, such as an unreadable file).
+export const mayGoUntraced = (c) => c.concepts.some((x) => x.startsWith("view.")) || c.proof === "manual" || c.covers.includes("error");
 export function checkTraces(read, checks, md) {
   const skipped = notTraced(md);
   const ids = new Set(checks.map((c) => c.id));
+  const notAllowed = checks.filter((c) => skipped.has(c.id) && !mayGoUntraced(c)).map((c) => c.id);
   const untraced = checks.filter((c) => !read.traces.has(c.id) && !skipped.has(c.id)).map((c) => c.id);
   const unknown = [...read.traces.keys(), ...skipped.keys()].filter((x) => !ids.has(x));
   const both = [...skipped.keys()].filter((x) => read.traces.has(x));
-  return { untraced, unknown, both, skipped, problems: read.problems };
+  return { untraced, unknown, both, notAllowed, skipped, problems: read.problems };
 }

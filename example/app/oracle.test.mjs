@@ -87,18 +87,39 @@ const observe = (lib, s, o, today) => {
   return { code, oracle };
 };
 
-// The known divergences of ontology.md, each with the condition under which it may appear and what
-// it shows; nothing else may differ.
+// The known divergences of ontology.md: each with the condition under which it may appear and its
+// whole allowed effect. The code's observation must equal the oracle's with exactly that effect applied;
+// anything else that differs fails.
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const KNOWN = [
   {
+    // The code lends to, or queues, a member with an overdue loan; the oracle refuses by the invariant.
+    // Allowed effect: the one loan or the one hold the code made, as the code makes it for anyone.
     ticket: "#4 Suspend borrowing instead of fines",
     when: (step, o) => ["action.checkout", "action.place-hold"].includes(step.action) && o.eval(`concept.suspension(the member "${step.args.member}")`) === true,
-    shows: (r) => r.codeAccepted && r.oracle.kind === "refused" && r.oracle.by === "inv.suspended-cannot-borrow",
+    allows: (step, r) => {
+      if (!(r.codeAccepted && r.oracle.kind === "refused" && r.oracle.by === "inv.suspended-cannot-borrow")) return false;
+      const { code, oracle } = r.obs;
+      if (step.action === "action.checkout") {
+        const loan = `${step.args.member} ${step.args.item} ${library.addDays(step.day, library.LOAN_DAYS)} 0 `;
+        const available = oracle.available.map((x) => (x.startsWith(`${step.args.item} `) ? `${step.args.item} false` : x));
+        return same(code.loans, [...oracle.loans, loan].sort()) && same(code.queues, oracle.queues) && same(code.available, available);
+      }
+      const position = oracle.queues.filter((q) => q.split(" ")[1] === step.args.title).length + 1;
+      return same(code.queues, [...oracle.queues, `${step.args.member} ${step.args.title} ${position}`].sort()) && same(code.loans, oracle.loans) && same(code.available, oracle.available);
+    },
   },
   {
+    // A returned item of a title someone waits for: the oracle reserves it, the code makes it available.
+    // Allowed effect: that one item available in the code, not in the oracle; nothing else.
     ticket: "#3 Serve the hold queue",
     when: (step, o) => step.action === "action.return" && o.eval(`some h in holds where h.state = "waiting" and h.waits-for = (the item "${step.args.item}").copy-of`) === true,
-    shows: (r) => r.codeAccepted && r.oracle.kind === "ok" && r.diff.every((d) => d === "available"),
+    allows: (step, r) => {
+      if (!(r.codeAccepted && r.oracle.kind === "ok")) return false;
+      const { code, oracle } = r.obs;
+      const available = oracle.available.map((x) => (x === `${step.args.item} false` ? `${step.args.item} true` : x));
+      return !same(available, oracle.available) && same(code.available, available) && same(code.loans, oracle.loans) && same(code.queues, oracle.queues);
+    },
   },
 ];
 
@@ -126,7 +147,7 @@ export function compare(seeds, length, lib = library) {
         r.diff = ["loans", "queues", "available"].filter((k) => JSON.stringify(obs.code[k]) !== JSON.stringify(obs.oracle[k]));
         if (codeAccepted !== (oracle.kind === "ok")) r.diff.unshift("accepted");
         r.obs = obs;
-        matched = r.diff.length ? candidates.find((k) => k.shows(r)) : null;
+        matched = r.diff.length ? candidates.find((k) => k.allows(step, r)) : null;
       } else {
         const obs = observe(lib, s, o, step.day);
         r.diff = ["loans", "queues", "available"].filter((k) => JSON.stringify(obs.code[k]) !== JSON.stringify(obs.oracle[k]));
@@ -170,4 +191,33 @@ test("a new difference in the code is caught: a loan period of 20 days instead o
   const r = compare(Array.from({ length: 50 }, (_, i) => i + 1), 30, broken);
   assert.ok(r.failures.length > 0, "the injected difference was not caught");
   assert.match(r.failures[0], /loans differ/);
+});
+
+test("a difference hidden inside known divergence #4 is caught: a suspended member's loan due in 200 days", () => {
+  const broken = {
+    ...library,
+    checkout: (s, a) => {
+      const overdue = s.loans.some((l) => !l.returned && l.member === a.member && a.today > l.due);
+      const loan = library.checkout(s, a);
+      if (overdue) loan.due = library.addDays(a.today, 200);
+      return loan;
+    },
+  };
+  const r = compare(SEEDS.slice(0, 500), 30, broken);
+  assert.ok(r.failures.length > 0, "the difference inside the known divergence was not caught");
+});
+
+test("a difference hidden inside known divergence #3 is caught: a return of a held title that leaves the loan open", () => {
+  const broken = {
+    ...library,
+    returnItem: (s, a) => {
+      const title = s.items[a.item]?.title;
+      const held = s.holds.some((h) => h.title === title && !h.closed);
+      const loan = library.returnItem(s, a);
+      if (held) loan.returned = null;
+      return loan;
+    },
+  };
+  const r = compare(SEEDS.slice(0, 500), 30, broken);
+  assert.ok(r.failures.length > 0, "the difference inside the known divergence was not caught");
 });

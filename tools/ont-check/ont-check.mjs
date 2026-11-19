@@ -1312,6 +1312,7 @@ if (cfg.oracle) {
   report("checks with no trace and no Not traced line", t.untraced);
   report("traces or Not traced lines that name no check of the catalogue", t.unknown);
   report("checks with both a trace and a Not traced line", t.both);
+  report("checks on a Not traced line that the oracle can run (only a check that names a view, is manual or covers the error outcome may go untraced)", t.notAllowed);
   if (flag("--run") > 0) {
     const failed = [];
     let passed = 0;
