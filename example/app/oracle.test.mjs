@@ -1,4 +1,4 @@
-// The code compared with the oracle (the approach's oracle prototype, rule.code-compared-with-oracle): library.mjs
+// The code compared with the oracle (the approach's oracle, rule.code-compared-with-oracle): library.mjs
 // and the ontology's formal forms run the same random sequences of implemented actions and days. After
 // every step both are observed: accepted or not, open loans, overdue marks, queues and availability.
 // A difference fails unless it is one of the known divergences of ontology.md, matched by its

@@ -18,7 +18,7 @@ The ontology describes the entities, fields, relations, rules and screens of a s
 
 **Types** are written in a vocabulary that belongs to no programming language: `text`, `integer` with an optional range such as `integer 0..2`, `number`, `boolean`, `date`, `datetime`, `one of` a list of values, `ref` or `refs` an entity, and `optional` after any of them. Derived values have no type in the contract, because they are never stored.
 
-**Behavior blocks** (tentative: the approach's oracle prototype): under a table, a folded block states the behavior of its rows in the form language, each form starting with its row's ID, in the order of the rows. `ont-check.mjs --run` runs the traces of `checks.md` on them.
+**Behavior blocks** (the approach's oracle): under a table, a folded block states the behavior of its rows in the form language, each form starting with its row's ID, in the order of the rows. `ont-check.mjs --run` runs the traces of `checks.md` on them.
 
 `tools/ont-check/ont-check.mjs` checks the kind order, the Kind cells, that every field and relation sits in its entity's table and has a valid type, and that the generated contracts are current.
 

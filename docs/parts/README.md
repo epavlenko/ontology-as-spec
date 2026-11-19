@@ -1,6 +1,6 @@
 # The parts
 
-Nine parts, and a tenth as a prototype. The first three hold meaning, the next three tie artifacts to it, the next two make agents work inside it, and the ninth ties documentation to it. The tenth, the oracle, runs the ontology; it is tentative (D-93).
+Ten parts. The first three hold meaning, the next three tie artifacts to it, the next two make agents work inside it, the ninth ties documentation to it, and the tenth, the oracle, runs the ontology (D-93).
 
 | #   | Part                                               | Holds or ties                                                             |
 | --- | -------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -13,7 +13,7 @@ Nine parts, and a tenth as a prototype. The first three hold meaning, the next t
 | 7   | [Agent rules](agent-rules.md)                      | what else to update when something changes, and what the check cannot see |
 | 8   | [Agent workflow](agent-workflow.md)                | the gap computed, tickets as slices of it, a derived finish condition     |
 | 9   | [Documentation](documentation.md)                  | pages for people anchored to concepts; reference pages generated          |
-| 10  | [The oracle](oracle.md) (prototype, tentative)     | formal forms of the rows run by the tool; traces of checks; code compared |
+| 10  | [The oracle](oracle.md)     | formal forms of the rows run by the tool; traces of checks; code compared |
 
 Each file explains one part: what it is, why, how it works, and how it fails in practice. Its Reference section points to the generated [reference](../reference.md), which holds the part's concepts, their fields and rules, and the checks that hold them: automatic ones the tool enforces, manual ones a reviewer does. The [example](../../example/README.md) has a working instance of every part.
 

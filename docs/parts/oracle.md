@@ -1,6 +1,6 @@
-# 10. The oracle (prototype)
+# 10. The oracle
 
-Tentative: this part describes the prototype of D-93 on its branch. It is not adopted.
+The ontology run by the tool (D-93).
 
 <!-- ont: ent.formal-form@c38589, concept.oracle@88e2a7, rule.oracle-not-the-product@f49d52 -->
 ## What it is
