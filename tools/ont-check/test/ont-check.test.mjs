@@ -1312,11 +1312,16 @@ test("[check.other-word.used] the text of a mockup's script is read as JavaScrip
     "  2;",
     'const g = `<p>${t["queue entry"]}${k ? { label: "queue entry" }.label : "ok"}</p>`;',
     'const api = "queue entry";',
+    "if (ok) /[/*]/.test(x); const h = `<p>queue entry</p>`; /* a comment */",
+    "let n = 1; n++ / 2; const i = `<p>queue entry</p>`;",
+    'const j = "a\\',
+    'b";',
+    "const k = `<p>queue&nbspentry;</p>`;",
   ];
   const r = run((p) => p("mockup/index.html", "<script>\n", `<script>\n${script.join("\n")}\n`));
   assert.equal(r.code, 1, r.out);
   const m = r.out.match(OTHER_WORDS);
   assert.ok(m, r.out);
   const lines = [...m[2].matchAll(/mockup\/index\.html:(\d+) /g)].map((x) => Number(x[1]) - 31);
-  assert.deepEqual(lines, [2, 5, 7, 9, 9]);
+  assert.deepEqual(lines, [2, 5, 7, 9, 9, 14, 15, 18]);
 });

@@ -437,7 +437,12 @@ const decode = (s) => {
   const { names, legacy, pattern } = entities();
   return s.replace(pattern, (m, d, h, n, old) => {
     let text;
-    if (n) text = names[n];
+    if (n) {
+      text = names[n];
+      // A name the standard does not have may start with a legacy one, read without its semicolon.
+      const old = text === undefined && Object.keys(legacy).filter((x) => n.startsWith(x)).sort((x, y) => y.length - x.length)[0];
+      if (old) text = legacy[old] + n.slice(old.length) + ";";
+    }
     else if (old) text = legacy[old];
     else {
       const cp = parseInt(d ?? h, d ? 10 : 16);
@@ -489,7 +494,7 @@ export const scriptText = (js) => {
     out += edge;
     i++;
     while (i < js.length && js[i] !== q && js[i] !== "\n") {
-      if (js[i] === "\\") { out += "  "; i += 2; continue; }
+      if (js[i] === "\\") { out += blankOut(js.slice(i, i + 2)); i += 2; continue; }
       out += inExpression ? " " : js[i];
       i++;
     }
@@ -524,6 +529,7 @@ export const scriptText = (js) => {
     const saved = code;
     code = "";
     let depth = 0;
+    const parens = []; // for each open parenthesis, whether it holds the condition of if, while, for or with
     while (i < js.length) {
       const c = js[i];
       if (close && c === "}" && depth === 0) break;
@@ -531,7 +537,7 @@ export const scriptText = (js) => {
       if (c === "/" && js[i + 1] === "*") { const e = js.indexOf("*/", i + 2); blank(e < 0 ? js.length : e + 2); continue; }
       if (c === "'" || c === '"') { string(c); code += "0"; continue; }
       if (c === "`") { template(); code += "0"; continue; }
-      if (c === "/" && REGEX_AFTER.test(code)) {
+      if (c === "/" && REGEX_AFTER.test(code) && !/(?:\+\+|--)\s*$/.test(code)) {
         let j = i + 1;
         let cls = false;
         for (; j < js.length && js[j] !== "\n"; j++) {
@@ -548,7 +554,11 @@ export const scriptText = (js) => {
       }
       if (c === "{") depth++;
       else if (c === "}") depth--;
-      if (!/\s/.test(c)) code += c;
+      if (c === "(") parens.push(/\b(?:if|while|for|with)\s*$/.test(code));
+      // After the condition of if, while, for or with a statement starts, so a slash there starts a
+      // regular expression, as after a semicolon.
+      if (c === ")") code += parens.pop() ? ";" : ")";
+      else if (!/\s/.test(c)) code += c;
       else if (!code.endsWith(" ")) code += " ";
       out += c === "\n" ? "\n" : " ";
       i++;
