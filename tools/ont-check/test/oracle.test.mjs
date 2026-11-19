@@ -148,6 +148,19 @@ test("[check.trace.untraced] a trace replaced by a Not traced line is refused wh
   assert.match(r.out, /ERROR · checks on a Not traced line that the oracle can run \([^)]*\) \(1\):\n  check\.item\.one-open-loan\n/);
 });
 
+for (const id of ["check.loan.overdue-after-due", "check.loan.return-closes-loan", "check.hold.position-shown"]) {
+  test(`[check.trace.untraced] ${id} names a view but sits under its entity: its trace cannot be replaced by a Not traced line`, () => {
+    const trace = new RegExp(`\\n${id.replace(/\./g, "\\.")}\\n(?: {2}.*\\n)+`);
+    const r = run((p) => {
+      const text = readFileSync(join(EXAMPLE, "checks.md"), "utf8");
+      p("checks.md", text.match(trace)[0], "\n");
+      p("checks.md", "- Not traced: `check.hold.state-unreadable`", `- Not traced: \`${id}\` — it names a view.\n- Not traced: \`check.hold.state-unreadable\``);
+    }, "--run");
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, new RegExp(`ERROR · checks on a Not traced line that the oracle can run \\([^)]*\\) \\(1\\):\\n  ${id.replace(/\./g, "\\.")}\\n`));
+  });
+}
+
 test("[check.trace.fails] a reminder sent a day late, or with another text, fails the trace of the reminder", () => {
   const late = run((p) => p("ontology.md", "today = l.due-date - 2 days", "today = l.due-date - 1 days"), "--run");
   assert.equal(late.code, 1, late.out);

@@ -4,6 +4,7 @@
 // code; it is not the product (rule.oracle-not-the-product).
 // ont: ent.formal-form, edge.formal-form.concept, concept.oracle, ent.trace, edge.trace.check
 import { FormError, addDays, evaluate, idOf, names, parse, schemaOf } from "./expr.mjs";
+import { sectionKey } from "./lib.mjs";
 
 const FORM_CLASSES = ["derived", "concept", "rule", "inv", "hook", "action"];
 const REQUIRED = ["derived", "rule", "inv", "hook", "action"];
@@ -545,13 +546,21 @@ export const notTraced = (md) =>
   new Map([...md.matchAll(/^- Not traced: `(check\.[a-z0-9.-]+)`\s+—\s+(.+)$/gm)].map((m) => [m[1], m[2].trim()]));
 
 // ont: inv.trace-per-check
-// A check may go without a trace only when the oracle cannot run it: it names a view, its proof is
-// manual, or it covers the error outcome (an error of the implementation, such as an unreadable file).
-export const mayGoUntraced = (c) => c.concepts.some((x) => x.startsWith("view.")) || c.proof === "manual" || c.covers.includes("error");
-export function checkTraces(read, checks, md) {
+// A check may go without a trace only when the oracle cannot run it: it sits in a section of views
+// (a section of the ontology whose rows are all views), its proof is manual, or it covers the error
+// outcome (an error of the implementation, such as an unreadable file). A check of an entity that
+// merely names a view is still run.
+export const mayGoUntraced = (c, viewSections) => viewSections.has(c.section) || c.proof === "manual" || c.covers.includes("error");
+export const viewSectionsOf = (rows) => {
+  const by = new Map();
+  for (const r of rows) by.set(sectionKey(r.heading), [...(by.get(sectionKey(r.heading)) ?? []), r.id]);
+  return new Set([...by].filter(([, ids]) => ids.every((x) => x.startsWith("view."))).map(([k]) => k));
+};
+export function checkTraces(read, checks, md, rows) {
   const skipped = notTraced(md);
   const ids = new Set(checks.map((c) => c.id));
-  const notAllowed = checks.filter((c) => skipped.has(c.id) && !mayGoUntraced(c)).map((c) => c.id);
+  const views = viewSectionsOf(rows);
+  const notAllowed = checks.filter((c) => skipped.has(c.id) && !mayGoUntraced(c, views)).map((c) => c.id);
   const untraced = checks.filter((c) => !read.traces.has(c.id) && !skipped.has(c.id)).map((c) => c.id);
   const unknown = [...read.traces.keys(), ...skipped.keys()].filter((x) => !ids.has(x));
   const both = [...skipped.keys()].filter((x) => read.traces.has(x));

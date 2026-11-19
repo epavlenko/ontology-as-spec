@@ -1307,12 +1307,12 @@ if (cfg.oracle) {
   report("names in formal forms that are not defined", f.badNames);
   const checksMd = cfg.checks ? read(cfg.checks.file) : "";
   const tracesRead = readTraces(checksMd);
-  const t = checkTraces(tracesRead, checks, checksMd);
+  const t = checkTraces(tracesRead, checks, checksMd, rows);
   report("traces that break the form of their block", t.problems);
   report("checks with no trace and no Not traced line", t.untraced);
   report("traces or Not traced lines that name no check of the catalogue", t.unknown);
   report("checks with both a trace and a Not traced line", t.both);
-  report("checks on a Not traced line that the oracle can run (only a check that names a view, is manual or covers the error outcome may go untraced)", t.notAllowed);
+  report("checks on a Not traced line that the oracle can run (only a check of a section of views, a manual check or one that covers the error outcome may go untraced)", t.notAllowed);
   if (flag("--run") > 0) {
     const failed = [];
     let passed = 0;
