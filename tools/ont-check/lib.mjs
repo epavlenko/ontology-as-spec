@@ -554,7 +554,7 @@ export const scriptText = (js) => {
       }
       if (c === "{") depth++;
       else if (c === "}") depth--;
-      if (c === "(") parens.push(/\b(?:if|while|for|with)\s*$/.test(code));
+      if (c === "(") parens.push(/(?<![\w$.])(?:if|while|for|with)\s*$/.test(code));
       // After the condition of if, while, for or with a statement starts, so a slash there starts a
       // regular expression, as after a semicolon.
       if (c === ")") code += parens.pop() ? ";" : ")";

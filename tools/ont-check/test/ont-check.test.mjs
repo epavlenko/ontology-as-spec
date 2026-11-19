@@ -1317,11 +1317,12 @@ test("[check.other-word.used] the text of a mockup's script is read as JavaScrip
     'const j = "a\\',
     'b";',
     "const k = `<p>queue&nbspentry;</p>`;",
+    "obj.if() / 2; obj.while() / 2; const l = `<p>queue entry</p>`;",
   ];
   const r = run((p) => p("mockup/index.html", "<script>\n", `<script>\n${script.join("\n")}\n`));
   assert.equal(r.code, 1, r.out);
   const m = r.out.match(OTHER_WORDS);
   assert.ok(m, r.out);
   const lines = [...m[2].matchAll(/mockup\/index\.html:(\d+) /g)].map((x) => Number(x[1]) - 31);
-  assert.deepEqual(lines, [2, 5, 7, 9, 9, 14, 15, 18]);
+  assert.deepEqual(lines, [2, 5, 7, 9, 9, 14, 15, 18, 19]);
 });
