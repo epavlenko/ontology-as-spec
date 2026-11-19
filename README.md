@@ -59,9 +59,12 @@ Requires Node 20 or later.
 ```bash
 node tools/ont-check/ont-check.mjs --config example/ont.config.json   # prints ONT_OK
 node --test 'tools/ont-check/test/*.test.mjs'                        # the check catches each kind of drift
+node tools/ont-check/ont-check.mjs --config example/ont.config.json --run   # the oracle runs the checks' traces
 ```
 
 Then open `example/mockup/index.html` in a browser and hover over the elements. Rename a `data-ont` value or delete a row from `example/mockup/ontology-map.md`, run the check again, and read what it reports.
+
+With `--run`, the tool runs the example's ontology as an oracle: each check of the catalogue is replayed as steps on the formal forms written under the tables, and its THEN must hold. The example's code is compared with the oracle on random sequences of the actions it implements; a difference fails its test unless it is a known divergence with a ticket. See [the oracle](docs/parts/oracle.md).
 
 To adopt the approach, start with ten definition rows for the concepts your team argues about most, then grow the ontology until it describes the product's behavior. See [Adopting the approach](docs/lifecycle.md#adopting-the-approach) and the [templates](templates/README.md).
 
@@ -69,7 +72,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 
 | Path                                                         | What it is                                                                                                           |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| [example/](example/README.md)                                | a fictional lending library described end to end: ontology, decisions, mockup, map, checks, a ticket, code and tests |
+| [example/](example/README.md)                                | a fictional lending library described end to end: ontology with formal forms, decisions, mockup, map, checks with traces, tickets, code compared with the oracle, and tests |
 | [docs/reference.md](docs/reference.md)                       | every concept, rule and check of the approach, generated from its ontology                                           |
 | [docs/principles.md](docs/principles.md)                     | the principles and the failures each one prevents                                                                    |
 | [docs/parts/](docs/parts/README.md)                          | the ten parts, one file each: what it is, why, how it works, how it fails                   |
@@ -80,7 +83,7 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | [templates/](templates/README.md)                            | starting files for every artifact                                                                                    |
 | [skills/ontology-as-spec/](skills/ontology-as-spec/SKILL.md) | an agent skill that walks an agent through adopting the approach and points back here (MIT)                          |
 | [skills/change-review/](skills/change-review/SKILL.md)       | an agent skill that reviews a change before merge against the manual checks it touches (MIT)                         |
-| [tools/ont-check/](tools/ont-check/README.md)                | the check, the decision guard, and the generators of tooltips, contracts and reference pages; Node, no dependencies  |
+| [tools/ont-check/](tools/ont-check/README.md)                | the check, the oracle that runs formal forms and traces, the decision guard, and the generators of tooltips, contracts and reference pages; Node, no dependencies |
 | [ontology.md](ontology.md), [checks.md](checks.md)           | the approach described with itself: its concepts, rules and checks, checked like any product                         |
 | [decisions.md](decisions.md)                                 | decisions about this repository                                                                                      |
 
@@ -90,7 +93,7 @@ Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/ex
 
 ## Status and origin
 
-This is an early version, v0.1, in active development. Each change to a rule of the approach is an entry in [decisions.md](decisions.md); an entry marked tentative is a proposal, not yet a rule.
+This is an early version, v0.1, in active development. Each change to a rule of the approach is an entry in [decisions.md](decisions.md); an entry marked tentative is a proposal, not yet a rule. The newest part, [the oracle](docs/parts/oracle.md), runs the ontology itself (D-93).
 
 The approach took shape in 2026 in a product project developed largely by coding agents. Over about six weeks its ontology grew to roughly 150 concepts, with the check running in CI and on every commit that touched meaning. This repository describes the approach and does not document that product or name it. The example is fictional.
 
