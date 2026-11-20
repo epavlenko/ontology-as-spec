@@ -139,7 +139,7 @@ A manual check is run by a person or an agent in the product, and the catalogue 
 
 A doc set that lists `"checks": ["manual"]` must name every manual check of implemented concepts, so a manual check without a way to run it fails the check at the moment an automatic check without a test would. The evidence of a run is kept outside the repository, named by the check's ID and the date; the guide says what to keep.
 
-<!-- ont: ent.manual-run@893f59, derived.current-run@7b78f8, rule.run-recorded@2b45ff, inv.manual-checks-run@51da97, inv.manual-runs-well-formed@51f120, rule.records-english-in-repo@bd7b45 -->
+<!-- ont: ent.manual-run@893f59, derived.current-run@7b78f8, rule.run-recorded@2b45ff, inv.manual-checks-run@51da97, inv.manual-runs-well-formed@51f120, rule.records-english-in-repo@8c6ef6 -->
 
 ## Records of runs
 
@@ -159,7 +159,7 @@ The record is not the evidence. It may sit in the repository, where CI sees it, 
 
 A check's current run is its latest pass or fail, by time, whose stamp is the check's stamp now; a record of `not-run` or `not-applicable` says why the check was not carried out and is not a run. The tool lists the manual checks of implemented concepts that have no current run, as information, or as an error when the configuration sets `"require": true`. A check whose current run failed is listed as information either way: the key asks that the checks are run, and whether a failure blocks a merge is the reviewer's verdict on the change. A record the tool cannot read, or two records with the same check, time and author, fail the check.
 
-A record sits in the repository, so it holds what anyone with a clone can read: English text only, and no path outside the repository, a record of a run as much as a record of a round of review. A letter of a script other than Latin, an absolute path such as `/home/…` or `/tmp/…`, or a path that leaves the repository by `..` fails the check, which names the file and the line; `--record` refuses a table of verdicts with one and writes nothing. A URL is allowed. What stays outside, such as a reviewer's log or a task's statement kept in private notes, is named in words, such as "the reviewer's log, kept outside the repository".
+A record sits in the repository, so it holds what anyone with a clone can read: no path outside the repository, a record of a run as much as a record of a round of review, and, where the configuration sets `records.latinOnly`, as a project whose rule is English only does, Latin letters only. An absolute path such as `/home/…` or `/tmp/…`, a path that leaves the repository by `..`, and, with the key set, a letter of a script other than Latin fail the check, which names the file and the line; `--record` refuses a table of verdicts with one and writes nothing. A URL is allowed. What stays outside, such as a reviewer's log or a task's statement kept in private notes, is named in words, such as "the reviewer's log, kept outside the repository".
 
 <!-- ont: rule.check-in-product-terms@e5b72b, inv.test-does-what-check-says@2b7515 -->
 ## How it fails in practice
