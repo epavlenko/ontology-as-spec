@@ -7,7 +7,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { allowedDivergences, mutants, traceTest } from "../code-traces.mjs";
+import { allowedDivergences, compareTest, mutants, traceTest } from "../code-traces.mjs";
+
+// compareTest takes a title and a function, and no runner of its own.
+const compareTestArity = () => compareTest.length;
 import { parseGlossary } from "../lib.mjs";
 import { readForms, readTraces } from "../oracle.mjs";
 
@@ -122,9 +125,34 @@ test("[check.trace.code-diverges] on the code a trace may differ only for a chec
   assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#8 Other", allows: only } } }, [line], catalogue).size, 0);
   assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#9 One loan per item", allows: only } } }, ["- Ticket: #9 One loan per item (`inv.other`)."], catalogue).size, 0);
   assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#9 One loan per item" } } }, [line], catalogue).size, 0);
+  // The ticket is matched whole: an empty one, or #9 against a line of #99, allows nothing.
+  const other = "- **Item.** The code lends an item twice (`inv.one-loan-per-item`). Ticket: #99 Another ticket.";
+  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#9", allows: only } } }, [other], catalogue).size, 0);
+  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "", allows: only } } }, [other], catalogue).size, 0);
   // A code that throws, or fails before THEN, is not a divergence.
   const broken = { ...lax, act: () => { throw new Error("unexpected database failure"); } };
   assert.throws(() => traceTest(trace, { ...setup, allowed })(broken), /unexpected database failure/);
   // On the oracle a divergence allows nothing.
   assert.throws(() => traceTest(trace, { ...setup, allowed })({ ...lax, isCode: false }));
+});
+
+test("[check.trace.runs-on-code] a registered test runs: a runner passed to skip it is not taken", () => {
+  // The tool hands each registered test to node:test itself, so the example's tests run on the code even
+  // when a file tries to skip them.
+  const root = mkdtempSync(join(tmpdir(), "code-traces-skip-"));
+  const dir = join(root, "example");
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    symlinkSync(join(TOOLS, ".."), join(root, "tools"));
+    patch(dir, "traces/traces.test.mjs", "adapter });", "adapter, test: (await import(\"node:test\")).test.skip });");
+    // A run of node:test of its own, not a subtest of this one.
+    const env = { ...process.env };
+    delete env.NODE_TEST_CONTEXT;
+    const r = spawnSync("node", ["--test", join(dir, "traces/traces.test.mjs")], { encoding: "utf8", env });
+    assert.match(r.stdout, /ℹ pass 11/, r.stdout);
+    assert.match(r.stdout, /ℹ skipped 0/, r.stdout);
+    assert.equal(compareTestArity(), 2);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

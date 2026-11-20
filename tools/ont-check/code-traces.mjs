@@ -5,6 +5,7 @@
 // against a system runs on both: on the code, and on the oracle with one of its forms changed, where it
 // must fail whenever the check's trace does.
 // ont: concept.code-adapter, rule.trace-runs-on-code, derived.surviving-mutation, rule.test-fails-on-mutant
+import { test } from "node:test";
 import { FormError } from "./expr.mjs";
 import { loadConfig, parseChecks, parseGlossary, read, section } from "./lib.mjs";
 import { Oracle, readForms, readTraces, runTrace } from "./oracle.mjs";
@@ -64,7 +65,9 @@ export function allowedDivergences(adapter, lines, catalogue) {
   const allowed = new Map();
   for (const [check, d] of Object.entries(adapter.diverges ?? {})) {
     const concepts = catalogue.get(check)?.concepts ?? [];
-    const line = lines.find((l) => l.includes(d.ticket) && concepts.some((x) => l.includes(`\`${x}\``)));
+    // The ticket is the one the line names after "Ticket:", whole, not a part of it: #9 is not #99.
+    const ticketOf = (l) => l.match(/Ticket:\s*(#\d+\b[^.]*)/)?.[1].trim() ?? null;
+    const line = d.ticket && lines.find((l) => ticketOf(l) === d.ticket.trim() && concepts.some((x) => l.includes(`\`${x}\``)));
     if (line && typeof d.allows === "function") allowed.set(check, d);
   }
   return allowed;
@@ -166,7 +169,7 @@ export const divergenceLines = (md, heading) => {
   const h = heading ? md.split("\n").find((l) => l.startsWith(heading)) : null;
   return h ? section(md, h).split("\n").filter((l) => /^- /.test(l)) : [];
 };
-export function codeTests({ config, adapter, test }) {
+export function codeTests({ config, adapter }) {
   const cfg = loadConfig(config);
   const md = read(cfg.ontology);
   const { rows } = parseGlossary(md);
@@ -189,12 +192,14 @@ export function codeTests({ config, adapter, test }) {
 // The test that compares the code with the oracle on random sequences, tagged
 // [check.formal-form.code-compared], and the other tests of a file of systemTests: registered so that the
 // check sees that the comparison exists (D-103), and run under node:test only when the registry is closed.
-export function compareTest(test, title, fn) {
+// The tool itself hands the tests to node:test, so that a registered test is one that runs: a project
+// cannot register a test and skip it.
+export function compareTest(title, fn) {
   const id = title.match(/^\[(check\.[a-z0-9.-]+)\]/)?.[1];
   const reg = registry();
   reg.tests.push({ kind: "compare", check: id, name: title });
   if (!reg.open) test(title, fn);
 }
-export function plainTest(test, title, fn) {
+export function plainTest(title, fn) {
   if (!registry().open) test(title, fn);
 }
