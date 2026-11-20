@@ -11,8 +11,8 @@
 // ont: ent.ontology-tree, edge.ontology-tree.concepts, rule.tree-structure-only, inv.tree-complete
 // ont: field.ontology-tree.place, field.ontology-tree.built-from, derived.tree-stale, rule.tree-refreshed-after-merge
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync, writeFileSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REF_TYPE, parseShows } from "./contracts.mjs";
 import { loadConfig, parseGlossary } from "./lib.mjs";
@@ -232,16 +232,44 @@ const placeOf = (top) => {
   return place ? resolve(top, place) : null;
 };
 const ROOT_CONFIG = "ont.config.json";
+
+// Where a path lands once every link on the way is followed, for a file that does not exist yet too:
+// a missing part is taken from the nearest directory that exists, and a dangling link from its target.
+const landing = (path, depth = 0) => {
+  try {
+    return realpathSync(path);
+  } catch {}
+  if (depth < 40 && lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink()) return landing(resolve(dirname(path), readlinkSync(path)), depth + 1);
+  const parent = dirname(path);
+  return parent === path ? path : join(landing(parent, depth), basename(path));
+};
+const within = (root, path) => {
+  const rel = relative(root, path);
+  return !(rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel));
+};
+// The working tree or Git directory of this repository a place would write into, or null: the
+// clone's own, its other worktrees and the Git directory they share (field.ontology-tree.place).
+const repositoryAt = (top, place) => {
+  const worktrees = (git(top, ["worktree", "list", "--porcelain"]) ?? "").split("\n").filter((l) => l.startsWith("worktree ")).map((l) => l.slice(9));
+  const common = git(top, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+  const at = landing(place);
+  return [top, ...worktrees, ...(common ? [common] : [])].find((root) => within(landing(root), at)) ?? null;
+};
 const SELF = fileURLToPath(import.meta.url);
 
 // What the post-merge hook runs (rule.tree-refreshed-after-merge): on main with a place set, the tree
 // from the ont.config.json at the root, when every file read equals HEAD's. Silent off main or without
-// a place; after a squash merge, which leaves main where it was, it says why it writes nothing.
+// a place; at a place inside the repository, or after a squash merge, which leaves main where it was,
+// it says why it writes nothing.
 export function refresh(cwd, { squash = false } = {}) {
   const top = git(cwd, ["rev-parse", "--show-toplevel"]);
   if (top === null) throw new Error("--refresh runs inside a Git repository");
   const place = placeOf(top);
   if (!place || git(top, ["symbolic-ref", "--quiet", "HEAD"]) !== "refs/heads/main") return [];
+  // A wrong setting would otherwise overwrite a file of the repository, the ontology itself perhaps.
+  const inside = repositoryAt(top, place);
+  if (inside)
+    return [`tree: not written to ${place}: it is inside the repository, at ${inside}, where the page would overwrite its files; set ont.treeOut to a path outside it`];
   if (squash)
     return [`tree: not written to ${place}: a squash merge leaves main where it was; after committing it, run node ${relative(top, SELF)} --refresh`];
   const built = buildTree(join(top, ROOT_CONFIG));

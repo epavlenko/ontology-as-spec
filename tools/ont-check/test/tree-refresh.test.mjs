@@ -152,6 +152,44 @@ test("[check.ontology-tree.dirty-inputs] an uncommitted change of the ontology, 
   }
 });
 
+test("[check.ontology-tree.place-inside-refused] a place inside the repository, or a link to one of its files, is refused; a place outside it is written", () => {
+  const r = repo();
+  const before = (file) => readFileSync(join(r.dir, file), "utf8");
+  const ontology = before("ontology.md");
+  // A relative place is taken from the root: here, the ontology itself.
+  r.git("config", "--local", "ont.treeOut", "ontology.md");
+  branch(r, "b1");
+  const own = r.git("merge", "-q", "b1");
+  assert.equal(own.code, 0, own.out);
+  assert.match(own.out, /tree: not written to .*ontology\.md: it is inside the repository, at .*, where the page would overwrite its files/);
+  assert.equal(before("ontology.md"), ontology);
+
+  // A link outside the repository to a tracked file, and a dangling link to a file not yet there.
+  const outside = temp("ont-links-");
+  const readme = before("README.md");
+  symlinkSync(join(r.dir, "README.md"), join(outside, "to-readme.html"));
+  symlinkSync(join(r.dir, "docs", "new-tree.html"), join(outside, "dangling.html"));
+  for (const [link, name] of [["to-readme.html", "b2"], ["dangling.html", "b3"]]) {
+    r.git("config", "--local", "ont.treeOut", join(outside, link));
+    const readmeNow = before("README.md");
+    branch(r, name);
+    const m = r.git("merge", "-q", name);
+    assert.equal(m.code, 0, m.out);
+    assert.match(m.out, new RegExp(`tree: not written to .*${link.replace(".", "\\.")}: it is inside the repository`), link);
+    assert.notEqual(before("README.md"), readme, "the merge itself is done");
+    assert.ok(!before("README.md").includes("<!doctype html>"), link);
+    assert.ok(before("README.md").startsWith(readmeNow.slice(0, 20)), link);
+  }
+  assert.equal(existsSync(join(r.dir, "docs", "new-tree.html")), false);
+
+  // A place outside the repository is written.
+  r.setPlace();
+  branch(r, "b4");
+  const ok = r.git("merge", "-q", "b4");
+  assert.equal(ok.code, 0, ok.out);
+  assert.deepEqual(r.mark(), { commit: r.sha("refs/heads/main"), config: "ont.config.json" });
+});
+
 test("[check.ontology-tree.mark] changed inputs, a symbolic link whose target changed, and a configuration outside Git are not clean", () => {
   // Inputs changed and not committed: the commit, marked +working-tree, and the stale report says so.
   const r = repo();
