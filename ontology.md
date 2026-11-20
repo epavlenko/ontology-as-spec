@@ -796,9 +796,13 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | ID | Implemented in | Note |
 | -- | -------------- | ---- |
 | `ent.ontology-tree` | `tools/ont-check/gen-tree.mjs` | |
+| `field.ontology-tree.place` | `tools/ont-check/gen-tree.mjs`, `.githooks/post-merge` | |
+| `field.ontology-tree.built-from` | `tools/ont-check/gen-tree.mjs` | |
+| `derived.tree-stale` | `tools/ont-check/gen-tree.mjs` | |
 | `edge.ontology-tree.concepts` | `tools/ont-check/gen-tree.mjs` | |
 | `rule.tree-structure-only` | `tools/ont-check/gen-tree.mjs` | that the rows are not shown as kinds of the entity is reviewed, not checked |
 | `inv.tree-complete` | `tools/ont-check/gen-tree.mjs` | |
+| `rule.tree-refreshed-after-merge` | `.githooks/post-merge`, `tools/ont-check/gen-tree.mjs` | |
 
 ### Profile
 

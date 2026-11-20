@@ -40,4 +40,4 @@ node tools/ont-check/ont-check.mjs --config templates/ont.config.json   # ONT_OK
 node --test 'tools/ont-check/test/*.test.mjs' 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'
 ```
 
-`npm test` runs all four and the guard. A change to a rule of the approach starts in `ontology.md` and `checks.md`, like any product change. `npm run guard` compares accepted decision entries with `HEAD`. Enable the pre-commit hook once per clone: `git config core.hooksPath .githooks`; it runs the check and the guard.
+`npm test` runs all four and the guard. A change to a rule of the approach starts in `ontology.md` and `checks.md`, like any product change. `npm run guard` compares accepted decision entries with `HEAD`. Enable the hooks once per clone: `git config core.hooksPath .githooks`; pre-commit runs the check and the guard, and post-merge rewrites the ontology tree after a merge into main where the clone sets `ont.treeOut` (D-105).

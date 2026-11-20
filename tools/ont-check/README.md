@@ -17,7 +17,9 @@ node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --run   #
 node tools/ont-check/format-ontology.mjs --config path/to/ont.config.json   # kind order, Kind cells and aligned definition tables
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/gen-reference.mjs --config path/to/ont.config.json   # reference pages from the ontology and the checks
-node tools/ont-check/gen-tree.mjs --config path/to/ont.config.json --out tree.html [--labels labels.json]   # the whole ontology as a tree for people, not kept in the repository (D-90)
+node tools/ont-check/gen-tree.mjs --config path/to/ont.config.json --out tree.html [--labels labels.json]   # the whole ontology as a tree for people, not kept in the repository; the footer marks the commit, +working-tree or no-commit (D-105)
+node tools/ont-check/gen-tree.mjs --refresh [--squash]   # what the post-merge hook runs: on main, the tree at the clone's `ont.treeOut` from the root ont.config.json; --squash, given by the hook after a squash merge, writes nothing and says why
+node tools/ont-check/gen-tree.mjs --stale   # why the tree at `ont.treeOut` does not show refs/heads/main, or nothing; always ends with 0
 node tools/ont-check/gen-approach.mjs  --config ont.config.json   # in the approach's own repository: approach.json from its ontology
 node tools/ont-check/stamp-docs.mjs  --config path/to/ont.config.json [page.md …]   # after rereading: stamp the anchors
 node tools/ont-check/guard-decisions.mjs --config path/to/ont.config.json [--base REF] [--staged]   # GUARD_OK, or GUARD_OFF before the first commit; lists accepted entries not committed yet
@@ -39,7 +41,7 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | `gen-contracts.mjs`   | writes the JSON Schema, one definition per entity, from the Type cells                                                                                                                                                                                                                                                                    |
 | `docs.mjs`            | anchors in documentation, stamps, and the reference page renderer                                                                                                                                                                                                                                                                         |
 | `gen-reference.mjs`   | writes the reference pages listed under `references`                                                                                                                                                                                                                                                                                      |
-| `gen-tree.mjs` | writes the whole ontology, and the external ones, as a tree of its tables for people, with an optional labels file for another language |
+| `gen-tree.mjs` | writes the whole ontology, and the external ones, as a tree of its tables for people, with an optional labels file for another language; with `--refresh` and `--stale`, keeps the tree at the place a clone names with `git config --local ont.treeOut <path>`, never in the configuration file (D-105) |
 | `html-entities.json` | the named character references of the HTML standard, from [entities.json](https://html.spec.whatwg.org/entities.json), for reading the text of a mockup |
 | `expr.mjs` | the parser and evaluator of the form language the oracle runs |
 | `code-traces.mjs` | runs a trace on the code through the project's adapter, registers the tests of checks that run on a system, and makes the changes of the forms for `--mutate` (D-101, D-102) |
@@ -139,7 +141,7 @@ Every optional part can be left out. The checks that depend on it are then skipp
 <!-- ont: -->
 ## Hooks
 
-Run the check on commits that touch any file it reads, the code paths that implement concepts among them: it reads their `ont:` names, and a change there is a reminder to update the implementation table. Run the guard with `--staged` on every commit, and in CI with `--base` set to the commit before the push or the base of the pull request. This repository's own hook is `.githooks/pre-commit` and its CI is `.github/workflows/check.yml`; enable the hook with `git config core.hooksPath .githooks`.
+Run the check on commits that touch any file it reads, the code paths that implement concepts among them: it reads their `ont:` names, and a change there is a reminder to update the implementation table. Run the guard with `--staged` on every commit, and in CI with `--base` set to the commit before the push or the base of the pull request. This repository's own hooks are `.githooks/pre-commit` and `.githooks/post-merge`, which rewrites the ontology tree after a merge into main where a clone sets `ont.treeOut`, and its CI is `.github/workflows/check.yml`; enable the hooks with `git config core.hooksPath .githooks`.
 
 <!-- ont: -->
 ## Tests

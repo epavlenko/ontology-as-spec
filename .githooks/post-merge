@@ -1,0 +1,12 @@
+#!/bin/sh
+# After a merge, rewrites the ontology tree at the place this clone names in its own Git configuration
+# (git config --local ont.treeOut <path>), when the merge was into main (D-105). Git passes 1 when the
+# merge was a squash, which leaves main where it was. The merge is done whatever happens here, so an
+# error of the generator is printed and the hook still ends with 0.
+[ -f tools/ont-check/gen-tree.mjs ] || exit 0
+if [ "$1" = 1 ]; then
+  node tools/ont-check/gen-tree.mjs --refresh --squash || echo "post-merge: the ontology tree was not written; the merge itself is done" >&2
+else
+  node tools/ont-check/gen-tree.mjs --refresh || echo "post-merge: the ontology tree was not written; the merge itself is done" >&2
+fi
+exit 0
