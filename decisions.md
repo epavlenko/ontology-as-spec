@@ -1030,6 +1030,7 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## History
 
+- 2026-11-20: D-137's Why says that any page other than the one the generator wrote fails; as its Decision says, white space after the footer is allowed, and a page edited and given its hash again passes, which the mark does not guard against (narrow round 8 of the review of the result of task tree-refresh).
 - 2026-11-20: the entry on the tree's mark, place and stale report, accepted on branch protocol/tree-refresh as D-106, renumbered D-112, because branch protocol/releases-and-task had taken D-106 to D-111 on its own; its text is unchanged (the owner's answer "1004 a" of 2026-11-20).
 - 2026-11-20: D-93 accepted by the owner: formal forms, traces and the oracle.
 - 2026-11-19: D-93, tentative, on the prototype branch: formal forms, traces and the oracle.

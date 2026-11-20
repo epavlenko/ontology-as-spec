@@ -108,7 +108,7 @@ const branch = (r, name = "b") => {
 };
 
 // The footer the generator writes for a mark, in its own words, with the SHA-256 of the bytes of the
-// page before it, written out here rather than taken from the generator, so that a page whose footer's
+// page before it and of the footer's commit, configuration and date, by the one formula of D-137, written out here rather than taken from the generator, so that a page whose footer's
 // text and attributes disagree is made by hand, and a page changed before its footer can be given the
 // hash computed again, as whoever forges a mark would (D-137).
 const hashOf = (before, { commit, config, date }) =>
