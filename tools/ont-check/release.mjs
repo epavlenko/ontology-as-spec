@@ -27,6 +27,7 @@ import {
   RELEASABLE,
   inHistory,
   parseProductRecords,
+  pathAt,
   pinAt,
   productReleaseProblems,
   releaseFileName,
@@ -37,6 +38,7 @@ import {
   releaseCommitProblems,
   releaseRecordText,
   releaseTags,
+  repoPath,
   runReleaseChecks,
 } from "./releases.mjs";
 import { cleanEnv, gitEnv, runAtCommit } from "./tasks.mjs";
@@ -51,9 +53,10 @@ const refuse = (why) => {
 const today = () => new Date().toISOString().slice(0, 10);
 const tail = (out) => out.split("\n").slice(-15).join("\n");
 // The tool's place inside a worktree of the repository, or the tool itself when it lives outside it.
+// Its place is a path of the tree by repoPath, the root being "" (D-146).
 const toolIn = (top) => {
   const rel = relative(top, HERE);
-  return rel.startsWith("..") || isAbsolute(rel) ? null : rel;
+  return isAbsolute(rel) ? null : repoPath(rel.split(/[\\/]/).join("/"));
 };
 
 // The tree of a commit with one file at the root of the repository replaced by a blob.
@@ -111,8 +114,8 @@ function protocol() {
       // The tool runs at its path in the verified commit, which a later move does not reach: a commit
       // without it cannot be rerun, and says so (D-142).
       const tool = toolIn(top);
-      if (tool !== null && !git(top, "cat-file", "-e", `${e.verified}:${tool}/ont-check.mjs`).ok)
-        refuse(`v${e.version} cannot be rerun on ${e.verified.slice(0, 7)}: the tool ${tool}/ont-check.mjs is not at that commit; no tag`);
+      if (tool !== null && !pathAt(top, e.verified, repoPath(tool, "ont-check.mjs"), "blob"))
+        refuse(`v${e.version} cannot be rerun on ${e.verified.slice(0, 7)}: the tool ${repoPath(tool, "ont-check.mjs")} is not at that commit; no tag`);
       const run = runAtCommit({ top, commit: e.verified, commands: checksIn(top) });
       if (run.error) refuse(run.error);
       const failed = run.results.filter((r) => r.result !== "pass");
@@ -183,7 +186,7 @@ function product() {
     return res;
   };
   // What a run ran with: the tool of the commit, at its path there, and its version.
-  const ranWith = (res, commit) => `with the tool ${res.setup.toolDir}/ont-check.mjs of commit ${commit.slice(0, 7)}, version ${res.setup.toolVersion.slice(0, 12)}`;
+  const ranWith = (res, commit) => `with the tool ${res.setup.tool} of commit ${commit.slice(0, 7)}, version ${res.setup.toolVersion.slice(0, 12)}`;
 
   if (argv.includes("--verify")) {
     const version = value("--verify");

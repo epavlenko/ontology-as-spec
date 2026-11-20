@@ -168,7 +168,7 @@ export function protocolReleaseProblems(repo, rel = RELEASES_FILE) {
   for (const e of entries) {
     if (seen.has(e.version)) problems.push(`v${e.version}: two entries`);
     seen.add(e.version);
-    // The verified commit is one of the repository (inv.named-commits-resolve, D-143).
+    // The verified commit is one of the repository (inv.named-commits-resolve, D-145).
     if (!commitResolves(repo, e.verified)) {
       problems.push(`v${e.version}: the verified commit ${e.verified} is not in the repository`);
       continue;
@@ -343,8 +343,9 @@ export function pinAt(top, cfgRel, commit) {
     return { error: `the configuration ${cfgRel} at commit ${commit.slice(0, 7)} is not JSON` };
   }
   if (!raw.releases?.pin) return { error: `the configuration ${cfgRel} at commit ${commit.slice(0, 7)} names no releases.pin` };
-  const rel = posix.normalize(posix.join(posix.dirname(cfgRel), raw.releases.pin));
-  if (rel.startsWith("..")) return { error: `the pin ${raw.releases.pin} of the configuration at commit ${commit.slice(0, 7)} is outside the repository` };
+  const rel = repoPath(posix.dirname(cfgRel), raw.releases.pin);
+  if (rel === "") return { error: `the pin ${raw.releases.pin} of the configuration at commit ${commit.slice(0, 7)} is the root of the repository, not a file` };
+  if (rel === null) return { error: `the pin ${raw.releases.pin} of the configuration at commit ${commit.slice(0, 7)} is outside the repository` };
   const file = spawnSync("git", ["-C", top, "show", `${commit}:${rel}`], { env: gitEnv(), maxBuffer: 1 << 28 });
   if (file.status !== 0) return { rel, error: `the pin ${rel} is not at commit ${commit.slice(0, 7)}` };
   return { rel, bytes: file.stdout, hash: sha256(file.stdout), config: config.out, raw };
@@ -362,7 +363,22 @@ export function toolVersionOf(pin, commit) {
   return commit;
 }
 
-const pathAt = (top, commit, path, kind) => {
+// The path of a file or a directory in the repository's tree, from its top (D-146): the one function
+// the pin, the tool and each suite are read through. A path given from the configuration's directory is
+// joined to it and normalized; "." and the empty path are the root, which is "" here, the tree of the
+// commit itself, and always exists at it. Null when the path leaves the repository.
+export function repoPath(base, rel = "") {
+  const p = posix.normalize(posix.join(base || ".", rel || "."));
+  if (p === "." || p === "./") return "";
+  if (p === ".." || p.startsWith("../")) return null;
+  return p.replace(/\/$/, "");
+}
+// How a path of the tree is named to a reader: the root by name.
+export const pathName = (p) => (p === "" ? "the root of the repository" : p);
+// Whether a path of the tree is a file (blob) or a directory (tree) at a commit; the root, "", is the
+// commit's own tree.
+export const pathAt = (top, commit, path, kind) => {
+  if (path === null) return false;
   const r = spawnSync("git", ["-C", top, "cat-file", "-t", `${commit}:${path}`], { encoding: "utf8", env: gitEnv() });
   return r.status === 0 && r.stdout.trim() === kind;
 };
@@ -374,13 +390,14 @@ export function releaseSetup(top, cfgRel, commit) {
   const pin = pinAt(top, cfgRel, commit);
   if (pin.error) return { missing: [pin.error] };
   const base = posix.dirname(cfgRel);
-  const toolDir = posix.normalize(pin.raw.releases.tool ? posix.join(base, pin.raw.releases.tool) : posix.dirname(pin.rel));
-  const suites = [...(pin.raw.tests ? [{ name: "", ...pin.raw.tests }] : []), ...(pin.raw.testSuites ?? [])].map((s) => ({ ...s, path: posix.normalize(posix.join(base, s.dir ?? "")) }));
+  const toolDir = pin.raw.releases.tool ? repoPath(base, pin.raw.releases.tool) : repoPath(posix.dirname(pin.rel));
+  const tool = toolDir === null ? null : repoPath(toolDir, "ont-check.mjs");
+  const suites = [...(pin.raw.tests ? [{ name: "", ...pin.raw.tests }] : []), ...(pin.raw.testSuites ?? [])].map((s) => ({ ...s, path: repoPath(base, s.dir) }));
   const missing = [
-    ...(toolDir.startsWith("..") || !pathAt(top, commit, posix.join(toolDir, "ont-check.mjs"), "blob") ? [`the tool ${posix.join(toolDir, "ont-check.mjs")} is not at commit ${commit.slice(0, 7)}`] : []),
-    ...suites.filter((s) => s.path.startsWith("..") || !pathAt(top, commit, s.path, "tree")).map((s) => `the directory ${s.path} of suite ${s.name || "tests"} is not at commit ${commit.slice(0, 7)}`),
+    ...(!pathAt(top, commit, tool, "blob") ? [`the tool ${tool ?? posix.join(base, pin.raw.releases.tool ?? "", "ont-check.mjs")} is not at commit ${commit.slice(0, 7)}`] : []),
+    ...suites.filter((s) => !pathAt(top, commit, s.path, "tree")).map((s) => `the directory ${s.path === null ? s.dir : pathName(s.path)} of suite ${s.name || "tests"} is not at commit ${commit.slice(0, 7)}`),
   ];
-  return { missing, pin, toolDir, toolVersion: toolVersionOf(pin, commit), suites };
+  return { missing, pin, toolDir, tool, toolVersion: toolVersionOf(pin, commit), suites };
 }
 
 // What is wrong with one record of a release (inv.product-release-intact, D-125): the one validation the

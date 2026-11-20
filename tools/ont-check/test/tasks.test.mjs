@@ -713,7 +713,7 @@ test("[check.task-result.commits-resolve] a record of done and a round that name
   const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "statement.md")]);
   assert.equal(r.status, 1, r.stdout);
   assert.match(r.stdout, new RegExp(`task records that cannot be read \\(1\\):\n  d0\\.md: commit ${ghost} is not in the repository`));
-  assert.match(r.stdout, /rounds of review whose commits are not in the repository \(1\):\n  r1\.md: the line Commits: names commit 1111111 is not in the repository/);
+  assert.match(r.stdout, /ERROR · rounds that give the acceptance of a task whose commits are not in the repository \(1\):\n  r1\.md: the round gives the acceptance of the latest record of done of t, and its line Commits: names commit 1111111, which is not in the repository/);
   assert.doesNotMatch(r.stdout, /the task is done|result: done/);
   assert.doesNotMatch(r.stdout, /ONT_OK/);
   // The same records with a commit of the repository: the task is done.
@@ -761,4 +761,95 @@ test("[check.task-statement.limits-one-function] the statement's limits, read fr
   assert.equal(w.status, 1, w.stdout);
   assert.match(w.stdout, /d0\.md: the record of done carries the limits Budget-new-input: 100, Budget-output: 1500000, not the statement's, Budget-new-input: 3000000, Budget-output: 1500000/);
   for (const d of [sc.dir, frac.dir, wrong.dir]) rmSync(d, { recursive: true, force: true });
+});
+
+// Round 5 of the review of the result of task releases-and-task (D-145, D-147).
+test("[check.task-result.missing-commit-information] in a real git clone, old records that name a commit the clone does not have are information and the check passes; a record of done of such a commit leaves the task not done", () => {
+  const top = mkdtempSync(join(tmpdir(), "task-clone-"));
+  const at = (dir, ...a) => spawnSync("git", ["-C", dir, ...a], { encoding: "utf8", env: GIT_ENV });
+  const src = join(top, "src");
+  mkdirSync(src);
+  at(src, "init", "-q", "-b", "main");
+  cpSync(EXAMPLE, join(src, "example"), { recursive: true, filter: (p) => !p.startsWith(join(EXAMPLE, "releases")) });
+  const cfgPath = join(src, "example", "ont.config.json");
+  const cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
+  writeFileSync(cfgPath, JSON.stringify({ ...cfg, reviewRounds: { dir: "../reviews/rounds" }, taskRecords: { dir: "../reviews/tasks" } }));
+  at(src, "add", "-A");
+  at(src, "commit", "-q", "-m", "base");
+  const base = at(src, "rev-parse", "HEAD").stdout.trim();
+  // A commit on a branch that is deleted, as a rewrite of the history leaves it: the source still has
+  // the object, a clone does not.
+  at(src, "checkout", "-q", "-b", "side");
+  at(src, "commit", "-q", "--allow-empty", "-m", "lost");
+  const lost = at(src, "rev-parse", "HEAD").stdout.trim();
+  at(src, "checkout", "-q", "main");
+  at(src, "branch", "-q", "-D", "side");
+  // An old round of another task, with a finding and no acceptance, and a manual run, both of the lost commit.
+  mkdirSync(join(src, "reviews", "rounds"), { recursive: true });
+  mkdirSync(join(src, "reviews", "tasks"), { recursive: true });
+  mkdirSync(join(src, "example", "verify", "runs"), { recursive: true });
+  writeFileSync(join(src, "reviews", "rounds", "old-1.md"), roundText({ task: "old", step: "result-review", number: 1, ceiling: 2, time: T(8), hash: A, found: 1, commits: `${base.slice(0, 7)}..${lost.slice(0, 7)}` }));
+  writeFileSync(
+    join(src, "example", "verify", "runs", "20261105T090000Z-check.loan.overdue-in-real-time-a1b2.md"),
+    `# Manual run\n\nCheck: check.loan.overdue-in-real-time\nCommit: ${lost.slice(0, 7)}\nBy: a model, a provider\nTime: 2026-11-05T09:00:00Z\nStamp: 0000\nVerdict: pass\n`,
+  );
+  at(src, "add", "-A");
+  at(src, "commit", "-q", "-m", "records");
+  const clone = join(top, "clone");
+  assert.equal(spawnSync("git", ["clone", "-q", "--no-local", src, clone], { encoding: "utf8", env: GIT_ENV }).status, 0);
+  assert.notEqual(at(clone, "cat-file", "-e", `${lost}^{commit}`).status, 0, "the clone does not have the lost commit");
+  const check = (...args) => spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(clone, "example", "ont.config.json"), ...args], { encoding: "utf8" });
+  const ok = check();
+  assert.equal(ok.status, 0, ok.stdout);
+  assert.match(ok.stdout, new RegExp(`info · rounds of review whose commits this clone does not have [^\\n]*\\(1\\):\\n  old-1\\.md: names a commit this clone does not have, ${lost.slice(0, 7)}`));
+  assert.match(ok.stdout, new RegExp(`info · manual run records whose commit this clone does not have [^\\n]*\\(1\\):\\n  20261105T090000Z-check\\.loan\\.overdue-in-real-time-a1b2\\.md: names a commit this clone does not have, ${lost.slice(0, 7)}`));
+  assert.match(ok.stdout, /ONT_OK/);
+  // A record of done of the lost commit, and the round that accepts it: the task is not done, and the check fails.
+  writeFileSync(join(clone, "reviews", "rounds", "t-1.md"), roundText(approvedA));
+  mkdirSync(join(clone, "reviews", "tasks"), { recursive: true });
+  writeFileSync(join(clone, "reviews", "tasks", "d-1.md"), doneText({ time: T(11), commit: lost }));
+  writeFileSync(join(clone, "reviews", "rounds", "t-2.md"), roundText(finalRound({ commits: `${base.slice(0, 7)}..${lost.slice(0, 7)}` })));
+  writeFileSync(join(top, "statement.md"), A_TEXT);
+  const done = check("--task", "t", "--statement", join(top, "statement.md"));
+  assert.equal(done.status, 1, done.stdout);
+  assert.match(done.stdout, new RegExp(`ERROR · task records that cannot be read \\(1\\):\n  d-1\\.md: commit ${lost} is not in the repository`));
+  assert.match(done.stdout, /ERROR · rounds that give the acceptance of a task whose commits are not in the repository \(1\):\n  t-2\.md:/);
+  assert.doesNotMatch(done.stdout, /the task is done|result: done/);
+  assert.doesNotMatch(done.stdout, /ONT_OK/);
+  rmSync(top, { recursive: true, force: true });
+});
+
+test("[check.task-statement.limits-of-approval] after version A is approved and done is recorded, the owner's approval of version B with another budget gives B's limits, and --task gives one next action", () => {
+  const aText = "version A\nDone-when: npm test\nBudget-new-input: 3000000\nBudget-output: 1500000\n";
+  const bText = "version B\nDone-when: npm test\nBudget-new-input: 4000000\nBudget-output: 1500000\n";
+  const [HA, HB] = [sha256(aText), sha256(bText)];
+  const sc = scenario({
+    rounds: [{ ...approvedA, hash: HA, tokens: [100, 0, 10] }],
+    done: [{ time: T(11), hash: HA, budget: [3000000, 1500000] }],
+    approvals: [{ hash: HB, time: T(13) }],
+  });
+  writeFileSync(join(sc.dir, "b.md"), bText);
+  const r = checkWith(sc, { budget: { newInput: 100, output: 100 } }, ["--task", "t", "--statement", join(sc.dir, "b.md"), "--rounds"]);
+  assert.equal(r.status, 0, r.stdout);
+  assert.match(r.stdout, /TASK t · statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}: work may start under it/);
+  assert.match(r.stdout, /BUDGET t: new input 100 of 4000000 × 1 = 4000000, output 10 of 1500000 × 1 = 1500000/);
+  assert.doesNotMatch(r.stdout, /ERROR|not the statement's|exhausted|question/);
+  assert.match(r.stdout, /ONT_OK/);
+  // Without the file, as to the check and --rounds, A's record of done gives no limits for B: the project's.
+  const st = taskBudget({ rounds: sc.rounds, spend: [], done: sc.records.done, approvals: sc.records.approvals, task: "t", defaults: limits(100, 100), statement: null });
+  assert.deepEqual(st.limits, { newInput: 100, output: 100 });
+  // Under A's approval, A's record of done gives A's limits.
+  const onlyA = taskBudget({ rounds: sc.rounds, spend: [], done: sc.records.done, approvals: [], task: "t", defaults: limits(100, 100), statement: null });
+  assert.deepEqual(onlyA.limits, { newInput: 3000000, output: 1500000 });
+  // A record of done of B whose limits are not B's file's is still refused.
+  const wrong = scenario({
+    rounds: [{ ...approvedA, hash: HA }],
+    done: [{ time: T(11), hash: HA, budget: [3000000, 1500000] }, { time: T(14), hash: HB, budget: [3000000, 1500000] }],
+    approvals: [{ hash: HB, time: T(13) }],
+  });
+  writeFileSync(join(wrong.dir, "b.md"), bText);
+  const w = checkWith(wrong, {}, ["--task", "t", "--statement", join(wrong.dir, "b.md")]);
+  assert.equal(w.status, 1, w.stdout);
+  assert.match(w.stdout, /d1\.md: the record of done carries the limits Budget-new-input: 3000000, Budget-output: 1500000, not the statement's, Budget-new-input: 4000000, Budget-output: 1500000/);
+  for (const d of [sc.dir, wrong.dir]) rmSync(d, { recursive: true, force: true });
 });

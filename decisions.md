@@ -1158,6 +1158,43 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: reading the statement's file in the check (it lives outside the repository); comparing in the check only the spend a line names (the two would part again on the limit).
 - Concepts: `derived.task-budget`, `field.task-result.budget`, `field.review-round.overspend`, `rule.budget-before-next`, `action.record-done`.
 
+### D-145 · A missing commit is an error only where what a record proves rests on it
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-107 and D-117, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted in D-106; the owner's answer of 2026-11-20 to question 1007, quoted in D-121, which leaves the rounds and their fixes to the thread. The finding of round 5 of the review of the result of task releases-and-task, "acceptance not bound to approval and commit", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. Which records rest on their commit, and the wording of the information, are the thread's technical decisions.
+- Supersedes: D-143
+- Decision: every commit a record names is tested in the project's repository by one test, `commitResolves` of `lib.mjs`, `git cat-file -e <commit>^{commit}` with the environment that is safe in a hook, and the records are read through one function, `resolveRecords`, in the check, `--task` and `--rounds` alike (`inv.named-commits-resolve`). What a missing commit does follows from what the record proves:
+  - An error where the record's meaning rests on its commit, so that the task is not done or the release is not valid: a record of done, which then cannot be read and binds no acceptance; each commit the line `Commits:` gives as a hash of the round whose clean verdict of acceptance follows the latest record of done of its task, the round a task is done by; the verified commit of an entry of `releases.md`; and the commit of a record of a product release. An owner's approval names no commit, so none is held to it.
+  - Information, never a failure, for every other round and every manual run: each is named as a record that "names a commit this clone does not have". What they prove, a review given or a check run at a time, does not rest on the commit, which a clone made after a rewrite of the history, or of a branch since deleted, may lack.
+  - A branch that `Commits:` names is not held to it, since a branch may be deleted after its round.
+- Why: under D-143, `ont-check` and `npm test` failed in a plain clone of the branch of task releases-and-task: 165 records of manual runs and three rounds of an earlier task named commits that the clone did not have, some removed when the history was rewritten, others never on the branch's history; none of them decided whether a task was done.
+- Rejected: an error for every record, as in D-143 (a clean clone of a correct repository fails); information for every record (a record of done or an acceptance of a commit that is not there would let a task be called done); keeping the lost objects in the repository (a rewrite of the history is the owner's to make, and a clone does not fetch unreachable objects).
+- Concepts: `inv.named-commits-resolve`, `inv.acceptance-after-done`, `field.task-result.commit`.
+
+### D-146 · The root of the repository is a path like any other, read by one function
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-111, from the owner's answer of 2026-11-20 to question 996, "996 - a", quoted in D-111; the owner's answer of 2026-11-20 to question 1007, quoted in D-121. The finding of round 5 of the review of the result of task releases-and-task, "git context and paths", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. The function and its name are the thread's technical decisions.
+- Decision: adds to D-142. The pin, the tool and the directory of each test suite of a release are read from its commit through one function, `repoPath` of `releases.mjs`: a path given from the directory of the configuration is joined to it and normalized; `.` and the empty path are the root of the repository, the commit's own tree, which is always at the commit; a path that leaves the repository is none, and refused. `release.mjs --product`, `--verify` and `--resume` test every path through it, and the check reads a suite whose `dir` is `.`, empty or not given as the directory of the configuration, as the release does (`action.release-product`, `action.verify-release`).
+- Why: the check accepted a suite whose `dir` is `.`, while `--product` refused the release, saying the directory `.` of the suite was not at its commit, since Git names the root of a commit's tree with an empty path; a suite with an empty `dir` made the check crash.
+- Rejected: refusing `.` in the configuration (the check and the release would still part on another spelling of the root); a separate test of the root in each place (the pin, the tool and the suites would part again).
+- Concepts: `action.release-product`, `action.verify-release`.
+
+### D-147 · The limits of a task are those of the approval in force
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-108, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted in D-106; the owner's answer of 2026-11-20 to question 1007, quoted in D-121. The finding of round 5 of the review of the result of task releases-and-task, "budget stop at the end of a step", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words, and so were the findings of round 4 that D-144 answered. Copying the limits into the record of done, and reading them by the version, are the thread's technical decisions.
+- Supersedes: D-144
+- Decision: supersedes the part of D-128 on what the check compares of `Overspend:` without a statement, where it compared only the spend the line names, as D-144 did; adds to D-108 and D-119.
+  - `done.mjs` copies the statement's lines `Budget-new-input:` and `Budget-output:` into the record of done, each a whole number or `none` (`field.task-result.budget`, `action.record-done`).
+  - One function, `taskLimits`, says which limits apply, and `--task`, `--rounds`, the check and the text of an overspend all ask it through `taskBudget` (`derived.task-budget`). They are the limits of the approval in force, of the version of the statement it names: each limit that version's when it gives one, read from the file `--task` is given when the file is that version, and otherwise from the latest record of done of that version; a record of done of another version gives no limits for it. With no approval in force, they are the file's, the version under review. Each limit is the configuration's where none of these gives one.
+  - `--task` refuses the latest record of done of its file's version whose limits are not the file's; a record of done of an older version is not compared with a newer file, since its limits were its own version's. `--task` gives one next action.
+  - The line `Overspend:` is compared whole, as `--task` compares it, in the check too: exactly the tool's text past the limit and absent within it (`field.review-round.overspend`). Every number the tool writes or compares in it is written one way, as JavaScript writes it, a whole number or a decimal with a point, such as `151.5`.
+  - Not closed by construction: before the first record of done of the version in force, and for a record of done made before these lines, the check and `--rounds` know only the configuration's limits, since they read no statement; `--task` with the statement is then the one that knows the statement's.
+- Why: after the owner approved a new version of the statement with another budget, `--task` compared the new file's limits with the record of done of the old version, which carried the old version's limits rightly, and both let work go on and returned an error. Without the file, the check and `--rounds` would have taken the old version's limits for the new one.
+- Rejected: comparing the file with the latest record of done whatever its version, as D-144 did (a correct record of an earlier version is refused); the limits of the latest record of done whatever its version (the old version's limits would bind the new one); reading the statement's file in the check (it lives outside the repository).
+- Concepts: `derived.task-budget`, `field.task-result.budget`, `field.review-round.overspend`, `rule.budget-before-next`, `action.record-done`.
+
 ## Tentative
 
 ## Open questions

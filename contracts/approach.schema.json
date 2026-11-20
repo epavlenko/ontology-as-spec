@@ -654,7 +654,7 @@
           "type": "string"
         },
         "budget": {
-          "description": "The statement's own limits, as done.mjs copies them from its lines Budget-new-input: and Budget-output:, each a whole number or none; the check and --rounds, given no statement, read the statement's limits from the latest record of done of the task, and --task refuses one whose limits are not its statement's file's. A record made before these lines carries none.",
+          "description": "The statement's own limits, as done.mjs copies them from its lines Budget-new-input: and Budget-output:, each a whole number or none; the check and --rounds, given no statement, read the limits of the version the approval in force names from the latest record of done of that version, and --task refuses the latest record of done of its statement's file's version whose limits are not the file's; a record of done of another version is not compared with the file. A record made before these lines carries none.",
           "x-ont": "field.task-result.budget",
           "type": "string"
         },

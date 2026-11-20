@@ -41,9 +41,9 @@ const gitLocalVars = () => {
 export const gitEnv = (env = process.env) =>
   Object.fromEntries(Object.entries(env).filter(([k]) => !gitLocalVars().has(k) && !/^GIT_CONFIG_(KEY|VALUE)_\d+$/.test(k)));
 
-// Whether a commit a record names is an object of the repository (inv.named-commits-resolve, D-143):
+// Whether a commit a record names is an object of the repository (inv.named-commits-resolve, D-145):
 // git cat-file -e <commit>^{commit}, with the environment that is safe in a hook. The one test every
-// record that names a commit is held to: of done, of a round, of a manual run and of a release.
+// record that names a commit is tested by; what a missing one does follows from the record (D-145).
 // ont: inv.named-commits-resolve
 export const commitResolves = (repo, commit) =>
   Boolean(repo && commit && /^[0-9a-f]{4,40}$/.test(commit)) && spawnSync("git", ["-C", repo, "cat-file", "-e", `${commit}^{commit}`], { env: gitEnv() }).status === 0;
@@ -250,7 +250,8 @@ export function loadConfig(configPath, text) {
     ].map(
       (t) => ({
         name: t.name ?? "",
-        dir: at(t.dir),
+        // "." and the empty path are the configuration's directory, as release.mjs reads them (D-146).
+        dir: resolve(base, t.dir || "."),
         match: new RegExp(t.match ?? "\\.test\\.[a-z]+$"),
         cover: t.cover ?? [],
         // Checks the suite must implement, such as the checks it runs with a judge (D-60).

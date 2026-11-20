@@ -1271,7 +1271,8 @@ if (cfg.manualRuns) {
   report("manual run records that cannot be read", malformed);
   // ont: inv.named-commits-resolve
   const runsTop = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
-  report("manual run records whose commit is not in the repository", resolveRecords(runsTop, { runs }).problems);
+  // A manual run proves what it proves without its commit (D-145): one this clone lacks is information.
+  report("manual run records whose commit this clone does not have (what a run proves does not rest on it)", resolveRecords(runsTop, { runs }).notes, false, 10);
   report("manual run records that two files claim (same check, time and author)", ambiguous);
   const due = checks.filter((c) => c.proof === "manual" && c.concepts.some((x) => implemented.has(x)));
   const current = new Map(due.map((c) => [c.id, currentRun(runs, c.id, stampFor(c))]));
@@ -1348,14 +1349,17 @@ if (cfg.reviewRounds) {
   // verdict of acceptance with no record of done behind it, are errors.
   // ont: inv.contributions-apart, inv.acceptance-after-done
   const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
-  // Every commit a record names resolves in the project's repository; a record of done whose commit
-  // does not cannot be read, so it binds no acceptance in the check, --task or --rounds (D-143).
+  // Every commit a record names resolves in the project's repository where the record's meaning rests on
+  // it (D-145): a record of done whose commit does not cannot be read, so it binds no acceptance in the
+  // check, --task or --rounds; the round that gives the acceptance of the latest record of done is an
+  // error; any other round that names a commit this clone lacks is information.
   // ont: inv.named-commits-resolve
   const projectTop = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
   const resolved = resolveRecords(projectTop, { done: parsed.done, rounds });
   const records = { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] };
   report("task records that cannot be read", records.malformed);
-  report("rounds of review whose commits are not in the repository", resolved.problems);
+  report("rounds that give the acceptance of a task whose commits are not in the repository", resolved.problems);
+  report("rounds of review whose commits this clone does not have (no acceptance of the latest record of done rests on them)", resolved.notes, false, 10);
   report("contributions recorded twice over intervals that overlap", overlaps(rounds, records.spend));
   report("verdicts of acceptance refused", acceptanceProblems(rounds, records.done, records.approvals));
   // The round that ends a task names its overspend as the tool computes it: required past the
@@ -1367,13 +1371,13 @@ if (cfg.reviewRounds) {
     "records of acceptance whose line Overspend: is not the tool's",
     ended.flatMap((t) => {
       const end = byTime(rounds.filter((r) => r.task === t && r.step === "result-review")).at(-1);
-      return overspendProblems(end, taskBudget({ rounds, spend: records.spend, done: records.done, task: t, defaults: cfg.budget, statement: null }));
+      return overspendProblems(end, taskBudget({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null }));
     }),
   );
   // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
   // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
   if (flag("--rounds") > 0) {
-    const exhaustedOf = (t) => Boolean(taskBudget({ rounds, spend: records.spend, done: records.done, task: t, defaults: cfg.budget, statement: null })?.exhausted);
+    const exhaustedOf = (t) => Boolean(taskBudget({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null })?.exhausted);
     console.log(renderRounds(rounds, { exhaustedOf, nextOf: (t, step) => stepNext({ rounds, done: records.done, approvals: records.approvals, task: t, step, exhausted: exhaustedOf(t) }) }));
   }
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its

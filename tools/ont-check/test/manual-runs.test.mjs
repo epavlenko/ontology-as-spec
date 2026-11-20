@@ -174,9 +174,11 @@ test("[check.manual-run.ambiguous] fails on two records of one check with the sa
   assert.match(r.out, /ERROR · manual run records that two files claim .*\(1\):\n {2}20261105T090000Z-check\.loan\.overdue-in-real-time-a1b2\.md and 20261105T090000Z-check\.loan\.overdue-in-real-time-e5f6\.md/);
 });
 
-// Round 4 of the review of the result of task releases-and-task (D-143).
-test("[check.task-result.commits-resolve] a manual run of a commit the repository does not have is an error", () => {
+// Round 4 of the review of the result of task releases-and-task (D-143), and round 5 (D-145): what a
+// manual run proves does not rest on its commit, so one the clone does not have is information.
+test("[check.task-result.missing-commit-information] a manual run of a commit the repository does not have is information, and the check passes", () => {
   const r = run((dir) => record(dir, `20261105T090000Z-${CHECK}-a1b2.md`, { Time: "2026-11-05T09:00:00Z", Stamp: stampIn(dir, CHECK), Verdict: "pass", Commit: "1111111" }));
-  assert.equal(r.code, 1, r.out);
-  assert.match(r.out, /ERROR · manual run records whose commit is not in the repository \(1\):\n  20261105T090000Z-check\.loan\.overdue-in-real-time-a1b2\.md: the run's commit 1111111 is not in the repository/);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /info · manual run records whose commit this clone does not have \(what a run proves does not rest on it\) \(1\):\n  20261105T090000Z-check\.loan\.overdue-in-real-time-a1b2\.md: names a commit this clone does not have, 1111111/);
+  assert.doesNotMatch(r.out, /ERROR/);
 });

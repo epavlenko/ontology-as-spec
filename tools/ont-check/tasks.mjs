@@ -29,7 +29,7 @@ export function readStatement(file) {
   };
 }
 
-// The limits of a statement as a record of done carries them (field.task-result.budget, D-144): each a
+// The limits of a statement as a record of done carries them (field.task-result.budget, D-147): each a
 // whole number or none. done.mjs writes these lines from the statement it read, and the check and
 // --rounds, which are given no statement, read the limits from them.
 export const BUDGET_LINES = [["newInput", "Budget-new-input"], ["output", "Budget-output"]];
@@ -86,7 +86,7 @@ export function parseTaskRecords(dir) {
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
-        // A record made before the lines existed carries no limits: budget is null (D-144).
+        // A record made before the lines existed carries no limits: budget is null (D-147).
         const budget = given.length ? Object.fromEntries(limits.map(([k, , v]) => [k, v === "none" ? null : Number(v)])) : null;
         done.push({ file: name, task, commit, statementHash: hash, time, checks, budget });
       }
@@ -109,20 +109,38 @@ export function parseTaskRecords(dir) {
   return { spend, done, approvals, malformed };
 }
 
-// The records whose commits do not resolve in the repository (inv.named-commits-resolve, D-143), by the
-// one test of lib.mjs: a record of done whose commit is not there cannot be read and binds no
-// acceptance; a round whose line Commits: names a commit that is not there, and a manual run whose
-// commit is not there, are errors. The check, --task and --rounds read the records through this.
+// The records whose commits do not resolve in the repository (inv.named-commits-resolve, D-145), by the
+// one test of lib.mjs, sorted by what the record proves. Where its meaning rests on the commit, a missing
+// one is an error: a record of done cannot be read and binds no acceptance, so the task is not done; the
+// round whose clean verdict of acceptance follows the latest record of done of its task, the one that
+// would end the task, names a commit on Commits: that is not there. Every other round, and every manual
+// run, proves what it proves without the commit, which a clone made after a rewrite of the history may
+// lack: information, "names a commit this clone does not have". The check, --task and --rounds read the
+// records through this.
 const hexOf = (range) => (range ?? "").split("..").map((c) => c.trim()).filter((c) => /^[0-9a-f]{7,40}$/.test(c));
+export const MISSING_COMMIT = "names a commit this clone does not have";
+// The rounds whose clean verdict of acceptance follows the latest record of done of their task: the
+// rounds that give the acceptance a task is done by (inv.acceptance-after-done).
+export const acceptingRounds = (rounds, done) =>
+  rounds.filter((r) => {
+    if (!r.acceptance || r.acceptance.findings.length) return false;
+    const latest = latestDone(done, r.task);
+    return Boolean(latest && latest.time < r.time);
+  });
 export function resolveRecords(top, { done = [], rounds = [], runs = [] }) {
-  const doneWrong = unresolvedCommits(top, done, (d) => [d.commit]);
+  const accepting = new Set(acceptingRounds(rounds, done));
+  const missing = (records, commitsOf) =>
+    records.flatMap((r) => commitsOf(r).filter((c) => !commitResolves(top, c)).map((c) => `${r.file}: ${MISSING_COMMIT}, ${c}${top ? "" : " (the project is not in a Git repository)"}`));
+  const runCommit = (r) => [String(r.commit ?? "").replace(/\+working-tree$/, "")];
   return {
     done: done.filter((d) => commitResolves(top, d.commit)),
-    malformed: doneWrong,
-    problems: [
-      ...unresolvedCommits(top, rounds, (r) => hexOf(r.commits), "the line Commits: names"),
-      ...unresolvedCommits(top, runs, (r) => [String(r.commit ?? "").replace(/\+working-tree$/, "")], "the run's"),
-    ],
+    malformed: unresolvedCommits(top, done, (d) => [d.commit]),
+    problems: [...accepting].flatMap((r) =>
+      hexOf(r.commits)
+        .filter((c) => !commitResolves(top, c))
+        .map((c) => `${r.file}: the round gives the acceptance of the latest record of done of ${r.task}, and its line Commits: names commit ${c}, which is not in the repository${top ? "" : " (the project is not in a Git repository)"}`),
+    ),
+    notes: [...missing(rounds.filter((r) => !accepting.has(r)), (r) => hexOf(r.commits)), ...missing(runs, runCommit)],
   };
 }
 
@@ -221,19 +239,28 @@ export function acceptanceProblems(rounds, done, approvals = []) {
 // The latest record of done of a task, whatever follows it.
 export const latestDone = (done, task) => done.filter((d) => d.task === task).sort((a, b) => a.time.localeCompare(b.time)).at(-1) ?? null;
 
-// The limits that apply to a task (derived.task-budget, D-144): the one function --task, --rounds, the
-// check and the text of an overspend all ask. Each limit is the statement's when it gives one, otherwise
-// the configuration's. The statement is its file when one is given, as to --task; without it, as to the
-// check and --rounds, its limits as the latest record of done of the task carries them; a task with no
-// record of done that carries them yet has only the configuration's.
-export function taskLimits({ statement = null, done = [], task, defaults }) {
-  const own = statement ? statement.budget : (latestDone(done, task)?.budget ?? {});
-  return { newInput: own?.newInput ?? defaults?.newInput ?? null, output: own?.output ?? defaults?.output ?? null };
+// The limits that apply to a task (derived.task-budget, D-147): the one function --task, --rounds, the
+// check and the text of an overspend all ask. They are those of the approval in force, of the version of
+// the statement it names: that version's file when it is the file given, as to --task; otherwise that
+// version's limits as the latest record of done of that version carries them. A record of done of
+// another version gives none: the limits of an older version are not the newer one's. With no approval
+// in force, the file given, the version under review. Each limit the configuration's where the
+// statement gives none, or where no record of its version carries them yet.
+export function taskLimits({ statement = null, rounds = [], approvals = [], done = [], task, defaults }) {
+  const version = approvedHash(rounds, task, null, approvals) ?? statement?.hash ?? null;
+  const own =
+    statement && statement.hash === version
+      ? statement.budget
+      : (latestDone(
+          done.filter((d) => d.statementHash === version),
+          task,
+        )?.budget ?? {});
+  return { newInput: own?.newInput ?? defaults?.newInput ?? null, output: own?.output ?? defaults?.output ?? null, version };
 }
 
 // A task's spend against its limits (derived.task-budget); null when no limit is set.
-export function taskBudget({ rounds, spend, done = [], task, defaults, statement }) {
-  const limits = taskLimits({ statement, done, task, defaults });
+export function taskBudget({ rounds, spend, done = [], approvals = [], task, defaults, statement }) {
+  const { version, ...limits } = taskLimits({ statement, rounds, approvals, done, task, defaults });
   if (limits.newInput === null && limits.output === null) return null;
   const reserve = defaults?.reserve ?? 1;
   const cap = (k) => (limits[k] === null ? null : limits[k] * reserve);
@@ -276,7 +303,7 @@ export function taskBudget({ rounds, spend, done = [], task, defaults, statement
 }
 
 const LABEL = { newInput: "new input", output: "output" };
-// Numbers are written one way wherever the tool writes or compares them (D-144): as JavaScript writes
+// Numbers are written one way wherever the tool writes or compares them (D-147): as JavaScript writes
 // them, a whole number or a decimal with a point, such as 151.5 for a limit of 101 with a reserve of 1.5.
 export const num = (n) => String(n);
 export const overspendText = (b) =>
@@ -286,7 +313,7 @@ export const overspendText = (b) =>
     .join(", ");
 
 // What is wrong with the line Overspend: of the round that ends a task (field.review-round.overspend,
-// D-128, D-144): it is exactly overspendText of the task's budget when the spend is past the limit, and
+// D-128, D-147): it is exactly overspendText of the task's budget when the spend is past the limit, and
 // absent otherwise. --task and the check compare it alike, the budget's limits given by taskLimits.
 export function overspendProblems(end, b) {
   const line = end.overspend;
@@ -317,7 +344,7 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, exhaus
 // approval in force is the last by time of the rounds of the statement and the owner's approvals
 // (D-121); the task is done only when the latest record of done has its own acceptance (D-128).
 export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement }) {
-  const b = taskBudget({ rounds, spend, done, task, defaults, statement });
+  const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement });
   const exhausted = Boolean(b?.exhausted);
   const errors = [];
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
@@ -360,10 +387,12 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
         : `approved${by}, version ${hash.slice(0, 12)}: work may ${end ? "go on" : "start"} under it`;
   const lines = [say("statement", statementLine), say("result", resultLine)];
   const latest = latestDone(done, task);
-  // The limits the latest record of done carries are the statement's, which the check reads from it
-  // (D-144): with the statement's file, they are compared.
-  if (latest?.budget && statement && BUDGET_LINES.some(([k]) => latest.budget[k] !== (statement.budget?.[k] ?? null)))
-    errors.push(`${latest.file}: the record of done carries the limits ${budgetLines(latest.budget).join(", ")}, not the statement's, ${budgetLines(statement.budget).join(", ")}`);
+  // The limits a record of done carries are those of its own version of the statement, which the check
+  // reads from it (D-147): the latest record of done of the file's version is compared with the file; a
+  // record of an older version is not, since its limits were that version's.
+  const ofFile = statement ? latestDone(done.filter((d) => d.statementHash === statement.hash), task) : null;
+  if (ofFile?.budget && BUDGET_LINES.some(([k]) => ofFile.budget[k] !== (statement.budget?.[k] ?? null)))
+    errors.push(`${ofFile.file}: the record of done carries the limits ${budgetLines(ofFile.budget).join(", ")}, not the statement's, ${budgetLines(statement.budget).join(", ")}`);
   if (latest)
     lines.push(
       say(

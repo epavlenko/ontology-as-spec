@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { parseProductRecords, parseReleasesFile, productReleaseProblems, protocolReleaseProblems, releaseNews, releaseTag, runningNow } from "../releases.mjs";
+import { parseProductRecords, parseReleasesFile, productReleaseProblems, protocolReleaseProblems, releaseNews, releaseTag, repoPath, runningNow } from "../releases.mjs";
 import { sha256 } from "../tasks.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
@@ -671,4 +671,32 @@ test("[check.product-release.verify-moved-tool] --verify reruns with the tool at
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /^ERROR · release 1\.0\.0 cannot be rerun on [0-9a-f]{7}: the tool nowhere\/ont-check\.mjs is not at commit [0-9a-f]{7}/);
   assert.doesNotMatch(r.stdout + r.stderr, /MODULE_NOT_FOUND|Cannot find module|VERIFIED/);
+});
+
+// Round 5 of the review of the result of task releases-and-task (D-146).
+test("[check.product-release.root-suite] a suite whose directory is the root, given as . or as the empty path, is released and verified, and one path function reads the pin, the tool and each suite", () => {
+  for (const dir of [".", ""]) {
+    const { repo } = productRepo();
+    const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+    writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, testSuites: [{ name: "unit", dir, match: "a\\.test\\.mjs$", cover: [] }] }, null, 2));
+    const commit = commitAll(repo, `a suite at the root, "${dir}"`);
+    const ok = checkProduct(repo);
+    assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+    const r = product(repo, "--product", "1.0.1");
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.doesNotMatch(r.stdout, /is not at commit/);
+    assert.match(readFileSync(join(repo, "releases", "1.0.1.md"), "utf8"), new RegExp(`Commit: ${commit}\\n[\\s\\S]*- suite unit · pass\\n$`));
+    commitAll(repo, "the release 1.0.1");
+    assert.deepEqual(problems(repo), []);
+    const v = product(repo, "--verify", "1.0.1");
+    assert.equal(v.status, 0, v.stdout + v.stderr);
+    assert.match(v.stdout, /VERIFIED 1\.0\.1: ont-check · pass, suite unit · pass/);
+  }
+  // The one path function: the root is "", a path that leaves the repository is none.
+  assert.equal(repoPath(".", "."), "");
+  assert.equal(repoPath(".", ""), "");
+  assert.equal(repoPath("", undefined), "");
+  assert.equal(repoPath("sub", ".."), "");
+  assert.equal(repoPath(".", "tests/"), "tests");
+  assert.equal(repoPath("sub", "../.."), null);
 });

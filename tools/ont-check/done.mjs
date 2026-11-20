@@ -51,7 +51,7 @@ if (failed.length) {
 }
 const time = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 mkdirSync(cfg.taskRecords.dir, { recursive: true });
-// The statement's limits go into the record, for the check and --rounds, which read no statement (D-144).
+// The statement's limits go into the record, for the check and --rounds, which read no statement (D-147).
 const text = [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${statement.hash}`, ...budgetLines(statement.budget), `Time: ${time}`, `Checks:`, ...run.results.map((r) => `- ${r.command} · ${r.result}`), ""].join("\n");
 // A record is never written over another: two records of one second take the next free name.
 let name;
