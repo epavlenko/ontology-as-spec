@@ -41,7 +41,9 @@ test("[check.formal-form.compare-required] with the oracle on and actions built,
   assert.equal(without.code, 1, without.out);
   assert.match(without.out, refused);
   // A file that only mentions the oracle, or the check's tag, in a comment does not count; a registered test does.
-  for (const text of ["// new Oracle(\n", "// [check.formal-form.code-compared]\n", '// compareTest(test, "[check.formal-form.code-compared] x", () => {});\n']) {
+  // The tag is built from parts, so that this file does not carry it as a tag of its own.
+  const tag = `[${"check"}.formal-form.code-compared]`;
+  for (const text of ["// new Oracle(\n", `// ${tag}\n`, `// compareTest(test, "${tag} x", () => {});\n`]) {
     const mention = check((dir) => writeFileSync(join(dir, "app/oracle.test.mjs"), text));
     assert.equal(mention.code, 1, mention.out);
     assert.match(mention.out, refused);
