@@ -854,7 +854,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
-- 2026-11-20: after review of the result: `field.ontology-tree.built-from` compares the path as given and names the form of the date, `derived.tree-stale` reads only a regular file and a valid date, and `field.ontology-tree.place` refuses a place that is not a regular file or has more than one link and is written by rename (D-106).
+- 2026-11-20: after review of the result: `field.ontology-tree.built-from` compares the path as given and names the form of the date, `derived.tree-stale` reads only a regular file and a valid date, and `field.ontology-tree.place` refuses a place that is not a regular file or has more than one link and is written by rename (D-112).
 - 2026-11-20: the tree is refreshed by the protocol's hook after a merge into main where a clone names its place: `field.ontology-tree.place`, `field.ontology-tree.built-from`, `derived.tree-stale` and `rule.tree-refreshed-after-merge`; `ent.ontology-tree` and `rule.tree-structure-only` say so (D-105).
 - 2026-11-20: a check's trace runs on the code through the project's adapter, changes of the forms find surviving mutations and empty tests, and a test compares the code with the oracle (D-101, D-102, D-103); on the code a trace compares how the code refused, not its words (D-104).
 - 2026-11-20: the rounds of review, their records and their payoff, `ent.review-round` and its rows (D-97, D-99); `action.record-verdicts` (D-100); the checks of a judge and of the screens in `derived.review-checks` (D-98).

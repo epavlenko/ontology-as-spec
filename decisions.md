@@ -877,7 +877,7 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: the graph as the view for people (the owner called its details small and too many); a tree rooted at the most linked entity (the same details, and a root that changes when links change); a page kept in the repository and checked as current (a host such as GitHub does not show an HTML page, and the reference page already restates every concept in the repository); a key of `ont.config.json` for the place (D-90 rejected a key because the page was only written on demand; now the place is set, but a key would put a path of one machine into the repository and give the hook a second source); a line of `ont-check.mjs` for the stale report (the check would depend on a clone's setting); hooks on other Git events, such as after a rewrite or a commit (the owner's answer names a merge; the command run by hand and the report cover the rest); an entry that extends D-90 with an `Extends:` line (that line is for process entries; one entry answers one question, D-26, so this one replaces D-90 whole).
 - Concepts: `ent.ontology-tree`, `edge.ontology-tree.concepts`, `field.ontology-tree.place`, `field.ontology-tree.built-from`, `derived.tree-stale`, `rule.tree-structure-only`, `rule.tree-refreshed-after-merge`, `inv.tree-complete`.
 
-### D-106 · The ontology tree's mark, place and stale report hold for every path and every kind of file
+### D-112 · The ontology tree's mark, place and stale report hold for every path and every kind of file
 
 - Date: 2026-11-20 · Status: accepted
 - Source: the thread's technical decisions, from the review of the result of task tree-refresh, rounds 1 and 2, 20.11; under the owner's answer "995 - a" of 2026-11-20 that D-105 cites.
@@ -892,6 +892,7 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## History
 
+- 2026-11-20: the entry on the tree's mark, place and stale report, accepted on branch protocol/tree-refresh as D-106, renumbered D-112, because branch protocol/releases-and-task had taken D-106 to D-111 on its own; its text is unchanged (the owner's answer "1004 a" of 2026-11-20).
 - 2026-11-20: D-93 accepted by the owner: formal forms, traces and the oracle.
 - 2026-11-19: D-93, tentative, on the prototype branch: formal forms, traces and the oracle.
 - 2026-11-19: D-91 and D-92 accepted by the owner; D-91 supersedes D-51.
