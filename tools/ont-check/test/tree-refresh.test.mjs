@@ -71,10 +71,18 @@ const clone = (dir) => {
     return git("rev-parse", "HEAD").out.trim();
   };
   const sha = (ref) => git("rev-parse", "--verify", ref).out.trim();
+  // The mark of the page at the place, its commit and configuration; wherever a test reads it, the page
+  // also carries a whole date, UTC to the second and a real day, so that no test of a written page
+  // passes on a page whose date the stale report would refuse.
   const mark = () => {
     if (!existsSync(place)) return null;
-    const m = readFileSync(place, "utf8").match(/<footer class="built" data-commit="([^"]*)"(?: data-config="([^"]*)")?/);
-    return m && { commit: m[1], config: m[2] ?? null };
+    const html = readFileSync(place, "utf8");
+    const m = html.match(/<footer class="built" data-commit="([^"]*)"(?: data-config="([^"]*)")?/);
+    if (!m) return null;
+    const d = (html.match(/<footer class="built"[^>]* data-date="([^"]*)"/) ?? [])[1];
+    assert.match(d ?? "", /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/, `the date of the page at ${place}`);
+    assert.equal(new Date(d).toISOString().replace(".000Z", "Z"), d, `a real date: ${d}`);
+    return { commit: m[1], config: m[2] ?? null };
   };
   const date = () => (readFileSync(place, "utf8").match(/<footer class="built"[^>]* data-date="([^"]*)"/) ?? [])[1] ?? null;
   const setPlace = () => git("config", "--local", "ont.treeOut", place);
