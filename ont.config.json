@@ -107,5 +107,8 @@
   },
   "reviewRounds": {
     "dir": "reviews/rounds"
+  },
+  "records": {
+    "latinOnly": true
   }
 }

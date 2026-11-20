@@ -1257,7 +1257,7 @@ if (flag("--next") > 0) {
 const stampFor = (c) => runStamp(c, ONT, rows, checkById, notes);
 if (cfg.manualRuns) {
   const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
-  const { runs, malformed, ambiguous } = parseRuns(cfg.manualRuns.dir, known);
+  const { runs, malformed, ambiguous } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
   report("manual run records that cannot be read", malformed);
   report("manual run records that two files claim (same check, time and author)", ambiguous);
   const due = checks.filter((c) => c.proof === "manual" && c.concepts.some((x) => implemented.has(x)));
@@ -1303,7 +1303,7 @@ if (flag("--review") > 0) {
     }
     const listed = new Map([...r.project, ...r.approach].map((c) => [c.id, c]));
     const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
-    const { runs } = parseRuns(cfg.manualRuns.dir, known);
+    const { runs } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
     const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--short", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout.trim();
     const dirty = spawnSync("git", ["-C", cfg.base, "status", "--porcelain", "--", ".", `:!${relative(cfg.base, cfg.manualRuns.dir)}`], { encoding: "utf8", env: gitEnv() }).stdout.trim();
     // The files read for a carried verdict that changed since its record's commit, committed or not. A
@@ -1319,7 +1319,7 @@ if (flag("--review") > 0) {
       if (diff.status !== 0) return files;
       return [...new Set([...noSnapshot, ...diff.stdout.split("\n").filter(Boolean)])];
     };
-    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, source: table });
+    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, source: table, latinOnly: cfg.records.latinOnly });
     if (res.problems.length) {
       console.log(`ERROR · the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`);
       process.exit(1);
@@ -1331,7 +1331,7 @@ if (flag("--review") > 0) {
 // --rounds: what follows the last round of each task's review, and the payoff of each step (D-97, D-99).
 // ont: derived.next-round, derived.step-payoff, inv.review-rounds-well-formed
 if (cfg.reviewRounds) {
-  const { rounds, malformed } = parseRounds(cfg.reviewRounds.dir);
+  const { rounds, malformed } = parseRounds(cfg.reviewRounds.dir, { latinOnly: cfg.records.latinOnly });
   report("review round records that cannot be read", malformed);
   if (flag("--rounds") > 0) console.log(renderRounds(rounds));
 } else if (flag("--rounds") > 0) console.log("ERROR · --rounds needs reviewRounds in the configuration");

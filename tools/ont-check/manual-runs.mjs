@@ -23,9 +23,10 @@ export const runStamp = (c, ONT, rows, checkById, notes) =>
     .digest("hex")
     .slice(0, 8);
 
-// What a record may hold, since it sits in the repository (rule.records-english-in-repo, D-151): English
-// text only, a letter of a script other than Latin refused by construction, and no path outside the
-// repository, absolute or leaving it by "..". A URL is allowed. Each problem names its line, from 1.
+// What a record may hold, since it sits in the repository (rule.records-english-in-repo, D-151): no path
+// outside the repository, absolute or leaving it by "..", in every project; and, where the configuration
+// sets records.latinOnly, as this repository does for its rule of English only (D-03), no letter of a
+// script other than Latin. A URL is allowed. Each problem names its line, from 1.
 // ont: rule.records-english-in-repo
 const URL_RE = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>()`"'|]+/gi;
 const NOT_LATIN = /[^\P{L}\p{Script=Latin}]/u;
@@ -40,12 +41,12 @@ const leaves = (token) => {
   }
   return false;
 };
-export function outsideRecord(text, from = 1) {
+export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
   const problems = [];
   text.split("\n").forEach((line, i) => {
     const plain = line.replace(URL_RE, " ");
     const at = `line ${i + from}`;
-    const letter = plain.match(NOT_LATIN);
+    const letter = latinOnly && plain.match(NOT_LATIN);
     if (letter) problems.push(`${at}: the letter ${letter[0]} is not English text`);
     const abs = plain.match(ABSOLUTE);
     if (abs) problems.push(`${at}: ${plain.slice(abs.index).trim().split(/[\s)>\]`"',;|]/)[0]} is a path outside the repository`);
@@ -56,7 +57,7 @@ export function outsideRecord(text, from = 1) {
 }
 
 // Every record of the directory, with what is wrong with it.
-export function parseRuns(dir, known) {
+export function parseRuns(dir, known, opts = {}) {
   const runs = [];
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
@@ -80,7 +81,7 @@ export function parseRuns(dir, known) {
       !fields.by && "no author",
       !named && "the name is not <UTC time>-<check>-<4 characters>.md, such as 20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md",
       named && (named[2] !== fields.check || named[1] !== compact(fields.time)) && "the name does not match the record's check and time",
-      ...outsideRecord(text),
+      ...outsideRecord(text, 1, opts),
     ].filter(Boolean);
     if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
     else runs.push({ file: name, ...fields });
@@ -111,7 +112,7 @@ export const currentRun = (runs, id, stamp) =>
 // not of its check or not at its stamp now, or the check of errors in code is carried.
 // ont: action.record-verdicts
 const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
-export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], source = "the table" }) {
+export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], source = "the table", latinOnly = false }) {
   const by = text.match(/^By:\s*(.+?)\s*$/m)?.[1];
   const lines = text.split("\n");
   const rows = lines
@@ -122,7 +123,7 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
   if (!by) problems.push("no By: line naming the reviewer");
   // What the records would hold, the By: line and the rows, is read as a record is (D-151).
   lines.forEach((l, i) => {
-    if (/^By:/.test(l) || /^\|\s*`?check\./.test(l)) problems.push(...outsideRecord(l, i + 1).map((p) => `${source}: ${p}`));
+    if (/^By:/.test(l) || /^\|\s*`?check\./.test(l)) problems.push(...outsideRecord(l, i + 1, { latinOnly }).map((p) => `${source}: ${p}`));
   });
   const seen = new Set();
   for (const r of rows) {

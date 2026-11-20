@@ -172,14 +172,19 @@ test("[check.manual-run.ambiguous] fails on two records of one check with the sa
 // A Cyrillic word, written with escapes so that this file stays English (D-03).
 const CYRILLIC = "\u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430";
 
-test("[check.manual-run.english-in-repo] refuses a record with non-Latin letters or a path outside the repository, and names its file and line", () => {
+test("[check.manual-run.english-in-repo] refuses a record with a path outside the repository, and, where records.latinOnly is set, one with non-Latin letters, and names its file and line", () => {
   const at = (dir, time, evidence, tail) => {
     const name = `${time.replace(/[-:]/g, "")}-${CHECK}-${tail}.md`;
     record(dir, name, { Time: time, Stamp: stampIn(dir, CHECK), Verdict: "pass", Evidence: evidence });
     return name;
   };
   const names = {};
+  const latin = (dir) => {
+    const p = join(dir, "ont.config.json");
+    writeFileSync(p, JSON.stringify({ ...JSON.parse(readFileSync(p, "utf8")), records: { latinOnly: true } }));
+  };
   const r = run((dir) => {
+    latin(dir);
     names.cyrillic = at(dir, "2026-11-05T09:00:00Z", `the screen shows ${CYRILLIC}`, "aaaa");
     names.home = at(dir, "2026-11-05T09:01:00Z", "see /home/x/notes.md:4", "bbbb");
     names.up = at(dir, "2026-11-05T09:02:00Z", "see ../outside/log.md", "cccc");
@@ -191,6 +196,14 @@ test("[check.manual-run.english-in-repo] refuses a record with non-Latin letters
   assert.match(r.out, new RegExp(`${names.home.replace(/\./g, "\\.")}: line 9: /home/x/notes\\.md:4 is a path outside the repository`));
   assert.match(r.out, new RegExp(`${names.up.replace(/\./g, "\\.")}: line 9: \\.\\./outside/log\\.md leaves the repository`));
   assert.ok(!r.out.includes(names.clean), r.out);
+  // Without records.latinOnly, as in a project that writes its records in its own language, a letter of
+  // another script is allowed, and a path outside the repository is still refused (D-151).
+  const own = run((dir) => {
+    names.ownCyrillic = at(dir, "2026-11-05T09:00:00Z", `the screen shows ${CYRILLIC}`, "eeee");
+    names.ownHome = at(dir, "2026-11-05T09:01:00Z", "see /home/x/notes.md:4", "ffff");
+  });
+  assert.ok(!own.out.includes(`${names.ownCyrillic}: line 9`), own.out);
+  assert.match(own.out, new RegExp(`${names.ownHome.replace(/\./g, "\\.")}: line 9: /home/x/notes\\.md:4 is a path outside the repository`));
 
   // A record of a round is read the same way.
   const dir = mkdtempSync(join(tmpdir(), "rounds-"));
@@ -198,7 +211,7 @@ test("[check.manual-run.english-in-repo] refuses a record with non-Latin letters
     const round = (findings) => ["Task: t", "Step: result-review", "Number: 1", "Ceiling: 3", "Time: 2026-11-20T10:00:00Z", "By: a model", "Findings:", findings, ""].join("\n");
     writeFileSync(join(dir, "a.md"), round("- a log in /tmp/log · nit · change · fixable"));
     writeFileSync(join(dir, "b.md"), round("- a log, kept outside the repository · nit · change · fixable").replace("Task: t", "Task: u"));
-    const { malformed, rounds } = parseRounds(dir);
+    const { malformed, rounds } = parseRounds(dir, { latinOnly: true });
     assert.deepEqual(malformed, ["a.md: line 8: /tmp/log is a path outside the repository"]);
     assert.equal(rounds.length, 1);
   } finally {
@@ -208,7 +221,7 @@ test("[check.manual-run.english-in-repo] refuses a record with non-Latin letters
   // The table of verdicts is refused whole, with its line, and no record is written.
   const listed = new Map([[CHECK, { id: CHECK }]]);
   const table = (evidence) => ["By: a model of a provider", "", "| Check | Verdict | Evidence |", "| --- | --- | --- |", `| ${CHECK} | pass | ${evidence} |`].join("\n");
-  const refused = recordVerdicts({ text: table(`the screen shows ${CYRILLIC}`), listed, runs: [], stamp: () => "s", commit: "c", now: new Date(), source: "verdicts.md" });
+  const refused = recordVerdicts({ text: table(`the screen shows ${CYRILLIC}`), listed, runs: [], stamp: () => "s", commit: "c", now: new Date(), source: "verdicts.md", latinOnly: true });
   assert.deepEqual(refused.records, []);
   assert.ok(refused.problems.some((p) => /^verdicts\.md: line 5: the letter . is not English text$/.test(p)), refused.problems.join("\n"));
   const held = recordVerdicts({ text: table("https://example.org/x"), listed, runs: [], stamp: () => "s", commit: "c", now: new Date(), source: "verdicts.md" });

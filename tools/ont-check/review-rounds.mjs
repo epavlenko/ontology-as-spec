@@ -29,7 +29,7 @@ export const parseFinding = (line) => {
 };
 
 // Every record of the directory, with what is wrong with it.
-export function parseRounds(dir) {
+export function parseRounds(dir, opts = {}) {
   const rounds = [];
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
@@ -54,7 +54,7 @@ export function parseRounds(dir) {
       (fields.number === "0" || fields.ceiling === "0") && "a number or a ceiling starts at 1",
       fields.number === undefined && "no number",
       ...findings.flatMap((x, i) => x.wrong.map((w) => `finding ${i + 1}: ${w}`)),
-      ...outsideRecord(text),
+      ...outsideRecord(text, 1, opts),
     ].filter(Boolean);
     const name = basename(f);
     if (wrong.length) {
