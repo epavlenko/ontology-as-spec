@@ -1434,7 +1434,7 @@ if (cfg.oracle) {
     const survivors = results.filter((m) => !m.killers.length);
     console.log(`MUTATE ${results.length} changes of the forms · ${results.length - survivors.length} failed by a trace · ${survivors.length} survive`);
     report("changes of the forms that no trace fails on (a case the catalogue does not hold, or a change that alters nothing)", survivors.map((m) => `line ${m.line}: ${m.from} → ${m.to}`), false);
-    const empty = emptyTests({ results, tests: registered.filter((t) => t.kind === "check"), rows, sample: tracesRead.sample });
+    const empty = emptyTests({ results, tests: registered.filter((t) => t.kind === "check" || t.kind === "custom"), rows, sample: tracesRead.sample });
     report("tests of checks that pass on a change of the forms their check's trace fails on (empty tests)", empty.map((e) => `${e.name}: ${e.missed.slice(0, 3).join("; ")}${e.missed.length > 3 ? ` and ${e.missed.length - 3} more` : ""}`));
   }
 } else if (flag("--run") > 0) {

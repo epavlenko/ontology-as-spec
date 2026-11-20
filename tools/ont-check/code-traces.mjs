@@ -66,7 +66,9 @@ export function allowedDivergences(adapter, lines, catalogue) {
   for (const [check, d] of Object.entries(adapter.diverges ?? {})) {
     const concepts = catalogue.get(check)?.concepts ?? [];
     // The ticket is the one the line names after "Ticket:", whole, not a part of it: #9 is not #99.
-    const ticketOf = (l) => l.match(/Ticket:\s*(#\d+\b[^.]*)/)?.[1].trim() ?? null;
+    // The ticket closes the line: "Ticket: #5 Only the borrower renews a loan.", its own word, to the
+    // end of the line but the last full stop, so "PreviousTicket:" is no ticket and "v1.2" stays whole.
+    const ticketOf = (l) => l.match(/(?:^|[\s(])Ticket:\s*(#\d+\b.*?)\.?\s*$/)?.[1].trim() ?? null;
     const line = d.ticket && lines.find((l) => ticketOf(l) === d.ticket.trim() && concepts.some((x) => l.includes(`\`${x}\``)));
     if (line && typeof d.allows === "function") allowed.set(check, d);
   }
@@ -184,7 +186,9 @@ export function codeTests({ config, adapter }) {
     if (!fn && !trace) throw new Error(`${id} has no trace to run`);
     const run = fn ?? traceTest(trace, { rows, formsRead, sample, allowed });
     const reg = registry();
-    reg.tests.push({ kind: "check", check: id, name: title, fn: run, rows, sample });
+    // A check's own trace, run by the tool, is what makes the check run on the code; a test with a function
+    // of the project's is run under --mutate too, but does not stand for the trace (rule.trace-runs-on-code).
+    reg.tests.push({ kind: fn ? "custom" : "check", check: id, name: title, fn: run, rows, sample });
     if (!reg.open) test(title, () => run(new CodeSystem(adapter, rows, formsRead, sample)));
   };
 }
@@ -195,6 +199,7 @@ export function codeTests({ config, adapter }) {
 // The tool itself hands the tests to node:test, so that a registered test is one that runs: a project
 // cannot register a test and skip it.
 export function compareTest(title, fn) {
+  if (typeof title !== "string" || typeof fn !== "function" || arguments.length !== 2) throw new Error("compareTest takes a title and the function of the test, and nothing else");
   const id = title.match(/^\[(check\.[a-z0-9.-]+)\]/)?.[1];
   const reg = registry();
   reg.tests.push({ kind: "compare", check: id, name: title });

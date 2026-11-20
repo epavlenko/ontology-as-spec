@@ -129,6 +129,13 @@ test("[check.trace.code-diverges] on the code a trace may differ only for a chec
   const other = "- **Item.** The code lends an item twice (`inv.one-loan-per-item`). Ticket: #99 Another ticket.";
   assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#9", allows: only } } }, [other], catalogue).size, 0);
   assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "", allows: only } } }, [other], catalogue).size, 0);
+  // Only the word Ticket names it, and a full stop inside its name stays.
+  const previous = "- **Item.** Lent twice (`inv.one-loan-per-item`). PreviousTicket: #9 Old. Ticket: #99 Actual.";
+  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#9 Old", allows: only } } }, [previous], catalogue).size, 0);
+  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#99 Actual", allows: only } } }, [previous], catalogue).size, 1);
+  const dotted = "- **Item.** Lent twice (`inv.one-loan-per-item`). Ticket: #9 Fix v1.2 behavior.";
+  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#9 Fix v1.2 behavior", allows: only } } }, [dotted], catalogue).size, 1);
+  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#9 Fix v1", allows: only } } }, [dotted], catalogue).size, 0);
   // A code that throws, or fails before THEN, is not a divergence.
   const broken = { ...lax, act: () => { throw new Error("unexpected database failure"); } };
   assert.throws(() => traceTest(trace, { ...setup, allowed })(broken), /unexpected database failure/);
@@ -148,11 +155,24 @@ test("[check.trace.runs-on-code] a registered test runs: a runner passed to skip
     // A run of node:test of its own, not a subtest of this one.
     const env = { ...process.env };
     delete env.NODE_TEST_CONTEXT;
-    const r = spawnSync("node", ["--test", join(dir, "traces/traces.test.mjs")], { encoding: "utf8", env });
+    const r = spawnSync("node", ["--test", "--test-reporter=spec", join(dir, "traces/traces.test.mjs")], { encoding: "utf8", env });
     assert.match(r.stdout, /ℹ pass 11/, r.stdout);
     assert.match(r.stdout, /ℹ skipped 0/, r.stdout);
     assert.equal(compareTestArity(), 2);
+    // A comparison with options or without a function is refused when it is registered.
+    assert.throws(() => compareTest("[x] a", { skip: true }), /takes a title and the function/);
+    assert.throws(() => compareTest("[x] a"), /takes a title and the function/);
+    assert.throws(() => compareTest("[x] a", () => {}, { skip: true }), /takes a title and the function/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("[check.trace.runs-on-code] a test with a function of its own does not stand for the check's trace on the code", () => {
+  // A function that returns early on the code would run nothing there; only the tool's own trace counts.
+  const r = check((dir) =>
+    patch(dir, "traces/traces.test.mjs", 'checkTest("[check.item.one-open-loan] its trace on the code");', 'checkTest("[check.item.one-open-loan] its trace on the code", (system) => { if (system.isCode) return; });'),
+  );
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /no test runs on the code \(checkTest\) \(1\):\n {2}check\.item\.one-open-loan/);
 });
