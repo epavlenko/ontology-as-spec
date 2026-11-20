@@ -793,6 +793,42 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: fixing the pages only (the next change would miss them the same way); a review item to reread them (it depends on the reviewer's memory, and the review reports no absence); reading every README of a directory set (an index page of a directory restates its pages).
 - Concepts: `field.doc-set.files`, `ent.doc-set`, `inv.tool-options-documented`, `inv.section-declared`, `derived.to-reread`.
 
+### D-97 · The rounds of review are a process of the approach
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 969, "969 a": keep the rules of review rounds in the approach, as rows of the ontology, checks of the catalogue and text of the change-review skill, while the rules of the owner's machine name the approach's IDs and keep only their own, the token budget, the levels and the owner's gates; and his message of the same day: "The protocol should impose or recommend its own set of processes" (translated from Russian).
+- Decision: `rule.round-ceilings`, `rule.whole-class`, `rule.rounds-converge` and `rule.ready-after-clean-round` say how the rounds of a review go, and `derived.next-round` computes from the records what follows a round: within the ceiling another round; past it, full rounds while they converge, up to six of the step; then narrow rounds on the fixes while each finds fewer and every finding is fixed with a test, up to three; otherwise a question to the owner. The approach sets no ceiling; each task sets its own two. Six and three are the approach's numbers, which a project changes by a process entry that overrides `rule.rounds-converge`. Who allows a merge or a publication, and what more rounds may cost, stays the owner's policy. The rows sit with `ent.review-round` rather than under Agent rules, since they constrain it (`rule.concept-with-its-entity`).
+- Why: the rules of rounds lived only in the instructions of one owner's machine, so a project on the approach had no process of review beyond the verdicts of D-77, and the owner's rules had to be kept in three places.
+- Rejected: only the order of review in the approach, with the numbers in each project's decisions (option b: every project would write the same numbers); the rules left on the machine with one copy (option c: not a process of the approach); a default ceiling of three (the machine's rules say each goal has its own).
+- Concepts: `ent.review-round`, `derived.next-round`, `rule.round-ceilings`, `rule.whole-class`, `rule.rounds-converge`, `rule.ready-after-clean-round`.
+
+### D-98 · The checks of a judge and of the screens go to a review only when it touches them
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 968, "968 a": the checks of the judge, the snapshots and the screens are listed only when the change touches a judge, snapshots or views; in doubt the check stays in the list (translated from Russian).
+- Decision: `derived.review-checks` lists `check.check.judge-sees-the-check` and `check.check.verdict-kept` when the change touches a judged suite, `judge.mjs`, a file of code whose text names a judge at all, or a judged check of the catalogue, and `check.check.view-states-judged` and `check.check.screens-outside` when it touches a view, the mockup, an image or one of those; and all four, where their section is listed, when a changed file is nothing the configuration describes and names no concept.
+- Why: a review of the protocol's redundancy found that a fix of two files of code got these four checks because every changed test brings the whole Check section, and each was written off as not applicable.
+- Rejected: leaving them to the reviewer (four write-offs a fix, which find nothing); dropping them by the kind of file alone (a view's row changes the screens without touching the mockup).
+- Concepts: `derived.review-checks`.
+
+### D-99 · Every round of review is recorded with what it cost and found
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 970, "970 a": a review round entity in the approach's ontology, with the change, the kind of step, the round's number, the commits, the new, cached and output tokens, the checks listed, given and carried, and the new findings by class with a link to the test; a record is a file in the project's repository next to the records of manual runs; the tool sums the records, and whether a step pays off is judged after ten applications (translated from Russian).
+- Decision: `ent.review-round` is one file per round in the directory named under `reviewRounds`; `inv.review-rounds-well-formed` checks it; `--rounds` prints each task's steps with `derived.next-round` and, once a step has ten applications, `derived.step-payoff`. A finding names its class of problem, the same in every round, apart from its weight and from whether it is of the change. Tokens are left out when not known, never guessed. The approach's repository records its own rounds from this change on.
+- Why: whether a step of review pays off could only be felt, though the data exists; and convergence counted by weight alone would merge different problems into one count.
+- Rejected: a report in the owner's notes, outside the approach (option b: no project on the approach would have it); tokens alone (option c: a cost without the findings says nothing of the payoff); counting records instead of applications (several rounds of one task would open the judgement early).
+- Concepts: `ent.review-round`, `derived.step-payoff`, `rule.round-recorded`, `inv.review-rounds-well-formed`.
+
+### D-100 · The tool writes the records of a review from the reviewer's table
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 967, "967 a": the reviewer gives a table of verdicts, and the tool writes the records and checks that each verdict has exactly one record (translated from Russian).
+- Decision: `ont-check --review <base> --record <table>` reads a table of `check · verdict · evidence` and writes one record of `ent.manual-run` for each new verdict, with the stamp and the commit of the review (`action.record-verdicts`). A verdict carried under D-95 is written `carried` with the record it carries and the files the reviewer read for it, and writes nothing; the tool refuses a check the review does not list, a check twice, a listed check with neither, a carried record of another check or another stamp, a carried verdict that names no files, or whose files changed since the record's commit or have no snapshot in it, and a carried check of errors in code. Which files a verdict read is the reviewer's word; that they did not change, the tool checks.
+- Why: a review wrote one file of seven fields for each of 18 to 54 verdicts by hand, a review of the protocol's redundancy found; the tool already knows the stamps, the commit and the format (D-78).
+- Rejected: leaving the records to the reviewer (the same work every round, and a missed record is found only later).
+- Concepts: `action.record-verdicts`, `ent.manual-run`, `rule.run-recorded`.
+
 ## Tentative
 
 ## Open questions

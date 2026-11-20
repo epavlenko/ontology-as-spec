@@ -23,6 +23,11 @@ export const KIND_SECTIONS = {
 // Checks of the Concept section that concern the code rather than the rows (D-73).
 // The check of errors and security in code goes with every change of code too (D-81).
 const CODE_CONCEPT_CHECKS = ["check.concept.code-from-ontology", "check.concept.ontology-changed-first", "check.agent-rules.code-reviewed-for-errors"];
+// Checks of the Check section that concern a judge or the screens (D-98): listed only when the change
+// touches a judge, its verdicts, a judged check, a view or a screen, or when what a file is cannot be told.
+const JUDGE_CHECKS = ["check.check.judge-sees-the-check", "check.check.verdict-kept"];
+const SCREEN_CHECKS = ["check.check.view-states-judged", "check.check.screens-outside"];
+const SCREEN_FILE = /\.(?:png|jpe?g|gif|webp|svg)$/i;
 
 const git = (cwd, ...args) => {
   const r = spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8", maxBuffer: 1 << 26 });
@@ -69,7 +74,7 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
   ]
     .map((f) => resolve(top, f))
     // The records of manual runs are the review's own result, not part of the change it reviews (D-82).
-    .filter((f) => !(cfg.manualRuns && inDir(f, cfg.manualRuns.dir)));
+    .filter((f) => !(cfg.manualRuns && inDir(f, cfg.manualRuns.dir)) && !(cfg.reviewRounds && inDir(f, cfg.reviewRounds.dir)));
   const before = (f) => git(top, "show", `${base}:${relative(top, f).split(sep).join("/")}`) ?? "";
   const now = (f) => (existsSync(f) ? readFileSync(f, "utf8") : "");
   const diffLines = (f) =>
@@ -80,18 +85,48 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
   const kinds = new Set();
   const add = (xs) => xs.forEach((x) => touched.add(x));
   const own = new Set([cfg.ontology, cfg.checks?.file, cfg.decisions?.file, cfg.map?.file].filter(Boolean));
+  let judged = false;
+  let screens = false;
+  let doubt = false;
   for (const f of changed) {
+    const known =
+      own.has(f) ||
+      cfg.mockup.includes(f) ||
+      cfg.agentInstructions.includes(f) ||
+      cfg.docSets.some((d) => (d.files ? d.files.includes(f) : inDir(f, d.dir))) ||
+      (cfg.tickets && inDir(f, cfg.tickets.dir)) ||
+      cfg.testSuites.some((s) => inDir(f, s.dir)) ||
+      cfg.reviewPaths.some((p) => inDir(f, p.dir)) ||
+      cfg.code.some((c) => inDir(f, c.dir));
+    // A judge is touched by a judged suite, by judge.mjs itself, or by any file of code whose old or new
+    // text names a judge at all, called, imported or passed on; in doubt the checks stay.
+    const CODE_FILE = /\.(?:[cm]?[jt]sx?|py|rb|go|rs|java|kt|sh)$/;
+    const usesJudge = (t) => CODE_FILE.test(f) && /\bjudge\b/i.test(t);
+    if (
+      cfg.testSuites.some((s) => s.checks.length && inDir(f, s.dir) && s.match.test(relative(s.dir, f))) ||
+      /(^|[\/])judge\.mjs$/.test(f) ||
+      usesJudge(now(f)) ||
+      usesJudge(before(f))
+    )
+      judged = true;
+    if (SCREEN_FILE.test(f)) screens = true;
+    // A file that is no artifact the configuration knows, and names no concept, may still be anything.
+    if (!known && !SCREEN_FILE.test(f) && !implRows.some(([, files]) => files.includes(relative(cfg.root, f))) && !codeNames(now(f)).length && !codeNames(before(f)).length)
+      doubt = true;
     if (f === cfg.ontology) {
       kinds.add("ontology");
       add(changedKeys(signatures(before(f)), signatures(now(f))));
     } else if (f === cfg.checks?.file) {
       kinds.add("catalogue");
       const [a, b] = [before(f), now(f)].map((t) => new Map(parseChecks(t).map((c) => [c.id, c])));
-      for (const id of changedKeys(new Map([...a].map(([k, c]) => [k, JSON.stringify(c)])), new Map([...b].map(([k, c]) => [k, JSON.stringify(c)]))))
+      for (const id of changedKeys(new Map([...a].map(([k, c]) => [k, JSON.stringify(c)])), new Map([...b].map(([k, c]) => [k, JSON.stringify(c)])))) {
         add([...(a.get(id)?.concepts ?? []), ...(b.get(id)?.concepts ?? [])]);
+        if (a.get(id)?.proof === "judged" || b.get(id)?.proof === "judged") judged = true;
+      }
     } else if (f === cfg.decisions?.file) kinds.add("decisions");
     if (cfg.mockup.includes(f) || f === cfg.map?.file) {
       kinds.add("mockup");
+      screens = true;
       add(ids(diffLines(f)));
     }
     if (cfg.agentInstructions.includes(f)) kinds.add("agent rules");
@@ -125,8 +160,17 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
   const project = checks.filter((c) => manual(c) && c.concepts.some((x) => touched.has(x)));
   const sections = new Set([...kinds].flatMap((k) => KIND_SECTIONS[k]));
   const taken = new Set(project.map((c) => c.id));
+  if ([...touched].some((x) => x.startsWith("view."))) screens = true;
+  const relevant = (c) =>
+    (!JUDGE_CHECKS.includes(c.id) || judged || doubt) && (!SCREEN_CHECKS.includes(c.id) || screens || judged || doubt);
   const approach = (approachChecks ?? []).filter(
-    (c) => !taken.has(c.id) && (sections.has(c.section) || (kinds.has("code") && CODE_CONCEPT_CHECKS.includes(c.id))),
+    (c) =>
+      !taken.has(c.id) &&
+      relevant(c) &&
+      (sections.has(c.section) ||
+        (kinds.has("code") && CODE_CONCEPT_CHECKS.includes(c.id)) ||
+        (JUDGE_CHECKS.includes(c.id) && judged) ||
+        (SCREEN_CHECKS.includes(c.id) && (screens || judged))),
   );
   return { changed, touched: [...touched].sort(), kinds: [...kinds], project, approach };
 }

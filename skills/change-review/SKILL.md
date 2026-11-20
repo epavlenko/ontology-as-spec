@@ -4,7 +4,7 @@ description: Reviews a change before it is merged, in a project that uses the On
 license: MIT
 ---
 
-<!-- ont: rule.reviewed-before-merge@779cd7, derived.review-checks@9ae058, rule.run-recorded@2b45ff, rule.value-checked-against-source@52bea9, rule.code-reviewed-for-errors@3dbf61 -->
+<!-- ont: rule.reviewed-before-merge@779cd7, derived.review-checks@947a8a, rule.run-recorded@2b45ff, rule.value-checked-against-source@52bea9, rule.code-reviewed-for-errors@3dbf61 -->
 
 # Change review
 
@@ -12,14 +12,14 @@ You review a change you did not write, before it is merged. The approach behind 
 
 You read and report. You do not edit files, commit, push or merge, and you do not message anyone on the author's behalf. The one exception is the records of step 4.
 
-<!-- ont: derived.review-checks@9ae058 -->
+<!-- ont: derived.review-checks@947a8a -->
 ## What you get
 
 - The base of the change: a branch, a tag or a commit, such as `main`.
 - The change itself: the working tree or the branch checked out against that base.
 - The IDs the change claims to touch, if the author gave them. Do not ask for the author's summary or conclusions, and do not rely on one if it is in front of you: a reviewer handed the author's conclusions tends to confirm them.
 
-<!-- ont: derived.review-checks@9ae058 -->
+<!-- ont: derived.review-checks@947a8a -->
 ## 1. List the checks
 
 From the directory with `ont.config.json`:
@@ -70,7 +70,7 @@ If the change adds or alters values that carry a source, such as the cases of a 
 <!-- ont: rule.findings-mislead@0229fa, rule.reviewed-before-merge@779cd7 -->
 ## 3. Report what matters
 
-Report what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings. Each finding names its file and line and the check or rule it breaks.
+Report what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings. Each finding names its file and line and the check or rule it breaks. When you find a problem, look for it across its whole class, not only where it showed, and say where else you looked (`rule.whole-class`). Give each finding a class of problem, named the same in later rounds, apart from its weight and from whether it is of this change, so that the author can tell whether the rounds converge (D-97, D-99).
 
 Answer in this form:
 
@@ -91,15 +91,21 @@ Verdict: ready to merge | fix first | cannot tell (with what is missing)
 
 `ready to merge` only when no check fails and no finding of this change remains. A check that already failed on the base and that the change does not touch is an earlier problem: report it, and do not let it block. A `not run` check does not block on its own, but say who has to run it before the merge. A verdict given in an earlier round of the same change still counts while the stamp `--review` prints for its check is the stamp it was given at and the commits since change none of the files you read for it. Give a new verdict to the checks whose stamp or files changed, and always read the new diff for errors and security.
 
-<!-- ont: ent.manual-run@893f59, rule.run-recorded@2b45ff -->
+<!-- ont: ent.manual-run@893f59, rule.run-recorded@2b45ff, action.record-verdicts@965723 -->
 ## 4. Record each verdict
 
-If the configuration has `manualRuns`, write one record for each verdict, in that directory and nowhere else. These are the only files you create: you do not change the change itself and you do not commit; the author commits the records with the change. Name each file by the time in UTC, the check and four random characters, such as `20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md`, and write:
+If the configuration has `manualRuns`, put your table of verdicts in a file outside the change, with a line `By: <your model and provider>` above it, and let the tool write the records from it (D-100):
+
+```bash
+node tools/ont-check/ont-check.mjs --config ont.config.json --review main --record /tmp/verdicts.md
+```
+
+Each row is `| check ID | verdict | evidence |`. In a later round of the same change, a verdict you do not give again is `carried`, with the file of the record it carries and the files you read for it in place of evidence: `| check ID | carried | <record file> · <file>, <file> |`. The tool refuses it when the record is of another check or another stamp, when no files are named or one of them changed since the record's commit, and always refuses a carried check of errors in code. It writes one record for each new verdict in the directory of `manualRuns`, with the stamp and the commit of the review, and refuses the whole table when a listed check has no verdict, a check is not listed or one is given twice. These records are the only files you create: you do not change the change itself and you do not commit; the author commits them with the change. A record reads:
 
 ```
 Check: <check ID>
 Time: <UTC time to the second, such as 2026-11-05T14:30:00Z>
-Commit: <the commit or range you reviewed; for changes not yet committed, the base commit followed by +working-tree>
+Commit: <the commit you reviewed; for changes not yet committed, it is followed by +working-tree>
 Stamp: <the stamp --review printed for the check>
 Verdict: pass | fail | not-run | not-applicable
 By: <your model and provider>
@@ -107,6 +113,30 @@ Evidence: <where the evidence is, outside the repository, if the check kept any>
 ```
 
 Evidence such as screenshots or data stays outside the repository; the record only links to it.
+
+<!-- ont: ent.review-round@21a841, rule.round-recorded@649657, derived.next-round@8e673f -->
+## 5. Record the round
+
+If the configuration has `reviewRounds`, the author writes a record of each round of review in that directory, one file per round, and `ont-check --rounds` says what follows it:
+
+```
+Task: <the task, named the same in every round>
+Step: statement-review | result-review
+Narrow: true | false
+Number: <the round's number in its step, full and narrow rounds counted apart>
+Ceiling: <the ceiling of the step, on its first round>
+Time: <UTC time to the second>
+Commits: <the commits reviewed>
+By: <the reviewer's model and provider>
+Tokens-new: <if known>
+Tokens-cached: <if known>
+Tokens-out: <if known>
+Checks-listed: <n>
+Checks-given: <n>
+Checks-carried: <n>
+Findings:
+- <class> · important | nit · change | before · fixable | not fixable · <the test that holds the fix>
+```
 
 <!-- ont: -->
 ## Licence

@@ -7,6 +7,7 @@
     "action.critique-change",
     "action.cut-slice",
     "action.derive-blind",
+    "action.record-verdicts",
     "action.remove-concept",
     "action.rename-term",
     "action.supersede-decision",
@@ -25,10 +26,12 @@
     "derived.meaning-changed",
     "derived.named-by",
     "derived.named-in-code",
+    "derived.next-round",
     "derived.next-slice",
     "derived.readiness",
     "derived.review-checks",
     "derived.slice-done",
+    "derived.step-payoff",
     "derived.target",
     "derived.to-reread",
     "derived.waiting-for-owner",
@@ -54,6 +57,7 @@
     "edge.reference-page.concepts",
     "edge.retired-id.decision",
     "edge.retired-id.replaced-by",
+    "edge.review-round.runs",
     "edge.test-suite.checks",
     "edge.test.checks",
     "edge.test.suite",
@@ -80,6 +84,7 @@
     "ent.profile",
     "ent.reference-page",
     "ent.retired-id",
+    "ent.review-round",
     "ent.test",
     "ent.test-suite",
     "ent.ticket",
@@ -122,6 +127,21 @@
     "field.manual-run.verdict",
     "field.map-row.shows",
     "field.other-word.word",
+    "field.review-round.by",
+    "field.review-round.ceiling",
+    "field.review-round.checks-carried",
+    "field.review-round.checks-given",
+    "field.review-round.checks-listed",
+    "field.review-round.commits",
+    "field.review-round.findings",
+    "field.review-round.narrow",
+    "field.review-round.number",
+    "field.review-round.step",
+    "field.review-round.task",
+    "field.review-round.time",
+    "field.review-round.tokens-cached",
+    "field.review-round.tokens-new",
+    "field.review-round.tokens-out",
     "field.test-suite.cover",
     "field.test-suite.name",
     "field.ticket.out-of-scope",
@@ -183,6 +203,7 @@
     "inv.retired-only-in-log",
     "inv.review-path-checked",
     "inv.review-paths-known",
+    "inv.review-rounds-well-formed",
     "inv.section-declared",
     "inv.section-keys-match",
     "inv.sourced-since-first",
@@ -249,8 +270,12 @@
     "rule.profile-requires-checkable",
     "rule.question-as-tentative",
     "rule.readers-words",
+    "rule.ready-after-clean-round",
     "rule.reread-then-stamp",
     "rule.reviewed-before-merge",
+    "rule.round-ceilings",
+    "rule.round-recorded",
+    "rule.rounds-converge",
     "rule.run-recorded",
     "rule.run-settles-question",
     "rule.scoped-ids",
@@ -272,7 +297,8 @@
     "rule.validator-test-breaks",
     "rule.value-checked-against-source",
     "rule.verdict-kept",
-    "rule.view-state-judged"
+    "rule.view-state-judged",
+    "rule.whole-class"
   ],
   "retired": {
     "field.map-row.does-not-do": null,
@@ -743,6 +769,46 @@
       "given": "a review of a change in a project that sets `manualRuns`",
       "when": "a reviewer looks for its records",
       "then": "every verdict of the review has a record, and each record that needs evidence links to it outside the repository"
+    },
+    {
+      "id": "check.review-round.whole-class",
+      "section": "Review round",
+      "concepts": [
+        "rule.whole-class"
+      ],
+      "given": "a finding of a round of review",
+      "when": "a reviewer reads the report",
+      "then": "the report says where else the same class of problem was looked for"
+    },
+    {
+      "id": "check.review-round.ceilings-set",
+      "section": "Review round",
+      "concepts": [
+        "rule.round-ceilings"
+      ],
+      "given": "a task whose result is reviewed",
+      "when": "a reviewer reads its statement",
+      "then": "it names a ceiling for the review of the statement and one for the review of the result"
+    },
+    {
+      "id": "check.review-round.ready-after-clean",
+      "section": "Review round",
+      "concepts": [
+        "rule.ready-after-clean-round"
+      ],
+      "given": "a change about to be merged",
+      "when": "a reviewer reads its rounds",
+      "then": "its last round of the review of the result is clean, and the merge is one the owner's policy allows"
+    },
+    {
+      "id": "check.review-round.recorded",
+      "section": "Review round",
+      "concepts": [
+        "rule.round-recorded"
+      ],
+      "given": "a change reviewed in a project that sets `reviewRounds`",
+      "when": "a reviewer reads the directory",
+      "then": "every round of its review has a record, with the tokens that are known and every finding"
     },
     {
       "id": "check.test.does-what-it-says",

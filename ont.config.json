@@ -101,5 +101,11 @@
       "types": true,
       "checks": true
     }
-  ]
+  ],
+  "manualRuns": {
+    "dir": "reviews/runs"
+  },
+  "reviewRounds": {
+    "dir": "reviews/rounds"
+  }
 }

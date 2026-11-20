@@ -406,6 +406,117 @@
         "check"
       ]
     },
+    "review-round": {
+      "title": "Review round",
+      "description": "One round of review of a task, with what it cost and what it found: one file in the directory the configuration names under reviewRounds.",
+      "x-ont": "ent.review-round",
+      "type": "object",
+      "properties": {
+        "task": {
+          "description": "The task the round belongs to, named the same in every round and step of it.",
+          "x-ont": "field.review-round.task",
+          "type": "string"
+        },
+        "step": {
+          "description": "Which review the round belongs to: of the task's statement or of its result.",
+          "x-ont": "field.review-round.step",
+          "enum": [
+            "statement-review",
+            "result-review"
+          ]
+        },
+        "narrow": {
+          "description": "Whether the round read only the fixes of the round before it.",
+          "x-ont": "field.review-round.narrow",
+          "type": "boolean"
+        },
+        "number": {
+          "description": "The round's number among the rounds of its step in the task, the full rounds and the narrow ones counted apart.",
+          "x-ont": "field.review-round.number",
+          "type": "integer",
+          "minimum": 1
+        },
+        "ceiling": {
+          "description": "The ceiling of rounds of its step that the task set; given on the first round of the step.",
+          "x-ont": "field.review-round.ceiling",
+          "type": "integer",
+          "minimum": 1
+        },
+        "time": {
+          "description": "When the round ended, in UTC to the second.",
+          "x-ont": "field.review-round.time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "commits": {
+          "description": "The commit or the range of commits the round reviewed; none for a review of a statement.",
+          "x-ont": "field.review-round.commits",
+          "type": "string"
+        },
+        "by": {
+          "description": "Who reviewed: a model and its provider, or a person.",
+          "x-ont": "field.review-round.by",
+          "type": "string"
+        },
+        "tokensNew": {
+          "description": "The input tokens the round read that were not in a cache, as its provider reports them; left out when not known.",
+          "x-ont": "field.review-round.tokens-new",
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensCached": {
+          "description": "The input tokens the round read from a cache; left out when not known.",
+          "x-ont": "field.review-round.tokens-cached",
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensOut": {
+          "description": "The tokens the round wrote; left out when not known.",
+          "x-ont": "field.review-round.tokens-out",
+          "type": "integer",
+          "minimum": 0
+        },
+        "checksListed": {
+          "description": "How many checks --review listed for the round.",
+          "x-ont": "field.review-round.checks-listed",
+          "type": "integer",
+          "minimum": 0
+        },
+        "checksGiven": {
+          "description": "How many of them got a new verdict in the round.",
+          "x-ont": "field.review-round.checks-given",
+          "type": "integer",
+          "minimum": 0
+        },
+        "checksCarried": {
+          "description": "How many kept a verdict of an earlier round.",
+          "x-ont": "field.review-round.checks-carried",
+          "type": "integer",
+          "minimum": 0
+        },
+        "findings": {
+          "description": "One line for each finding: its class of problem, named the same in every round of the task; its weight, important or nit; whether it is of this change or was there before; and the test that holds its fix, once fixed.",
+          "x-ont": "field.review-round.findings",
+          "type": "string"
+        },
+        "runs": {
+          "description": "The records of the verdicts the round gave, by file name.",
+          "x-ont": "edge.review-round.runs",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ont-ref": "ent.manual-run"
+          }
+        }
+      },
+      "required": [
+        "task",
+        "step",
+        "number",
+        "time",
+        "by"
+      ]
+    },
     "test": {
       "title": "Test",
       "description": "Code that implements checks and starts its title with their IDs.",

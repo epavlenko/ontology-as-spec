@@ -68,3 +68,59 @@ export const currentRun = (runs, id, stamp) =>
     .filter((r) => r.check === id && r.stamp === stamp && (r.verdict === "pass" || r.verdict === "fail"))
     .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file))
     .at(-1);
+
+// The records of a review, from the reviewer's table of verdicts (D-100). A row reads
+// | check.id | verdict | evidence |, where the verdict is one of VERDICTS or `carried`, and a carried
+// verdict gives the file of the record it carries and, after " · ", the files the reviewer read for it,
+// none of which may have changed since the record's commit (D-95); a `By:` line names the reviewer. A record is written for each new verdict and none for a carried one. The table is refused
+// whole when a check is not listed, is given twice, a listed check has neither, a carried record is
+// not of its check or not at its stamp now, or the check of errors in code is carried.
+// ont: action.record-verdicts
+const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
+export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [] }) {
+  const by = text.match(/^By:\s*(.+?)\s*$/m)?.[1];
+  const rows = text
+    .split("\n")
+    .map((l) => l.match(/^\|\s*`?(check\.[a-z0-9.-]+)`?\s*\|\s*([a-z-]+)\s*\|\s*(.*?)\s*\|\s*$/))
+    .filter(Boolean)
+    .map((m) => ({ check: m[1], verdict: m[2], evidence: m[3].replace(/^`|`$/g, "") }));
+  const problems = [];
+  if (!by) problems.push("no By: line naming the reviewer");
+  const seen = new Set();
+  for (const r of rows) {
+    if (seen.has(r.check)) problems.push(`${r.check}: given twice`);
+    seen.add(r.check);
+    const c = listed.get(r.check);
+    if (!c) {
+      problems.push(`${r.check}: not a check the review lists`);
+      continue;
+    }
+    if (r.verdict === "carried") {
+      if (r.check === CODE_CHECK) problems.push(`${r.check}: the check of errors in code reads every new diff and is never carried`);
+      const [file, read = ""] = r.evidence.split("·").map((x) => x.trim());
+      const files = read.split(",").map((x) => x.trim()).filter(Boolean);
+      const run = runs.find((x) => x.file === file);
+      if (!run) problems.push(`${r.check}: carries ${file || "(no record)"}, which is no record of a run`);
+      else if (run.check !== r.check) problems.push(`${r.check}: carries ${file}, a record of ${run.check}`);
+      else if (run.stamp !== stamp(c)) problems.push(`${r.check}: carries ${file}, given at stamp ${run.stamp}, and the check's stamp is now ${stamp(c)}`);
+      else if (!files.length) problems.push(`${r.check}: carries ${file} without the files read for it`);
+      else {
+        const changed = changedSince(run.commit.replace(/\+working-tree$/, ""), files);
+        if (changed.length) problems.push(`${r.check}: carries ${file}, and ${changed.join(", ")} changed since its commit ${run.commit}`);
+      }
+    } else if (!VERDICTS.includes(r.verdict)) problems.push(`${r.check}: verdict ${r.verdict} is not one of ${[...VERDICTS, "carried"].join(", ")}`);
+  }
+  for (const id of listed.keys()) if (!seen.has(id)) problems.push(`${id}: listed, with neither a new verdict nor a carried one`);
+  if (problems.length) return { problems, records: [], carried: 0 };
+  const time = now.toISOString().replace(/\.\d{3}Z$/, "Z");
+  const records = rows
+    .filter((r) => r.verdict !== "carried")
+    .map((r) => {
+      const tail = createHash("sha256").update(`${r.check}|${time}|${by}`).digest("hex").replace(/[^a-z]/g, "").slice(0, 4).padEnd(4, "x");
+      return {
+        file: `${compact(time)}-${r.check}-${tail}.md`,
+        text: [`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${r.verdict}`, `By: ${by}`, ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), ""].join("\n"),
+      };
+    });
+  return { problems, records, carried: rows.length - records.length };
+}

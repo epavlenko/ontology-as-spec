@@ -98,6 +98,8 @@ export function loadConfig(configPath, text) {
     // Records of manual runs, one file per run, and whether every manual check of implemented concepts
     // needs a current run (D-78).
     manualRuns: raw.manualRuns && { dir: at(raw.manualRuns.dir), require: raw.manualRuns.require === true },
+    // Records of the rounds of review, one file per round (D-99).
+    reviewRounds: raw.reviewRounds && { dir: at(raw.reviewRounds.dir) },
     // When owner is set, a file of the code directories that names no defined concept fails the check (D-75).
     codeNames: { require: raw.codeNames?.require === true, owner: raw.codeNames?.owner === true },
     // Set only in the approach's own repository: where gen-approach.mjs writes the approach's IDs.

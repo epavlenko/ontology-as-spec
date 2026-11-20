@@ -12,7 +12,8 @@
 //   and the later entries that name it.
 // --run also runs every trace of the catalogue on the oracle (D-93) and prints each check's result.
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
 import {
   backtickIds,
@@ -45,7 +46,8 @@ import {
 import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
 import { renderReview, reviewChange } from "./review.mjs";
-import { currentRun, parseRuns, runStamp } from "./manual-runs.mjs";
+import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
+import { parseRounds, renderRounds } from "./review-rounds.mjs";
 import { checkForms, checkTraces, readForms, readTraces, runTrace } from "./oracle.mjs";
 
 const groupBy = (xs, key) =>
@@ -1281,7 +1283,52 @@ if (flag("--review") > 0) {
     process.exit(2);
   }
   console.log(renderReview(r, base, cfg.base, stampFor));
+  // --record <table>: the records of the review, written from the reviewer's table (D-100).
+  // ont: action.record-verdicts
+  if (flag("--record") > 0) {
+    const table = process.argv[flag("--record") + 1];
+    if (!cfg.manualRuns) {
+      console.log("ERROR · --record needs manualRuns in the configuration: the directory of the records");
+      process.exit(2);
+    }
+    if (!table || table.startsWith("--") || !existsSync(table)) {
+      console.log("ERROR · --record needs the reviewer's table of verdicts, a file");
+      process.exit(2);
+    }
+    const listed = new Map([...r.project, ...r.approach].map((c) => [c.id, c]));
+    const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
+    const { runs } = parseRuns(cfg.manualRuns.dir, known);
+    const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--short", "HEAD"], { encoding: "utf8" }).stdout.trim();
+    const dirty = spawnSync("git", ["-C", cfg.base, "status", "--porcelain", "--", ".", `:!${relative(cfg.base, cfg.manualRuns.dir)}`], { encoding: "utf8" }).stdout.trim();
+    // The files read for a carried verdict that changed since its record's commit, committed or not. A
+    // file with no snapshot in that commit, untracked, ignored or absent, cannot be compared, so it counts
+    // as changed.
+    const changedSince = (since, files) => {
+      const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8" }).stdout.trim();
+      const noSnapshot = files.filter((f) => {
+        const path = relative(top, resolve(cfg.base, f)).split("\\").join("/");
+        return spawnSync("git", ["-C", top, "cat-file", "-e", `${since}:${path}`]).status !== 0;
+      });
+      const diff = spawnSync("git", ["-C", cfg.base, "diff", "--name-only", since, "--", ...files], { encoding: "utf8" });
+      if (diff.status !== 0) return files;
+      return [...new Set([...noSnapshot, ...diff.stdout.split("\n").filter(Boolean)])];
+    };
+    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince });
+    if (res.problems.length) {
+      console.log(`ERROR · the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`);
+      process.exit(1);
+    }
+    for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text);
+    console.log(`RECORDED ${res.records.length} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
+  }
 }
+// --rounds: what follows the last round of each task's review, and the payoff of each step (D-97, D-99).
+// ont: derived.next-round, derived.step-payoff, inv.review-rounds-well-formed
+if (cfg.reviewRounds) {
+  const { rounds, malformed } = parseRounds(cfg.reviewRounds.dir);
+  report("review round records that cannot be read", malformed);
+  if (flag("--rounds") > 0) console.log(renderRounds(rounds));
+} else if (flag("--rounds") > 0) console.log("ERROR · --rounds needs reviewRounds in the configuration");
 
 console.log(
   [

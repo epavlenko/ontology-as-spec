@@ -158,3 +158,68 @@ test("[check.agent-rules.review-nothing] says there is nothing to review when no
   const out = review();
   assert.match(out, /REVIEW HEAD: nothing to review \(0 files changed\)/);
 });
+
+// The checks of a judge and of the screens go to the reviewer only when the change touches a judge, its
+// verdicts, a judged check, a view or a screen, or when what a changed file is cannot be told (D-98).
+const JUDGE = ["check.check.judge-sees-the-check", "check.check.verdict-kept"];
+const SCREENS = ["check.check.view-states-judged", "check.check.screens-outside"];
+const has = (out, ids) => ids.filter((id) => listed(out, "approach").includes(id));
+
+test("[check.agent-rules.review-judge-screens-touched] a fix of code and its unit test that touch no judge and no view get none of them", () => {
+  const out = review({
+    after: (dir) => {
+      appendFileSync(join(dir, "app/library.mjs"), "// a change\n");
+      appendFileSync(join(dir, "app/library.test.mjs"), "// a change\n");
+    },
+  });
+  assert.ok(listed(out, "approach").includes("check.test.does-what-it-says"), out);
+  assert.deepEqual(has(out, [...JUDGE, ...SCREENS]), [], out);
+});
+
+test("[check.agent-rules.review-judge-screens-touched] a changed test of a judged suite gets them", () => {
+  const out = review({ after: (dir) => appendFileSync(join(dir, "judged/library.judged.mjs"), "// a change\n") });
+  assert.deepEqual(has(out, [...JUDGE, ...SCREENS]), [...JUDGE, ...SCREENS], out);
+});
+
+test("[check.agent-rules.review-judge-screens-touched] a unit test that starts to call the judge gets the checks of a judge", () => {
+  const out = review({ after: (dir) => appendFileSync(join(dir, "app/library.test.mjs"), "import { judge } from '../../tools/ont-check/judge.mjs';\nawait judge();\n") });
+  assert.deepEqual(has(out, JUDGE), JUDGE, out);
+});
+
+test("[check.agent-rules.review-judge-screens-touched] a unit test that calls the judge through an adapter, with a space before the call, gets them", () => {
+  const out = review({
+    before: (dir) => writeFileSync(join(dir, "app/ask.mjs"), "export { judge } from '../../tools/ont-check/judge.mjs';\n"),
+    after: (dir) => appendFileSync(join(dir, "app/library.test.mjs"), "import * as a from './ask.mjs';\nawait a.judge /* the model */ (1);\n"),
+  });
+  assert.deepEqual(has(out, JUDGE), JUDGE, out);
+});
+
+test("[check.agent-rules.review-judge-screens-touched] a changed view row gets the checks of the screens", () => {
+  const out = review({
+    after: (dir) => {
+      patch(dir, "ontology.md", "Titles with search, availability and queue length.", "Titles with search, availability, the queue's length.");
+      appendFileSync(join(dir, "app/library.mjs"), "// a change\n");
+    },
+  });
+  assert.deepEqual(has(out, SCREENS), SCREENS, out);
+});
+
+test("[check.agent-rules.review-judge-screens-touched] a changed judged check of the catalogue gets them", () => {
+  const out = review({
+    after: (dir) => patch(dir, "checks.md", "ana already has five loans, her limit", "ana already has five loans, which is her limit"),
+  });
+  assert.deepEqual(has(out, [...JUDGE, ...SCREENS]), [...JUDGE, ...SCREENS], out);
+});
+
+test("[check.agent-rules.review-judge-screens-touched] a file the configuration does not know keeps them, in doubt", () => {
+  // A changed unit test lists the Check section; a file beside it that nothing describes keeps them all.
+  // Alone, such a file brings nothing to review (D-80, check.agent-rules.review-path-absent): doubt keeps
+  // a check that would be listed, and adds none.
+  const out = review({
+    after: (dir) => {
+      appendFileSync(join(dir, "app/library.test.mjs"), "// a change\n");
+      writeFileSync(join(dir, "notes.txt"), "a note\n");
+    },
+  });
+  assert.deepEqual(has(out, [...JUDGE, ...SCREENS]), [...JUDGE, ...SCREENS], out);
+});
