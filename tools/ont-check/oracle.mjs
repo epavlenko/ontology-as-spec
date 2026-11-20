@@ -661,6 +661,9 @@ export function runTrace(rows, formsRead, sample, t, system = null) {
         if (!r) throw new FormError("then", `line ${s.line}: no outcome ${i + 1}`);
         if (r.kind !== m[1] || (m[2] && r.by !== m[2])) throw new FormError("then", `line ${s.line}: outcome ${i + 1} is ${r.kind} by ${r.by} («${r.message}»), expected ${m[1]}${m[2] ? ` by ${m[2]}` : ""}`);
       } else if ((m = x.match(/^says "(.*)"$/))) {
+        // On the code the words of a refusal are the code's own: the kind and the row that refused are
+        // compared, and judged checks judge the words (D-104).
+        if (o.isCode) continue;
         const r = outcomes[i];
         if (!r || !r.message.includes(m[1])) throw new FormError("then", `line ${s.line}: outcome ${i + 1} says «${r?.message}», not «${m[1]}»`);
       } else if ((m = x.match(/^notified (\S+) by ((?:hook|action)\.[a-z0-9-]+) on (\d{4}-\d{2}-\d{2})(?: offering (action\.[a-z0-9-]+))? says "(.*)"( once)?$/))) {

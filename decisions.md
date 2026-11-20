@@ -856,6 +856,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: reading the test's content in the tool (a test that runs the oracle and compares nothing would pass a reading of names; the reviewer reads what it compares).
 - Concepts: `inv.code-compared`, `rule.code-compared-with-oracle`.
 
+### D-104 · On the code, a trace compares how the code refused, not its words
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 988, "988 a": on the code the says line of a trace is not compared; the code is checked by the kind of the refusal and the rule that refused, the meaning of the words is judged by the model in the judged checks, and this is recorded as a decision (translated from Russian).
+- Decision: a trace run on the code (D-101) skips its `says` lines; its outcome lines still compare the kind of each outcome and the row that refused. The words a person reads are held by judged checks, such as `check.member.limit-refusal-explained` of the example.
+- Why: the first run of the example's traces on its code found three refusals by the same rows in other words ("Already renewed 2 times" for "both renewals"). The words of a form restate a row for the oracle; they are not its meaning (D-73, `rule.form-follows-rows`).
+- Rejected: changing the example's code to the forms' words (option b: the forms would become the code's text); recording three divergences (option c: the behavior does not diverge); a judge in every trace (option d: a model call per trace for what judged checks already hold).
+- Concepts: `rule.trace-runs-on-code`.
+
 ## Tentative
 
 ## Open questions
