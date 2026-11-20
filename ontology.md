@@ -855,6 +855,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-20: after the narrow round 5 of the review of the result: the hash of the tree's footer covers its commit, configuration and date too (D-135).
 - 2026-11-20: after the narrow round 4 of the review of the result: `field.ontology-tree.built-from` and `derived.tree-stale` take the footer for the mark only when it carries the SHA-256 of the page's bytes before it; the stale report reads no HTML (D-134, which supersedes D-130, D-132 and D-133).
 - 2026-11-20: after the narrow round 3 of the review of the result: inside SVG and MathML a slash closes an element before the footer (D-133).
 - 2026-11-20: after the narrow round 1 of the review of the result: `derived.tree-stale` and `field.ontology-tree.built-from` take the footer only as a child of the page's body (D-132).

@@ -967,6 +967,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: reading more of HTML by hand, as D-132 and D-133 did (each round found a case they missed); a full HTML parser to find where the footer stands (a dependency the tool does not have, and the report would still take a page changed by hand, with its footer in place, for the generator's); a hash of the whole page, the footer included (the footer would hold its own hash); a signature with a key (a clone has no key to keep, and whoever edits the generator signs too); adding to D-130 and naming the part it replaces (an entry adds to another or supersedes it whole, `rule.one-choice`, and D-130's reading of the mark changes); editing D-130, D-132 or D-133 (an accepted entry is never edited, `inv.accepted-never-edited`).
 - Concepts: `rule.tree-refreshed-after-merge`, `field.ontology-tree.built-from`, `field.ontology-tree.place`, `derived.tree-stale`.
 
+### D-135 · The hash of the ontology tree's footer covers the footer's own fields too
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the thread's technical decisions from the narrow round 5 of the review of the result of task tree-refresh, 2026-11-20, under the owner's answer "995 - a" of 2026-11-20 that D-105 cites, and his answer of 2026-11-20 to question 1007, "I approved the goal. Carry it to the result. Decide yourself how many rounds are needed" (translated from Russian).
+- Decision: adds to D-134. The footer's `data-page` is the SHA-256 of the page's bytes before the footer followed by a zero byte and the commit, a zero byte and the configuration's path, empty outside Git, a zero byte and the date, as the footer gives them. The stale report computes it from the page and the footer it reads, and a page whose hash is another carries no mark.
+- Why: with the hash of the page alone, taking `+working-tree` away from a footer's attribute and text by hand left the hash true, and the report took a tree built from changed files for one of the commit, without any hash computed again. D-134 says that the hash proves the page before the footer is the one the generator wrote with that footer; with the footer's fields in it, it does.
+- Rejected: a hash of the whole page with the footer (the footer would hold a hash of itself).
+- Concepts: `derived.tree-stale`, `field.ontology-tree.built-from`.
+
 ## Tentative
 
 ### D-131 · The guard compares an accepted entry with the text of the first commit that accepted it, from the commit that brings the rule in
