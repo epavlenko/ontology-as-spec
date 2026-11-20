@@ -8,12 +8,12 @@ What the approach does not do, the open questions, and what could make it strong
 <!-- ont: rule.code-names-concepts@701aa5, derived.named-in-code@5e7772 -->
 ### The check reads names in code, not what code does
 
-Code names the concepts it implements in `ont:` comments, and the check confirms that every name resolves and lists implemented concepts that the files of their row do not name. It does not read what the code does. A tagged test ties a concept to behavior as far as the test goes, so code that behaves differently from the ontology where no test looks passes. The generated contracts carry IDs, and whether the code follows them is up to the project's own checks. The [Spec Growth Engine](comparison.md#the-spec-growth-engine) reads code structure instead.
+Code names the concepts it implements in `ont:` comments, and the check confirms that every name resolves and lists implemented concepts that the files of their row do not name. It does not read what the code does. A tagged test ties a concept to behavior as far as the test goes, so code that behaves differently from the ontology where no test looks passes. A project that turns the [oracle](parts/oracle.md) on also compares its code with the ontology's formal forms on random sequences of actions (`rule.code-compared-with-oracle`); that comparison reaches only the actions the code implements and the state the project's test reads, and the project writes the test itself. The generated contracts carry IDs, and whether the code follows them is up to the project's own checks. The [Spec Growth Engine](comparison.md#the-spec-growth-engine) reads code structure instead.
 
 <!-- ont: rule.ontology-is-source@df6b8f, action.derive-blind@73594f -->
 ### A model does not write the same code twice
 
-The ontology is the source of the code, and a model writes it. Two runs write different code; what makes them the same product is that both pass the same checks. Where the catalogue has no check, two runs may behave differently and the check does not notice. A blind derivation from the ontology and the catalogue finds such cases before code is written, and a behavior found later becomes a check.
+The ontology is the source of the code, and a model writes it. Two runs write different code; what makes them the same product is that both pass the same checks. Where the catalogue has no check, two runs may behave differently and the check does not notice; where the ontology has formal forms, the comparison with the oracle notices it for the actions the code implements. A blind derivation from the ontology and the catalogue finds such cases before code is written, and a behavior found later becomes a check.
 
 <!-- ont: inv.test-does-what-check-says@2b7515 -->
 ### A tag says what a test implements, not that it does
@@ -28,7 +28,7 @@ Each concept has one definition row, in the table of its entity, and no second t
 <!-- ont: ent.mockup-element@54a519 -->
 ### The mockup cannot show time
 
-A mockup shows a state: overdue, reserved, suspended. It cannot show a loan becoming overdue, a reminder arriving two days before the due date, or a reservation passing to the next person after three days. Hooks, derived values that depend on the date, and rules with durations need tests against code. A partial substitute is to use the mockup with persistent state and real data for a week or two, so that time-based states actually occur. A person still has to notice them.
+A mockup shows a state: overdue, reserved, suspended. It cannot show a loan becoming overdue, a reminder arriving two days before the due date, or a reservation passing to the next person after three days. Hooks, derived values that depend on the date, and rules with durations need tests against code, or traces on the [oracle](parts/oracle.md), where a day is a step; the real calendar passing by itself still needs a run on the live product. A partial substitute is to use the mockup with persistent state and real data for a week or two, so that time-based states actually occur. A person still has to notice them.
 
 <!-- ont: inv.implementation-true@182ebf -->
 ### The implementation table trusts its author
@@ -75,12 +75,17 @@ The check sees that every piece of the ontology is joined to the rest by IDs. It
 
 The vocabulary of types is checked where contracts are generated: a project without `contracts` in its configuration may write a type the vocabulary does not have, and nothing reports it. The graph does not read such a type as a link, so it cannot join a piece of the ontology; it only goes unnoticed.
 
+<!-- ont: concept.oracle@88e2a7, rule.form-follows-rows@8006af, inv.form-names-defined@50002b -->
+### The oracle runs what its language can say
+
+The forms restate the rows in a small language of records, actions, refusals and days. What the language cannot say stays in prose: screens (views are not in the oracle), the real calendar, errors of reading a state file, lists of references, and processes about text and files, such as parsing a page or comparing a commit. Most rules of the approach itself are of the second kind: they are about pages and commits, and the check's code, not the oracle, runs them. A form also restates its row: where the two disagree the row is the meaning (D-73), and the check sees only that the form's names are defined, not that it says what the row says; a trace that fails, or a reviewer, finds that.
+
 <!-- ont: -->
 ## Open questions
 
 - **Scale.** One ontology file with about 150 concepts was workable. At what size should it split, and along which lines: by bounded context, by product surface?
 - **Several products sharing concepts.** When a word means different things in two neighbouring products, one ontology with namespaces, or two ontologies with a mapping?
-- **How much behavior belongs in the ontology.** Too little, and agents guess. Too much, and the ontology becomes the verbose spec that Böckeler criticizes. Where is the line?
+- **How much behavior belongs in the ontology.** Too little, and agents guess. Too much, and the ontology becomes the verbose spec that Böckeler criticizes. Formal forms (D-93) put behavior under the tables, folded, so the tables stay the overview; whether people still read the ontology when every row has a form is not known yet.
 - **Two languages.** The target model can be written in the team's language while code and user documentation use another. The approach handles this as two vocabularies with recorded divergences. Does it hold up with a larger team?
 - **Versioning.** Should the ontology be versioned against releases, or is the decision log enough history?
 
