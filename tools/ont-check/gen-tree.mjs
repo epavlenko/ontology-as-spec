@@ -239,8 +239,15 @@ export function markOf(built, { onHead } = {}) {
   return { commit: dirty.length ? `${head}+working-tree` : head, config, dirty: [...new Set(dirty)] };
 }
 
+// The date of a mark: UTC to the second, the only form the generator writes, and a real date. A string
+// of that form that no calendar has, such as February 30, is taken by Date for another day, so the
+// date is compared with what Date makes of it.
+const DATE = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/;
+const dateOf = (d) => d.toISOString().replace(/\.\d+Z$/, "Z");
+export const isMarkDate = (s) => DATE.test(s) && !Number.isNaN(Date.parse(s)) && dateOf(new Date(s)) === s;
+
 const writePage = (out, built, mark) => {
-  const date = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  const date = dateOf(new Date());
   writeFileSync(out, renderTree({ title: built.title, html: built.html }, built.label, { commit: mark.commit, config: mark.config, date }));
 };
 
@@ -327,6 +334,7 @@ export function stale(cwd) {
   if (mark.config === null && !outsideGit) out.push(`${at} the mark names no configuration`);
   else if (mark.config !== null && mark.config !== ROOT_CONFIG) out.push(`${at} built from another configuration, ${mark.config}, not the ${ROOT_CONFIG} at the root`);
   if (mark.date === null) out.push(`${at} the mark carries no date`);
+  else if (!isMarkDate(mark.date)) out.push(`${at} the mark's date, ${mark.date}, is not a date and time of the form 2026-11-20T09:30:00Z`);
   const sha = mark.commit?.replace(/\+working-tree$/, "");
   if (main === null) out.push(`${at} the repository has no branch main`);
   else if (sha && !outsideGit && sha !== main) out.push(`${at} built from ${sha}, but main is ${main}`);

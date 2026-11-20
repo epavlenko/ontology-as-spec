@@ -389,6 +389,11 @@ test("[check.ontology-tree.stale] each reason is reported; a current page, compa
   }
   writeFileSync(r.place, page.replace(/ data-date="[^"]*"/, ' data-date=""'));
   assert.match(stale(), /: the mark carries no date\n/, "an empty date");
+  // A date that is not one, one of another form, and one of the right form that no calendar has.
+  for (const date of ["not-a-date", "2026-11-20", "2026-11-20T09:30:00.000Z", "2026-13-40T25:61:61Z", "2026-02-30T00:00:00Z"]) {
+    writeFileSync(r.place, page.replace(/ data-date="[^"]*"/, ` data-date="${date}"`));
+    assert.match(stale(), new RegExp(`: the mark's date, ${date.replace(/\./g, "\\.")}, is not a date and time of the form 2026-11-20T09:30:00Z\n`), date);
+  }
   writeFileSync(r.place, page);
   assert.equal(stale(), "");
   const second = r.commit("README.md", "# Ontology as Specification", "# Ontology as Specification\n");
