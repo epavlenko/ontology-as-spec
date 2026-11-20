@@ -30,7 +30,7 @@ This repository describes an approach to product development: product meaning ke
 - **Keep the example consistent.** It follows its own rules in `example/AGENTS.md`. After editing the example's definition rows, run `npm run format` and `npm run generate` to regenerate the tooltips, the contracts and the reference pages (D-04).
 - **Rules name their source.** A process rule here that comes from a rule of the approach or from a decision names it, by ID or entry; a departure from the approach is a process entry with `Extends:` or `Overrides:`. `npm run check` fails on an ID or entry named in this file that does not exist, is retired or is superseded (`rule.agent-rule-source`, `rule.departure-by-entry`, D-53).
 
-<!-- ont: concept.oracle@88e2a7, rule.tree-refreshed-after-merge@291b66, field.ontology-tree.place@724e93 -->
+<!-- ont: concept.oracle@88e2a7, rule.tree-refreshed-after-merge@291b66, field.ontology-tree.place@b24e18 -->
 ## Verify
 
 ```bash
@@ -40,4 +40,4 @@ node tools/ont-check/ont-check.mjs --config templates/ont.config.json   # ONT_OK
 node --test 'tools/ont-check/test/*.test.mjs' 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'
 ```
 
-`npm test` runs all four and the guard. A change to a rule of the approach starts in `ontology.md` and `checks.md`, like any product change. `npm run guard` compares accepted decision entries with `HEAD`. Enable the hooks once per clone: `git config core.hooksPath .githooks`; pre-commit runs the check and the guard, and post-merge rewrites the ontology tree after a merge into main where the clone sets `ont.treeOut` (D-105). Git does not run post-merge after `git merge --continue` or a real rebase; after those, run `node tools/ont-check/gen-tree.mjs --refresh` on main, and `--stale` says whether the tree shows main.
+`npm test` runs all four and the guard. A change to a rule of the approach starts in `ontology.md` and `checks.md`, like any product change. `npm run guard` compares accepted decision entries with `HEAD`. Enable the hooks once per clone: `git config core.hooksPath .githooks`; pre-commit runs the check and the guard, and post-merge rewrites the ontology tree after a merge into main where the clone sets `ont.treeOut` (D-105). Git runs `post-merge` only when `git merge` or `git pull` itself makes the merge commit or the fast-forward, so not after `git merge --continue`, a `git merge --no-commit` committed apart, or a real rebase; after those, run `node tools/ont-check/gen-tree.mjs --refresh` on main, and `--stale` says whether the tree shows main.

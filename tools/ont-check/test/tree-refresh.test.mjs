@@ -546,7 +546,12 @@ test("[rule.tree-refreshed-after-merge] every page that tells of the hook names 
       const anchor = section.match(/^<!-- ont:([^\n]*)-->/)?.[1] ?? "";
       assert.match(anchor, /\brule\.tree-refreshed-after-merge\b/, `${file}: the anchor of the section`);
       assert.doesNotMatch(section, /every merge/, `${file} promises every merge`);
+      // The condition in general, so that a case no list names is not taken as covered, then the cases
+      // as examples: a merge ended after a conflict, one made with --no-commit and committed apart, and
+      // a rebase.
+      assert.match(section.replace(/\s+/g, " "), /Git runs `post-merge` only when `git merge` or `git pull` itself makes the merge commit or the fast-forward/, `${file}: the condition in general`);
       assert.match(section, /git merge --continue/, `${file}: a merge ended after a conflict`);
+      assert.match(section, /--no-commit/, `${file}: a merge made with --no-commit and committed apart`);
       assert.match(section, /rebase/, `${file}: a rebase`);
       assert.match(section, /gen-tree\.mjs --refresh/, `${file}: the command after them`);
     }

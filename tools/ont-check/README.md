@@ -138,10 +138,10 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Process entries:** `- Layer: process`, and `- Extends:` or `- Overrides:` with the IDs of the rules of the approach in backticks. Every such line is checked, and an empty one fails; a superseded entry may name a rule the approach has retired since.
 - **Deferrals:** a line matched by `decisions.returnWhen`, by default `- Return when: a second branch opens`. The check lists every accepted deferral in force with its condition, as information.
 
-<!-- ont: rule.tree-refreshed-after-merge@291b66, field.ontology-tree.place@724e93 -->
+<!-- ont: rule.tree-refreshed-after-merge@291b66, field.ontology-tree.place@b24e18 -->
 ## Hooks
 
-Run the check on commits that touch any file it reads, the code paths that implement concepts among them: it reads their `ont:` names, and a change there is a reminder to update the implementation table. Run the guard with `--staged` on every commit, and in CI with `--base` set to the commit before the push or the base of the pull request. This repository's own hooks are `.githooks/pre-commit` and `.githooks/post-merge`, which rewrites the ontology tree after a merge into main where a clone sets `ont.treeOut`, except after `git merge --continue` or a real rebase, which do not run it: after those, run `node tools/ont-check/gen-tree.mjs --refresh` on main; and its CI is `.github/workflows/check.yml`; enable the hooks with `git config core.hooksPath .githooks`.
+Run the check on commits that touch any file it reads, the code paths that implement concepts among them: it reads their `ont:` names, and a change there is a reminder to update the implementation table. Run the guard with `--staged` on every commit, and in CI with `--base` set to the commit before the push or the base of the pull request. This repository's own hooks are `.githooks/pre-commit` and `.githooks/post-merge`, which rewrites the ontology tree after a merge into main where a clone sets `ont.treeOut`; Git runs `post-merge` only when `git merge` or `git pull` itself makes the merge commit or the fast-forward, so not after `git merge --continue`, a `git merge --no-commit` committed apart, or a real rebase: after those, run `node tools/ont-check/gen-tree.mjs --refresh` on main; and its CI is `.github/workflows/check.yml`; enable the hooks with `git config core.hooksPath .githooks`.
 
 <!-- ont: -->
 ## Tests
