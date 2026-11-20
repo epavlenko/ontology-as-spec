@@ -51,18 +51,27 @@ export class CodeSystem {
   }
 }
 
-// The concepts the known divergences name, by ticket or line: a trace of a check whose concepts a known
-// divergence names may differ on the code, and nothing else may (rule.trace-runs-on-code).
-export const divergedConcepts = (lines) => new Set(lines.flatMap((l) => [...l.matchAll(/`([a-z]+\.[a-z0-9.-]+)`/g)].map((m) => m[1])));
+// A trace may differ on the code only for a check the adapter names under `diverges` with the ticket of a
+// known divergence whose line names one of the check's concepts, and only in its THEN: a case that cannot
+// even be set up, or a code that throws, fails whatever the divergence (rule.trace-runs-on-code).
+export function allowedDivergences(adapter, lines, catalogue) {
+  const allowed = new Map();
+  for (const [check, ticket] of Object.entries(adapter.diverges ?? {})) {
+    const concepts = catalogue.get(check)?.concepts ?? [];
+    const line = lines.find((l) => l.includes(ticket) && concepts.some((x) => l.includes(`\`${x}\``)));
+    if (line) allowed.set(check, ticket);
+  }
+  return allowed;
+}
 
 // A test of a check that runs on a system: by default its trace. Registered tests are collected for
 // --mutate when the registry is open; otherwise each runs as a test of node:test on the code.
 export const registry = () => (globalThis.__ontCheckTests ??= { open: false, tests: [] });
-export function traceTest(trace, { rows, formsRead, sample, diverged = new Set(), concepts = [] }) {
+export function traceTest(trace, { rows, formsRead, sample, allowed = new Map() }) {
   return (system) => {
     const r = runTrace(rows, formsRead, sample, trace, system);
     if (r.ok) return { ok: true };
-    if (system.isCode && concepts.some((x) => diverged.has(x))) return { ok: true, diverged: r.error };
+    if (system.isCode && allowed.has(trace.id) && r.part === "then" && !r.thrown) return { ok: true, diverged: `${allowed.get(trace.id)}: ${r.error}` };
     throw new Error(`${trace.id}: ${r.error}`);
   };
 }
@@ -80,9 +89,12 @@ export function* mutants(md) {
     const l = lines[i];
     if (/^```behavior\s*$/.test(l.trim())) { inBlock = true; continue; }
     if (inBlock && l.trim() === "```") { inBlock = false; continue; }
-    if (!inBlock || !/^\s/.test(l)) continue;
-    // The first " = " of a let or a set assigns; it is not a comparison.
-    const assign = /^\s*(let |set )/.test(l) ? l.indexOf(" = ") + 3 : 0;
+    if (!inBlock || !l.trim()) continue;
+    // A line of a form's head, "derived.overdue(loan) = …", defines by its first " = ", and so do let
+    // and set; what follows it is changed. A head with no " = ", such as an action's, is not.
+    const head0 = !/^\s/.test(l);
+    if (head0 && !l.includes(" = ")) continue;
+    const assign = head0 || /^\s*(let |set )/.test(l) ? l.indexOf(" = ") + 3 : 0;
     const head = l.slice(0, assign);
     const tail = l.slice(assign);
     const changes = [];
@@ -154,13 +166,13 @@ export function codeTests({ config, adapter, test }) {
   const formsRead = readForms(md, rows);
   const { traces, sample } = readTraces(read(cfg.checks.file));
   const catalogue = new Map(parseChecks(read(cfg.checks.file)).map((c) => [c.id, c]));
-  const diverged = divergedConcepts(divergenceLines(md, cfg.headings.divergences));
+  const allowed = allowedDivergences(adapter, divergenceLines(md, cfg.headings.divergences), catalogue);
   return (title, fn) => {
     const id = title.match(/^\[(check\.[a-z0-9.-]+)\]/)?.[1];
     if (!id) throw new Error(`a test of a check starts with its tag: ${title}`);
     const trace = traces.get(id);
     if (!fn && !trace) throw new Error(`${id} has no trace to run`);
-    const run = fn ?? traceTest(trace, { rows, formsRead, sample, diverged, concepts: catalogue.get(id)?.concepts ?? [] });
+    const run = fn ?? traceTest(trace, { rows, formsRead, sample, allowed });
     const reg = registry();
     reg.tests.push({ check: id, name: title, fn: run, rows, sample });
     if (!reg.open) test(title, () => run(new CodeSystem(adapter, rows, formsRead, sample)));

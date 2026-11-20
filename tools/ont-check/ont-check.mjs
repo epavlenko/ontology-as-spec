@@ -595,6 +595,7 @@ if (cfg.checks) {
 // must cover: every implemented concept of those classes needs a test in that suite, directly or
 // through a check that names it.
 // ont: ent.test, edge.test.checks, edge.test.suite, inv.test-names-known-checks, inv.test-only-implemented, inv.no-manual-tested, inv.auto-check-tested, ent.test-suite, field.test-suite.name, field.test-suite.cover, inv.suite-names-unique, inv.suite-not-empty, inv.suite-covers-classes
+const approachCheckIds = new Set((approach?.manualChecks ?? []).map((c) => c.id));
 let tested = new Set();
 const bySuite = new Map();
 const checksTested = new Set();
@@ -613,7 +614,9 @@ for (const t of cfg.testSuites) {
   own.forEach((x) => checksTested.add(x));
   report(
     `checks in ${suiteName(t)}tests but not in the catalogue`,
-    [...own].filter((x) => !checkById.has(x)).sort(),
+    // A test may carry a check of the approach that a project's test must implement, such as the
+    // comparison with the oracle (D-103).
+    [...own].filter((x) => !checkById.has(x) && !approachCheckIds.has(x)).sort(),
   );
   report(
     `manual checks tagged in ${suiteName(t)}tests (mark them auto or judged)`,
@@ -1382,36 +1385,37 @@ if (cfg.oracle) {
     console.log(`RUN ${passed} passed · ${failed.length} failed · ${t.skipped.size} not traced`);
     report("traces that do not hold on the oracle", failed);
   }
-  // D-103: with the oracle on and an action built, a test of the project's suites runs the oracle; what it
-  // compares is the reviewer's check.
+  // D-103: with the oracle on and an action built, a test of the project's suites carries the approach's
+  // check of the comparison in its title; what it compares is the reviewer's check.
   // ont: inv.code-compared
   const suiteFiles = cfg.testSuites.flatMap((s) => listFiles(s.dir, s.match));
-  const suiteText = suiteFiles.map(read).join("\n");
+  const suiteTags = new Set(suiteFiles.flatMap((f) => tagIds(read(f), ["check"])));
   report(
-    "implemented actions, and no test of the suites runs the oracle to compare the code with it (rule.code-compared-with-oracle)",
-    [...implemented].some((x) => x.startsWith("action.")) && !/\bnew Oracle\(/.test(suiteText) ? ["no test runs `new Oracle(`"] : [],
+    "implemented actions, and no test of the suites is tagged [check.formal-form.code-compared] (rule.code-compared-with-oracle)",
+    [...implemented].some((x) => x.startsWith("action.")) && !suiteTags.has("check.formal-form.code-compared") ? ["no test carries the tag"] : [],
   );
-  // D-101: every traced check whose concepts are built and whose trace takes only actions the adapter runs
-  // is run on the code by a test, checkTest("[check.id] …").
+  // D-101: every traced check whose concepts, and the actions its trace takes, are all built is run on the
+  // code by a test of systemTests, checkTest("[check.id] …"), through the adapter, which runs every one of
+  // those actions.
   // ont: inv.trace-run-on-code, rule.trace-runs-on-code
+  const actionsOf = (tr) => [...new Set([...tr.given, ...tr.when, ...tr.then].flatMap((s) => s.text.match(/\baction\.[a-z0-9-]+/g) ?? []))];
+  const traced = checks.filter((c) => tracesRead.traces.has(c.id) && fullyImplemented(c));
+  const due = traced.filter((c) => actionsOf(tracesRead.traces.get(c.id)).every((a) => implemented.has(a)));
+  report(
+    "traced checks of implemented concepts whose trace takes an action not implemented yet",
+    traced.filter((c) => !due.includes(c)).map((c) => `${c.id}: ${actionsOf(tracesRead.traces.get(c.id)).filter((a) => !implemented.has(a)).join(", ")}`),
+    false,
+  );
+  if (due.length && !cfg.adapter) report("traced checks of implemented concepts, and no adapter to run them on the code (adapter in the configuration)", due.map((c) => c.id));
   if (cfg.adapter) {
     const adapter = await import(pathToFileURL(cfg.adapter).href);
     const runs = new Set(Object.keys(adapter.actions ?? {}));
-    const actionsOf = (tr) => [...tr.given, ...tr.when, ...tr.then].flatMap((s) => s.text.match(/\baction\.[a-z0-9-]+/g) ?? []);
-    const built = checks.filter((c) => tracesRead.traces.has(c.id) && fullyImplemented(c));
+    report("implemented actions that traces take and the adapter does not run", [...new Set(due.flatMap((c) => actionsOf(tracesRead.traces.get(c.id))))].filter((a) => !runs.has(a)).sort());
     // The tests that run traces on the code are those of systemTests, apart from the suites, whose tags
     // say what a test implements.
     const systemText = cfg.systemTests.filter((f) => existsSync(f)).map(read).join("\n");
     const named = new Set([...systemText.matchAll(/checkTest\(\s*["'`]\[(check\.[a-z0-9.-]+)\]/g)].map((m) => m[1]));
-    report(
-      "traced checks of implemented concepts that no test runs on the code (checkTest)",
-      built.filter((c) => actionsOf(tracesRead.traces.get(c.id)).every((a) => runs.has(a)) && !named.has(c.id)).map((c) => c.id),
-    );
-    report(
-      "traced checks of implemented concepts whose trace takes an action the adapter does not run",
-      built.filter((c) => !actionsOf(tracesRead.traces.get(c.id)).every((a) => runs.has(a))).map((c) => `${c.id}: ${[...new Set(actionsOf(tracesRead.traces.get(c.id)).filter((a) => !runs.has(a)))].join(", ")}`),
-      false,
-    );
+    report("traced checks of implemented concepts that no test runs on the code (checkTest)", due.filter((c) => !named.has(c.id)).map((c) => c.id));
   }
   // D-102: --mutate changes one line of a form at a time; a change no trace fails on survives, and a test of
   // a check that passes on a change its check's trace fails on is empty.

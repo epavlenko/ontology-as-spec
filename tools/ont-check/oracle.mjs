@@ -641,6 +641,8 @@ function step(o, s, outcomes) {
 // its notifications, such as the code through a project's adapter (D-101).
 export function runTrace(rows, formsRead, sample, t, system = null) {
   const o = system ?? new Oracle(rows, formsRead, sample);
+  // Which part of the trace was running, so that a failure says whether the case was set up at all.
+  let part = "given";
   try {
     for (const s of t.given) {
       const before = [];
@@ -649,7 +651,9 @@ export function runTrace(rows, formsRead, sample, t, system = null) {
     }
     const from = o.notifications.length;
     const outcomes = [];
+    part = "when";
     for (const s of t.when) step(o, s.text, outcomes);
+    part = "then";
     const notified = o.notifications.slice(from);
     let i = -1;
     for (const s of t.then) {
@@ -682,7 +686,7 @@ export function runTrace(rows, formsRead, sample, t, system = null) {
     if (i + 1 !== outcomes.length) throw new FormError("then", `${outcomes.length} action(s) in WHEN, ${i + 1} outcome line(s) in THEN`);
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e.message };
+    return { ok: false, error: e.message, part, thrown: !(e instanceof FormError) };
   }
 }
 

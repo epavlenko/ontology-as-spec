@@ -183,7 +183,7 @@ export function compare(seeds, length, lib = library, make = sequence) {
 
 const SEEDS = process.env.ORACLE_SEED ? [Number(process.env.ORACLE_SEED)] : Array.from({ length: 500 }, (_, i) => i + 1);
 
-test("the code agrees with the oracle on 500 random sequences, apart from the known divergences", () => {
+test("[check.formal-form.code-compared] the code agrees with the oracle on 500 random sequences, apart from the known divergences", () => {
   const r = compare(SEEDS, 30);
   if (process.env.ORACLE_STATS) console.log(JSON.stringify({ compared: r.compared, accepted: r.accepted, refused: r.refused, known: r.known }));
   assert.deepEqual(r.failures, []);

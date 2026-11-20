@@ -12,6 +12,10 @@ export const actions = {
   "action.place-hold": (s, a, actor, today) => library.placeHold(s, { title: a.title, member: a.member, today }),
 };
 
+// The checks whose trace may differ on the code, each with the ticket of its known divergence in the
+// ontology; none differ now.
+export const diverges = {};
+
 export const init = () => library.emptyState();
 
 export function put(s, ent, id, fields) {
