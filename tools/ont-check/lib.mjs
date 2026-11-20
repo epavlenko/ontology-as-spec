@@ -75,19 +75,36 @@ const KEY_PATHS = new Set(
 );
 const FREE_KEYS = new Set(["classes"]);
 // The configuration as the loader may read it: an object or a list of it refuses a key that CONFIG_KEYS
-// does not list; values are returned as they are.
+// does not list, by whatever way the key is reached — a property, its descriptor, `in`, or the list of
+// keys, which shows only the listed ones; values are returned as they are, objects in them guarded too.
 export function guardConfig(value, path = "") {
   if (value === null || typeof value !== "object" || FREE_KEYS.has(path)) return value;
+  const index = (prop) => typeof prop === "string" && /^\d+$/.test(prop);
+  // The path of a key of this object or list, or null for what is not a key (a symbol, a method of a list).
+  const keyOf = (target, prop) => {
+    if (typeof prop === "symbol") return null;
+    if (Array.isArray(target)) return index(prop) ? `${path}[]` : null;
+    const key = path ? `${path}.${prop}` : prop;
+    if (!KEY_PATHS.has(key)) throw new Error(`configuration key ${key} is read by the loader but not listed in CONFIG_KEYS (D-96)`);
+    return key;
+  };
   return new Proxy(value, {
     get(target, prop, receiver) {
-      if (typeof prop === "symbol") return Reflect.get(target, prop, receiver);
-      if (Array.isArray(target)) {
-        if (!/^\d+$/.test(prop)) return Reflect.get(target, prop, receiver);
-        return guardConfig(target[prop], `${path}[]`);
-      }
-      const key = path ? `${path}.${prop}` : prop;
-      if (!KEY_PATHS.has(key)) throw new Error(`configuration key ${key} is read by the loader but not listed in CONFIG_KEYS (D-96)`);
-      return guardConfig(target[prop], key);
+      const key = keyOf(target, prop);
+      return key === null ? Reflect.get(target, prop, receiver) : guardConfig(target[prop], key);
+    },
+    has(target, prop) {
+      keyOf(target, prop);
+      return Reflect.has(target, prop);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      const key = keyOf(target, prop);
+      const d = Reflect.getOwnPropertyDescriptor(target, prop);
+      return d && key !== null && "value" in d ? { ...d, value: guardConfig(d.value, key) } : d;
+    },
+    ownKeys(target) {
+      if (Array.isArray(target)) return Reflect.ownKeys(target);
+      return Reflect.ownKeys(target).filter((k) => typeof k === "symbol" || KEY_PATHS.has(path ? `${path}.${k}` : k));
     },
   });
 }
