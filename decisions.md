@@ -1101,6 +1101,63 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: fixing the three lines alone (the next ERROR printed by hand would part again).
 - Concepts: `inv.error-fails-run`.
 
+### D-140 · An entry of releases.md is read strictly, and a release commit appends its entry byte for byte
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-109 and D-114, from the owner's answer of 2026-11-20 to question 996, "996 - a", quoted in D-109; the owner's answer of 2026-11-20 to question 1007, quoted in D-121, which leaves the rounds and their fixes to the thread. The finding of round 4 of the review of the result of task releases-and-task, "tag not matched to its release entry", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. The strict form and the comparison of bytes are the thread's technical decisions.
+- Decision: adds to D-114, D-122 and D-126.
+  - An entry of `releases.md` is its heading, one blank line and one line `- Verified:` with the full commit, exactly as `release.mjs` writes it, and nothing else: a line `- Verified:` given twice, a line of another kind or any other spacing makes it an entry that cannot be read (`inv.release-tagged`). No reader takes the first of two values.
+  - A release commit's `releases.md` is byte for byte the verified commit's with exactly its entry appended, by `appendEntry`, the one function `release.mjs` writes with and `releaseCommitProblems` compares with; where the file is new in the release commit, its heading and that entry alone. Every earlier entry, and the text before them, is left as it was. The check of the approach and the news of a project ask it through `releaseTag`.
+- Why: a tag v0.3.0 on a commit that added its own entry and a second, contradicting line `- Verified:` to the entry of v0.2.0 passed the check and was announced in the news, because the parser read only the first value and the entries were compared as parsed.
+- Rejected: reading the last value, or every value (two values for one field is no entry); comparing the whole file only (the strict reading also says which entry is wrong).
+- Concepts: `inv.release-tagged`, `derived.newer-releases`, `action.release-protocol`.
+
+### D-141 · Tool: of a product release is the version of the tool its commit carries, compared by the check
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-111, from the owner's answer of 2026-11-20 to question 996, "996 - a", quoted in D-111; the owner's answer of 2026-11-20 to question 1007, quoted in D-121. The finding of round 4 of the review of the result of task releases-and-task, "product release run not proven", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. The derivation of the version is the thread's technical decision.
+- Decision: adds to D-111 and D-125. The line `Tool:` of a record of a product release is a full commit, the version of the tool as `release.mjs --product` writes it: the commit of the approach the pin at the release's commit names, or that commit itself when the pin names none, as in the approach's own example (`field.product-release.tool`). One function, `toolVersionOf`, gives it to the action and to the check, which refuses a record whose `Tool:` is not a full commit or is another one; `--verify` refuses such a record before it runs anything, and says the tool it ran with.
+  - What `Tool:` proves: which version of the tool the release's commit carries, as its pin says. What it does not prove: that the tool ran, or that the copy at the commit matches its pin; a record can still be written by hand (`rule.intact-is-not-run`). The copy's match with its pin is `pin.mjs`'s check (D-64); that the checks ran is shown only by `--verify`.
+- Why: after `Tool:` was replaced by any text, the check found the record intact and `--verify` printed VERIFIED, so a record with a false origin of its tool looked verified.
+- Rejected: dropping the field (the record would not say which tool its checks belong to); recording the path of the tool instead (the version is what a reader compares with releases of the approach).
+- Concepts: `field.product-release.tool`, `inv.product-release-intact`, `action.release-product`, `action.verify-release`.
+
+### D-142 · A release runs with the tool, the pin and the suites of its own commit, and a commit that lacks one cannot be run
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-111, from the owner's answer of 2026-11-20 to question 996, "996 - a", quoted in D-111; the owner's answer of 2026-11-20 to question 1007, quoted in D-121. The finding of round 4 of the review of the result of task releases-and-task, "git context and paths", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. The key `releases.tool` and its default are the thread's technical decisions.
+- Decision: adds to D-111 and D-125.
+  - `release.mjs --product` and `--verify` read everything a run needs from the release's commit and the configuration there, by one function, `releaseSetup`: the pin, the tool in the directory `releases.tool` names, or else the pin's own directory, where a copy keeps `upstream.json`, and the directory of each test suite (`action.release-product`, `action.verify-release`). The tool that runs is the `ont-check.mjs` of that directory in the worktree of that commit, whatever the path of the tool that starts the action.
+  - A commit that lacks any of them is not run: `--verify` says the release cannot be rerun and what is missing, `--product` that it cannot be run, and neither runs into it. `--resume` of a protocol release says so too when the verified commit lacks the tool at its path.
+  - Not closed by construction: the path of the configuration itself is the one given now, since a record does not name it; a release whose configuration has moved since is said to have no configuration at its commit, and is not intact, rather than rerun.
+- Why: after the tool's directory moved, `--verify` looked for the tool at the current path inside the old commit and failed with MODULE_NOT_FOUND, while the check found the record intact.
+- Rejected: finding the tool by searching the commit's tree (two copies would be a guess); the path of the running tool (it moves with the project).
+- Concepts: `action.release-product`, `action.verify-release`, `field.product-release.tool`.
+
+### D-143 · Every commit a record names is one of the repository, by one test
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-107 and D-117, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted in D-106; the owner's answer of 2026-11-20 to question 1007, quoted in D-121. The finding of round 4 of the review of the result of task releases-and-task, "acceptance not bound to approval and commit", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. Which records are held and what each failure does are the thread's technical decisions.
+- Decision: adds to D-117 and D-128. Every commit a record names resolves in the project's repository by one test, `commitResolves` of `lib.mjs`, `git cat-file -e <commit>^{commit}` with the environment that is safe in a hook (`inv.named-commits-resolve`): the commit of a record of done, each commit a round's line `Commits:` gives as a hash, the commit of a manual run, the verified commit of an entry of `releases.md` and the commit of a record of a product release.
+  - A record of done whose commit is not there cannot be read, in the check, `--task` and `--rounds` alike, which read the records through one function, `resolveRecords`; so it binds no acceptance and the task is not done.
+  - A round, a manual run or an entry of a release that names such a commit is an error of the check. A branch that `Commits:` names is not held to it, since a branch may be deleted after its round.
+- Why: when a record of done and a round named the same commit, which was not in Git, `--task` said done and the check printed ONT_OK: the strings of the commits were compared, never the repository.
+- Rejected: requiring the commit only in `--task` (the check and `--rounds` would part from it); requiring the branch of a range (it is often deleted after a merge).
+- Concepts: `inv.named-commits-resolve`, `inv.acceptance-after-done`, `field.task-result.commit`.
+
+### D-144 · One function gives the limits of a task, read from the statement or its record of done, and numbers are written one way
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-108, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted in D-106; the owner's answer of 2026-11-20 to question 1007, quoted in D-121. The finding of round 4 of the review of the result of task releases-and-task, "budget stop at the end of a step", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. Copying the limits into the record of done is the thread's technical decision.
+- Decision: supersedes the part of D-128 on what the check compares of `Overspend:` without a statement, where it compared only the spend the line names; adds to D-108 and D-119.
+  - `done.mjs` copies the statement's lines `Budget-new-input:` and `Budget-output:` into the record of done, each a whole number or `none` (`field.task-result.budget`, `action.record-done`).
+  - One function, `taskLimits`, says which limits apply, and `--task`, `--rounds`, the check and the text of an overspend all ask it through `taskBudget`: each limit the statement's when it gives one, read from its file where `--task` is given one and otherwise from the latest record of done of the task, else the configuration's (`derived.task-budget`). `--task` refuses a record of done whose limits are not its statement's file's.
+  - The line `Overspend:` is compared whole, as `--task` compares it, in the check too: exactly the tool's text past the limit and absent within it (`field.review-round.overspend`). Every number the tool writes or compares in it is written one way, as JavaScript writes it, a whole number or a decimal with a point, such as `151.5`.
+  - Not closed by construction: before a task's first record of done, and for a record of done made before these lines, the check and `--rounds` know only the configuration's limits, since they read no statement; `--task` with the statement is then the one that knows the statement's.
+- Why: with a spend of 150, a statement's limit of 3000000 and a project's limit of 100, `--task` called the task done with no overspend while the check required one by the project's limit, and the line the check asked for was refused by `--task`; and the check refused the tool's own line when the limit with reserve was fractional, `new input 152 of 151.5`.
+- Rejected: reading the statement's file in the check (it lives outside the repository); comparing in the check only the spend a line names (the two would part again on the limit).
+- Concepts: `derived.task-budget`, `field.task-result.budget`, `field.review-round.overspend`, `rule.budget-before-next`, `action.record-done`.
+
 ## Tentative
 
 ## Open questions

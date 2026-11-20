@@ -2,11 +2,11 @@
 // tag on its release commit; a project learns of newer ones from its local clone of the approach. A
 // release of a product is a record of the commit its checks passed on, with the hash of its pin, and a
 // deployment puts a release into an environment.
-// ont: ent.protocol-release, field.protocol-release.version, field.protocol-release.verified, field.protocol-release.date, edge.protocol-release.changes, inv.release-tagged, derived.newer-releases, field.tool-copy.approach-clone, ent.product-release, field.product-release.version, field.product-release.commit, field.product-release.checks, field.product-release.tool, field.product-release.date, edge.product-release.pin, inv.product-release-intact, rule.intact-is-not-run, ent.deployment, field.deployment.environment, field.deployment.time, edge.deployment.release, derived.running-now, inv.deployment-of-release
+// ont: ent.protocol-release, field.protocol-release.version, field.protocol-release.verified, field.protocol-release.date, edge.protocol-release.changes, inv.release-tagged, derived.newer-releases, field.tool-copy.approach-clone, ent.product-release, field.product-release.version, field.product-release.commit, field.product-release.checks, field.product-release.tool, field.product-release.date, edge.product-release.pin, inv.product-release-intact, rule.intact-is-not-run, ent.deployment, field.deployment.environment, field.deployment.time, edge.deployment.release, derived.running-now, inv.deployment-of-release, inv.named-commits-resolve
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, join, posix } from "node:path";
-import { listFiles, read } from "./lib.mjs";
+import { commitResolves, listFiles, read } from "./lib.mjs";
 import { blockLines, realTime } from "./review-rounds.mjs";
 import { cleanEnv, gitEnv, runAtCommit, sha256 } from "./tasks.mjs";
 
@@ -27,30 +27,49 @@ export const git = (repo, ...args) => {
 };
 const isAncestor = (repo, a, b) => spawnSync("git", ["-C", repo, "merge-base", "--is-ancestor", a, b], { env: gitEnv() }).status === 0;
 
-// The entries of releases.md: "## v0.2.0 · 2026-11-21" and, under it, "- Verified: <commit>".
+// The entries of releases.md, read strictly (D-140): each is its heading "## v0.2.0 · 2026-11-21", a
+// blank line and one line "- Verified: <commit>", exactly as the release action writes it, and nothing
+// else; a field given twice, a line of another kind or any other spacing makes the entry one that
+// cannot be read, so that no reader takes the first of two values.
+export const entryText = ({ version, date, verified }) => `## v${version} · ${date}\n\n- Verified: ${verified}\n`;
 export function parseReleasesFile(text) {
   const entries = [];
   const malformed = [];
   const parts = text.split(/^(?=## )/m).filter((p) => p.startsWith("## "));
   for (const p of parts) {
-    const head = p.split("\n")[0];
-    const m = head.match(/^## v(\S+) · (\S+)\s*$/);
-    const verified = p.match(/^- Verified: (\S+)\s*$/m)?.[1];
+    const [head, ...rest] = p.split("\n");
+    const m = head.match(/^## v(\S+) · (\S+)$/);
+    const lines = rest.filter((l) => l !== "");
+    const given = lines.filter((l) => l.startsWith("- Verified:"));
+    const verified = given.length === 1 ? (given[0].match(/^- Verified: (\S+)$/)?.[1] ?? null) : null;
     const wrong = [
       !m && `heading ${head} is not "## v<version> · <date>"`,
       m && !SEMVER.test(m[1]) && `version ${m[1]} is not three numbers of Semantic Versioning`,
       m && !/^\d{4}-\d{2}-\d{2}$/.test(m[2]) && `date ${m[2]} is not a date`,
-      !/^[0-9a-f]{40}$/.test(verified ?? "") && `verified commit ${verified ?? "(none)"} is not a full commit`,
+      given.length === 0 && "no line - Verified:",
+      given.length > 1 && `the line - Verified: is given ${given.length} times`,
+      given.length === 1 && !/^[0-9a-f]{40}$/.test(verified ?? "") && `verified commit ${verified ?? given[0]} is not a full commit`,
+      ...lines.filter((l) => !l.startsWith("- Verified:")).map((l) => `a line that is no field of an entry: ${JSON.stringify(l)}`),
     ].filter(Boolean);
+    if (!wrong.length && p.replace(/\n+$/, "\n") !== entryText({ version: m[1], date: m[2], verified }))
+      wrong.push("the entry is not written as the release action writes it: its heading, one blank line and its line - Verified:");
     if (wrong.length) malformed.push(`${head}: ${wrong.join("; ")}`);
     else entries.push({ version: m[1], date: m[2], verified });
   }
   return { entries, malformed };
 }
 
-export const entryText = ({ version, date, verified }) => `## v${version} · ${date}\n\n- Verified: ${verified}\n`;
 export const RELEASES_HEAD =
   "# Releases\n\nOne entry per release of the approach, written by `tools/ont-check/release.mjs`: its version, its date and the commit its tests and check passed on. The release commit adds only its entry and carries the annotated tag `v<version>`. The changes of a release are the entries of the decision log between its verified commit and the one of the release before, or the commit of `v0.1`; they are derived, not written here.\n\n";
+// The text of releases.md at a commit, byte for byte, or null when the commit has no such file.
+export const fileAt = (repo, commit, rel = RELEASES_FILE) => {
+  const r = spawnSync("git", ["-C", repo, "show", `${commit}:${rel}`], { encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 28 });
+  return r.status === 0 ? r.stdout : null;
+};
+// The log of releases with one entry appended (D-140): the text before it, or the heading of the file
+// when there was none, kept byte for byte, then a blank line and the entry. The release action writes
+// it and the test of a release commit compares with it, so the two cannot part.
+export const appendEntry = (before, e) => `${(before ?? RELEASES_HEAD).replace(/\n*$/, "\n\n")}${entryText(e)}`;
 
 // The entries of a decision log, with whether each is accepted and the concepts it names.
 export function decisionEntries(text) {
@@ -91,24 +110,25 @@ export function previousVerified(repo, entries, version) {
   return start.ok ? start.out : null;
 }
 
-// What is wrong with a commit as the release commit of an entry (inv.release-tagged, D-114, D-126): its
-// one parent is the entry's verified commit, it changes only releases.md, and the log of releases there,
-// read as an ordered list of whole entries, is the log of the verified commit with exactly this entry
-// appended: every entry before it kept as it was, in its place, and counted, so that a duplicate of an
-// earlier entry added with it is a change too. A commit that only adds the heading, or adds the entry of
-// another version, is no release commit.
+// What is wrong with a commit as the release commit of an entry (inv.release-tagged, D-114, D-126,
+// D-140): its one parent is the entry's verified commit, it changes only releases.md, every entry of its
+// log reads strictly, and its releases.md is byte for byte the verified commit's with exactly this entry
+// appended, as appendEntry writes it: every earlier entry, and the text before them, left as it was; a
+// log the release commit makes new holds only its heading and this entry. A
+// commit that only adds the heading, adds the entry of another version, a second copy of an earlier one
+// or a line to an earlier one is no release commit; the entries compared one by one only say which.
 export function releaseCommitProblems(repo, commit, e, rel = RELEASES_FILE) {
   const parents = git(repo, "rev-list", "--parents", "-n", "1", commit).out.split(" ").slice(1);
   if (parents.length !== 1 || parents[0] !== e.verified)
     return [`the parent of the release commit ${commit.slice(0, 7)} is ${parents.map((p) => p.slice(0, 7)).join(" and ") || "none"}, not the verified commit ${e.verified.slice(0, 7)}`];
   const changed = git(repo, "diff", "--name-only", e.verified, commit).out.split("\n").filter(Boolean);
   if (changed.length !== 1 || changed[0] !== rel) return [`the release commit ${commit.slice(0, 7)} changes ${changed.join(", ") || "nothing"}, not only ${rel}`];
-  const at = (c) => {
-    const r = git(repo, "show", `${c}:${rel}`);
-    return r.ok ? parseReleasesFile(r.out) : { entries: [], malformed: [] };
-  };
-  const [before, after] = [at(e.verified), at(commit)];
+  const [beforeText, afterText] = [fileAt(repo, e.verified, rel), fileAt(repo, commit, rel) ?? ""];
+  const [before, after] = [parseReleasesFile(beforeText ?? ""), parseReleasesFile(afterText)];
   if (after.malformed.length) return [`the release commit ${commit.slice(0, 7)} has entries that cannot be read: ${after.malformed.join("; ")}`];
+  // A log new in the release commit has no entry before this one: its heading is the commit's own.
+  const head = beforeText ?? afterText.slice(0, Math.max(0, afterText.search(/^## /m)));
+  if (afterText === appendEntry(head, e)) return [];
   const [b, a] = [before.entries.map(entryText), after.entries.map(entryText)];
   const of = (x) => `the entry of v${x.version} verified on ${x.verified.slice(0, 7)}`;
   // The longest run of entries kept in their place from the start of the log.
@@ -116,7 +136,8 @@ export function releaseCommitProblems(repo, commit, e, rel = RELEASES_FILE) {
   while (kept < b.length && kept < a.length && a[kept] === b[kept]) kept++;
   if (kept < b.length) return [`the release commit ${commit.slice(0, 7)} changes or removes the entries of ${before.entries.slice(kept).map((x) => `v${x.version}`).join(", ")}`];
   const added = after.entries.slice(b.length);
-  if (added.length === 1 && a.at(-1) === entryText(e)) return [];
+  if (added.length === 1 && a.at(-1) === entryText(e))
+    return [`the release commit ${commit.slice(0, 7)} changes ${rel} beyond appending ${of(e)}: the text before it is not the verified commit's byte for byte`];
   return [`the release commit ${commit.slice(0, 7)} adds ${added.map(of).join(", ") || "no entry"}, not exactly ${of(e)}`];
 }
 
@@ -131,8 +152,8 @@ export function releaseTag(repo, tag, rel = RELEASES_FILE, given = null) {
   const problems = [];
   if (git(repo, "cat-file", "-t", ref).out !== "tag") problems.push("the tag is not annotated");
   const commit = git(repo, "rev-parse", "-q", "--verify", `${ref}^{commit}`).out;
-  const text = git(repo, "show", `${ref}:${rel}`);
-  const entry = given ?? (text.ok ? parseReleasesFile(text.out).entries.find((x) => x.version === version) : null);
+  const text = fileAt(repo, ref, rel);
+  const entry = given ?? (text === null ? null : parseReleasesFile(text).entries.find((x) => x.version === version));
   if (!entry) problems.push(`its commit has no entry of ${version} in ${rel}`);
   else problems.push(...releaseCommitProblems(repo, commit, entry, rel));
   return { tag, version, commit, entry: problems.length ? null : entry, problems };
@@ -147,6 +168,11 @@ export function protocolReleaseProblems(repo, rel = RELEASES_FILE) {
   for (const e of entries) {
     if (seen.has(e.version)) problems.push(`v${e.version}: two entries`);
     seen.add(e.version);
+    // The verified commit is one of the repository (inv.named-commits-resolve, D-143).
+    if (!commitResolves(repo, e.verified)) {
+      problems.push(`v${e.version}: the verified commit ${e.verified} is not in the repository`);
+      continue;
+    }
     if (!git(repo, "rev-parse", "--verify", "-q", `refs/tags/v${e.version}`).ok) {
       problems.push(`v${e.version}: the release commit has no tag; release.mjs --resume tags it after running the checks again`);
       continue;
@@ -274,7 +300,7 @@ export function parseProductRecords(dir) {
         SEMVER.test(r.version) && name !== releaseFileName(r.version) && `a record of release ${r.version} is named ${releaseFileName(r.version)}, not ${name}`,
         !/^[0-9a-f]{40}$/.test(r.commit ?? "") && `commit ${r.commit ?? "(none)"} is not a full commit`,
         !/^[0-9a-f]{64}$/.test(r.pin ?? "") && `pin ${r.pin ?? "(none)"} is not a SHA-256`,
-        !r.tool && "no tool",
+        !/^[0-9a-f]{40}$/.test(r.tool ?? "") && `tool ${r.tool ?? "(none)"} is not a full commit, the version of the tool`,
         !/^\d{4}-\d{2}-\d{2}$/.test(r.date ?? "") && `date ${r.date ?? "(none)"} is not a date`,
         !checks.length && "no checks",
         ...checks.filter((c) => !RESULTS.includes(c.result)).map((c) => `check ${c.check ?? ""} has the result ${c.result ?? "(none)"}, not one of ${RESULTS.join(", ")}`),
@@ -302,7 +328,7 @@ export function parseProductRecords(dir) {
   return { releases, deployments, malformed, unread };
 }
 
-export const inHistory = (top, commit) => git(top, "cat-file", "-e", `${commit}^{commit}`).ok && isAncestor(top, commit, "HEAD");
+export const inHistory = (top, commit) => commitResolves(top, commit) && isAncestor(top, commit, "HEAD");
 
 // The pin of a release, by the configuration at its commit (edge.product-release.pin, D-125): the file
 // its releases.pin names, from the repository's top; a later move of the pin leaves an old release as it
@@ -321,7 +347,40 @@ export function pinAt(top, cfgRel, commit) {
   if (rel.startsWith("..")) return { error: `the pin ${raw.releases.pin} of the configuration at commit ${commit.slice(0, 7)} is outside the repository` };
   const file = spawnSync("git", ["-C", top, "show", `${commit}:${rel}`], { env: gitEnv(), maxBuffer: 1 << 28 });
   if (file.status !== 0) return { rel, error: `the pin ${rel} is not at commit ${commit.slice(0, 7)}` };
-  return { rel, bytes: file.stdout, hash: sha256(file.stdout), config: config.out };
+  return { rel, bytes: file.stdout, hash: sha256(file.stdout), config: config.out, raw };
+}
+
+// The version of the tool of a release (field.product-release.tool, D-141), as the release action
+// writes it and the check compares it: the commit of the approach the pin at the release's commit names,
+// or the release's commit itself when the pin names none, as the approach's own example has. It says
+// which tool the commit carries, not that the tool ran (rule.intact-is-not-run).
+export function toolVersionOf(pin, commit) {
+  try {
+    const named = JSON.parse(pin.bytes.toString("utf8")).commit;
+    if (typeof named === "string" && /^[0-9a-f]{40}$/.test(named)) return named;
+  } catch {}
+  return commit;
+}
+
+const pathAt = (top, commit, path, kind) => {
+  const r = spawnSync("git", ["-C", top, "cat-file", "-t", `${commit}:${path}`], { encoding: "utf8", env: gitEnv() });
+  return r.status === 0 && r.stdout.trim() === kind;
+};
+// Everything a run of the checks of a release needs, read from its commit and the configuration there
+// (action.release-product, action.verify-release, D-142): the configuration, its pin, the tool in the
+// directory releases.tool names, or else the pin's own directory, as a copy of the tool keeps its pin,
+// and the directory of each test suite. What the commit lacks is said, never run into.
+export function releaseSetup(top, cfgRel, commit) {
+  const pin = pinAt(top, cfgRel, commit);
+  if (pin.error) return { missing: [pin.error] };
+  const base = posix.dirname(cfgRel);
+  const toolDir = posix.normalize(pin.raw.releases.tool ? posix.join(base, pin.raw.releases.tool) : posix.dirname(pin.rel));
+  const suites = [...(pin.raw.tests ? [{ name: "", ...pin.raw.tests }] : []), ...(pin.raw.testSuites ?? [])].map((s) => ({ ...s, path: posix.normalize(posix.join(base, s.dir ?? "")) }));
+  const missing = [
+    ...(toolDir.startsWith("..") || !pathAt(top, commit, posix.join(toolDir, "ont-check.mjs"), "blob") ? [`the tool ${posix.join(toolDir, "ont-check.mjs")} is not at commit ${commit.slice(0, 7)}`] : []),
+    ...suites.filter((s) => s.path.startsWith("..") || !pathAt(top, commit, s.path, "tree")).map((s) => `the directory ${s.path} of suite ${s.name || "tests"} is not at commit ${commit.slice(0, 7)}`),
+  ];
+  return { missing, pin, toolDir, toolVersion: toolVersionOf(pin, commit), suites };
 }
 
 // What is wrong with one record of a release (inv.product-release-intact, D-125): the one validation the
@@ -332,6 +391,8 @@ export function releaseRecordProblems({ top, cfgRel, r }) {
   const pin = pinAt(top, cfgRel, r.commit);
   if (pin.error) out.push(`${r.file}: ${pin.error}`);
   else if (pin.hash !== r.pin) out.push(`${r.file}: the pin's hash is not the hash of ${pin.rel} at commit ${r.commit.slice(0, 7)}`);
+  if (!pin.error && r.tool !== toolVersionOf(pin, r.commit))
+    out.push(`${r.file}: the tool ${r.tool} is not the version of the tool at commit ${r.commit.slice(0, 7)}, ${toolVersionOf(pin, r.commit)}: the commit its pin names, or the commit itself when the pin names none`);
   const config = git(top, "show", `${r.commit}:${cfgRel}`);
   let required = null;
   try {
@@ -373,26 +434,25 @@ export function runningNow(deployments) {
 }
 
 // Runs the checks of a release on the commit in a temporary worktree: the check of the configuration at
-// the commit and each of its test suites, with the tool of that commit at toolRel (D-111).
-export function runReleaseChecks({ top, commit, cfgRel, toolRel }) {
-  const config = git(top, "show", `${commit}:${cfgRel}`);
-  if (!config.ok) return { error: `no configuration ${cfgRel} at commit ${commit.slice(0, 7)}` };
-  const raw = JSON.parse(config.out);
-  const cfgDir = cfgRel.includes("/") ? cfgRel.slice(0, cfgRel.lastIndexOf("/")) : "";
+// the commit and each of its test suites, with the tool of that commit in the directory releaseSetup
+// reads there (D-111, D-142). A commit that lacks any of them is not run: missing says what.
+export function runReleaseChecks({ top, commit, cfgRel }) {
+  const setup = releaseSetup(top, cfgRel, commit);
+  if (setup.missing.length) return { missing: setup.missing };
   const node = (args, cwd) => spawnSync(process.execPath, args, { cwd, env: cleanEnv(), encoding: "utf8", maxBuffer: 1 << 28 });
-  const check = Object.assign((wt) => node([join(wt, toolRel, "ont-check.mjs"), "--config", join(wt, cfgRel)], wt), { label: "ont-check" });
-  const suites = [...(raw.tests ? [{ name: "", ...raw.tests }] : []), ...(raw.testSuites ?? [])].map((s) =>
+  const check = Object.assign((wt) => node([join(wt, setup.toolDir, "ont-check.mjs"), "--config", join(wt, cfgRel)], wt), { label: "ont-check" });
+  const suites = setup.suites.map((s) =>
     Object.assign(
       (wt) => {
-        const files = listFiles(join(wt, cfgDir, s.dir), new RegExp(s.match ?? "\\.test\\.[a-z]+$"));
+        const files = listFiles(join(wt, s.path), new RegExp(s.match ?? "\\.test\\.[a-z]+$"));
         if (!files.length) return { status: 0, stdout: "", stderr: `no test files in ${s.dir}`, result: "not-run", detail: "no test files" };
-        const run = node(["--test", "--test-reporter=tap", ...files], join(wt, cfgDir));
+        const run = node(["--test", "--test-reporter=tap", ...files], join(wt, posix.dirname(cfgRel)));
         return { ...run, ...suiteResult(run, files) };
       },
       { label: `suite ${s.name || "tests"}` },
     ),
   );
-  return runAtCommit({ top, commit, commands: [check, ...suites] });
+  return { ...runAtCommit({ top, commit, commands: [check, ...suites] }), setup };
 }
 
 export const releaseRecordText = ({ version, commit, pin, tool, date, results }) =>

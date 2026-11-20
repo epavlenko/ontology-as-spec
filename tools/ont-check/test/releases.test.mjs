@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, releaseTag, runningNow } from "../releases.mjs";
+import { parseProductRecords, parseReleasesFile, productReleaseProblems, protocolReleaseProblems, releaseNews, releaseTag, runningNow } from "../releases.mjs";
 import { sha256 } from "../tasks.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
@@ -428,7 +428,8 @@ test("[check.product-release.pin-moved] a pin moved to another path later leaves
   mkdirSync(join(repo, "pins"));
   git(repo, "mv", "tools/ont-check/upstream.json", "pins/upstream.json");
   const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
-  writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, releases: { ...cfg.releases, pin: "pins/upstream.json" } }, null, 2));
+  // Away from the tool's directory, the pin no longer says where the tool is: releases.tool does (D-142).
+  writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, releases: { ...cfg.releases, pin: "pins/upstream.json", tool: "tools/ont-check" } }, null, 2));
   commitAll(repo, "the pin moved");
   assert.deepEqual(problems(repo), []);
   const c = checkProduct(repo);
@@ -464,7 +465,7 @@ test("[check.product-release.broken] a pin of another commit, a commit the proje
   const base = { Tool: "c".repeat(40), Date: "2026-11-20" };
   writeFileSync(join(repo, "releases", "1.0.0.md"), recordText({ Version: "1.0.0", Commit: first, Pin: pinNow, ...base }, ok));
   writeFileSync(join(repo, "releases", "1.1.0.md"), recordText({ Version: "1.1.0", Commit: "e".repeat(40), Pin: pinNow, ...base }, ok));
-  writeFileSync(join(repo, "releases", "1.2.0.md"), recordText({ Version: "1.2.0", Commit: second, Pin: pinNow, ...base }, ["- ont-check · pass"]));
+  writeFileSync(join(repo, "releases", "1.2.0.md"), recordText({ Version: "1.2.0", Commit: second, Pin: pinNow, ...base, Tool: "d".repeat(40) }, ["- ont-check · pass"]));
   writeFileSync(join(repo, "releases", "1.3.0.md"), recordText({ Version: "1.3.0", Commit: first, Pin: pinAtFirst, ...base }, ok));
   const p = problems(repo).join("\n");
   assert.match(p, /1\.0\.0\.md: the pin's hash is not the hash of tools\/ont-check\/upstream\.json at commit/);
@@ -589,4 +590,85 @@ test("[check.product-release.never-overwritten] a deployment in a file named as 
   writeFileSync(join(repo, "releases", "1.0.1.md"), "notes\n");
   assert.equal(product(repo, "--product", "1.0.1").status, 1);
   assert.equal(readFileSync(join(repo, "releases", "1.0.1.md"), "utf8"), "notes\n");
+});
+
+// Round 4 of the review of the result of task releases-and-task (D-140 to D-143).
+test("[check.protocol-release.entry-strict] a release commit that adds a second line Verified: to an earlier entry is refused by the check and the news, and an entry is read strictly", () => {
+  const { repo, first } = approachRepo();
+  addEntry(repo, "D-02");
+  assert.equal(release(repo, "0.2.0").status, 0);
+  assert.deepEqual(protocolReleaseProblems(repo).problems, []);
+  const v3 = addEntry(repo, "D-03");
+  const log = readFileSync(join(repo, "releases.md"), "utf8");
+  writeFileSync(join(repo, "releases.md"), `${log.replace(/\n*$/, "\n\n")}- Verified: ${v3}\n\n## v0.3.0 · 2026-11-20\n\n- Verified: ${v3}\n`);
+  const c3 = commitAll(repo, "v0.3.0 and a second line in v0.2.0");
+  git(repo, "tag", "-a", "v0.3.0", c3, "-m", "v0.3.0");
+  const p = protocolReleaseProblems(repo).problems.join("\n");
+  assert.match(p, /## v0\.2\.0 · \d{4}-\d{2}-\d{2}: the line - Verified: is given 2 times/);
+  assert.match(p, /v0\.3\.0: the release commit [0-9a-f]{7} has entries that cannot be read/);
+  assert.equal(releaseTag(repo, "v0.3.0").entry, null);
+  const news = releaseNews({ clone: repo, pinCommit: first, used: new Set() });
+  assert.ok(news.some((l) => /^the releases of the approach clone are not known in full: tag v0\.3\.0: /.test(l)), news.join("\n"));
+  assert.ok(!news.some((l) => /^version 0\.3\.0 was released/.test(l)), news.join("\n"));
+  // A line of another kind in an entry, and other spacing, make it an entry that cannot be read.
+  const { malformed } = parseReleasesFile(`# Releases\n\n## v0.2.0 · 2026-11-20\n\n- Verified: ${v3}\n- Note: x\n\n## v0.4.0 · 2026-11-20\n- Verified: ${v3}\n`);
+  assert.match(malformed[0], /a line that is no field of an entry: "- Note: x"/);
+  assert.match(malformed[1], /not written as the release action writes it/);
+});
+
+test("[check.task-result.commits-resolve] an entry of releases.md whose verified commit is not in the repository is an error", () => {
+  const { repo } = approachRepo();
+  writeFileSync(join(repo, "releases.md"), `# Releases\n\n## v0.2.0 · 2026-11-20\n\n- Verified: ${"1".repeat(40)}\n`);
+  commitAll(repo, "an entry of a commit the repository does not have");
+  assert.deepEqual(protocolReleaseProblems(repo).problems, [`v0.2.0: the verified commit ${"1".repeat(40)} is not in the repository`]);
+  assert.equal(check(repo).status, 1);
+});
+
+test("[check.product-release.tool-derived] Tool: is the version of the tool the commit's pin names, compared by the check, and --verify says what it ran with", () => {
+  const { repo, first } = productRepo();
+  assert.equal(product(repo, "--product", "1.0.0").status, 0);
+  commitAll(repo, "the release 1.0.0");
+  assert.deepEqual(problems(repo), []);
+  const v = product(repo, "--verify", "1.0.0");
+  assert.equal(v.status, 0, v.stdout);
+  assert.match(v.stdout, new RegExp(`VERIFIED 1\\.0\\.0: .* on ${first.slice(0, 7)}; with the tool tools/ont-check/ont-check\\.mjs of commit ${first.slice(0, 7)}, version cccccccccccc`));
+  const text = readFileSync(join(repo, "releases", "1.0.0.md"), "utf8");
+  // Text that is not a commit cannot be read; another commit is not intact. --verify runs neither.
+  for (const [tool, why] of [["any text", /tool any text is not a full commit/], ["e".repeat(40), /the tool e{40} is not the version of the tool at commit [0-9a-f]{7}, c{40}/]]) {
+    writeFileSync(join(repo, "releases", "1.0.0.md"), text.replace(/^Tool: .*$/m, `Tool: ${tool}`));
+    const { releases, deployments, malformed } = parseProductRecords(join(repo, "releases"));
+    assert.match([...malformed, ...productReleaseProblems({ top: repo, cfgRel: "ont.config.json", releases, deployments })].join("\n"), why);
+    const r = product(repo, "--verify", "1.0.0");
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(r.stdout, /^ERROR · release 1\.0\.0 is not intact, so it is not run/);
+    assert.doesNotMatch(r.stdout, /VERIFIED/);
+    assert.equal(checkProduct(repo).status, 1);
+  }
+});
+
+test("[check.product-release.verify-moved-tool] --verify reruns with the tool at its path in the release's commit, and a commit without its tool cannot be rerun, which it says", () => {
+  const { repo, first } = productRepo();
+  assert.equal(product(repo, "--product", "1.0.0").status, 0);
+  commitAll(repo, "the release 1.0.0");
+  mkdirSync(join(repo, "moved"));
+  git(repo, "mv", "tools/ont-check", "moved/ont-check");
+  const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+  writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, releases: { ...cfg.releases, pin: "moved/ont-check/upstream.json", tool: "moved/ont-check" } }, null, 2));
+  commitAll(repo, "the tool moved");
+  const moved = node(repo, join(repo, "moved", "ont-check", "release.mjs"), "--config", join(repo, "ont.config.json"), "--verify", "1.0.0");
+  assert.equal(moved.status, 0, moved.stdout + moved.stderr);
+  assert.match(moved.stdout, new RegExp(`VERIFIED 1\\.0\\.0: ont-check · pass, suite unit · pass on ${first.slice(0, 7)}; with the tool tools/ont-check/ont-check\\.mjs of commit ${first.slice(0, 7)}`));
+  // A commit whose configuration names a tool's directory it does not have.
+  const { repo: other } = productRepo();
+  const c = JSON.parse(readFileSync(join(other, "ont.config.json"), "utf8"));
+  writeFileSync(join(other, "ont.config.json"), JSON.stringify({ ...c, releases: { ...c.releases, tool: "nowhere" } }, null, 2));
+  const commit = commitAll(other, "the tool named where it is not");
+  mkdirSync(join(other, "releases"));
+  const pin = sha256(readFileSync(join(other, "tools", "ont-check", "upstream.json")));
+  writeFileSync(join(other, "releases", "1.0.0.md"), recordText({ Version: "1.0.0", Commit: commit, Pin: pin, Tool: "c".repeat(40), Date: "2026-11-20" }, ["- ont-check · pass", "- suite unit · pass"]));
+  commitAll(other, "a record by hand");
+  const r = product(other, "--verify", "1.0.0");
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /^ERROR · release 1\.0\.0 cannot be rerun on [0-9a-f]{7}: the tool nowhere\/ont-check\.mjs is not at commit [0-9a-f]{7}/);
+  assert.doesNotMatch(r.stdout + r.stderr, /MODULE_NOT_FOUND|Cannot find module|VERIFIED/);
 });

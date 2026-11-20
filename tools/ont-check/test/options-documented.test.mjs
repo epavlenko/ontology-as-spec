@@ -112,7 +112,7 @@ test("[check.tool-copy.options-documented] a configuration with every key of the
       reviewRounds: { dir: "rounds" },
       taskRecords: { dir: "tasks" },
       protocolReleases: { file: "releases.md" },
-      releases: { dir: "releases", pin: "tools/ontology-as-spec/upstream.json" },
+      releases: { dir: "releases", pin: "tools/ontology-as-spec/upstream.json", tool: "tools/ontology-as-spec" },
       budget: { newInput: 1000, output: 500, reserve: 1.5 },
       codeNames: { require: true, owner: true },
       approachIds: { out: "a.json" },

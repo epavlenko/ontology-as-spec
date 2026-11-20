@@ -48,7 +48,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { byTime, parseRounds, renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, gitEnv, overlaps, overspendProblems, parseTaskRecords, readStatement, stepNext, taskBudget, taskState } from "./tasks.mjs";
+import { acceptanceProblems, gitEnv, overlaps, overspendProblems, parseTaskRecords, readStatement, resolveRecords, stepNext, taskBudget, taskState } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1269,6 +1269,9 @@ if (cfg.manualRuns) {
   const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
   const { runs, malformed, ambiguous } = parseRuns(cfg.manualRuns.dir, known);
   report("manual run records that cannot be read", malformed);
+  // ont: inv.named-commits-resolve
+  const runsTop = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
+  report("manual run records whose commit is not in the repository", resolveRecords(runsTop, { runs }).problems);
   report("manual run records that two files claim (same check, time and author)", ambiguous);
   const due = checks.filter((c) => c.proof === "manual" && c.concepts.some((x) => implemented.has(x)));
   const current = new Map(due.map((c) => [c.id, currentRun(runs, c.id, stampFor(c))]));
@@ -1344,8 +1347,15 @@ if (cfg.reviewRounds) {
   // Records of done and of spend (D-107, D-108): a contribution recorded twice over one interval, and a
   // verdict of acceptance with no record of done behind it, are errors.
   // ont: inv.contributions-apart, inv.acceptance-after-done
-  const records = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
+  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
+  // Every commit a record names resolves in the project's repository; a record of done whose commit
+  // does not cannot be read, so it binds no acceptance in the check, --task or --rounds (D-143).
+  // ont: inv.named-commits-resolve
+  const projectTop = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
+  const resolved = resolveRecords(projectTop, { done: parsed.done, rounds });
+  const records = { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] };
   report("task records that cannot be read", records.malformed);
+  report("rounds of review whose commits are not in the repository", resolved.problems);
   report("contributions recorded twice over intervals that overlap", overlaps(rounds, records.spend));
   report("verdicts of acceptance refused", acceptanceProblems(rounds, records.done, records.approvals));
   // The round that ends a task names its overspend as the tool computes it: required past the
@@ -1357,13 +1367,13 @@ if (cfg.reviewRounds) {
     "records of acceptance whose line Overspend: is not the tool's",
     ended.flatMap((t) => {
       const end = byTime(rounds.filter((r) => r.task === t && r.step === "result-review")).at(-1);
-      return overspendProblems(end, taskBudget({ rounds, spend: records.spend, task: t, defaults: cfg.budget, statement: null, summed: true }), { exact: false });
+      return overspendProblems(end, taskBudget({ rounds, spend: records.spend, done: records.done, task: t, defaults: cfg.budget, statement: null }));
     }),
   );
   // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
   // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
   if (flag("--rounds") > 0) {
-    const exhaustedOf = (t) => Boolean(taskBudget({ rounds, spend: records.spend, task: t, defaults: cfg.budget, statement: null })?.exhausted);
+    const exhaustedOf = (t) => Boolean(taskBudget({ rounds, spend: records.spend, done: records.done, task: t, defaults: cfg.budget, statement: null })?.exhausted);
     console.log(renderRounds(rounds, { exhaustedOf, nextOf: (t, step) => stepNext({ rounds, done: records.done, approvals: records.approvals, task: t, step, exhausted: exhaustedOf(t) }) }));
   }
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its

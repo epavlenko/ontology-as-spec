@@ -516,7 +516,7 @@
           "type": "string"
         },
         "overspend": {
-          "description": "On the round that ends the task, what it spent past its budget with reserve, new input and output each, exactly as --task prints it, new input N of L, output N of L: the spend and the limit the tool computes, required past the limit and absent within it.",
+          "description": "On the round that ends the task, what it spent past its budget with reserve, new input and output each, exactly as --task prints it, new input N of L, output N of L: the spend and the limit the tool computes, by the limits derived.task-budget gives, each number written one way, a whole number or a decimal with a point, such as 151.5; required past the limit and absent within it, by --task and the check alike.",
           "x-ont": "field.review-round.overspend",
           "type": "string"
         },
@@ -651,6 +651,11 @@
         "commit": {
           "description": "The commit of the result, in full.",
           "x-ont": "field.task-result.commit",
+          "type": "string"
+        },
+        "budget": {
+          "description": "The statement's own limits, as done.mjs copies them from its lines Budget-new-input: and Budget-output:, each a whole number or none; the check and --rounds, given no statement, read the statement's limits from the latest record of done of the task, and --task refuses one whose limits are not its statement's file's. A record made before these lines carries none.",
+          "x-ont": "field.task-result.budget",
           "type": "string"
         },
         "checks": {
@@ -1118,7 +1123,7 @@
           "type": "string"
         },
         "tool": {
-          "description": "The commit of the approach the tool that ran them comes from.",
+          "description": "The version of the tool that ran the checks, as the release action writes it and the check compares it: the commit of the approach the pin at the release's commit names, or that commit itself when the pin names none, as the approach's own example has; a full commit. It says which tool the release's commit carries, not that the tool ran (rule.intact-is-not-run).",
           "x-ont": "field.product-release.tool",
           "type": "string"
         },

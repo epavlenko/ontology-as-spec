@@ -1,13 +1,13 @@
 // A task's statement, its approval, its record of done and its budget (D-106, D-107, D-108). The
 // statement is a file, often outside the repository, named by its SHA-256; the records of done and of
 // the executor's spend are files in the directory the configuration names under taskRecords.
-// ont: ent.owner-approval, inv.owner-approval-sourced, field.owner-approval.task, field.owner-approval.by, field.owner-approval.source, field.owner-approval.time, edge.owner-approval.statement, ent.task-statement, field.task-statement.file, field.task-statement.done-when, field.task-statement.budget, derived.approval, derived.statement-state, derived.task-budget, rule.work-under-approval, rule.budget-before-next, rule.no-default-budget, ent.task-result, field.task-result.task, field.task-result.commit, field.task-result.checks, field.task-result.time, edge.task-result.statement, inv.acceptance-after-done, rule.acceptance-against-approved, ent.task-spend, field.task-spend.contribution, field.task-spend.start, field.task-spend.end, field.task-spend.tokens-new, field.task-spend.tokens-cached, field.task-spend.tokens-out, edge.task-spend.task, inv.contributions-apart
+// ont: ent.owner-approval, inv.owner-approval-sourced, field.owner-approval.task, field.owner-approval.by, field.owner-approval.source, field.owner-approval.time, edge.owner-approval.statement, ent.task-statement, field.task-statement.file, field.task-statement.done-when, field.task-statement.budget, derived.approval, derived.statement-state, derived.task-budget, rule.work-under-approval, rule.budget-before-next, rule.no-default-budget, ent.task-result, field.task-result.task, field.task-result.commit, field.task-result.budget, field.task-result.checks, field.task-result.time, edge.task-result.statement, inv.acceptance-after-done, rule.acceptance-against-approved, ent.task-spend, field.task-spend.contribution, field.task-spend.start, field.task-spend.end, field.task-spend.tokens-new, field.task-spend.tokens-cached, field.task-spend.tokens-out, edge.task-spend.task, inv.contributions-apart, inv.named-commits-resolve
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { gitEnv, listFiles, read } from "./lib.mjs";
+import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
 import { BUDGET_QUESTION, FULL_ROUNDS, SHA256, TASK_NAME, blockLines, byTime, isClean, nextRound, parseContribution, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
@@ -28,6 +28,12 @@ export function readStatement(file) {
     budget: { newInput: number("Budget-new-input"), output: number("Budget-output") },
   };
 }
+
+// The limits of a statement as a record of done carries them (field.task-result.budget, D-144): each a
+// whole number or none. done.mjs writes these lines from the statement it read, and the check and
+// --rounds, which are given no statement, read the limits from them.
+export const BUDGET_LINES = [["newInput", "Budget-new-input"], ["output", "Budget-output"]];
+export const budgetLines = (budget) => BUDGET_LINES.map(([k, name]) => `${name}: ${budget?.[k] ?? "none"}`);
 
 // Records of done, of spend and of the owner's approval, with what is wrong with each.
 export function parseTaskRecords(dir) {
@@ -65,7 +71,11 @@ export function parseTaskRecords(dir) {
         return { command, result };
       });
       const [commit, hash, time] = [field("Commit"), field("Statement-hash"), field("Time")];
+      const limits = BUDGET_LINES.map(([k, name]) => [k, name, field(name)]);
+      const given = limits.filter(([, , v]) => v !== null);
       const wrong = [
+        given.length === 1 && `${given[0][1]} is given without ${limits.find(([, , v]) => v === null)[1]}`,
+        ...given.filter(([, , v]) => v !== "none" && !/^\d+$/.test(v)).map(([, name, v]) => `${name.toLowerCase()} ${v} is not a whole number or none`),
         !task && "no task",
         task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
         !/^[0-9a-f]{40}$/.test(commit ?? "") && `commit ${commit ?? "(none)"} is not a full commit`,
@@ -75,7 +85,11 @@ export function parseTaskRecords(dir) {
         ...checks.filter((c) => !c.command || !["pass", "fail"].includes(c.result)).map((c) => `check ${c.command ?? ""} has no result pass or fail`),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
-      else done.push({ file: name, task, commit, statementHash: hash, time, checks });
+      else {
+        // A record made before the lines existed carries no limits: budget is null (D-144).
+        const budget = given.length ? Object.fromEntries(limits.map(([k, , v]) => [k, v === "none" ? null : Number(v)])) : null;
+        done.push({ file: name, task, commit, statementHash: hash, time, checks, budget });
+      }
     } else if (kind === "approval") {
       // The owner's approval of a version of a statement (D-121): valid only by the owner and with the
       // owner's words it rests on.
@@ -93,6 +107,23 @@ export function parseTaskRecords(dir) {
     } else malformed.push(`${name}: Record ${kind ?? "(none)"} is not spend, done or approval`);
   }
   return { spend, done, approvals, malformed };
+}
+
+// The records whose commits do not resolve in the repository (inv.named-commits-resolve, D-143), by the
+// one test of lib.mjs: a record of done whose commit is not there cannot be read and binds no
+// acceptance; a round whose line Commits: names a commit that is not there, and a manual run whose
+// commit is not there, are errors. The check, --task and --rounds read the records through this.
+const hexOf = (range) => (range ?? "").split("..").map((c) => c.trim()).filter((c) => /^[0-9a-f]{7,40}$/.test(c));
+export function resolveRecords(top, { done = [], rounds = [], runs = [] }) {
+  const doneWrong = unresolvedCommits(top, done, (d) => [d.commit]);
+  return {
+    done: done.filter((d) => commitResolves(top, d.commit)),
+    malformed: doneWrong,
+    problems: [
+      ...unresolvedCommits(top, rounds, (r) => hexOf(r.commits), "the line Commits: names"),
+      ...unresolvedCommits(top, runs, (r) => [String(r.commit ?? "").replace(/\+working-tree$/, "")], "the run's"),
+    ],
+  };
 }
 
 // Two records of one contribution whose intervals overlap, even in part, or that begin in the same
@@ -187,16 +218,23 @@ export function acceptanceProblems(rounds, done, approvals = []) {
   return out;
 }
 
+// The latest record of done of a task, whatever follows it.
+export const latestDone = (done, task) => done.filter((d) => d.task === task).sort((a, b) => a.time.localeCompare(b.time)).at(-1) ?? null;
+
+// The limits that apply to a task (derived.task-budget, D-144): the one function --task, --rounds, the
+// check and the text of an overspend all ask. Each limit is the statement's when it gives one, otherwise
+// the configuration's. The statement is its file when one is given, as to --task; without it, as to the
+// check and --rounds, its limits as the latest record of done of the task carries them; a task with no
+// record of done that carries them yet has only the configuration's.
+export function taskLimits({ statement = null, done = [], task, defaults }) {
+  const own = statement ? statement.budget : (latestDone(done, task)?.budget ?? {});
+  return { newInput: own?.newInput ?? defaults?.newInput ?? null, output: own?.output ?? defaults?.output ?? null };
+}
+
 // A task's spend against its limits (derived.task-budget); null when no limit is set.
-// With summed, the spend is summed even when no limit is set, for the check to compare a line Overspend:
-// with it.
-export function taskBudget({ rounds, spend, task, defaults, statement, summed = false }) {
-  const own = statement?.budget ?? {};
-  const limits = {
-    newInput: own.newInput ?? defaults?.newInput ?? null,
-    output: own.output ?? defaults?.output ?? null,
-  };
-  if (limits.newInput === null && limits.output === null && !summed) return null;
+export function taskBudget({ rounds, spend, done = [], task, defaults, statement }) {
+  const limits = taskLimits({ statement, done, task, defaults });
+  if (limits.newInput === null && limits.output === null) return null;
   const reserve = defaults?.reserve ?? 1;
   const cap = (k) => (limits[k] === null ? null : limits[k] * reserve);
   const parts = [...rounds.filter((r) => r.task === task), ...spend.filter((s) => s.task === task)];
@@ -238,51 +276,26 @@ export function taskBudget({ rounds, spend, task, defaults, statement, summed = 
 }
 
 const LABEL = { newInput: "new input", output: "output" };
+// Numbers are written one way wherever the tool writes or compares them (D-144): as JavaScript writes
+// them, a whole number or a decimal with a point, such as 151.5 for a limit of 101 with a reserve of 1.5.
+export const num = (n) => String(n);
 export const overspendText = (b) =>
   ["newInput", "output"]
     .filter((k) => b.cap[k] !== null)
-    .map((k) => `${LABEL[k]} ${b.used[k]} of ${b.cap[k]}`)
+    .map((k) => `${LABEL[k]} ${num(b.used[k])} of ${num(b.cap[k])}`)
     .join(", ");
 
-// A line Overspend: read back, "new input 150 of 100, output 3 of 5": the spend and the limit with reserve
-// of each part it names; null when it is not of that form.
-export function parseOverspend(text) {
-  const out = {};
-  for (const part of (text ?? "").split(",").map((x) => x.trim())) {
-    const m = part.match(/^(new input|output) (\d+) of (\d+)$/);
-    const k = m && Object.keys(LABEL).find((x) => LABEL[x] === m[1]);
-    if (!m || k in out) return null;
-    out[k] = { used: Number(m[2]), cap: Number(m[3]) };
-  }
-  return Object.keys(out).length ? out : null;
-}
-
 // What is wrong with the line Overspend: of the round that ends a task (field.review-round.overspend,
-// D-128): it is the tool's own text, the spend and the limit with reserve it computes. With the budget b
-// of the statement's limits, as --task has them, the line is exactly overspendText(b) when the spend is
-// past the limit and absent otherwise. Without a statement, as the check runs, the limits may be the
-// statement's own, so each spend the line names is the one the tool sums, and with b of the
-// configuration's limits past them the line is required.
-export function overspendProblems(end, b, { exact }) {
+// D-128, D-144): it is exactly overspendText of the task's budget when the spend is past the limit, and
+// absent otherwise. --task and the check compare it alike, the budget's limits given by taskLimits.
+export function overspendProblems(end, b) {
   const line = end.overspend;
   const name = `${end.file}: the record of acceptance`;
   if (b?.conflict?.length) return [];
-  if (exact) {
-    if (b?.over && !line) return [`${name} does not name the overspend (${overspendText(b)})`];
-    if (b?.over && line !== overspendText(b)) return [`${name} names the overspend as "${line}", not as the tool computes it, "${overspendText(b)}"`];
-    if (!b?.over && line) return [`${name} names an overspend, "${line}", where the tool finds none`];
-    return [];
-  }
-  if (b?.over && !line) return [`${name} does not name the overspend, past the configuration's limits (${overspendText(b)})`];
-  if (!line) return [];
-  const read = parseOverspend(line);
-  if (!read) return [`${name} names the overspend as "${line}", not as "new input N of L, output N of L"`];
-  const wrong = Object.entries(read).filter(([k, v]) => b?.used && v.used !== b.used[k]);
-  const under = Object.values(read).every((v) => v.used <= v.cap);
-  return [
-    ...wrong.map(([k, v]) => `${name} names ${LABEL[k]} ${v.used}, and the tool sums ${b.used[k]}`),
-    ...(under && !wrong.length ? [`${name} names an overspend, "${line}", whose spend is not past its limit`] : []),
-  ];
+  if (b?.over && !line) return [`${name} does not name the overspend (${overspendText(b)})`];
+  if (b?.over && line !== overspendText(b)) return [`${name} names the overspend as "${line}", not as the tool computes it, "${overspendText(b)}"`];
+  if (!b?.over && line) return [`${name} names an overspend, "${line}", where the tool finds none`];
+  return [];
 }
 
 // The next round of one step of a task, as --task and --rounds both give it (D-123): derived.next-round,
@@ -304,7 +317,7 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, exhaus
 // approval in force is the last by time of the rounds of the statement and the owner's approvals
 // (D-121); the task is done only when the latest record of done has its own acceptance (D-128).
 export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement }) {
-  const b = taskBudget({ rounds, spend, task, defaults, statement });
+  const b = taskBudget({ rounds, spend, done, task, defaults, statement });
   const exhausted = Boolean(b?.exhausted);
   const errors = [];
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
@@ -336,7 +349,7 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
   else if (!end) resultLine = exhausted ? BUDGET_QUESTION : "the executor works, then records done with done.mjs";
   else if (finished) {
     resultLine = b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean";
-    errors.push(...overspendProblems(end, b, { exact: true }));
+    errors.push(...overspendProblems(end, b));
   } else resultLine = n.say;
   const by = last?.kind === "approval" ? ` by the owner (${last.file})` : "";
   if (approved)
@@ -346,8 +359,11 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
         ? `approved${by}, version ${hash.slice(0, 12)}, but ${BUDGET_QUESTION}; work may not ${end ? "go on" : "start"}`
         : `approved${by}, version ${hash.slice(0, 12)}: work may ${end ? "go on" : "start"} under it`;
   const lines = [say("statement", statementLine), say("result", resultLine)];
-  // The latest record of done, whatever follows it.
-  const latest = done.filter((d) => d.task === task).sort((a, b2) => a.time.localeCompare(b2.time)).at(-1);
+  const latest = latestDone(done, task);
+  // The limits the latest record of done carries are the statement's, which the check reads from it
+  // (D-144): with the statement's file, they are compared.
+  if (latest?.budget && statement && BUDGET_LINES.some(([k]) => latest.budget[k] !== (statement.budget?.[k] ?? null)))
+    errors.push(`${latest.file}: the record of done carries the limits ${budgetLines(latest.budget).join(", ")}, not the statement's, ${budgetLines(statement.budget).join(", ")}`);
   if (latest)
     lines.push(
       say(
@@ -359,7 +375,7 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
   if (b?.conflict.length)
     lines.push(`BUDGET ${task}: the spend cannot be summed, ${b.conflict.length} pair${b.conflict.length > 1 ? "s" : ""} of records of one contribution overlap: ${b.conflict.join("; ")}; ${BUDGET_QUESTION}, until the records are corrected`);
   else if (b) {
-    const limit = (k) => (b.limits[k] === null ? `${LABEL[k]} ${b.used[k]}, no limit` : `${LABEL[k]} ${b.used[k]} of ${b.limits[k]} × ${b.reserve} = ${b.cap[k]}`);
+    const limit = (k) => (b.limits[k] === null ? `${LABEL[k]} ${num(b.used[k])}, no limit` : `${LABEL[k]} ${num(b.used[k])} of ${num(b.limits[k])} × ${num(b.reserve)} = ${num(b.cap[k])}`);
     lines.push(
       `BUDGET ${task}: ${limit("newInput")}, ${limit("output")}; known for ${b.known} of ${b.parts} contributions` +
         (b.noReserve ? "; budget.reserve is not set, so the reserve is 1" : "") +

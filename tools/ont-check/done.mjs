@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadConfig } from "./lib.mjs";
 import { TASK_NAME, parseRounds } from "./review-rounds.mjs";
-import { approvedHash, gitEnv, parseTaskRecords, readStatement, runAtCommit } from "./tasks.mjs";
+import { approvedHash, budgetLines, gitEnv, parseTaskRecords, readStatement, runAtCommit } from "./tasks.mjs";
 
 const argv = process.argv.slice(2);
 const value = (flag) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
@@ -51,7 +51,8 @@ if (failed.length) {
 }
 const time = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 mkdirSync(cfg.taskRecords.dir, { recursive: true });
-const text = [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${statement.hash}`, `Time: ${time}`, `Checks:`, ...run.results.map((r) => `- ${r.command} · ${r.result}`), ""].join("\n");
+// The statement's limits go into the record, for the check and --rounds, which read no statement (D-144).
+const text = [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${statement.hash}`, ...budgetLines(statement.budget), `Time: ${time}`, `Checks:`, ...run.results.map((r) => `- ${r.command} · ${r.result}`), ""].join("\n");
 // A record is never written over another: two records of one second take the next free name.
 let name;
 for (let i = 1; ; i++) {

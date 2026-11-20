@@ -18,12 +18,11 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "./lib.mjs";
 import {
   RELEASES_FILE,
-  RELEASES_HEAD,
+  appendEntry,
   SEMVER,
   START_VERSION,
   changesBetween,
   compareVersions,
-  entryText,
   git,
   RELEASABLE,
   inHistory,
@@ -109,6 +108,11 @@ function protocol() {
       const why = children.map((c) => releaseCommitProblems(top, c, e));
       const commit = children.find((c, i) => !why[i].length);
       if (!commit) refuse(`v${e.version}: ${why.flat().join("; ")}; no tag`);
+      // The tool runs at its path in the verified commit, which a later move does not reach: a commit
+      // without it cannot be rerun, and says so (D-142).
+      const tool = toolIn(top);
+      if (tool !== null && !git(top, "cat-file", "-e", `${e.verified}:${tool}/ont-check.mjs`).ok)
+        refuse(`v${e.version} cannot be rerun on ${e.verified.slice(0, 7)}: the tool ${tool}/ont-check.mjs is not at that commit; no tag`);
       const run = runAtCommit({ top, commit: e.verified, commands: checksIn(top) });
       if (run.error) refuse(run.error);
       const failed = run.results.filter((r) => r.result !== "pass");
@@ -132,10 +136,11 @@ function protocol() {
   }
   if (!existsSync(config)) refuse(`no ${relative(process.cwd(), config)}`);
   const existed = existsSync(path);
-  const before = existed ? readFileSync(path, "utf8") : RELEASES_HEAD;
+  const before = existed ? readFileSync(path, "utf8") : null;
   const restore = () => (existed ? writeFileSync(path, before) : rmSync(path, { force: true }));
   const date = today();
-  writeFileSync(path, `${before.replace(/\n*$/, "\n\n")}${entryText({ version, date, verified })}`);
+  // The entry appended by the function the test of a release commit compares with (D-140).
+  writeFileSync(path, appendEntry(before, { version, date, verified }));
   // The release commit is made from the verified commit's tree with the entry, by Git's plumbing, which
   // runs no hook: the checks ran on the verified commit, and the commit adds only the entry. The tag goes
   // on the commit this returned, after checking it is the release commit of this entry, and the branch
@@ -168,12 +173,17 @@ function product() {
   if (!cfg.releases) refuse("the configuration names no releases: the directory of records and the pin");
   const top = git(cfg.base, "rev-parse", "--show-toplevel").out;
   const cfgRel = relative(top, cfg.file).split("\\").join("/");
-  const tool = toolIn(top);
   const { releases, unread } = parseProductRecords(cfg.releases.dir);
-  const run = (commit) =>
-    tool === null
-      ? refuse("the tool must be inside the repository, so that the worktree has the tool of the commit")
-      : runReleaseChecks({ top, commit, cfgRel, toolRel: tool });
+  // The checks run with the tool of the commit, where its configuration says it is (D-142); a commit
+  // that lacks the tool, the pin or a suite's directory cannot be run, and says what it lacks.
+  const run = (commit, cannot) => {
+    const res = runReleaseChecks({ top, commit, cfgRel });
+    if (res.missing) refuse(`${cannot}: ${res.missing.join("; ")}`);
+    if (res.error) refuse(res.error);
+    return res;
+  };
+  // What a run ran with: the tool of the commit, at its path there, and its version.
+  const ranWith = (res, commit) => `with the tool ${res.setup.toolDir}/ont-check.mjs of commit ${commit.slice(0, 7)}, version ${res.setup.toolVersion.slice(0, 12)}`;
 
   if (argv.includes("--verify")) {
     const version = value("--verify");
@@ -186,8 +196,7 @@ function product() {
     const broken = [...unreadOf.map((x) => `${x.file}: ${x.why}`), ...productReleaseProblems({ top, cfgRel, releases: of, deployments: [] })];
     if (broken.length) refuse(`release ${version} is not intact, so it is not run:\n${broken.map((b) => `  ${b}`).join("\n")}`);
     const r = of[0];
-    const res = run(r.commit);
-    if (res.error) refuse(res.error);
+    const res = run(r.commit, `release ${version} cannot be rerun on ${r.commit.slice(0, 7)}`);
     const got = res.results.map((x) => `${x.command} · ${x.result}${x.result === "skipped" ? ` · ${x.detail}` : ""}`);
     const want = r.checks.map((c) => `${c.check} · ${c.result}${c.result === "skipped" ? ` · ${c.detail}` : ""}`);
     // Each check gives the result its record says, a skipped one with the same counts; a check the record
@@ -196,7 +205,7 @@ function product() {
     const failed = res.results.filter((x) => !RELEASABLE.has(x.result));
     if (failed.length || !same)
       refuse(`release ${version} is not verified on ${r.commit.slice(0, 7)}: the run gave ${got.join(", ")}; the record says ${want.join(", ")}${failed.length ? `\n${tail(failed[0].output)}` : ""}`);
-    console.log(`VERIFIED ${version}: ${res.results.map((x) => `${x.command} · ${x.result}${x.detail ? ` (${x.detail})` : ""}`).join(", ")} on ${r.commit.slice(0, 7)}`);
+    console.log(`VERIFIED ${version}: ${res.results.map((x) => `${x.command} · ${x.result}${x.detail ? ` (${x.detail})` : ""}`).join(", ")} on ${r.commit.slice(0, 7)}; ${ranWith(res, r.commit)}`);
     return;
   }
 
@@ -212,18 +221,13 @@ function product() {
   if (!inHistory(top, commit)) refuse(`commit ${commit.slice(0, 7)} is not in the project's history, the history of HEAD; no record written`);
   const pin = pinAt(top, cfgRel, commit);
   if (pin.error) refuse(`${pin.error}; no record written`);
-  const res = run(commit);
-  if (res.error) refuse(res.error);
+  const res = run(commit, `release ${version} cannot be run on ${commit.slice(0, 7)}; no record written`);
   // A release is written with checks that passed or were skipped, never with one that failed or ran no
   // test (D-116); the record says which were skipped.
   const failed = res.results.filter((x) => !RELEASABLE.has(x.result));
   if (failed.length) refuse(`${failed.map((f) => `${f.command} ${f.result === "fail" ? "failed" : "ran no test"}`).join(" and ")} on ${commit.slice(0, 7)}; no record written\n${tail(failed[0].output)}`);
-  // The version of the tool: the commit of the approach its pin names, or the commit itself when the
-  // tool is the approach's own, as in the approach's example.
-  let toolVersion = commit;
-  try {
-    toolVersion = JSON.parse(pin.bytes.toString("utf8")).commit ?? commit;
-  } catch {}
+  // The version of the tool by the function the check compares it with (D-141).
+  const toolVersion = res.setup.toolVersion;
   // The record is validated as the check validates it, by the same function, before it is written
   // (D-125): the action never writes a record the check refuses.
   const record = { version, commit, pin: pin.hash, tool: toolVersion, date: today(), results: res.results };
@@ -240,5 +244,5 @@ function product() {
     refuse(e.code === "EEXIST" ? `${relative(process.cwd(), resolve(file))} exists already; nothing written over it` : `the record was not written: ${e.message}`);
   }
   const skipped = res.results.filter((x) => x.result === "skipped");
-  console.log(`RELEASED ${version}: ${res.results.map((x) => `${x.command} · ${x.result}`).join(", ")} on ${commit.slice(0, 7)}${skipped.length ? `; skipped, as the record says: ${skipped.map((x) => `${x.command} (${x.detail})`).join(", ")}` : ""}; recorded in ${relative(process.cwd(), resolve(file))}`);
+  console.log(`RELEASED ${version}: ${res.results.map((x) => `${x.command} · ${x.result}`).join(", ")} on ${commit.slice(0, 7)}, ${ranWith(res, commit)}${skipped.length ? `; skipped, as the record says: ${skipped.map((x) => `${x.command} (${x.detail})`).join(", ")}` : ""}; recorded in ${relative(process.cwd(), resolve(file))}`);
 }

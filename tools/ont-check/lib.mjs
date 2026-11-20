@@ -41,6 +41,20 @@ const gitLocalVars = () => {
 export const gitEnv = (env = process.env) =>
   Object.fromEntries(Object.entries(env).filter(([k]) => !gitLocalVars().has(k) && !/^GIT_CONFIG_(KEY|VALUE)_\d+$/.test(k)));
 
+// Whether a commit a record names is an object of the repository (inv.named-commits-resolve, D-143):
+// git cat-file -e <commit>^{commit}, with the environment that is safe in a hook. The one test every
+// record that names a commit is held to: of done, of a round, of a manual run and of a release.
+// ont: inv.named-commits-resolve
+export const commitResolves = (repo, commit) =>
+  Boolean(repo && commit && /^[0-9a-f]{4,40}$/.test(commit)) && spawnSync("git", ["-C", repo, "cat-file", "-e", `${commit}^{commit}`], { env: gitEnv() }).status === 0;
+// The problems of records whose commits do not resolve: each record with the commits it names.
+export const unresolvedCommits = (repo, records, commitsOf, what = "") =>
+  records.flatMap((r) =>
+    commitsOf(r)
+      .filter((c) => !commitResolves(repo, c))
+      .map((c) => `${r.file}: ${what ? `${what} ` : ""}commit ${c} is not in the repository${repo ? "" : " (the project is not in a Git repository)"}`),
+  );
+
 // An entry is accepted when one of its lines matches this pattern. A log in another language sets
 // decisions.accepted in the config.
 export const DEFAULT_ACCEPTED = "^- Date:.*Status:\\s*accepted\\b";
@@ -92,7 +106,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "reviewRounds.dir", "taskRecords.dir", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "reviewRounds.dir", "taskRecords.dir", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
