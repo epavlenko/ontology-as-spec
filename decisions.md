@@ -1026,6 +1026,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: option b (every past edit fails until it is listed, and the list is a second log to keep); option c (an edit committed with the hook skipped on main itself still becomes the text the guard protects); option d (the hash is edited with the entry, and nothing tells the two edits apart).
 - Concepts: `rule.guard-from-acceptance`, `inv.accepted-never-edited`.
 
+### D-151 · Records of runs and of rounds hold English only, and no path outside the repository
+
+- Date: 2026-11-21 · Status: tentative
+- Decision: a record of a manual run or of a round of review holds English text only and no path outside the repository (`rule.records-english-in-repo`). English only means no letter of a script other than Latin; a path outside the repository is an absolute path, such as `/home/…`, `/tmp/…`, `~/…` or `C:\…`, or a path that leaves the repository by `..`. A URL is allowed. What is kept outside the repository, such as a task's statement or a reviewer's log, is named in words. The tool reads every record with this rule: the check refuses a record that breaks it, and `--record` refuses a table of verdicts whose rows or `By:` line break it, each naming the file and the line.
+- Why: the merge a81d7ad into main brought about two hundred records of runs whose evidence was in Russian, against D-03, and most of the records it brought named absolute local paths, eight of them a path into private notes outside the repository. The reviewers had been asked to answer in Russian and with absolute paths; their tables were recorded as given, and no check refused them. A path outside the repository names nothing another clone can open, and may name private data. A letter outside the Latin script is a rule the tool can hold by construction, which "English" alone is not (`rule.strongest-step`, D-67).
+- Why tentative: a choice the thread made under the owner's answer of 2026-11-20 to question 1007, which left such choices to the thread. It waits for the clean round of the review of this change; the thread accepts it after that round.
+- Rejected: a rule in `skills/change-review/SKILL.md` alone (an agent asked otherwise follows the request, as the reviewers of task tree-refresh did); allowing every path under the home directory of the clone (it still names a local machine and its folders).
+- Concepts: `rule.records-english-in-repo`, `ent.manual-run`, `ent.review-round`, `action.record-verdicts`.
+
 ## Open questions
 
 ## History
