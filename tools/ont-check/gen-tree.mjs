@@ -159,17 +159,20 @@ export function readMark(html) {
   const v = (s) => (s ? s : null);
   return { commit: v(commit), config: v(config), date: v(date) };
 }
-// Whether HTML read to its end is in plain text: every comment, declaration and tag closed, a quoted
-// value of an attribute too, every element whose content is raw text closed by its end tag, and every
-// <template>, whose content no one sees, closed by its own, nested ones each by theirs.
+// Whether HTML read to its end is in plain text, directly in <body>: every comment, declaration and tag
+// closed, a quoted value of an attribute too, every element whose content is raw text closed by its end
+// tag, and every other element opened after <html> and <body> closed by its own end tag, nested ones each
+// by theirs, so that the footer is a child of <body> and of no <template>, <details>, <dialog> or other
+// element that could fold it away. Elements without end tags, such as <meta> and <br>, are not counted.
+const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
 const RAW_TEXT = new Set(["script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes", "noscript", "plaintext"]);
 const endsInText = (html) => {
   const lower = html.toLowerCase();
-  let templates = 0;
+  const open = [];
   let i = 0;
   for (;;) {
     const lt = html.indexOf("<", i);
-    if (lt < 0) return templates === 0;
+    if (lt < 0) return open.length === 2 && open[0] === "html" && open[1] === "body";
     if (html.startsWith("<!--", lt)) {
       const end = html.indexOf("-->", lt + 4);
       if (end < 0) return false;
@@ -197,11 +200,17 @@ const endsInText = (html) => {
     if (j >= html.length) return false;
     i = j + 1;
     const name = tag[2].toLowerCase();
-    if (name === "template") templates = tag[1] ? Math.max(0, templates - 1) : templates + 1;
+    const selfClosed = html[j - 1] === "/";
+    if (tag[1]) {
+      if (open[open.length - 1] !== name) return false;
+      open.pop();
+    } else if (!VOID.has(name) && !selfClosed && !RAW_TEXT.has(name)) open.push(name);
     if (!tag[1] && RAW_TEXT.has(name)) {
       const close = name === "plaintext" ? -1 : lower.indexOf(`</${name}`, i);
       if (close < 0) return false;
-      i = close;
+      const gt = html.indexOf(">", close);
+      if (gt < 0) return false;
+      i = gt + 1;
     }
   }
 };

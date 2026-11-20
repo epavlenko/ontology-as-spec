@@ -323,6 +323,10 @@ test("[check.ontology-tree.replaced-commit] a local replacement of main's ontolo
   assert.equal(r.gen("--stale").out, "");
   // And a replacement of main's commit itself by the other commit.
   r.git("replace", "-d", r.git("rev-parse", `${start}:ontology.md`).out.trim());
+  // A branch made on main's real commit before main is replaced, to merge through the hook after.
+  r.git("checkout", "-q", "-b", "c");
+  const c = r.commit("README.md", "", "a change of the branch c\n");
+  r.git("checkout", "-q", "main");
   r.git("replace", main, other);
   assert.match(r.git("show", `${main}:ontology.md`).out, /, of another commit/, "the replacement is in force");
   // The working tree holds the other commit's ontology: on demand it is not main's, whatever the
@@ -331,6 +335,15 @@ test("[check.ontology-tree.replaced-commit] a local replacement of main's ontolo
   const o = r.gen("--out", r.place);
   assert.equal(o.code, 0, o.out);
   assert.deepEqual(r.mark(), { commit: `${main}+working-tree`, config: "ont.config.json" });
+  // And through the hook, with main's commit still replaced: the merge of c writes c's own tree, built
+  // from c's real files, and nothing the replacement of main would put in its place.
+  r.git("reset", "-q", "--hard");
+  r.git("clean", "-q", "-fd");
+  const h = r.git("merge", "-q", c);
+  assert.equal(h.code, 0, h.out);
+  assert.equal(r.sha("refs/heads/main"), c, "the merge is done");
+  assert.doesNotMatch(readFileSync(r.place, "utf8"), /of another commit/, "the hook never writes the replacement's text");
+  assert.deepEqual(r.mark(), { commit: c, config: "ont.config.json" });
 });
 
 test("[check.ontology-tree.replaced-commit] [inv.accepted-never-edited] every command of Git the tool runs turns local replacements off", () => {
@@ -366,7 +379,7 @@ test("[check.ontology-tree.generator-missing] a missing generator is named by th
   assert.equal(m.code, 0, m.out);
   assert.equal(r.sha("refs/heads/main"), r.sha("b"), "the merge is done");
   assert.ok(
-    m.out.includes(`post-merge: the ontology tree was not written: ${gen} is missing from the working tree; restore it with git restore ${gen}, then run node ${gen} --refresh`),
+    m.out.includes(`post-merge: the ontology tree was not written: ${gen} is missing from the working tree; restore it with git restore --source=HEAD --staged --worktree -- ${gen}, then run node ${gen} --refresh`),
     m.out,
   );
   assert.equal(existsSync(r.place), false);
@@ -406,9 +419,14 @@ test("[check.ontology-tree.generator-missing] a missing import of the generator 
   assert.equal(r.sha("refs/heads/main"), r.sha("b"), "the merge is done");
   assert.equal(
     m.out,
-    `post-merge: the ontology tree was not written: ${lib} is missing from the working tree; restore it with git restore ${lib}, then run node tools/ont-check/gen-tree.mjs --refresh\n`,
+    `post-merge: the ontology tree was not written: ${lib} is missing from the working tree; restore it with git restore --source=HEAD --staged --worktree -- ${lib}, then run node tools/ont-check/gen-tree.mjs --refresh\n`,
   );
   assert.equal(existsSync(r.place), false);
+  // The command it names restores the file whether its removal is staged or not.
+  r.git("rm", "-q", "--cached", lib);
+  const restore = r.git("restore", "--source=HEAD", "--staged", "--worktree", "--", lib);
+  assert.equal(restore.code, 0, restore.out);
+  assert.ok(existsSync(join(r.dir, lib)), "the command the hook names brings the file back after a staged removal");
 });
 
 test("[check.ontology-tree.generator-missing] the hook looks for the generator and every file it imports, and for nothing else", () => {
@@ -866,6 +884,9 @@ test("[check.ontology-tree.mark-exact] the mark is only the footer of the genera
     // The exact footer at the end of the page, inside an element no person sees (D-130).
     ["inside a template left open", `${body}<template>\n${foot}${end}`],
     ["inside nested templates of which only the inner one is closed", `${body}<template><p>x</p><template></template>\n${foot}${end}`],
+    ["inside a details left open, after its summary", `${body}<details><summary>tree</summary>${foot}${end}`],
+    ["inside a div left open", `${body}<div hidden>\n${foot}${end}`],
+    ["after a stray end tag", `${body}</section>\n${foot}${end}`],
     ["after a script left open", `${body}<script>\n${foot}${end}`],
     ["after a style left open", `${body}<style>\n${foot}${end}`],
     ["after a textarea left open", `${body}<textarea>\n${foot}${end}`],

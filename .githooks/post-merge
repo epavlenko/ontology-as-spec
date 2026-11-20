@@ -14,7 +14,7 @@ GEN=tools/ont-check/gen-tree.mjs
 MISSING=0
 for f in "$GEN" tools/ont-check/contracts.mjs tools/ont-check/lib.mjs; do
   if [ ! -f "$f" ]; then
-    echo "post-merge: the ontology tree was not written: $f is missing from the working tree; restore it with git restore $f, then run node $GEN --refresh" >&2
+    echo "post-merge: the ontology tree was not written: $f is missing from the working tree; restore it with git restore --source=HEAD --staged --worktree -- $f, then run node $GEN --refresh" >&2
     MISSING=1
   fi
 done
