@@ -18,7 +18,7 @@ node tools/ont-check/format-ontology.mjs --config path/to/ont.config.json   # ki
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
 node tools/ont-check/gen-reference.mjs --config path/to/ont.config.json   # reference pages from the ontology and the checks
 node tools/ont-check/gen-tree.mjs --config path/to/ont.config.json --out tree.html [--labels labels.json]   # the whole ontology as a tree for people, not kept in the repository; the footer marks the commit, +working-tree or no-commit (D-105)
-node tools/ont-check/gen-tree.mjs --refresh [--squash]   # what the post-merge hook runs: on main, the tree at the clone's `ont.treeOut` from the root ont.config.json and the ontologies as HEAD holds them, never the working tree; --squash, given by the hook after a squash merge, writes nothing and says why
+node tools/ont-check/gen-tree.mjs --refresh [--squash]   # what the post-merge hook runs: on main, the tree at the clone's `ont.treeOut` from the root ont.config.json and the ontologies as HEAD holds them, and only when the working tree holds the same files, else it names those that differ and writes nothing; --squash, given by the hook after a squash merge, writes nothing and says why
 node tools/ont-check/gen-tree.mjs --stale   # why the tree at `ont.treeOut` does not show refs/heads/main, or nothing; always ends with 0
 node tools/ont-check/gen-approach.mjs  --config ont.config.json   # in the approach's own repository: approach.json from its ontology
 node tools/ont-check/stamp-docs.mjs  --config path/to/ont.config.json [page.md …]   # after rereading: stamp the anchors
@@ -138,10 +138,10 @@ Every optional part can be left out. The checks that depend on it are then skipp
 - **Process entries:** `- Layer: process`, and `- Extends:` or `- Overrides:` with the IDs of the rules of the approach in backticks. Every such line is checked, and an empty one fails; a superseded entry may name a rule the approach has retired since.
 - **Deferrals:** a line matched by `decisions.returnWhen`, by default `- Return when: a second branch opens`. The check lists every accepted deferral in force with its condition, as information.
 
-<!-- ont: rule.tree-refreshed-after-merge@d7db31, field.ontology-tree.place@1bd646 -->
+<!-- ont: rule.tree-refreshed-after-merge@1db29b, field.ontology-tree.place@1bd646 -->
 ## Hooks
 
-Run the check on commits that touch any file it reads, the code paths that implement concepts among them: it reads their `ont:` names, and a change there is a reminder to update the implementation table. Run the guard with `--staged` on every commit, and in CI with `--base` set to the commit before the push or the base of the pull request. This repository's own hooks are `.githooks/pre-commit` and `.githooks/post-merge`, which rewrites the ontology tree after a merge into main where a clone sets `ont.treeOut`; Git runs `post-merge` only when `git merge` or `git pull` itself makes the merge commit or the fast-forward, so not after `git merge --continue`, a `git merge --no-commit` committed apart, or a real rebase: after those, run `node tools/ont-check/gen-tree.mjs --refresh` on main; and its CI is `.github/workflows/check.yml`; enable the hooks with `git config core.hooksPath .githooks`.
+Run the check on commits that touch any file it reads, the code paths that implement concepts among them: it reads their `ont:` names, and a change there is a reminder to update the implementation table. Run the guard with `--staged` on every commit, and in CI with `--base` set to the commit before the push or the base of the pull request. This repository's own hooks are `.githooks/pre-commit` and `.githooks/post-merge`, which rewrites the ontology tree after a merge into main where a clone sets `ont.treeOut`, and says so, with the command that restores it, when the generator is missing from the working tree; Git runs `post-merge` only when `git merge` or `git pull` itself makes the merge commit or the fast-forward, so not after `git merge --continue`, a `git merge --no-commit` committed apart, or a real rebase: after those, run `node tools/ont-check/gen-tree.mjs --refresh` on main; and its CI is `.github/workflows/check.yml`; enable the hooks with `git config core.hooksPath .githooks`.
 
 <!-- ont: -->
 ## Tests

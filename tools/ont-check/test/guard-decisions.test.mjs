@@ -68,6 +68,44 @@ for (const [name, label, edit] of refused)
     }
   });
 
+// A local replacement makes Git read the base commit as another one, here one that holds the edit: the
+// guard reads the base by its own SHA all the same, and refuses the edit (D-120).
+test("[check.decision.accepted-edited] refuses an edit that a local replacement of the base would hide", () => {
+  const dir = mkdtempSync(join(tmpdir(), "guard-"));
+  const git = (...args) => {
+    const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd: dir, encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout.trim();
+  };
+  const guard = (...extra) => {
+    const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json"), ...extra], { cwd: dir, encoding: "utf8" });
+    return { code: r.status, out: r.stdout + r.stderr };
+  };
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    git("init", "-q");
+    git("add", ".");
+    git("commit", "-q", "-m", "base");
+    const base = git("rev-parse", "HEAD");
+    const path = join(dir, "decisions.md");
+    const edited = readFileSync(path, "utf8").replace("members remember one number", "members like one number");
+    git("checkout", "-q", "-b", "side");
+    writeFileSync(path, edited);
+    git("commit", "-q", "-am", "the edit, committed elsewhere");
+    const side = git("rev-parse", "HEAD");
+    git("checkout", "-q", "-");
+    writeFileSync(path, edited);
+    git("replace", base, side);
+    assert.match(git("show", `${base}:decisions.md`), /members like one number/, "the replacement is in force");
+    for (const r of [guard("--base", base), guard()]) {
+      assert.equal(r.code, 1, r.out);
+      assert.ok(r.out.includes("accepted entries edited"), r.out);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // Before the first commit there is nothing to compare with: the guard says it is off and passes, while
 // a base that was named and is missing stays an error.
 test("[check.decision.guard-off] says GUARD_OFF before the first commit", () => {
