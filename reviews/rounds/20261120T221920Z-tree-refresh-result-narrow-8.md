@@ -9,5 +9,5 @@ Checks-listed: 54
 Checks-given: 54
 Checks-carried: 0
 Findings:
-- decision log contradicts itself · nit · change · fixable
-- comment contradicts the hash · nit · change · fixable
+- decision log contradicts itself · nit · change · fixable · check.ontology-tree.mark-exact
+- comment contradicts the hash · nit · change · fixable · check.ontology-tree.mark-exact
