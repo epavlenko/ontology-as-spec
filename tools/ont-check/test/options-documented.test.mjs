@@ -16,7 +16,7 @@ export const flagsOf = (text) =>
   new Set([...text.matchAll(/\b(?:flag|opt|value|values|includes|indexOf)\("(--[a-z][a-z-]*)"\)/g)].map((m) => m[1]));
 // A list: a key of the configuration, `raw.docSets` or `raw.checks.axes`, mapped item by item; its
 // path, "checks.axes", and the name of its item.
-export const listsOf = (text) => [...text.matchAll(/\braw\.((?:[a-zA-Z]+\??\.)*[a-zA-Z]+) \?\? \[\]\)(?:,?\s*\])?\.map\(\s*\(?([A-Za-z_$][\w$]*)\)? =>/g)].map((m) => Object.assign(m, { 1: m[1].replaceAll("?", "") }));
+export const listsOf = (text) => [...text.matchAll(/\braw\.((?:[a-zA-Z]+\??\.)*[a-zA-Z]+) \?\? \[\]\)(?:,?\s*\])?\.map\s*\(\s*\(?\s*([A-Za-z_$][\w$]*)\s*\)?\s*=>/g)].map((m) => Object.assign(m, { 1: m[1].replaceAll("?", "") }));
 // The keys the loader reads from the configuration: a top-level key, `raw.manualRuns`; a key of an
 // object, `raw.manualRuns.dir` or `raw.codeNames?.owner`, as "manualRuns.dir"; and a key of each item
 // of a list, `(raw.docSets ?? []).map((d) => … d.files …)`, as "docSets[].files".
@@ -30,10 +30,12 @@ export const keysOf = (text) => {
   // end of the call.
   for (const m of listsOf(text)) {
     let depth = 1;
-    let i = m.index + m[0].length;
-    const open = text.lastIndexOf(".map(", i) + 4;
+    // The parenthesis that opens this list's own .map call, wherever spaces stand.
+    const call = m[0].search(/\.map\s*\(/);
+    const open = m.index + call + m[0].slice(call).indexOf("(");
+    let i;
     for (i = open + 1; i < text.length && depth > 0; i++) depth += text[i] === "(" ? 1 : text[i] === ")" ? -1 : 0;
-    for (const k of text.slice(open, i).matchAll(new RegExp(`\\b${m[2]}\\.([a-zA-Z]+)`, "g"))) keys.add(`${m[1]}[].${k[1]}`);
+    for (const k of text.slice(open, i).matchAll(new RegExp(`(?<![\\w$])${m[2].replace(/\$/g, "\\$&")}\\s*\\??\\.\\s*([a-zA-Z]+)`, "g"))) keys.add(`${m[1]}[].${k[1]}`);
   }
   return keys;
 };
@@ -70,13 +72,20 @@ test("[check.tool-copy.options-documented] the loader names every key it passes 
   const body = loader.slice(loader.indexOf("export function loadConfig"), loader.indexOf("\n}\n", loader.indexOf("export function loadConfig")));
   // Every .map in the loader's body but .map(at), which maps paths, is a list the test reads, whatever
   // its item is called or however it is written.
-  const mapped = body.match(/\.map\(/g).length - (body.match(/\.map\(at\)/g) ?? []).length;
+  const mapped = body.match(/\.map\s*\(/g).length - (body.match(/\.map\s*\(\s*at\s*\)/g) ?? []).length;
   assert.equal(listsOf(body).length, mapped, "a list of the configuration the test does not read");
   // A list added under another name, or with its item destructured, is caught.
-  for (const added of ["axesCopy: (raw.checks.axes ?? []).map((axis) => axis.secret),", "names: (raw.docSets ?? []).map(({ name }) => name),"]) {
+  for (const added of [
+    "axesCopy: (raw.checks.axes ?? []).map((axis) => axis.secret),",
+    "names: (raw.docSets ?? []).map(({ name }) => name),",
+    "a: (raw.checks.axes ?? []).map(($axis) => $axis.secret),",
+    "b: (raw.checks.axes ?? []).map((axis$) => axis$.secret),",
+    "c: (raw.checks.axes ?? []).map ((axis) => axis.secret),",
+    "d: (raw.checks.axes ?? []).map((axis) => axis?.secret),",
+  ]) {
     const more = body.replace("return {", `return {\n    ${added}`);
-    const counted = more.match(/\.map\(/g).length - (more.match(/\.map\(at\)/g) ?? []).length;
-    const fails = listsOf(more).length !== counted || [...keysOf(more)].some((k) => !describesKey(readme, k));
+    const counted = more.match(/\.map\s*\(/g).length - (more.match(/\.map\s*\(\s*at\s*\)/g) ?? []).length;
+    const fails = listsOf(more).length !== counted || [...keysOf(more)].some((k) => k.endsWith(".secret") && !describesKey(readme, k)) || (added.startsWith("names") && listsOf(more).length !== counted);
     assert.ok(fails, `not caught: ${added}`);
   }
 });
