@@ -1373,3 +1373,38 @@ test("[check.other-word.used] the text of a mockup's script is read as JavaScrip
   const lines = [...m[2].matchAll(/mockup\/index\.html:(\d+) /g)].map((x) => Number(x[1]) - 31);
   assert.deepEqual(lines, [2, 5, 7, 9, 9, 14, 15, 18, 19, 20]);
 });
+
+// Round 3 of the review of the result of task releases-and-task (D-129).
+test("[check.tool-copy.error-fails-run] every ERROR of a flag or of the configuration it needs fails the run, with no ONT_OK", () => {
+  const TEMPLATES = fileURLToPath(new URL("../../../templates/", import.meta.url));
+  const dir = mkdtempSync(join(tmpdir(), "ont-check-flags-"));
+  try {
+    cpSync(TEMPLATES, dir, { recursive: true });
+    const check = (...args) => spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), ...args], { encoding: "utf8" });
+    const plain = check();
+    assert.equal(plain.status, 0, plain.stdout);
+    writeFileSync(join(dir, "notes.md"), "no ticket\n");
+    const cases = [
+      [["--task", "t"], /ERROR · --rounds and --task need reviewRounds in the configuration/],
+      [["--rounds"], /ERROR · --rounds and --task need reviewRounds in the configuration/],
+      [["--releases"], /ERROR · --releases needs releases in the configuration/],
+      [["--run"], /ERROR · --run needs "oracle": true in the configuration/],
+      [["--mutate"], /ERROR · --mutate needs "oracle": true in the configuration/],
+      [["--record", "table.md"], /ERROR · --record needs --review <base>/],
+      [["--statement", "notes.md"], /ERROR · --statement needs --task <task>/],
+      [["--gap", join(dir, "notes.md")], /ERROR · --gap: .* is not a ticket the config knows/],
+    ];
+    for (const [args, message] of cases) {
+      const r = check(...args);
+      assert.match(r.stdout, message, args.join(" "));
+      assert.notEqual(r.status, 0, `${args.join(" ")}: ${r.stdout}`);
+      assert.doesNotMatch(r.stdout, /ONT_OK/, args.join(" "));
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  // Every ERROR of the check is printed by fail or by report, the two functions that count it.
+  const source = readFileSync(join(TOOLS, "ont-check.mjs"), "utf8");
+  const printed = source.split("\n").filter((l) => /console\.log\(.*ERROR/.test(l));
+  assert.deepEqual(printed.map((l) => l.trim()), ["console.log(`ERROR · ${message}`);", 'console.log(`${fatal ? "ERROR" : "info"} · ${label} (${items.length}):\\n  ${shown.join("\\n  ")}`);']);
+});

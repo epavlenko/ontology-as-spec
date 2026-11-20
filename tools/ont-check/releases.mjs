@@ -91,11 +91,11 @@ export function previousVerified(repo, entries, version) {
   return start.ok ? start.out : null;
 }
 
-const sameEntry = (a, b) => a.version === b.version && a.date === b.date && a.verified === b.verified;
-
-// What is wrong with a commit as the release commit of an entry (inv.release-tagged, D-114): its one
-// parent is the entry's verified commit, it changes only releases.md, and that file gains exactly this
-// entry, every entry before it kept as it was. A commit that only adds the heading, or adds the entry of
+// What is wrong with a commit as the release commit of an entry (inv.release-tagged, D-114, D-126): its
+// one parent is the entry's verified commit, it changes only releases.md, and the log of releases there,
+// read as an ordered list of whole entries, is the log of the verified commit with exactly this entry
+// appended: every entry before it kept as it was, in its place, and counted, so that a duplicate of an
+// earlier entry added with it is a change too. A commit that only adds the heading, or adds the entry of
 // another version, is no release commit.
 export function releaseCommitProblems(repo, commit, e, rel = RELEASES_FILE) {
   const parents = git(repo, "rev-list", "--parents", "-n", "1", commit).out.split(" ").slice(1);
@@ -108,16 +108,16 @@ export function releaseCommitProblems(repo, commit, e, rel = RELEASES_FILE) {
     return r.ok ? parseReleasesFile(r.out) : { entries: [], malformed: [] };
   };
   const [before, after] = [at(e.verified), at(commit)];
-  const same = sameEntry;
-  const added = after.entries.filter((x) => !before.entries.some((y) => same(x, y)));
-  const lost = before.entries.filter((x) => !after.entries.some((y) => same(x, y)));
-  const wrong = [
-    after.malformed.length && `the release commit ${commit.slice(0, 7)} has entries that cannot be read: ${after.malformed.join("; ")}`,
-    lost.length && `the release commit ${commit.slice(0, 7)} changes or removes the entries of ${lost.map((x) => `v${x.version}`).join(", ")}`,
-    !(added.length === 1 && same(added[0], e)) &&
-      `the release commit ${commit.slice(0, 7)} adds ${added.map((x) => `the entry of v${x.version} verified on ${x.verified.slice(0, 7)}`).join(", ") || "no entry"}, not exactly the entry of v${e.version} verified on ${e.verified.slice(0, 7)}`,
-  ].filter(Boolean);
-  return wrong;
+  if (after.malformed.length) return [`the release commit ${commit.slice(0, 7)} has entries that cannot be read: ${after.malformed.join("; ")}`];
+  const [b, a] = [before.entries.map(entryText), after.entries.map(entryText)];
+  const of = (x) => `the entry of v${x.version} verified on ${x.verified.slice(0, 7)}`;
+  // The longest run of entries kept in their place from the start of the log.
+  let kept = 0;
+  while (kept < b.length && kept < a.length && a[kept] === b[kept]) kept++;
+  if (kept < b.length) return [`the release commit ${commit.slice(0, 7)} changes or removes the entries of ${before.entries.slice(kept).map((x) => `v${x.version}`).join(", ")}`];
+  const added = after.entries.slice(b.length);
+  if (added.length === 1 && a.at(-1) === entryText(e)) return [];
+  return [`the release commit ${commit.slice(0, 7)} adds ${added.map(of).join(", ") || "no entry"}, not exactly ${of(e)}`];
 }
 
 // Whether a tag is a release (inv.release-tagged, D-122): the one function the check of the approach and
@@ -225,6 +225,12 @@ export function suiteResult(run, files = []) {
   return pass === tests ? { result: "pass", detail: null } : { result: "fail", detail: `${pass} of ${tests} tests passed` };
 }
 
+// A check of a release that is a test suite; the project's check, ont-check, is not one, and is never
+// skipped (D-127).
+export const isSuite = (check) => /^suite \S/.test(check ?? "");
+// The name of the file of a record of a release: its version and .md, and no other record's (D-127).
+export const releaseFileName = (version) => `${version}.md`;
+
 // How many tests of a suite were skipped, as a record says it (D-116, D-125).
 export const SKIPPED = /^\d+ of \d+ tests skipped$/;
 
@@ -237,21 +243,26 @@ export function runMatchesRecord(checks, results) {
     results.every((x, i) => {
       const c = checks[i];
       if (x.command !== c.check) return false;
-      if (c.result === "skipped") return x.result === "pass" || (x.result === "skipped" && x.detail === c.detail);
+      if (c.result === "skipped") return (isSuite(c.check) && x.result === "pass") || (x.result === "skipped" && x.detail === c.detail);
       return x.result === c.result;
     })
   );
 }
 
-// Records of releases and of deployments in the directory of releases.
+// Records of releases and of deployments in the directory of releases. A record of a release is named
+// by its version, <version>.md, and only it: a deployment's file has any other name, so that a release
+// never meets a deployment's file (D-127). Records that cannot be read are kept with the version they
+// give, for --verify.
 export function parseProductRecords(dir) {
   const releases = [];
   const deployments = [];
   const malformed = [];
+  const unread = [];
   for (const f of listFiles(dir, /\.md$/)) {
     const text = read(f);
     const name = basename(f);
     const field = (k) => text.match(new RegExp(`^${k}:[ \\t]*(.*?)\\s*$`, "m"))?.[1] ?? null;
+    const named = name.slice(0, -3);
     if (field("Version") !== null) {
       const checks = (blockLines(text, "Checks") ?? []).map((l) => {
         const [check, result, detail] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
@@ -260,6 +271,7 @@ export function parseProductRecords(dir) {
       const r = { file: name, version: field("Version"), commit: field("Commit"), pin: field("Pin"), tool: field("Tool"), date: field("Date"), checks };
       const wrong = [
         !SEMVER.test(r.version) && `version ${r.version} is not three numbers of Semantic Versioning`,
+        SEMVER.test(r.version) && name !== releaseFileName(r.version) && `a record of release ${r.version} is named ${releaseFileName(r.version)}, not ${name}`,
         !/^[0-9a-f]{40}$/.test(r.commit ?? "") && `commit ${r.commit ?? "(none)"} is not a full commit`,
         !/^[0-9a-f]{64}$/.test(r.pin ?? "") && `pin ${r.pin ?? "(none)"} is not a SHA-256`,
         !r.tool && "no tool",
@@ -267,16 +279,27 @@ export function parseProductRecords(dir) {
         !checks.length && "no checks",
         ...checks.filter((c) => !RESULTS.includes(c.result)).map((c) => `check ${c.check ?? ""} has the result ${c.result ?? "(none)"}, not one of ${RESULTS.join(", ")}`),
       ].filter(Boolean);
-      if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
-      else releases.push(r);
+      if (wrong.length) {
+        malformed.push(`${name}: ${wrong.join("; ")}`);
+        unread.push({ file: name, version: r.version, why: wrong.join("; ") });
+      } else releases.push(r);
     } else if (field("Release") !== null) {
       const d = { file: name, release: field("Release"), environment: field("Environment"), time: field("Time") };
-      const wrong = [!d.environment && "no environment", !realTime(d.time) && `time ${d.time ?? "(none)"} is not a UTC time to the second`].filter(Boolean);
-      if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
-      else deployments.push(d);
-    } else malformed.push(`${name}: neither a release (Version:) nor a deployment (Release:)`);
+      const wrong = [
+        SEMVER.test(named) && `a deployment is named ${name}, the name of a record of release ${named}`,
+        !d.environment && "no environment",
+        !realTime(d.time) && `time ${d.time ?? "(none)"} is not a UTC time to the second`,
+      ].filter(Boolean);
+      if (wrong.length) {
+        malformed.push(`${name}: ${wrong.join("; ")}`);
+        if (SEMVER.test(named)) unread.push({ file: name, version: named, why: wrong.join("; ") });
+      } else deployments.push(d);
+    } else {
+      malformed.push(`${name}: neither a release (Version:) nor a deployment (Release:)`);
+      if (SEMVER.test(named)) unread.push({ file: name, version: named, why: "neither a release nor a deployment" });
+    }
   }
-  return { releases, deployments, malformed };
+  return { releases, deployments, malformed, unread };
 }
 
 export const inHistory = (top, commit) => git(top, "cat-file", "-e", `${commit}^{commit}`).ok && isAncestor(top, commit, "HEAD");
@@ -319,6 +342,10 @@ export function releaseRecordProblems({ top, cfgRel, r }) {
   else if (required.join("|") !== given.join("|")) out.push(`${r.file}: the checks ${given.join(", ")} are not the ones the configuration at ${r.commit.slice(0, 7)} requires, ${required.join(", ")}`);
   const failed = r.checks.filter((c) => !RELEASABLE.has(c.result));
   if (failed.length) out.push(`${r.file}: checks not passed: ${failed.map((c) => `${c.check} · ${c.result ?? "(none)"}`).join(", ")}`);
+  // Skipped, or not run, is a result of a test suite only: the project's check either passed or not
+  // (D-127).
+  const notSuite = r.checks.filter((c) => !isSuite(c.check) && c.result !== "pass" && c.result !== "fail");
+  if (notSuite.length) out.push(`${r.file}: ${notSuite.map((c) => `${c.check} · ${c.result}`).join(", ")}: only a test suite is skipped or not run, the check passes or fails`);
   const uncounted = r.checks.filter((c) => c.result === "skipped" && !SKIPPED.test(c.detail ?? ""));
   if (uncounted.length) out.push(`${r.file}: skipped with no count: ${uncounted.map((c) => c.check).join(", ")}`);
   return out;

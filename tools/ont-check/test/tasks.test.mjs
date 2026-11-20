@@ -44,19 +44,22 @@ const doneText = ({ task = "t", hash = A, time, result = "pass", commit = "a".re
   [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${hash}`, `Time: ${time}`, `Checks:`, `- ${command} · ${result}`, ""].join("\n");
 
 // Writes the records into two directories and reads them as the check does.
-function scenario({ rounds = [], spend = [], done = [] }) {
+const approvalText = ({ task = "t", hash = A, by = "owner", source = '"1007 a", the owner, 2026-11-20', time }) =>
+  [`Record: approval`, `Task: ${task}`, `Statement-hash: ${hash}`, ...(by === null ? [] : [`By: ${by}`]), ...(source === null ? [] : [`Source: ${source}`]), `Time: ${time}`, ""].join("\n");
+function scenario({ rounds = [], spend = [], done = [], approvals = [] }) {
   const dir = mkdtempSync(join(tmpdir(), "task-"));
   mkdirSync(join(dir, "rounds"));
   mkdirSync(join(dir, "tasks"));
   rounds.forEach((r, i) => writeFileSync(join(dir, "rounds", `r${i}.md`), roundText(r)));
   spend.forEach((s, i) => writeFileSync(join(dir, "tasks", `s${i}.md`), spendText(s)));
   done.forEach((d, i) => writeFileSync(join(dir, "tasks", `d${i}.md`), doneText(d)));
+  approvals.forEach((a, i) => writeFileSync(join(dir, "tasks", `a${i}.md`), approvalText(a)));
   const r = parseRounds(join(dir, "rounds"));
   const t = parseTaskRecords(join(dir, "tasks"));
   return { dir, ...r, records: t };
 }
 const state = (sc, { statement = null, defaults = { newInput: null, output: null, reserve: null } } = {}) =>
-  taskState({ rounds: sc.rounds, spend: sc.records.spend, done: sc.records.done, task: "t", defaults, statement }).lines.join("\n");
+  taskState({ rounds: sc.rounds, spend: sc.records.spend, done: sc.records.done, approvals: sc.records.approvals, task: "t", defaults, statement }).lines.join("\n");
 const fileOf = (hash) => ({ hash, doneWhen: ["npm test"], budget: { newInput: null, output: null } });
 const approvedA = { step: "statement-review", number: 1, ceiling: 2, time: T(9), hash: A };
 
@@ -198,7 +201,7 @@ test("[check.task-statement.budget-final-exact] a clean final round that spends 
 });
 
 test("[check.task-statement.budget-final-over] a clean final round past the budget ends the task and says the overspend, which its record must name", () => {
-  const named = scenario({ rounds: [{ ...approvedA, tokens: [500, 0, 10] }, finalRound({ tokens: [600, 0, 10], overspend: "new input 1100 of 1000" })], done: [{ time: T(11) }] });
+  const named = scenario({ rounds: [{ ...approvedA, tokens: [500, 0, 10] }, finalRound({ tokens: [600, 0, 10], overspend: "new input 1100 of 1000, output 20 of 1000" })], done: [{ time: T(11) }] });
   const st = taskState({ rounds: named.rounds, spend: [], done: named.records.done, task: "t", defaults: limits(1000, 1000), statement: fileOf(A) });
   const out = st.lines.join("\n");
   assert.match(out, /result: done, with an overspend: new input 1100 of 1000, output 20 of 1000; report it to the owner/);
@@ -593,4 +596,103 @@ test("[check.task-result.git-env-of-hook] the variables Git sets for a hook of a
     clean();
     rmSync(other, { recursive: true, force: true });
   }
+});
+
+// Round 3 of the review of the result of task releases-and-task (D-121, D-128).
+const withFindings = { step: "statement-review", number: 1, ceiling: 2, time: T(9), hash: A, found: 2 };
+
+test("[check.owner-approval.after-findings] after rounds with findings the owner's approval of the file's version lets work start and done be recorded, and a later round with findings withdraws it", () => {
+  const before = scenario({ rounds: [withFindings] });
+  assert.match(state(before, { statement: fileOf(A) }), /result: work is not allowed/);
+  const sc = scenario({ rounds: [withFindings], approvals: [{ time: T(10) }] });
+  assert.deepEqual(sc.records.malformed, []);
+  const out = state(sc, { statement: fileOf(A) });
+  assert.match(out, /statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}: work may start under it/);
+  assert.match(out, /result: the executor works, then records done with done\.mjs/);
+  // The approval holds for its version only.
+  assert.match(state(sc, { statement: fileOf(B) }), /statement: the statement changed after its approval/);
+  // An acceptance under the owner's approval holds; the check refuses none.
+  const accepted = scenario({ rounds: [withFindings, finalRound()], approvals: [{ time: T(10) }], done: [{ time: T(11) }] });
+  assert.deepEqual(acceptanceProblems(accepted.rounds, accepted.records.done, accepted.records.approvals), []);
+  assert.match(state(accepted, { statement: fileOf(A) }), /result: done: the last round and its acceptance are clean/);
+  // A later round of the statement with findings withdraws it.
+  const later = scenario({ rounds: [withFindings, { ...withFindings, number: 2, time: T(11) }], approvals: [{ time: T(10) }] });
+  assert.match(state(later, { statement: fileOf(A) }), /result: work is not allowed/);
+  // done.mjs counts it as the check does.
+  const { repo, outside, clean } = doneRepo("t");
+  try {
+    const statement = join(outside, "s.md");
+    const hash = readStatement(statement).hash;
+    writeFileSync(join(repo, "rounds", "1.md"), roundText({ task: "t", step: "statement-review", number: 1, ceiling: 2, time: T(9), hash, found: 2 }));
+    const run = () => spawnSync("node", [join(TOOLS, "done.mjs"), "t", "--statement", statement, "--config", join(repo, "ont.config.json")], { encoding: "utf8" });
+    const refused = run();
+    assert.equal(refused.status, 1, refused.stdout);
+    writeFileSync(join(repo, "tasks", "approval.md"), approvalText({ hash, time: T(10) }));
+    const ok = run();
+    assert.equal(ok.status, 0, ok.stdout);
+    assert.match(ok.stdout, /^DONE t: 1 commands passed/);
+  } finally {
+    clean();
+  }
+  [before, sc, accepted, later].forEach((x) => rmSync(x.dir, { recursive: true, force: true }));
+});
+
+test("[check.owner-approval.needs-source] a record of the owner's approval without a source, or by anyone but the owner, is refused and approves nothing", () => {
+  const sc = scenario({ rounds: [withFindings], approvals: [{ time: T(10), source: null }, { time: T(10, 30), by: "an agent" }] });
+  assert.equal(sc.records.approvals.length, 0);
+  assert.match(sc.records.malformed.join("\n"), /a0\.md: no source: the owner's words or answer it rests on, with the date/);
+  assert.match(sc.records.malformed.join("\n"), /a1\.md: by an agent, not by owner/);
+  assert.match(state(sc, { statement: fileOf(A) }), /result: work is not allowed/);
+  writeFileSync(join(sc.dir, "statement.md"), A_TEXT);
+  const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "statement.md")]);
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stdout, /task records that cannot be read \(2\)/);
+  assert.match(r.stdout, /TASK t · result: work is not allowed/);
+  assert.doesNotMatch(r.stdout, /ONT_OK/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-result.latest-done] a record of done of a newer commit after the acceptance leaves the task not done, in --task and in --rounds", () => {
+  const sc = scenario({ rounds: [approvedA, finalRound()], done: [{ time: T(11) }, { time: T(13), commit: "c".repeat(40) }] });
+  const out = state(sc, { statement: fileOf(A) });
+  assert.doesNotMatch(out, /the task is done|result: done/);
+  assert.match(out, /result: the verdict of acceptance of r1\.md is refused: the record of done d1\.md, of commit ccccccc, was made after it and has no acceptance of its own/);
+  assert.match(out, /TASK t · done: recorded in d1\.md, commit ccccccc, .*no round of the review of the result has followed it yet/);
+  const r = checkWith(sc, {}, ["--rounds"]);
+  assert.match(r.stdout, /ROUNDS t · result-review: 1 full, 0 narrow · next: the verdict of acceptance of r1\.md is refused: the record of done d1\.md/);
+  assert.doesNotMatch(r.stdout, /result-review: .* next: the step ended clean/);
+  // The general check does not refuse the acceptance of the earlier record: a newer result waits for its round.
+  assert.doesNotMatch(r.stdout, /verdicts of acceptance refused/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.overspend-computed] the line Overspend: is the tool's own text, required past the limit by --task and by the check alike", () => {
+  const rounds = (overspend) => [{ ...approvedA, tokens: [500, 0, 10] }, finalRound({ tokens: [600, 0, 10], ...(overspend ? { overspend } : {}) })];
+  const exact = "new input 1100 of 1000, output 20 of 1000";
+  const cases = { wrong: "new input 1101 of 1000, output 20 of 1000", missing: null, exact };
+  for (const [name, line] of Object.entries(cases)) {
+    const sc = scenario({ rounds: rounds(line), done: [{ time: T(11) }] });
+    const st = taskState({ rounds: sc.rounds, spend: [], done: sc.records.done, task: "t", defaults: limits(1000, 1000), statement: fileOf(A) });
+    const general = checkWith(sc, { budget: { newInput: 1000, output: 1000 } }, []);
+    const rounds2 = checkWith(sc, { budget: { newInput: 1000, output: 1000 } }, ["--rounds"]);
+    if (name === "exact") {
+      assert.deepEqual(st.errors, []);
+      assert.equal(general.status, 0, general.stdout);
+      assert.equal(rounds2.status, 0, rounds2.stdout);
+    } else {
+      assert.equal(st.errors.length, 1, name);
+      assert.match(st.errors[0], name === "wrong" ? /names the overspend as "new input 1101 of 1000, output 20 of 1000", not as the tool computes it, "new input 1100 of 1000, output 20 of 1000"/ : /does not name the overspend/);
+      for (const r of [general, rounds2]) {
+        assert.equal(r.status, 1, `${name}: ${r.stdout}`);
+        assert.match(r.stdout, /records of acceptance whose line Overspend: is not the tool's \(1\)/);
+        assert.doesNotMatch(r.stdout, /ONT_OK/);
+      }
+    }
+    rmSync(sc.dir, { recursive: true, force: true });
+  }
+  // Within the limit, a line Overspend: names what the tool does not find.
+  const within = scenario({ rounds: rounds("new input 1100 of 1000"), done: [{ time: T(11) }] });
+  const st = taskState({ rounds: within.rounds, spend: [], done: within.records.done, task: "t", defaults: limits(5000, 5000), statement: fileOf(A) });
+  assert.match(st.errors.join("\n"), /names an overspend, "new input 1100 of 1000", where the tool finds none/);
+  rmSync(within.dir, { recursive: true, force: true });
 });

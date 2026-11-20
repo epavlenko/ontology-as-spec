@@ -47,8 +47,8 @@ import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contrac
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
-import { parseRounds, renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, gitEnv, overlaps, parseTaskRecords, readStatement, stepNext, taskBudget, taskState } from "./tasks.mjs";
+import { byTime, parseRounds, renderRounds } from "./review-rounds.mjs";
+import { acceptanceProblems, gitEnv, overlaps, overspendProblems, parseTaskRecords, readStatement, stepNext, taskBudget, taskState } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -64,6 +64,15 @@ const { classes } = cfg;
 const ids = (text) => backtickIds(text, classes);
 const diff = (a, b) => [...a].filter((x) => !b.has(x)).sort();
 const errors = [];
+// An error of a flag or of the configuration it needs: printed, and counted, so that the run never ends
+// with ONT_OK and exit 0 after it (D-129). Every ERROR of this file goes through fail or report; with a
+// code, the run stops there.
+// ont: inv.error-fails-run
+const fail = (message, code = null) => {
+  console.log(`ERROR · ${message}`);
+  if (code !== null) process.exit(code);
+  errors.push(message);
+};
 const report = (label, items, fatal = true, limit = Infinity) => {
   if (!items.length) return;
   const shown = items.length > limit ? [...items.slice(0, limit), `… ${items.length - limit} more`] : items;
@@ -1123,8 +1132,7 @@ if (flag("--gap") > 0) {
   const ticket = next && !next.startsWith("--") ? tickets.find((t) => t.file === resolve(next)) : null;
   gapTicket = ticket;
   if (next && !next.startsWith("--") && !ticket) {
-    console.log(`ERROR · --gap: ${next} is not a ticket the config knows`);
-    errors.push("--gap");
+    fail(`--gap: ${next} is not a ticket the config knows`);
   }
   const inScope = (x) => !ticket || ticket.own.has(x);
   const checkInScope = (c) => !ticket || ticket.checks.includes(c.id) || c.concepts.some((x) => ticket.own.has(x));
@@ -1282,13 +1290,11 @@ if (cfg.manualRuns) {
 if (flag("--review") > 0) {
   const base = process.argv[flag("--review") + 1];
   if (!base || base.startsWith("--")) {
-    console.log("ERROR · --review needs a base: a branch, a tag or a commit");
-    process.exit(2);
+    fail("--review needs a base: a branch, a tag or a commit", 2);
   }
   const r = reviewChange({ cfg, base, checks, approachChecks: approach?.manualChecks, implRows, ids });
   if (r.error) {
-    console.log(`ERROR · ${r.error}`);
-    process.exit(2);
+    fail(r.error, 2);
   }
   console.log(renderReview(r, base, cfg.base, stampFor));
   // --record <table>: the records of the review, written from the reviewer's table (D-100).
@@ -1296,12 +1302,10 @@ if (flag("--review") > 0) {
   if (flag("--record") > 0) {
     const table = process.argv[flag("--record") + 1];
     if (!cfg.manualRuns) {
-      console.log("ERROR · --record needs manualRuns in the configuration: the directory of the records");
-      process.exit(2);
+      fail("--record needs manualRuns in the configuration: the directory of the records", 2);
     }
     if (!table || table.startsWith("--") || !existsSync(table)) {
-      console.log("ERROR · --record needs the reviewer's table of verdicts, a file");
-      process.exit(2);
+      fail("--record needs the reviewer's table of verdicts, a file", 2);
     }
     const listed = new Map([...r.project, ...r.approach].map((c) => [c.id, c]));
     const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
@@ -1323,13 +1327,15 @@ if (flag("--review") > 0) {
     };
     const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince });
     if (res.problems.length) {
-      console.log(`ERROR · the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`);
-      process.exit(1);
+      fail(`the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`, 1);
     }
     for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text);
     console.log(`RECORDED ${res.records.length} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
   }
 }
+// Flags that only another flag gives a meaning to (D-129).
+if (flag("--record") > 0 && !(flag("--review") > 0)) fail("--record needs --review <base>: the change whose verdicts it records");
+if (flag("--statement") > 0 && !(flag("--task") > 0)) fail("--statement needs --task <task>: the task whose statement it is");
 // --rounds: what follows the last round of each task's review, and the payoff of each step (D-97, D-99).
 // ont: derived.next-round, derived.step-payoff, inv.review-rounds-well-formed
 if (cfg.reviewRounds) {
@@ -1338,15 +1344,27 @@ if (cfg.reviewRounds) {
   // Records of done and of spend (D-107, D-108): a contribution recorded twice over one interval, and a
   // verdict of acceptance with no record of done behind it, are errors.
   // ont: inv.contributions-apart, inv.acceptance-after-done
-  const records = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], malformed: [] };
+  const records = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
   report("task records that cannot be read", records.malformed);
   report("contributions recorded twice over intervals that overlap", overlaps(rounds, records.spend));
-  report("verdicts of acceptance refused", acceptanceProblems(rounds, records.done));
+  report("verdicts of acceptance refused", acceptanceProblems(rounds, records.done, records.approvals));
+  // The round that ends a task names its overspend as the tool computes it: required past the
+  // configuration's limits, and every spend it names the one the tool sums (D-128); --task, with the
+  // statement's own limits, compares the whole line.
+  // ont: field.review-round.overspend, rule.budget-before-next
+  const ended = [...new Set(rounds.map((r) => r.task))].filter((t) => stepNext({ rounds, done: records.done, approvals: records.approvals, task: t, step: "result-review" }).next === "clean");
+  report(
+    "records of acceptance whose line Overspend: is not the tool's",
+    ended.flatMap((t) => {
+      const end = byTime(rounds.filter((r) => r.task === t && r.step === "result-review")).at(-1);
+      return overspendProblems(end, taskBudget({ rounds, spend: records.spend, task: t, defaults: cfg.budget, statement: null, summed: true }), { exact: false });
+    }),
+  );
   // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
   // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
   if (flag("--rounds") > 0) {
     const exhaustedOf = (t) => Boolean(taskBudget({ rounds, spend: records.spend, task: t, defaults: cfg.budget, statement: null })?.exhausted);
-    console.log(renderRounds(rounds, { exhaustedOf, nextOf: (t, step) => stepNext({ rounds, done: records.done, task: t, step, exhausted: exhaustedOf(t) }) }));
+    console.log(renderRounds(rounds, { exhaustedOf, nextOf: (t, step) => stepNext({ rounds, done: records.done, approvals: records.approvals, task: t, step, exhausted: exhaustedOf(t) }) }));
   }
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
   // budget (D-106, D-108).
@@ -1355,14 +1373,13 @@ if (cfg.reviewRounds) {
     const task = process.argv[flag("--task") + 1];
     const file = flag("--statement") > 0 ? process.argv[flag("--statement") + 1] : null;
     if (!task || task.startsWith("--") || (flag("--statement") > 0 && (!file || !existsSync(file)))) {
-      console.log("ERROR · --task needs a task, and --statement an existing file");
-      process.exit(2);
+      fail("--task needs a task, and --statement an existing file", 2);
     }
-    const st = taskState({ rounds, spend: records.spend, done: records.done, task, defaults: cfg.budget, statement: file ? readStatement(file) : null });
+    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement: file ? readStatement(file) : null });
     console.log(st.lines.join("\n"));
     report("task records that do not say what --task found", st.errors);
   }
-} else if (flag("--rounds") > 0 || flag("--task") > 0) console.log("ERROR · --rounds and --task need reviewRounds in the configuration");
+} else if (flag("--rounds") > 0 || flag("--task") > 0) fail("--rounds and --task need reviewRounds in the configuration");
 
 // Releases (D-109, D-110, D-111). In the approach's repository, every entry of releases.md has its tag
 // and every tag its entry. In a project with a copy of the tool, the releases its approach clone knows
@@ -1397,7 +1414,7 @@ if (cfg.releases) {
     for (const r of releases) console.log(`RELEASE ${r.version} · ${r.commit.slice(0, 7)} · ${r.date} · ${r.checks.map((c) => `${c.check} ${c.result}`).join(", ")}`);
     for (const [env, d] of runningNow(deployments)) console.log(`RUNNING ${env}: ${d.release}, since ${d.time}`);
   }
-} else if (flag("--releases") > 0) console.log("ERROR · --releases needs releases in the configuration");
+} else if (flag("--releases") > 0) fail("--releases needs releases in the configuration");
 
 console.log(
   [
@@ -1501,9 +1518,9 @@ if (cfg.oracle) {
     const empty = emptyTests({ results, tests: registered.filter((t) => t.kind === "check" || t.kind === "custom"), rows, sample: tracesRead.sample });
     report("tests of checks that pass on a change of the forms their check's trace fails on (empty tests)", empty.map((e) => `${e.name}: ${e.missed.slice(0, 3).join("; ")}${e.missed.length > 3 ? ` and ${e.missed.length - 3} more` : ""}`));
   }
-} else if (flag("--run") > 0) {
-  console.log('ERROR · --run needs "oracle": true in the configuration');
-  errors.push("--run");
+} else {
+  if (flag("--run") > 0) fail('--run needs "oracle": true in the configuration');
+  if (flag("--mutate") > 0) fail('--mutate needs "oracle": true in the configuration');
 }
 
 if (errors.length) {

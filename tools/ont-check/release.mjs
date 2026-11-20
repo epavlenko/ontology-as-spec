@@ -30,6 +30,7 @@ import {
   parseProductRecords,
   pinAt,
   productReleaseProblems,
+  releaseFileName,
   releaseRecordProblems,
   runMatchesRecord,
   parseReleasesFile,
@@ -168,7 +169,7 @@ function product() {
   const top = git(cfg.base, "rev-parse", "--show-toplevel").out;
   const cfgRel = relative(top, cfg.file).split("\\").join("/");
   const tool = toolIn(top);
-  const { releases } = parseProductRecords(cfg.releases.dir);
+  const { releases, unread } = parseProductRecords(cfg.releases.dir);
   const run = (commit) =>
     tool === null
       ? refuse("the tool must be inside the repository, so that the worktree has the tool of the commit")
@@ -176,12 +177,15 @@ function product() {
 
   if (argv.includes("--verify")) {
     const version = value("--verify");
-    const r = releases.find((x) => x.version === version);
-    if (!r) refuse(`no record of release ${version}`);
-    // The record's integrity first, as the check finds it: a run cannot vouch for a record whose commit,
-    // pin or checks do not hold (D-116).
-    const broken = productReleaseProblems({ top, cfgRel, releases: [r], deployments: [] });
+    const of = releases.filter((x) => x.version === version);
+    const unreadOf = unread.filter((x) => x.version === version);
+    if (!of.length && !unreadOf.length) refuse(`no record of release ${version}`);
+    // The integrity of the whole version first, by the check's function over every record of it, and the
+    // records of it that cannot be read: a run cannot vouch for a version whose records do not hold, or
+    // that has two (D-116, D-127).
+    const broken = [...unreadOf.map((x) => `${x.file}: ${x.why}`), ...productReleaseProblems({ top, cfgRel, releases: of, deployments: [] })];
     if (broken.length) refuse(`release ${version} is not intact, so it is not run:\n${broken.map((b) => `  ${b}`).join("\n")}`);
+    const r = of[0];
     const res = run(r.commit);
     if (res.error) refuse(res.error);
     const got = res.results.map((x) => `${x.command} · ${x.result}${x.result === "skipped" ? ` · ${x.detail}` : ""}`);
@@ -199,6 +203,8 @@ function product() {
   const version = value("--product")?.replace(/^v/, "");
   if (!version || !SEMVER.test(version)) refuse("give the version, three numbers of Semantic Versioning: --product 1.0.0");
   if (releases.some((r) => r.version === version)) refuse(`release ${version} has a record already`);
+  const other = unread.find((x) => x.version === version);
+  if (other) refuse(`release ${version} has a record already that cannot be read, ${other.file}: ${other.why}`);
   const commit = git(cfg.base, "rev-parse", "--verify", `${value("--commit") ?? "HEAD"}^{commit}`).out;
   if (!commit) refuse(`no commit ${value("--commit") ?? "HEAD"}`);
   // The rules of the check, before anything runs: a commit of the history, the pin of its configuration
@@ -222,11 +228,17 @@ function product() {
   // (D-125): the action never writes a record the check refuses.
   const record = { version, commit, pin: pin.hash, tool: toolVersion, date: today(), results: res.results };
   const checks = res.results.map((x) => ({ check: x.command, result: x.result, detail: x.detail }));
-  const wrong = releaseRecordProblems({ top, cfgRel, r: { ...record, file: `${version}.md`, checks } });
+  const wrong = releaseRecordProblems({ top, cfgRel, r: { ...record, file: releaseFileName(version), checks } });
   if (wrong.length) refuse(`the record would not hold: ${wrong.join("; ")}; no record written`);
   mkdirSync(cfg.releases.dir, { recursive: true });
-  const file = join(cfg.releases.dir, `${version}.md`);
-  writeFileSync(file, releaseRecordText(record));
+  // A record is never written over a file: opened exclusively, so a file of that name, whatever it holds,
+  // is left as it was (D-127).
+  const file = join(cfg.releases.dir, releaseFileName(version));
+  try {
+    writeFileSync(file, releaseRecordText(record), { flag: "wx" });
+  } catch (e) {
+    refuse(e.code === "EEXIST" ? `${relative(process.cwd(), resolve(file))} exists already; nothing written over it` : `the record was not written: ${e.message}`);
+  }
   const skipped = res.results.filter((x) => x.result === "skipped");
   console.log(`RELEASED ${version}: ${res.results.map((x) => `${x.command} · ${x.result}`).join(", ")} on ${commit.slice(0, 7)}${skipped.length ? `; skipped, as the record says: ${skipped.map((x) => `${x.command} (${x.detail})`).join(", ")}` : ""}; recorded in ${relative(process.cwd(), resolve(file))}`);
 }

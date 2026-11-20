@@ -1008,6 +1008,17 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: exempting the tasks recorded before D-107 (the tool cannot tell them from a task whose acceptance was forgotten); reading the statement's limits in `--rounds` (it is not given a statement).
 - Concepts: `derived.next-round`, `rule.acceptance-against-approved`, `rule.budget-before-next`.
 
+### D-121 · The owner's approval of a version of a statement is a record in taskRecords, counted beside the rounds
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 1007, "1007 I did approve the goal. So carry it through to the result. Decide yourself how many rounds are needed" (translated from Russian). Question 1007 asked how the tool records the owner's approval of a statement after the rounds of its review have run out; the thread carries the answer out as option a of that question, which proposed this record. The form of the record, its fields and the order of a round and an approval in one second are the thread's technical decisions, not the owner's words.
+- Decision: adds to D-106 and D-117. The owner's approval of one version of a task's statement is a record in the directory of `taskRecords` (`ent.owner-approval`): `Record: approval`, `Task:`, `Statement-hash:` with the SHA-256 of the file, `By: owner`, `Source:` with the owner's words or answer and the date, and `Time:` in UTC.
+  - The approval in force (`derived.approval`) is decided by the last by time of the rounds of the review of the statement and the records of the owner's approval: a clean round approves the version it read, a record of the owner's approval the version it names, a round with findings none. At the same second a round comes first. A later round with findings withdraws an owner's approval as it withdraws a clean round. `done.mjs`, `--task`, `--rounds` and the check of acceptance read it alike, and `--task` says the approval is the owner's.
+  - A record counts only with `By: owner`, a source that is not empty, a task, a SHA-256 and a real time; any other is a record that cannot be read, an error of the check, and approves nothing (`inv.owner-approval-sourced`). The tool never writes one: the thread that carries out the owner's answer does.
+- Why: the rounds of the review of the statement of task releases-and-task ran out with findings, the owner approved it by his answers to questions 1003 and 1007, and the tool, which knew only a clean round as an approval, refused work and the record of done.
+- Rejected: a clean round written for the owner (it would claim a review that was not held); an approval read from the owner's words in the statement's prose (the tool reads only lines it defines); a record by anyone but the owner.
+- Concepts: `ent.owner-approval`, `derived.approval`, `inv.owner-approval-sourced`, `rule.work-under-approval`.
+
 ### D-122 · A tag is a release only by one test, which the check of the approach and the news of a project share
 
 - Date: 2026-11-20 · Status: accepted
@@ -1047,6 +1058,48 @@ The approach applied to itself: decisions about how the approach is described an
 - Why: `--product --commit` wrote a record of a commit outside the branch's history that the check then refused; moving the pin in the current configuration broke an old release, whose pin was looked up under the new path; `--verify` accepted a record of 1 of 5 tests skipped when all 5 were skipped.
 - Rejected: reading the pin's path from the current configuration (it moves); comparing only the result of a skipped check (the count is what the record claims).
 - Concepts: `inv.product-release-intact`, `edge.product-release.pin`, `action.release-product`, `action.verify-release`, `field.product-release.checks`.
+
+### D-126 · A release commit is compared with its parent entry by entry, in order and counted
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-109 and D-114, from the owner's answer of 2026-11-20 to question 996, "996 - a", quoted in D-109; the reviewer's finding of round 3 of the review of the result of task releases-and-task, "tag not matched to its release entry", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. The comparison as ordered lists is the thread's technical decision.
+- Decision: adds to D-114 and D-122. `releaseCommitProblems` reads the log of releases of the verified commit and of the release commit as ordered lists of whole entries: the release commit's list is the parent's with exactly the entry of its version appended, every entry before it in its place, so that a second copy of an earlier entry added with it is a change of the log (`inv.release-tagged`). The check of the approach and the news of a project ask it through `releaseTag`, so both refuse such a tag.
+- Why: an annotated tag on a commit that added its own entry and a second copy of an earlier one was announced in the news, while the check refused the same log as two entries; the comparison by sets of entries lost the count of equal ones.
+- Rejected: comparing the text of the whole file (a change of the heading alone is not a change of a release).
+- Concepts: `inv.release-tagged`, `derived.newer-releases`.
+
+### D-127 · A record of a product release is named by its version and never written over a file; only a suite is skipped; --verify checks the whole version
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-111 and D-116, from the owner's answer of 2026-11-20 to question 996, "996 - a", quoted in D-111; the reviewer's findings of round 3 of the review of the result of task releases-and-task, "product release run not proven" and "git context and paths", are the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. Distinct names rather than subdirectories, and the messages, are the thread's technical decisions.
+- Decision: adds to D-111, D-116 and D-125.
+  - A record of a release is the file `<version>.md` and only it: a record of release 1.0.0 in another file, and a deployment in a file named as a version, cannot be read (`field.product-release.version`, `ent.deployment`). The two kinds keep one directory, so a project's deployments stay where they were.
+  - `--product` writes the record by opening its file exclusively, never over a file that exists, and refuses a version that has a record that cannot be read (`action.release-product`); `done.mjs` writes its records so too, with the next free name in the same second.
+  - Skipped and not run are results of a test suite only; the project's check passes or fails, and a record that says otherwise is not intact (`inv.product-release-intact`). `--verify` lets a skipped check pass only when it is a suite.
+  - `--verify` first checks the whole version by the function of the check: every record of the version, read or not; a version with two records or one that does not hold is refused before anything runs (`action.verify-release`).
+- Why: `release.mjs --product 1.0.1` wrote over a deployment kept in `1.0.1.md`; `--verify` printed VERIFIED for a version with two records, which the check refused, and for a record whose `ont-check` was skipped.
+- Rejected: subdirectories for the two kinds (every project's deployments would move); refusing only the second record of a version (the name makes two impossible).
+- Concepts: `field.product-release.version`, `field.product-release.checks`, `inv.product-release-intact`, `action.release-product`, `action.verify-release`, `ent.deployment`.
+
+### D-128 · A task is done only with the acceptance of its latest record of done, and Overspend: is the tool's text
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-107 and D-108, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted in D-106; the reviewer's findings of round 3 of the review of the result of task releases-and-task, "acceptance not bound to approval and commit" and "budget stop at the end of a step", are the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. The wording and what the check compares without a statement are the thread's technical decisions.
+- Decision: adds to D-117, D-119, D-123 and D-124.
+  - `--task` and `--rounds` take a step of the review of the result as ended only when the verdict of acceptance of its last round holds for the latest record of done of the task; a record of done made after it, of a newer result, has no acceptance of its own, and the next is a round that gives one (`inv.acceptance-after-done`). The check does not refuse the earlier acceptance for it. `--task` prints the latest record of done on a line of its own.
+  - The line `Overspend:` of the round that ends a task is exactly the tool's text, `new input N of L, output N of L`, the spend and the limit with reserve it computes: `--task` refuses a line that differs, a missing one past the limit and one within it. The check, which has no statement, requires the line past the configuration's limits and compares every spend the line names with the sum (`field.review-round.overspend`, `rule.budget-before-next`).
+- Why: after a new record of done for a new commit under the same statement, `--task` still called the task done by the acceptance of the earlier commit; `Overspend: new input 101 of 100` passed for a spend of 150, and, with a project's limit, records without the line passed the check and `--rounds`.
+- Rejected: refusing in the check every acceptance followed by a record of done (a newer result waiting for its round is the normal course); comparing the line's limits in the check (a statement's own limits are known only to `--task`).
+- Concepts: `inv.acceptance-after-done`, `derived.next-round`, `field.review-round.overspend`, `rule.budget-before-next`.
+
+### D-129 · Every error of the check fails the run
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 1007, quoted in D-121, which leaves the rounds and their fixes to the thread; the reviewer's finding of round 3 of the review of the result of task releases-and-task, "exit code hides a configuration error", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words; the check's own rule, "Exit code 1 on any error", which its header gives. The functions and the errors of flags given alone are the thread's technical decisions.
+- Decision: every ERROR `ont-check.mjs` prints goes through one of two functions, `fail` and `report`, which count it, so the run exits with a code that is not 0 and prints no ONT_OK (`inv.error-fails-run`); a test reads the source and finds no other. A flag that only another flag gives a meaning to, given alone, is such an error: `--record` without `--review`, `--statement` without `--task`, and `--mutate` without the oracle, like `--run`.
+- Why: `--task` and `--rounds` without `reviewRounds`, and `--releases` without `releases`, printed ERROR, then ONT_OK, and exited 0.
+- Rejected: fixing the three lines alone (the next ERROR printed by hand would part again).
+- Concepts: `inv.error-fails-run`.
 
 ## Tentative
 

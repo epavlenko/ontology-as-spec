@@ -529,3 +529,64 @@ test("[check.protocol-release.docs-not-open] the limitations do not keep version
   assert.match(lifecycle, /^## Releases of the approach$/m);
   assert.match(lifecycle, /^## Releases of the product$/m);
 });
+
+// Round 3 of the review of the result of task releases-and-task (D-126, D-127).
+test("[check.protocol-release.entry-counted] a release commit that adds its entry and a second copy of an earlier one is refused by the check and by the news alike", () => {
+  const { repo, first } = approachRepo();
+  addEntry(repo, "D-02");
+  assert.equal(release(repo, "0.2.0").status, 0);
+  const v3 = addEntry(repo, "D-03");
+  const log = readFileSync(join(repo, "releases.md"), "utf8");
+  const v2entry = log.slice(log.indexOf("## v0.2.0"));
+  writeFileSync(join(repo, "releases.md"), `${log.replace(/\n*$/, "\n\n")}${v2entry.replace(/\n*$/, "\n\n")}## v0.3.0 · 2026-11-20\n\n- Verified: ${v3}\n`);
+  const c3 = commitAll(repo, "v0.3.0 and a second v0.2.0");
+  assert.equal(git(repo, "rev-parse", `${c3}^`), v3);
+  git(repo, "tag", "-a", "v0.3.0", c3, "-m", "v0.3.0");
+  const p = protocolReleaseProblems(repo).problems;
+  assert.ok(p.some((x) => /^v0\.3\.0: the release commit [0-9a-f]{7} adds the entry of v0\.2\.0 verified on [0-9a-f]{7}, the entry of v0\.3\.0 verified on [0-9a-f]{7}, not exactly the entry of v0\.3\.0/.test(x)), p.join("\n"));
+  assert.equal(releaseTag(repo, "v0.3.0").entry, null);
+  const news = releaseNews({ clone: repo, pinCommit: first, used: new Set() });
+  assert.ok(news.some((l) => /^the releases of the approach clone are not known in full: tag v0\.3\.0: /.test(l)), news.join("\n"));
+  assert.ok(!news.some((l) => /^version 0\.3\.0 was released/.test(l)), news.join("\n"));
+});
+
+test("[check.product-release.verify-whole-version] a second record of a version and a skipped ont-check are refused by the check, and --verify refuses them before it runs anything", () => {
+  const { repo } = productRepo();
+  assert.equal(product(repo, "--product", "1.0.0").status, 0);
+  const record = readFileSync(join(repo, "releases", "1.0.0.md"), "utf8");
+  writeFileSync(join(repo, "releases", "duplicate.md"), record);
+  const { malformed } = parseProductRecords(join(repo, "releases"));
+  assert.deepEqual(malformed, ["duplicate.md: a record of release 1.0.0 is named 1.0.0.md, not duplicate.md"]);
+  const c = checkProduct(repo);
+  assert.equal(c.status, 1, c.stdout);
+  assert.doesNotMatch(c.stdout, /ONT_OK/);
+  const v = product(repo, "--verify", "1.0.0");
+  assert.equal(v.status, 1, v.stdout);
+  assert.match(v.stdout, /^ERROR · release 1\.0\.0 is not intact, so it is not run:\n  duplicate\.md: a record of release 1\.0\.0 is named 1\.0\.0\.md/);
+  assert.doesNotMatch(v.stdout, /VERIFIED/);
+  // Alone, a record whose check ont-check is skipped: only a test suite is skipped.
+  rmSync(join(repo, "releases", "duplicate.md"));
+  writeFileSync(join(repo, "releases", "1.0.0.md"), record.replace("- ont-check · pass", "- ont-check · skipped · 1 of 1 tests skipped"));
+  assert.match(problems(repo).join("\n"), /1\.0\.0\.md: ont-check · skipped: only a test suite is skipped or not run, the check passes or fails/);
+  const s = product(repo, "--verify", "1.0.0");
+  assert.equal(s.status, 1, s.stdout);
+  assert.match(s.stdout, /^ERROR · release 1\.0\.0 is not intact, so it is not run:\n  1\.0\.0\.md: ont-check · skipped/);
+  assert.doesNotMatch(s.stdout, /VERIFIED/);
+});
+
+test("[check.product-release.never-overwritten] a deployment in a file named as a release is refused, and a release never writes over it", () => {
+  const { repo } = productRepo();
+  assert.equal(product(repo, "--product", "1.0.0").status, 0);
+  const deployment = "Release: 1.0.0\nEnvironment: production\nTime: 2026-11-20T10:00:00Z\n";
+  writeFileSync(join(repo, "releases", "1.0.1.md"), deployment);
+  assert.deepEqual(parseProductRecords(join(repo, "releases")).malformed, ["1.0.1.md: a deployment is named 1.0.1.md, the name of a record of release 1.0.1"]);
+  assert.equal(checkProduct(repo).status, 1);
+  const r = product(repo, "--product", "1.0.1");
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stdout, /^ERROR · release 1\.0\.1 has a record already that cannot be read, 1\.0\.1\.md/);
+  assert.equal(readFileSync(join(repo, "releases", "1.0.1.md"), "utf8"), deployment);
+  // A file of the version's name that is neither kind is left as it was too.
+  writeFileSync(join(repo, "releases", "1.0.1.md"), "notes\n");
+  assert.equal(product(repo, "--product", "1.0.1").status, 1);
+  assert.equal(readFileSync(join(repo, "releases", "1.0.1.md"), "utf8"), "notes\n");
+});

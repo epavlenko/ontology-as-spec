@@ -516,7 +516,7 @@
           "type": "string"
         },
         "overspend": {
-          "description": "On the round that ends the task, what it spent past its budget with reserve, new input and output each, as --task prints it.",
+          "description": "On the round that ends the task, what it spent past its budget with reserve, new input and output each, exactly as --task prints it, new input N of L, output N of L: the spend and the limit the tool computes, required past the limit and absent within it.",
           "x-ont": "field.review-round.overspend",
           "type": "string"
         },
@@ -593,6 +593,48 @@
         "notTodo",
         "doneWhen",
         "ceilings"
+      ]
+    },
+    "owner-approval": {
+      "title": "Owner approval",
+      "description": "The owner's approval of one version of a task's statement, given in his own words, as when the rounds of its review have run out with findings: one file in the directory the configuration names under taskRecords, Record: approval.",
+      "x-ont": "ent.owner-approval",
+      "type": "object",
+      "properties": {
+        "task": {
+          "description": "The task, named as in its rounds of review.",
+          "x-ont": "field.owner-approval.task",
+          "type": "string"
+        },
+        "by": {
+          "description": "owner: only the owner's approval is recorded so.",
+          "x-ont": "field.owner-approval.by",
+          "type": "string"
+        },
+        "source": {
+          "description": "The owner's words or his answer that approve the version, with the date.",
+          "x-ont": "field.owner-approval.source",
+          "type": "string"
+        },
+        "time": {
+          "description": "When the approval was given, in UTC to the second.",
+          "x-ont": "field.owner-approval.time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "statement": {
+          "description": "The version approved, by the SHA-256 of its file.",
+          "x-ont": "edge.owner-approval.statement",
+          "type": "string",
+          "x-ont-ref": "ent.task-statement"
+        }
+      },
+      "required": [
+        "task",
+        "by",
+        "source",
+        "time",
+        "statement"
       ]
     },
     "task-result": {
@@ -1061,7 +1103,7 @@
       "type": "object",
       "properties": {
         "version": {
-          "description": "The version in Semantic Versioning 2.0.0, unique among the releases.",
+          "description": "The version in Semantic Versioning 2.0.0, unique among the releases; it names the record's file, <version>.md, which no other record's file is named.",
           "x-ont": "field.product-release.version",
           "type": "string"
         },
@@ -1071,7 +1113,7 @@
           "type": "string"
         },
         "checks": {
-          "description": "The checks run on the commit, the project's check and each test suite of the configuration at that commit, each with its result: pass when every test passed, skipped with how many when tests were skipped and none failed, not run when no test ran, or fail.",
+          "description": "The checks run on the commit, the project's check and each test suite of the configuration at that commit, each with its result: pass when every test passed, skipped with how many when tests were skipped and none failed, or not run when no test ran, both for a test suite only, or fail; the project's check passes or fails.",
           "x-ont": "field.product-release.checks",
           "type": "string"
         },
@@ -1104,7 +1146,7 @@
     },
     "deployment": {
       "title": "Deployment",
-      "description": "A release put into an environment at a time, recorded in the directory of the releases; optional, since not every product is deployed.",
+      "description": "A release put into an environment at a time, recorded in the directory of the releases in a file whose name is not a version's; optional, since not every product is deployed.",
       "x-ont": "ent.deployment",
       "type": "object",
       "properties": {
