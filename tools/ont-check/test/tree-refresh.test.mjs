@@ -76,8 +76,9 @@ const clone = (dir) => {
     const m = readFileSync(place, "utf8").match(/<footer class="built" data-commit="([^"]*)"(?: data-config="([^"]*)")?/);
     return m && { commit: m[1], config: m[2] ?? null };
   };
+  const date = () => (readFileSync(place, "utf8").match(/<footer class="built"[^>]* data-date="([^"]*)"/) ?? [])[1] ?? null;
   const setPlace = () => git("config", "--local", "ont.treeOut", place);
-  return { dir, place, git, gen, edit, commit, sha, mark, setPlace };
+  return { dir, place, git, gen, edit, commit, sha, mark, date, setPlace };
 };
 // A branch b with one commit that changes no input of the tree, made from main and left for a merge.
 const branch = (r, name = "b") => {
@@ -97,17 +98,26 @@ test("[check.ontology-tree.refreshed-on-main] the first merge into main after th
   assert.deepEqual(r.mark(), { commit: r.sha("refs/heads/main"), config: "ont.config.json" });
   assert.equal(r.sha("refs/heads/main"), r.sha("b"), "the merge was a fast-forward");
 
-  // A clone that follows main of a remote: a new commit there, and the pull writes the page again.
+  assert.match(r.date(), /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
+
+  // A clone that follows main of a remote, with the page of its main already at the place: a new commit
+  // there, and the pull writes that page again.
   const c = clone(temp("ont-clone-"));
   assert.equal(sh(c.dir, "git", ["clone", "-q", r.dir, "."]).code, 0);
   c.git("config", "core.hooksPath", ".githooks");
   c.setPlace();
   const old = c.sha("refs/heads/main");
+  assert.equal(c.gen("--refresh").code, 0);
+  assert.deepEqual(c.mark(), { commit: old, config: "ont.config.json" }, "the old page is in place");
+  const page = readFileSync(c.place, "utf8");
   const fresh = r.commit("README.md", "# Ontology as Specification", "# Ontology as Specification\n\n", "on the remote");
   const p = c.git("pull", "--ff-only");
   assert.equal(p.code, 0, p.out);
+  assert.match(p.out, new RegExp(`built from ${fresh}`));
   assert.notEqual(fresh, old);
+  assert.notEqual(readFileSync(c.place, "utf8"), page, "the page is written again");
   assert.deepEqual(c.mark(), { commit: fresh, config: "ont.config.json" });
+  assert.match(c.date(), /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
   assert.equal(c.gen("--stale").out, "");
 
   // A clone whose path contains #, which a URL built from the path by hand reads as a fragment.
@@ -138,12 +148,23 @@ test("[check.ontology-tree.refresh-skipped] another branch, no place, or a squas
   assert.doesNotMatch(other.out, /tree/);
   assert.equal(existsSync(r.place), false, "a merge into another branch");
 
+  // No place in the clone's own configuration, while the user's global one names a place: that one is
+  // not the clone's, and the merge into main writes nothing there either.
   r.git("checkout", "-q", "main");
   r.git("config", "--local", "--unset", "ont.treeOut");
-  const none = r.git("merge", "-q", "y");
+  const global = join(temp("ont-global-"), "global-tree.html");
+  const gitconfig = join(temp("ont-gitconfig-"), "gitconfig");
+  writeFileSync(gitconfig, `[ont]\n\ttreeOut = ${global}\n`);
+  const env = { ...ENV, GIT_CONFIG_GLOBAL: gitconfig };
+  const seen = spawnSync("git", ["config", "--get", "ont.treeOut"], { cwd: r.dir, env, encoding: "utf8" });
+  assert.equal(seen.stdout.trim(), global, "the global configuration is read");
+  const run = spawnSync("git", ["merge", "-q", "y"], { cwd: r.dir, env, encoding: "utf8" });
+  const none = { code: run.status, out: run.stdout + run.stderr };
   assert.equal(none.code, 0, none.out);
   assert.doesNotMatch(none.out, /tree/);
   assert.equal(existsSync(r.place), false, "a merge into main without a place");
+  assert.equal(existsSync(global), false, "the place of the global configuration");
+  assert.equal(spawnSync("node", [join(r.dir, "tools/ont-check/gen-tree.mjs"), "--stale"], { cwd: r.dir, env, encoding: "utf8" }).stdout, "");
 
   r.setPlace();
   branch(r, "z");
