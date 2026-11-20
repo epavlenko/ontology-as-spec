@@ -10,13 +10,13 @@ Checks-listed: 62
 Checks-given: 62
 Checks-carried: 0
 Findings:
-- acceptance not bound to approval and commit · important · change · fixable
-- git context and paths · important · change · fixable
+- acceptance not bound to approval and commit · important · change · fixable · check.task-result.ending-round-one-function
+- git context and paths · important · change · fixable · check.product-release.pin-is-file
 
 Acceptance:
-- acceptance not bound to approval and commit · important · change · fixable
-- git context and paths · important · change · fixable
-- budget stop at the end of a step · important · change · fixable
+- acceptance not bound to approval and commit · important · change · fixable · check.task-result.ending-round-one-function
+- git context and paths · important · change · fixable · check.product-release.pin-is-file
+- budget stop at the end of a step · important · change · fixable · check.task-statement.reserve-of-statement
 
 ## Приёмка версии 8
 
