@@ -172,17 +172,27 @@ const git = (cwd, args, encoding = "utf8") => {
   }
 };
 
-// Builds the page from a configuration, keeping the bytes of every file the generator read, so that
-// the mark compares what was read, not what a file holds by the time it is compared.
+// A path as it was asked for, from the directory of whatever names it, its parts kept as they are: a
+// .. after a linked directory goes up from the link's target, as the file system takes it, which
+// resolve() would take away by hand, pointing at another file than the one read.
+const asked = (from, path) => (isAbsolute(path) ? path : `${from}${sep}${path}`);
+
+// Builds the page from a configuration, keeping the bytes of every file the generator read at the path
+// it read them from, so that the mark compares what was read, where it was read, not what a file holds
+// by the time it is compared or what another path holds.
 export function buildTree(configPath, labelsFile) {
   const inputs = [];
   const take = (path) => {
     const bytes = readFileSync(path);
-    inputs.push({ path: resolve(path), bytes });
+    inputs.push({ path, bytes });
     return bytes.toString("utf8");
   };
-  const cfg = loadConfig(configPath, take(resolve(configPath)));
-  const files = [cfg.ontology, ...cfg.external.map((e) => e.ontology)];
+  const configAt = asked(process.cwd(), configPath);
+  const configText = take(configAt);
+  const cfg = loadConfig(configAt, configText);
+  // The ontologies as the configuration names them, from the directory of the configuration as asked.
+  const raw = JSON.parse(configText);
+  const files = [raw.ontology, ...(raw.external ?? []).map((e) => e.ontology)].map((p) => asked(dirname(configAt), p));
   const texts = files.map(take);
   // The page's own words are always on it. A kind is shown as the label of a group, so only a class
   // other than the entity's that some row of the ontologies shown has; an entity is named by its term.
@@ -196,18 +206,18 @@ export function buildTree(configPath, labelsFile) {
     for (const r of rows) tables.set(r.table, [...(tables.get(r.table) ?? []), r]);
     for (const t of tables.values()) if (!t.some((r) => cls(r.id) === "ent")) known.add(t[0].heading);
   }
-  const label = labelsFile ? loadLabels(take(labelsFile), known) : () => null;
+  const label = labelsFile ? loadLabels(take(asked(process.cwd(), labelsFile)), known) : () => null;
   const html = texts.map((md) => renderOntology(md, cfg, label));
   return { title: (texts[0].match(/^# (.+)$/m) ?? [, "Ontology"])[1], html, label, inputs, files, configFile: resolve(configPath) };
 }
 
 // What the page is built from (field.ontology-tree.built-from). The commit is read once, and every input
-// is compared with that commit, not with a HEAD that may move meanwhile. An input is clean when the path
-// it was asked for, taken as it is, lies inside the repository, no part of it is a symbolic link in the
-// working tree, and the commit holds a regular file at that path whose bytes are the bytes read; git
-// diff would compare a link itself, not what it points to, and following links would compare a file at
-// another path. dirty lists the inputs that are not clean. onHead, for the tests, runs once the commit
-// is read.
+// is compared with that commit, not with a HEAD that may move meanwhile. An input is clean when no part
+// of the path it was read from, as given, before any .. is taken away, is a symbolic link, so that the
+// path normalised is the file read; that path lies inside the repository; and the commit holds a regular
+// file there whose bytes are the bytes read. git diff would compare a link itself, not what it points
+// to, and following links would compare a file at another path. dirty lists the inputs that are not
+// clean. onHead, for the tests, runs once the commit is read.
 export function markOf(built, { onHead } = {}) {
   const dir = dirname(built.configFile);
   const top = git(dir, ["rev-parse", "--show-toplevel"]);
@@ -220,7 +230,10 @@ export function markOf(built, { onHead } = {}) {
     const rel = relative(top, path);
     return rel === "" || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel) ? null : rel.split(sep).join("/");
   };
-  const linked = (rel) => rel.split("/").some((_, k, parts) => lstatSync(join(top, ...parts.slice(0, k + 1)), { throwIfNoEntry: false })?.isSymbolicLink() ?? true);
+  // Every part of the path as given, each prefix taken by the file system as it stands, a missing one
+  // counted as a link: a path that does not lead to the file read is not clean either.
+  const linked = (path) =>
+    path.split(sep).some((_, k, parts) => k > 0 && (lstatSync(parts.slice(0, k + 1).join(sep) || sep, { throwIfNoEntry: false })?.isSymbolicLink() ?? true));
   // The bytes of the regular file the commit holds at rel, or null: the tree of its directory is read
   // at the commit itself, so a directory that is a link there has no tree and the path is not found.
   const committed = (rel) => {
@@ -231,8 +244,8 @@ export function markOf(built, { onHead } = {}) {
   };
   const dirty = [];
   for (const { path, bytes } of built.inputs) {
-    const rel = inRepo(path);
-    const same = rel !== null && !linked(rel) && committed(rel)?.equals(bytes);
+    const rel = inRepo(resolve(path));
+    const same = rel !== null && !linked(path) && committed(rel)?.equals(bytes);
     if (!same) dirty.push(rel ?? path);
   }
   const config = inRepo(built.configFile);

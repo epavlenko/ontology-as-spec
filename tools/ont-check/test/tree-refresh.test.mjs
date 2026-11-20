@@ -291,6 +291,44 @@ test("[check.ontology-tree.mark] changed inputs, a symbolic link whose target ch
   assert.equal(w.gen("--out", w.place).code, 0);
   assert.deepEqual(w.mark(), { commit: `${w.sha("HEAD")}+working-tree`, config: "ont.config.json" }, "the directory replaced by a link");
 
+  // Paths through a linked directory followed by ..: via points to deep/inner, so via/.. is deep, while
+  // the path normalised by hand is the root. The labels file read there has the bytes of the committed
+  // labels.json at the root, and the ontology read there is another; neither is the commit's file at the
+  // path asked for, and the ontology the page shows is the one read.
+  const u = repo();
+  u.setPlace();
+  mkdirSync(join(u.dir, "deep", "inner"), { recursive: true });
+  symlinkSync(join("deep", "inner"), join(u.dir, "via"));
+  writeFileSync(join(u.dir, "labels.json"), "{}\n");
+  writeFileSync(join(u.dir, "deep", "labels.json"), "{}\n");
+  u.git("add", "-A");
+  u.git("commit", "-q", "-m", "a labels file, and a link into a directory");
+  assert.equal(u.gen("--labels", "labels.json", "--out", u.place).code, 0);
+  assert.deepEqual(u.mark(), { commit: u.sha("HEAD"), config: "ont.config.json" }, "the labels file at the root");
+  const ul = u.gen("--labels", `via${"/"}..${"/"}labels.json`, "--out", u.place);
+  assert.equal(ul.code, 0, ul.out);
+  assert.deepEqual(u.mark(), { commit: `${u.sha("HEAD")}+working-tree`, config: "ont.config.json" }, "a labels file through via/..");
+  cpSync(join(u.dir, "ontology.md"), join(u.dir, "deep", "ontology.md"));
+  u.edit("deep/ontology.md", "# Ontology as Specification", "# Ontology as Specification, read through via");
+  u.edit("ont.config.json", '"ontology": "ontology.md",', '"ontology": "via/../ontology.md",');
+  u.git("add", "-A");
+  u.git("commit", "-q", "-m", "the ontology through via/..");
+  const uo = u.gen("--out", u.place);
+  assert.equal(uo.code, 0, uo.out);
+  assert.match(readFileSync(u.place, "utf8"), /<h3>Ontology as Specification, read through via /, "the ontology read is the one at the path as given");
+  assert.deepEqual(u.mark(), { commit: `${u.sha("HEAD")}+working-tree`, config: "ont.config.json" }, "an ontology through via/..");
+  // And the configuration itself asked for through via/..: deep/ont.config.json, a copy of the root's.
+  u.git("checkout", "-q", "HEAD~1", "--", "ont.config.json");
+  u.git("commit", "-q", "-am", "the ontology at the root again");
+  cpSync(join(u.dir, "ont.config.json"), join(u.dir, "deep", "ont.config.json"));
+  for (const f of ["ontology.md", "example/ontology.md", "templates/ontology.md"]) {
+    mkdirSync(join(u.dir, "deep", f, ".."), { recursive: true });
+    cpSync(join(u.dir, f), join(u.dir, "deep", f));
+  }
+  const uc = u.gen("--config", `via${"/"}..${"/"}ont.config.json`, "--out", u.place);
+  assert.equal(uc.code, 0, uc.out);
+  assert.equal(u.mark().commit, `${u.sha("HEAD")}+working-tree`, "a configuration through via/..");
+
   // A committed ontology whose name begins with two dots lies inside the repository and is clean.
   const t = repo();
   t.setPlace();
