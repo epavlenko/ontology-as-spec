@@ -288,3 +288,54 @@ test("reads the accepted status from decisions.accepted", () => {
     assert.ok(r.out.includes("accepted entries edited"), r.out);
   }
 });
+
+// What the guard sees of an edit committed with the hook skipped depends on the base: with the commit
+// that accepted the entry, the edit is refused; with a base from before the entry, as CI has for a pull
+// request that both adds the entry and edits it, the entry is new and nothing is refused. The pages
+// that tell of a commit made with --no-verify say so, rather than that CI always catches it.
+test("[inv.accepted-never-edited] an entry accepted after the base and edited with the hook skipped is not seen with that base, and the pages say so", () => {
+  const dir = mkdtempSync(join(tmpdir(), "guard-"));
+  const git = (...args) => {
+    const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd: dir, encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout.trim();
+  };
+  const guard = (base) => {
+    const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json"), "--base", base], { cwd: dir, encoding: "utf8" });
+    return { code: r.status, out: r.stdout + r.stderr };
+  };
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    git("init", "-q");
+    git("add", ".");
+    git("commit", "-q", "-m", "base");
+    const base = git("rev-parse", "HEAD");
+    const path = join(dir, "decisions.md");
+    const entry = "### D-17 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Source: the owner's answer of 2026-10-21\n- Decision: x.\n\n";
+    writeFileSync(path, readFileSync(path, "utf8").replace("## Tentative", `${entry}## Tentative`));
+    git("commit", "-q", "-am", "accept D-17");
+    const accepted = git("rev-parse", "HEAD");
+    writeFileSync(path, readFileSync(path, "utf8").replace("- Decision: x.", "- Decision: y."));
+    git("commit", "-q", "--no-verify", "-am", "edit D-17");
+    const seen = guard(accepted);
+    assert.equal(seen.code, 1, seen.out);
+    assert.ok(seen.out.includes("accepted entries edited"), seen.out);
+    const unseen = guard(base);
+    assert.equal(unseen.code, 0, unseen.out);
+    assert.match(unseen.out, /GUARD_OK/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  const repo = fileURLToPath(new URL("../../../", import.meta.url));
+  for (const file of ["docs/limitations.md", "docs/parts/decision-log.md"]) {
+    const paragraphs = readFileSync(join(repo, file), "utf8").split(/\n\n/).filter((p) => /--no-verify/.test(p) && /\bCI\b/.test(p));
+    assert.ok(paragraphs.length, `${file} tells of --no-verify and CI`);
+    for (const p of paragraphs) assert.match(p.replace(/\s+/g, " "), /an entry accepted after (?:that|the|its) base/, `${file}: CI with a base from before the entry does not see the edit`);
+  }
+  // The open question on the guard's point of comparison tells of the owner's choice for one restore,
+  // not of a way to commit.
+  const question = readFileSync(join(repo, "docs/limitations.md"), "utf8").match(/^- \*\*The guard's point of comparison\.\*\*.*$/m)?.[0] ?? "";
+  assert.ok(question, "the open question on the guard");
+  assert.doesNotMatch(question, /is itself committed with `--no-verify`/);
+  assert.match(question, /one choice for one restore, not a rule/);
+});
