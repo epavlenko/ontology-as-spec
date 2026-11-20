@@ -9,7 +9,7 @@ Checks-listed: 60
 Checks-given: 60
 Checks-carried: 0
 Findings:
-- tests miss cases of the statement · nit · change · fixable
-- freshness mark incomplete · important · change · fixable
-- documentation promises more than the hook · nit · change · fixable
-- approved follow-up missing · nit · change · fixable
+- tests miss cases of the statement · nit · change · fixable · check.ontology-tree.replaced-commit
+- freshness mark incomplete · important · change · fixable · check.ontology-tree.mark-exact
+- documentation promises more than the hook · nit · change · fixable · check.ontology-tree.generator-missing
+- approved follow-up missing · nit · change · fixable · check.decision.compared-with-acceptance
