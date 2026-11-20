@@ -9,4 +9,4 @@ Checks-listed: 14
 Checks-given: 14
 Checks-carried: 0
 Findings:
-- freshness mark incomplete · nit · change · fixable
+- freshness mark incomplete · nit · change · fixable · check.ontology-tree.mark-exact
