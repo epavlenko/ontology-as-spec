@@ -39,6 +39,8 @@ import {
   keySpans,
   sectionKey,
   tagIds,
+  docSetFiles,
+  isFile,
 } from "./lib.mjs";
 import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
@@ -717,8 +719,9 @@ report("doc sets with the same name", [...new Set(setDupes)].map((n) => n || "(u
 const generatedPages = new Set(cfg.references.map((r) => r.out));
 for (const d of cfg.docSets) {
   const label = d.name ? `${d.name} docs` : "docs";
-  const files = listFiles(d.dir, d.match).filter((f) => !generatedPages.has(f));
-  report(`no ${label} pages found`, files.length ? [] : [relative(cfg.base, d.dir) || "."]);
+  const files = docSetFiles(d).filter((f) => !generatedPages.has(f) && isFile(f));
+  report(`no ${label} pages found`, files.length ? [] : [relative(cfg.base, d.dir ?? cfg.base) || "."]);
+  report(`${label} pages named in the configuration that do not exist`, (d.files ?? []).filter((f) => !isFile(f)).map((f) => relative(cfg.base, f)));
   const ids = new Set();
   const stale = [];
   const notIds = [];
@@ -958,7 +961,7 @@ if (otherWords.length) {
   report("other words that do not resolve (a defined concept, not a term, listed once)", bad);
   const texts = [
     ...(cfg.tickets ? listFiles(cfg.tickets.dir, cfg.tickets.match).map((f) => [f, proseText]) : []),
-    ...cfg.docSets.flatMap((d) => listFiles(d.dir, d.match).filter((f) => !generatedPages.has(f)).map((f) => [f, proseText])),
+    ...cfg.docSets.flatMap((d) => docSetFiles(d).filter((f) => !generatedPages.has(f)).map((f) => [f, proseText])),
     ...cfg.mockup.map((f) => [f, visibleText]),
   ];
   const used = [];

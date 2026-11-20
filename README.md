@@ -6,10 +6,12 @@ A way to specify a product for AI coding agents: one model of the product's conc
 
 **Where to start.** Read the [summary](#summary) and [the idea](#the-idea), run [the example](#try-it-in-two-minutes), then read [Adopting the approach](docs/lifecycle.md#adopting-the-approach). Every rule and check is listed in [docs/reference.md](docs/reference.md).
 
+<!-- ont: rule.ontology-is-source@df6b8f -->
 ## Summary
 
 When AI agents write most of the code, the description of the product becomes the main input to development. That description is usually scattered, and its parts drift apart. This approach keeps it in one place: a list of the product's concepts, each with a permanent ID and one definition. Everything else points at those IDs, and a script fails the build when the pointers stop matching. Agents then know what each thing is and why it is that way, so they can work longer without a human.
 
+<!-- ont: ent.concept@58346b -->
 ## The problem
 
 The description of a product lives in many places: design docs, mockups, tickets, chats and the code itself. Each place names and defines things its own way, and nothing connects them. Over time they drift apart. Agents read only what is in front of them and remember nothing between sessions, so they take whichever version they see. Feature specs help with one change at a time, but nothing keeps the shared concepts consistent across all changes.
@@ -18,6 +20,7 @@ An example. You ask an agent to add holds to a library app. The design doc calls
 
 Last month you decided that a loan cannot be renewed while someone is waiting for the book. The reason lives in an old chat. The next agent "fixes" it.
 
+<!-- ont: ent.concept@58346b, ent.decision@4607b2, ent.check@d0dcbc -->
 ## The idea
 
 Give every product concept one name, one short definition and a permanent ID, in a table for the entity it belongs to, grouped by kind. Fields and relations also get a type:
@@ -46,12 +49,14 @@ Then everything that touches meaning refers to the IDs:
 
 One script checks all of these against each other, in both directions, on every commit and in CI. It also checks the shape of the ontology: kinds in order, every field in its entity's table.
 
+<!-- ont: -->
 ## Who it is for
 
 Teams and solo builders whose code is mostly written by coding agents, and the person who owns what the product means: a founder, a product owner, a tech lead. It pays off when the product has enough concepts that people argue about their names and rules, and when agents run long tasks without supervision.
 
 The ontology, its tables of concepts and its catalogue of checks, is the specification: a model writes the code from it, the mockup included, and a change of behavior starts in it. See [principle 6](docs/principles.md#6-the-ontology-is-the-source-of-the-code).
 
+<!-- ont: concept.oracle@88e2a7, ent.trace@eb1f36, derived.gap@14d3ee -->
 ## Try it in two minutes
 
 Requires Node 20 or later.
@@ -68,6 +73,7 @@ With `--run`, the tool runs the example's ontology as an oracle: each check of t
 
 To adopt the approach, start with ten definition rows for the concepts your team argues about most, then grow the ontology until it describes the product's behavior. See [Adopting the approach](docs/lifecycle.md#adopting-the-approach) and the [templates](templates/README.md).
 
+<!-- ont: ent.tool-copy@cea475, concept.oracle@88e2a7 -->
 ## What's in this repository
 
 | Path                                                         | What it is                                                                                                           |
@@ -87,10 +93,12 @@ To adopt the approach, start with ten definition rows for the concepts your team
 | [ontology.md](ontology.md), [checks.md](checks.md)           | the approach described with itself: its concepts, rules and checks, checked like any product                         |
 | [decisions.md](decisions.md)                                 | decisions about this repository                                                                                      |
 
+<!-- ont: -->
 ## How it compares
 
 Birgitta Böckeler [describes three levels](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) of spec-driven development: spec-first, spec-anchored and spec-as-source. In this approach the ontology is the specification and the source of the code, and it is anchored to concepts rather than features. A feature spec describes one change and then ages. A concept keeps its ID for the life of the product. We call this **concept-anchored**. Tools such as Spec Kit, Kiro and OpenSpec work per feature or per change. None of them ties the interface to a shared vocabulary. The full comparison, including older practices such as Domain-Driven Design and decision records, is in [docs/comparison.md](docs/comparison.md).
 
+<!-- ont: ent.decision@4607b2, rule.unconfirmed-tentative@f4a9a4 -->
 ## Status and origin
 
 This is an early version, v0.1, in active development. Each change to a rule of the approach is an entry in [decisions.md](decisions.md); an entry marked tentative is a proposal, not yet a rule. The newest part, [the oracle](docs/parts/oracle.md), runs the ontology itself (D-93).
@@ -101,6 +109,7 @@ Since then the generic check in `tools/ont-check` has been used in four private 
 
 Questions and reports of errors are welcome as GitHub issues, and changes as pull requests; the owner decides what to merge ([CONTRIBUTING.md](CONTRIBUTING.md)). Maintained by Jevgenijs Pavlenko.
 
+<!-- ont: -->
 ## License
 
 Copyright © 2026 Jevgenijs Pavlenko.

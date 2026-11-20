@@ -4,7 +4,7 @@ description: Reviews a change before it is merged, in a project that uses the On
 license: MIT
 ---
 
-<!-- ont: rule.reviewed-before-merge, derived.review-checks, rule.run-recorded, rule.value-checked-against-source, rule.code-reviewed-for-errors -->
+<!-- ont: rule.reviewed-before-merge@779cd7, derived.review-checks@9ae058, rule.run-recorded@2b45ff, rule.value-checked-against-source@52bea9, rule.code-reviewed-for-errors@3dbf61 -->
 
 # Change review
 
@@ -12,12 +12,14 @@ You review a change you did not write, before it is merged. The approach behind 
 
 You read and report. You do not edit files, commit, push or merge, and you do not message anyone on the author's behalf. The one exception is the records of step 4.
 
+<!-- ont: derived.review-checks@9ae058 -->
 ## What you get
 
 - The base of the change: a branch, a tag or a commit, such as `main`.
 - The change itself: the working tree or the branch checked out against that base.
 - The IDs the change claims to touch, if the author gave them. Do not ask for the author's summary or conclusions, and do not rely on one if it is in front of you: a reviewer handed the author's conclusions tends to confirm them.
 
+<!-- ont: derived.review-checks@9ae058 -->
 ## 1. List the checks
 
 From the directory with `ont.config.json`:
@@ -35,6 +37,7 @@ Each check comes with its GIVEN, WHEN and THEN. If it prints `nothing to review`
 
 Read the rest of the check's output too. An `ERROR` there is a finding. Tell apart the errors the change brings from those the base already had: run the same check on a checkout of the base in a temporary directory (`git worktree add /tmp/base <base>`), and remove it after. Report the errors the base already had apart, as earlier problems; they do not block this change unless it touches them.
 
+<!-- ont: rule.reviewed-before-merge@779cd7 -->
 ## 2. Give each check a verdict
 
 Take the checks one by one. For each, read what its THEN demands, find the evidence in the change, and give one verdict:
@@ -46,6 +49,7 @@ Take the checks one by one. For each, read what its THEN demands, find the evide
 
 Checks of the approach often ask about the whole kind of artifact, such as "a definition says what the thing is, in a sentence or two". Judge them on what the change adds or alters, not on the rest of the file.
 
+<!-- ont: rule.code-reviewed-for-errors@3dbf61 -->
 ### Errors and security
 
 When the change touches code, the tool lists the approach's check of errors and security, `check.agent-rules.code-reviewed-for-errors`. Read the diff for:
@@ -58,10 +62,12 @@ When the change touches code, the tool lists the approach's check of errors and 
 
 Report each one found with its file and line, and the concept it breaks where there is one, such as the rule whose bound the code gets wrong. Never try a literal that looks like a key or a token against the service it seems to belong to. The check fails if you find any; it passes if you find none; it is `not run` when judging needs a run you cannot make, such as a dependency audit without network.
 
+<!-- ont: rule.value-checked-against-source@52bea9 -->
 ### Values with a source
 
 If the change adds or alters values that carry a source, such as the cases of a study, open the source of each such value and check that it says what the value says, at the kind the value claims. The tool lists the project's check for this when the configuration names the directory of those values under `reviewPaths`. Give that check one verdict for the change, and say in the evidence which values you read where. A source you cannot open, behind a login or gone, makes the verdict `not run`, with the source named.
 
+<!-- ont: rule.findings-mislead@0229fa, rule.reviewed-before-merge@779cd7 -->
 ## 3. Report what matters
 
 Report what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings. Each finding names its file and line and the check or rule it breaks.
@@ -85,6 +91,7 @@ Verdict: ready to merge | fix first | cannot tell (with what is missing)
 
 `ready to merge` only when no check fails and no finding of this change remains. A check that already failed on the base and that the change does not touch is an earlier problem: report it, and do not let it block. A `not run` check does not block on its own, but say who has to run it before the merge. A verdict given in an earlier round of the same change still counts while the stamp `--review` prints for its check is the stamp it was given at and the commits since change none of the files you read for it. Give a new verdict to the checks whose stamp or files changed, and always read the new diff for errors and security.
 
+<!-- ont: ent.manual-run@893f59, rule.run-recorded@2b45ff -->
 ## 4. Record each verdict
 
 If the configuration has `manualRuns`, write one record for each verdict, in that directory and nowhere else. These are the only files you create: you do not change the change itself and you do not commit; the author commits the records with the change. Name each file by the time in UTC, the check and four random characters, such as `20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md`, and write:
@@ -101,6 +108,7 @@ Evidence: <where the evidence is, outside the repository, if the check kept any>
 
 Evidence such as screenshots or data stays outside the repository; the record only links to it.
 
+<!-- ont: -->
 ## Licence
 
 This skill is licensed under the MIT License. Copyright (c) 2026 Jevgenijs Pavlenko. The repository's text is licensed under CC BY 4.0 and its tool, templates and example under MIT; see `LICENSE` and `LICENSE-CC-BY-4.0` there.

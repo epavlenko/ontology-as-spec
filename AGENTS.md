@@ -2,6 +2,7 @@
 
 This repository describes an approach to product development: product meaning kept as a semi-formal ontology with permanent concept IDs, referenced by every artifact and checked by a script. Read `README.md` first.
 
+<!-- ont: ent.doc-set@ca5d70, ent.reference-page@b1ec8f, ent.tool-copy@cea475 -->
 ## Layout
 
 - `docs/` explains the approach: principles, the ten parts, lifecycle, comparison, limitations. It is a doc set of the approach's ontology: sections carry anchors, and `docs/reference.md` is generated. A rule of the approach is changed in `ontology.md` and `checks.md`, then explained here; never edit `docs/reference.md`.
@@ -11,6 +12,7 @@ This repository describes an approach to product development: product meaning ke
 - `ontology.md` and `checks.md` describe the approach with itself: its concepts, rules and checks. `ont.config.json` checks them; the tests in `tools/ont-check/test/` implement the checks.
 - `decisions.md` records decisions about this repository.
 
+<!-- ont: rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@779cd7, rule.unconfirmed-tentative@f4a9a4, rule.question-as-tentative@7c4575, rule.one-choice@c773d8, rule.commit-finished-work@8ad234, rule.strongest-step@4002fd, rule.findings-mislead@0229fa, rule.agent-rule-source@695801, rule.departure-by-entry@4fa94e -->
 ## Rules
 
 - **English only** (D-03).
@@ -28,11 +30,12 @@ This repository describes an approach to product development: product meaning ke
 - **Keep the example consistent.** It follows its own rules in `example/AGENTS.md`. After editing the example's definition rows, run `npm run format` and `npm run generate` to regenerate the tooltips, the contracts and the reference pages (D-04).
 - **Rules name their source.** A process rule here that comes from a rule of the approach or from a decision names it, by ID or entry; a departure from the approach is a process entry with `Extends:` or `Overrides:`. `npm run check` fails on an ID or entry named in this file that does not exist, is retired or is superseded (`rule.agent-rule-source`, `rule.departure-by-entry`, D-53).
 
+<!-- ont: concept.oracle@88e2a7 -->
 ## Verify
 
 ```bash
 node tools/ont-check/ont-check.mjs --config ont.config.json             # ONT_OK: the approach itself
-node tools/ont-check/ont-check.mjs --config example/ont.config.json     # ONT_OK
+node tools/ont-check/ont-check.mjs --config example/ont.config.json --run   # ONT_OK, and every trace passes on the oracle
 node tools/ont-check/ont-check.mjs --config templates/ont.config.json   # ONT_OK
 node --test 'tools/ont-check/test/*.test.mjs' 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'
 ```

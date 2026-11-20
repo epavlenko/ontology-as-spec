@@ -75,6 +75,16 @@ test("[check.agent-rules.review-code-changed] lists the manual checks of the con
   assert.ok(!approach.includes("check.concept.definition-says-what"), out);
 });
 
+test("[check.agent-rules.review-code-changed] a file a doc set names one by one is still read as code (D-96)", () => {
+  const out = review({
+    before: (dir) => patch(dir, "ont.config.json", '"docSets": [', '"docSets": [\n    { "name": "pages", "files": ["app/library.mjs"], "cover": [] },'),
+    after: (dir) => appendFileSync(join(dir, "app/library.mjs"), "// a change\n"),
+  });
+  assert.match(out, /Kinds of artifact: [^\n]*code/);
+  assert.match(out, /Kinds of artifact: [^\n]*docs/);
+  assert.deepEqual(listed(out, "project"), ["check.loan.overdue-in-real-time"]);
+});
+
 test("[check.agent-rules.review-code-errors-listed] lists the check of errors and security for a new code file that names no concept", () => {
   const out = review({ after: (dir) => writeFileSync(join(dir, "app/format.mjs"), "export const pad = (s) => String(s).padStart(2, '0');\n") });
   assert.match(out, /Kinds of artifact: code\n/);

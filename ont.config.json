@@ -21,7 +21,10 @@
     "retired": "## Retired IDs"
   },
   "root": ".",
-  "agentInstructions": ["AGENTS.md", "CLAUDE.md"],
+  "agentInstructions": [
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
   "approachIds": {
     "out": "tools/ont-check/approach.json"
   },
@@ -71,6 +74,21 @@
         "action"
       ],
       "scope": "all"
+    },
+    {
+      "name": "pages",
+      "files": [
+        "README.md",
+        "AGENTS.md",
+        "docs/parts/README.md",
+        "skills/ontology-as-spec/SKILL.md",
+        "skills/change-review/SKILL.md",
+        "tools/ont-check/README.md",
+        "templates/README.md",
+        "example/README.md",
+        "example/AGENTS.md"
+      ],
+      "cover": []
     }
   ],
   "references": [

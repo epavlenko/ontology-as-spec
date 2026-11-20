@@ -27,11 +27,11 @@ Documentation describes the same product as the ontology, in the words of its re
 
 Generating the prose by a script is rejected: explanations say why and how in the readers' words, which no script derives from the rows. An agent writes a page from the ontology like it writes code; the page is then anchored and checked like any other page.
 
-<!-- ont: ent.doc-set@ca5d70, inv.anchors-resolve@974479, inv.doc-set-covers@f46bf8, inv.reference-current@fcb818, inv.doc-set-names-unique@4e4245 -->
+<!-- ont: ent.doc-set@ca5d70, inv.anchors-resolve@974479, inv.doc-set-covers@f46bf8, inv.reference-current@fcb818, inv.doc-set-names-unique@4e4245, field.doc-set.files@0508b3 -->
 ## How it is written
 
 - **Anchors.** `<!-- ont: id, id -->` above the heading of the section it describes, with nothing but blank lines between. IDs are concepts or checks. Every section under a heading of the second or third level has one; a section that explains no concept, such as a comparison with other tools or a pointer to the example, has the empty anchor `<!-- ont: -->`, and the check fails on a section with neither. A stamp after `@` is a short hash of what the section relied on when it was last reread: for a concept its term, type and definition and the notes of its section that name it, for a check its case. `stamp-docs.mjs` writes it.
-- **Doc sets.** The configuration lists them: a name, unique among the sets, a directory, and the classes whose concepts the set must explain, either the implemented ones (help for users describes what exists) or all of them (a design guide describes the target). A set may also list the proofs whose checks it must name, `"checks": ["manual"]`: that makes it a run guide for the people or agents who run manual checks ([part 6](checks-and-tests.md#running-manual-checks)).
+- **Doc sets.** The configuration lists them: a name, unique among the sets, a directory, and the classes whose concepts the set must explain, either the implemented ones (help for users describes what exists) or all of them (a design guide describes the target). Instead of a directory, a set may name its pages one by one, `"files"`: the approach keeps its README, agent instructions, skills and the tool's README in such a set, so that their sections declare what they explain and a stamp says when to reread them, and a README named there is read like any page (D-96). A set may also list the proofs whose checks it must name, `"checks": ["manual"]`: that makes it a run guide for the people or agents who run manual checks ([part 6](checks-and-tests.md#running-manual-checks)).
 
 ```json
 "docSets": [

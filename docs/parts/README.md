@@ -1,5 +1,7 @@
 # The parts
 
+<!-- ont: concept.oracle@88e2a7, ent.doc-section@496f3f, ent.check@d0dcbc, ent.decision@4607b2 -->
+
 Ten parts. The first three hold meaning, the next three tie artifacts to it, the next two make agents work inside it, the ninth ties documentation to it, and the tenth, the oracle, runs the ontology (D-93).
 
 | #   | Part                                               | Holds or ties                                                             |

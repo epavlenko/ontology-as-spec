@@ -6,16 +6,16 @@ A library lends books, games and tools. Members borrow items, wait in a queue fo
 
 | File                                                   | Part of the approach                                       |
 | ------------------------------------------------------ | ---------------------------------------------------------- |
-| [ontology.md](./ontology.md)                           | the ontology: one definition table per entity and one for screens, the implementation table, known divergences and retired IDs |
+| [ontology.md](./ontology.md)                           | the ontology: one definition table per entity and one for screens, with the formal forms of its rows in behavior blocks for the oracle, the implementation table, known divergences and retired IDs |
 | [decisions.md](./decisions.md)                         | the decision log                                           |
 | [mockup/index.html](./mockup/index.html)               | the mockup with `data-ont`; tooltips come from `mockup/ontology.js` |
 | [mockup/ontology-map.md](./mockup/ontology-map.md)     | the UI-to-ontology map                                     |
-| [checks.md](./checks.md)                               | the check catalogue: what must hold, for any implementation |
+| [checks.md](./checks.md)                               | the check catalogue: what must hold, for any implementation, and a trace of each check for the oracle |
 | [AGENTS.md](./AGENTS.md)                               | the rules for agents: what else to update, what to run     |
 | [issues/](./issues/)                                   | two tickets, each a slice of the gap, done when `--gap` with it prints `SLICE_DONE` |
 | [help/](./help/README.md)                              | help for members, anchored to concepts, and the generated terms page |
 | [verify/](./verify/)                                   | run guides: how to run the manual checks of what is built |
-| [app/](./app/)                                         | the code: a small domain module, a command line front end, and unit tests whose titles name the checks they implement |
+| [app/](./app/)                                         | the code: a small domain module, a command line front end, unit tests whose titles name the checks they implement, and a test that compares the code with the oracle on random sequences of actions |
 | [judged/](./judged/)                                   | a test that a model judges: the library refuses a checkout at the limit, and a judge in `JUDGE` reads the refusal next to its check; skipped without one |
 | [e2e/](./e2e/)                                         | end-to-end tests that run the command line front end as a user does, also named by check |
 | [contracts/ontology.schema.json](./contracts/ontology.schema.json) | the contracts: JSON Schema generated from the types of fields and relations |
@@ -23,6 +23,7 @@ A library lends books, games and tools. Members borrow items, wait in a queue fo
 
 The code deliberately lags the ontology. Holds are placed but nothing serves the queue, and the code still computes fines that a decision abolished. Both are listed under "Known divergences" in the ontology, which is the point: the gap between target and reality is written down, not discovered.
 
+<!-- ont: concept.oracle@88e2a7, ent.trace@eb1f36, derived.gap@14d3ee -->
 ## Run
 
 From the repository root:
@@ -33,6 +34,7 @@ node tools/ont-check/gen-contracts.mjs --config example/ont.config.json  # field
 node tools/ont-check/gen-reference.mjs --config example/ont.config.json  # definition rows → help/terms.md
 node tools/ont-check/ont-check.mjs --config example/ont.config.json      # prints ONT_OK
 node tools/ont-check/ont-check.mjs --config example/ont.config.json --gap   # what is left to build
+node tools/ont-check/ont-check.mjs --config example/ont.config.json --run   # every trace of the catalogue, run on the oracle
 node --test 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'          # unit and end-to-end tests
 ```
 

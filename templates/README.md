@@ -1,5 +1,7 @@
 # Templates
 
+<!-- ont: ent.tool-copy@cea475, concept.oracle@88e2a7 -->
+
 Starting files for every artifact. The set is itself a valid, tiny project: `node tools/ont-check/ont-check.mjs --config templates/ont.config.json` passes on it, so a broken template is caught in CI.
 
 Copy what you need, replace the placeholder concepts (`ent.thing`, `field.thing.state`, `view.thing.page`, `action.close`) with your own, and adjust the paths in `ont.config.json`.
@@ -18,6 +20,8 @@ Copy what you need, replace the placeholder concepts (`ent.thing`, `field.thing.
 | `issue.md`                             | ticket shape: a slice of the gap, its limits and permissions (part 8); checked through `tickets` in the config |
 
 Start with `ontology.md`, `decisions.md` and a config that has only those two (remove `mockup`, `map`, `glossaryOut`, `contracts`, `checks`, `tickets`, `docSets` and `references`, and set `"implementation": null` under `headings` until code exists). Write checks for invariants and rules as soon as they exist; they come before the code. When code has tests, tag them with the IDs of the checks they implement and add `"testSuites"`: one entry per suite the team runs, such as `{ "name": "unit", "dir": "<tests>", "cover": ["inv", "rule"] }`. Run `tools/ont-check/guard-decisions.mjs` from the start, in the test command too: the decision log is the first file worth guarding, and there the guard shows `GUARD_OFF` before the first commit and the accepted entries that are not committed yet.
+
+The templates leave the [oracle](../docs/parts/oracle.md) off (part 10). A project turns it on with `"oracle": true` once its rules have settled: a behavior block under each table with the formal forms of its rows, and a traces block in each section of `checks.md`, written as in [the example](../example/ontology.md); `ont-check.mjs --run` runs the traces.
 
 After editing a definition row, regenerate the tooltips, the contracts and the reference pages:
 

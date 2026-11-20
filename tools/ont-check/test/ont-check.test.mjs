@@ -887,6 +887,16 @@ test("[check.doc-section.undeclared] names a section without an anchor, and not 
   assert.doesNotMatch(r.out, /An example heading|a list item/);
 });
 
+test("[check.doc-section.undeclared] front matter at the top of a page is not a section (D-96)", async () => {
+  const { undeclaredSections } = await import("../docs.mjs");
+  const named = (text) => undeclaredSections(text).map((s) => s.heading);
+  assert.deepEqual(named("---\nname: a skill\ndescription: what it does\n---\n\n# Skill\n<!-- ont: -->\n## Step\n"), []);
+  // Only a block that starts on the first line is front matter; later, the same lines are a heading.
+  assert.deepEqual(named("Intro\n\n---\nname: x\n---\n"), ["name: x"]);
+  // A section after the front matter still declares what it explains.
+  assert.deepEqual(named("---\nname: x\n---\n## Step\n"), ["## Step"]);
+});
+
 test("[check.doc-section.undeclared] reads sections as CommonMark does: other headings, the seven kinds of HTML block, anchors on several lines", async () => {
   const { undeclaredSections } = await import("../docs.mjs");
   const named = (text) => undeclaredSections(text).map((s) => s.heading);
@@ -1133,6 +1143,17 @@ for (const [name, label, edit] of cases)
     assert.equal(r.code, 1, r.out);
     assert.ok(r.out.includes(label), `expected "${label}" in:\n${r.out}`);
   });
+
+test("[check.doc-set.named-pages] a set of named pages reads a README and names a missing page", () => {
+  // A README under a directory set is skipped as an index; a set that names it reads it.
+  const r = run((p) => {
+    p("ont.config.json", '"docSets": [', '"docSets": [\n    { "name": "pages", "files": ["help/README.md", "gone.md"], "cover": [] },');
+    p("help/README.md", "# Help for members\n", "# Help for members\n\n## Extra\n");
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /pages docs sections that declare nothing[^\n]*\n  help\/README\.md:3  ## Extra/);
+  assert.match(r.out, /pages docs pages named in the configuration that do not exist \(1\):\n  gone\.md/);
+});
 
 // The tree of the ontology (D-90): written from a copy of the example, read back as text.
 const tree = (edit, labels) => {

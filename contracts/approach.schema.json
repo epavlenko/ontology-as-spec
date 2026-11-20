@@ -620,6 +620,11 @@
           "description": "The proofs whose checks the set must name in its anchors, such as manual for a run guide.",
           "x-ont": "field.doc-set.checks",
           "type": "string"
+        },
+        "files": {
+          "description": "The pages of the set, named one by one, when they are not every page under one directory; a README named here is read like any other page.",
+          "x-ont": "field.doc-set.files",
+          "type": "string"
         }
       },
       "required": [

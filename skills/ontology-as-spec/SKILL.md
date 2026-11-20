@@ -12,18 +12,21 @@ The idea in one paragraph: every concept of the product gets one name, one short
 
 The ontology, its tables and its catalogue of checks, is the product's specification. It describes behavior as completely as it can, and you write the code from it, the mockup included. A change of behavior starts in the ontology, then the code and its tests follow.
 
+<!-- ont: -->
 ## When to use it, and when not
 
 Use it when a product has enough concepts that people argue about their names and rules, when coding agents do most of the work, or when the user asks for an ontology, a glossary with IDs, a decision log that agents must respect, or traceability from rules to tests and code.
 
 The ontology is the source of the code, but no script turns it into code: a model writes the code from it, and two runs write different code that passes the same checks. What the code would do that the ontology does not say is a gap in the ontology. For a throwaway script or a product with three concepts it is overhead.
 
+<!-- ont: ent.tool-copy@cea475 -->
 ## What you need
 
 - Node 20 or later and git. The check has no dependencies and installs nothing globally.
 - Network access once, to clone the repository from GitHub. Nothing else in this skill reaches the network.
 - The product owner, or whoever decides what the product means. You propose definitions; they decide.
 
+<!-- ont: ent.tool-copy@cea475, action.update-copy@32bd58 -->
 ## 1. Get the tool
 
 Clone the approach next to the project and copy the tool in with its own pin script, so that the copy records which commit it came from:
@@ -36,6 +39,7 @@ node tools/ont-check/pin.mjs verify      # PIN_OK ontology-as-spec D-nn (hash)
 
 The copy is never edited in place. A fix to the tool goes to the approach, and the project takes it with the next `pin.mjs update`, which also prints the approach's decisions made since the old pin so you can carry them into the project's rules. Read `templates/README.md` in the clone: it has a starting file for every step below.
 
+<!-- ont: ent.concept@58346b, rule.behavior-in-ontology@bb739f, ent.formal-form@c38589, rule.form-follows-rows@8006af -->
 ## 2. Write the ontology
 
 Start with the ten concepts people argue about most, then grow the ontology until it describes the product's behavior: what each screen shows in each state and what the user can do there, and every outcome of every action as a check. Layout and style are left to the implementation, and the owner judges them on the mockup. Copy `templates/ontology.md` and keep its layout:
@@ -61,8 +65,11 @@ The rules the check enforces or relies on:
 - **The ontology describes the target.** What the code already does is listed in "Implementation status"; everything absent from that table is target.
 - **"Deliberately out of scope"** lists what a helpful contributor would otherwise add, and why it is absent. What one element deliberately does not do, such as a button that is never offered, goes in its definition or the note of its screen.
 
+When the rules have settled, a row of a derived value, rule, invariant, hook or action may also get a formal form, its behavior in the approach's small form language, in a folded behavior block under its table; the tool's oracle runs the forms (`docs/parts/oracle.md`, `"oracle": true` in step 4). Where a form and its row disagree, the row is the meaning.
+
 Once the configuration of step 4 exists, run `node tools/ont-check/format-ontology.mjs --config ont.config.json` after editing rows: it writes the kind order, the Kind cells and the alignment.
 
+<!-- ont: ent.decision@4607b2, rule.question-as-tentative@7c4575 -->
 ## 3. Start the decision log
 
 Copy `templates/decisions.md`. Record the last five decisions someone would otherwise reverse. An entry looks like this:
@@ -83,6 +90,7 @@ Copy `templates/decisions.md`. Record the last five decisions someone would othe
 - **Every entry names its source**: the call with the time of the passage, the message with its date, the owner's answer. When sources disagree, the owner's latest word wins.
 - **What is put off** gets an entry with a `- Return when:` line.
 
+<!-- ont: concept.oracle@88e2a7 -->
 ## 4. Configure and run the check
 
 Copy `templates/ont.config.json` next to the ontology and remove the keys for parts the project does not have yet: `glossaryOut`, `contracts`, `mockup`, `map`, `checks`, `tickets`, `notYetShown`, `docSets`, `references`, and the template's `agents-section.md` under `agentInstructions` (point it at the project's own `AGENTS.md` or `CLAUDE.md` instead). Then run both scripts, and put them in the project's test command and in CI:
@@ -92,8 +100,11 @@ node tools/ont-check/ont-check.mjs --config ont.config.json          # ONT_OK, o
 node tools/ont-check/guard-decisions.mjs --config ont.config.json    # GUARD_OK, or the edited accepted entries
 ```
 
+When the ontology has formal forms, set `"oracle": true`: the check then refuses a form it cannot run and a check with neither a trace nor a reason, and `ont-check.mjs --run` runs every trace on the oracle (`docs/parts/oracle.md`).
+
 Fix every line the check prints; do not weaken the configuration to make it pass. Add the section from `templates/agents-section.md` to the project's agent instructions: it tells every later agent what else to update after each kind of change.
 
+<!-- ont: ent.check@d0dcbc, ent.test@af89b6, ent.trace@eb1f36 -->
 ## 5. Write the checks and tag the tests
 
 Copy `templates/checks.md`. Every invariant and rule gets at least one check: GIVEN, WHEN, THEN, in the product's own terms, true for any implementation. `auto` means a test proves it, `manual` that a person does, `judged` that a model judges the product's output.
@@ -104,15 +115,20 @@ Copy `templates/checks.md`. Every invariant and rule gets at least one check: GI
 | `check.loan.renew-while-held` | `inv.no-renew-when-held` | a loan whose title is held | the member renews | the renewal is refused, with the reason | auto  |
 ```
 
+With the oracle on, each check also gets a trace, its case as steps and observations, in a folded traces block of its section, or a line that says why it has none; `ont-check.mjs --run` runs every trace on the oracle, before any code exists.
+
 A test starts its title with the check's ID: `test("[check.loan.renew-while-held] renewal is refused while someone waits")`. A tag is a claim that the test does what the check says; do not tag a test that does not. `testSuites` in the configuration says which suite must prove which kind of concept, and `--coverage` shows what proves each implemented concept.
 
+<!-- ont: rule.ontology-is-source@df6b8f, rule.code-names-concepts@701aa5, rule.code-compared-with-oracle@39c0ea -->
 ## 6. Write the code from the ontology
 
 - Write the code from the rows and checks of the concepts it implements. If it would do something the ontology does not say, add the row or the check first, or ask the owner.
 - Code that implements a concept names it next to the code: `// ont: inv.no-renew-when-held`, in any comment syntax. The check fails on a name that does not resolve.
 - When a concept is built, add its row to "Implementation status" with the files. What a partial implementation leaves out is named in the note of its row.
+- With the oracle on, add a test that compares the code with the oracle on random sequences of the implemented actions, as `example/app/oracle.test.mjs` does; only a known divergence may differ.
 - When the code disagrees with the ontology, add a line under "Known divergences" naming the IDs. Do not silently change either side: a divergence becomes a ticket, or a new decision if the target changed.
 
+<!-- ont: derived.gap@14d3ee, derived.next-slice@187668 -->
 ## 7. Plan the work from the gap
 
 ```bash
@@ -124,6 +140,7 @@ A ticket is a slice of the gap: an `IDs:` line, a `Checks:` line, what is out of
 
 Later parts, when the product has them: the mockup, the first implementation of the interface, written from the ontology, with each element labelled by `data-ont` and a map that links elements to concepts, and anchoring help pages so the check says which sections to reread after a definition changed. Both are described in `docs/parts/` of the repository.
 
+<!-- ont: rule.start-from-ids@8804d9, rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@779cd7 -->
 ## Rules for you, the agent
 
 - **Start every task from the IDs it touches.** If a concept you need has no ID, propose its definition row, in its entity's table, before writing code or markup.
@@ -132,6 +149,7 @@ Later parts, when the product has them: the mockup, the first implementation of 
 - **Removing a concept is a decision**: write the entry and retire the ID; the check then finds every reference left.
 - **Report what misleads.** A consistency review lists what would mislead a reader or an agent, or would break a check, not style or the completeness of lists.
 
+<!-- ont: -->
 ## Read more
 
 - The method and why it works: `README.md` and `docs/principles.md`.
@@ -141,6 +159,7 @@ Later parts, when the product has them: the mockup, the first implementation of 
 - A fictional lending library described end to end: `example/`. Run `node tools/ont-check/ont-check.mjs --config example/ont.config.json` in the clone to see `ONT_OK`.
 - Known limits: `docs/limitations.md`.
 
+<!-- ont: -->
 ## Licence
 
 This skill is licensed under the MIT License. Copyright (c) 2026 Jevgenijs Pavlenko. The repository's text is licensed under CC BY 4.0 and its tool, templates and example under MIT; see `LICENSE` and `LICENSE-CC-BY-4.0` there.

@@ -784,6 +784,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: the stamp alone (a fix of the code changes no stamp); only a verdict on the commit being merged (every fix would need every check reviewed again); any verdict of the change, whatever changed since (a check whose case changed would go unreviewed).
 - Concepts: `rule.reviewed-before-merge`, `rule.code-reviewed-for-errors`, `field.manual-run.stamp`, `derived.current-run`.
 
+### D-96 · Pages outside docs carry anchors, and the tool's README describes every flag and key
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 957, "957 a": put the pages outside docs under the check, with anchors and stamps as in docs, check automatically that every flag and configuration key is described in the tool's README, then fix the pages that missed the oracle (translated from Russian).
+- Decision: a doc set may name its pages one by one (`field.doc-set.files`), and a README it names is read like any other page. The approach's set `pages` names the README, the agent instructions, the skills, the tool's README, the templates' README, the index of the parts and the example's README and agent instructions, so each of their sections declares what it explains and a stamp tells when to reread it. A test fails when a file of the tool, a flag a script of the tool reads, or a key of the configuration the tool reads, is not described in the tool's README (`inv.tool-options-documented`). A page a set names one by one is still read as code or agent instructions where it is one. Front matter at the top of a page, the metadata of a skill, is not a section.
+- Why: after the oracle was added, the README, the tool's README, the skills, the lifecycle page, the templates and the example's pages did not mention it until the owner asked. Only `docs/` had anchors, so nothing told anyone to reread the others, and a review does not report what a page leaves out (`rule.findings-mislead`). An anchor and a stamp hold this without anyone's memory (`rule.strongest-step`); the first runs of the test found the keys `oracle`, `codeNames.require`, `headings.otherWords`, the keys of the older `tests` and the `files` of a doc set, six flags and four files of the tool missing from the tool's README. The loader names every key it passes on rather than spreading an object of the configuration, so the test sees each one.
+- Rejected: fixing the pages only (the next change would miss them the same way); a review item to reread them (it depends on the reviewer's memory, and the review reports no absence); reading every README of a directory set (an index page of a directory restates its pages).
+- Concepts: `field.doc-set.files`, `ent.doc-set`, `inv.tool-options-documented`, `inv.section-declared`, `derived.to-reread`.
+
 ## Tentative
 
 ## Open questions

@@ -102,13 +102,15 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
     if (cfg.testSuites.some((s) => inDir(f, s.dir) && s.match.test(relative(s.dir, f)))) kinds.add("tests");
     // Data files carry no ont: names; reviewPaths says which concepts a change of them touches (D-80).
     for (const p of cfg.reviewPaths) if (inDir(f, p.dir)) add(p.concepts);
-    const doc = cfg.docSets.some((d) => inDir(f, d.dir));
+    // A page a set names one by one may also be code or agent instructions, so it is read as those too (D-96).
+    const docDir = cfg.docSets.some((d) => !d.files && inDir(f, d.dir));
+    const doc = docDir || cfg.docSets.some((d) => d.files?.includes(f));
     if (doc) {
       kinds.add("docs");
       const [a, b] = [docSections(before(f)), docSections(now(f))];
       for (const key of changedKeys(a, b)) add(key.split("#")[0].split(",").filter(Boolean));
     }
-    if (own.has(f) || doc) continue;
+    if (own.has(f) || docDir) continue;
     const rel = relative(cfg.root, f);
     const rows = implRows.filter(([, files]) => files.includes(rel));
     const names = [...new Set([...codeNames(before(f)), ...codeNames(now(f))])];

@@ -90,8 +90,12 @@ export const undeclaredSections = (text) => {
   let above = "";
   let para = null;
   let html = null;
+  // A skill or a page for a site may start with front matter, a block of YAML between two lines of
+  // three dashes; it is metadata, not a section, though CommonMark alone would read it as a heading.
+  const front = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
   lines.forEach((l, i) => {
     const line = i + 1;
+    if (i <= front) return;
     if (html) {
       const ends = html.kind.end ? html.kind.end.test(l) : !l.trim();
       if (html.kind.end || !ends) html.text += `\n${l}`;

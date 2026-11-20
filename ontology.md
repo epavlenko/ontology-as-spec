@@ -340,6 +340,7 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 |           | `field.doc-set.cover`      | Covers               | text                    | The classes whose concepts the set must explain.                                                                                             |
 |           | `field.doc-set.scope`      | Scope                | one of implemented, all | Whether the set explains what is built or the whole target.                                                                                  |
 |           | `field.doc-set.checks`     | Checks               | text optional           | The proofs whose checks the set must name in its anchors, such as manual for a run guide.                                                    |
+|           | `field.doc-set.files`      | Pages                | text optional           | The pages of the set, named one by one, when they are not every page under one directory; a README named here is read like any other page.   |
 | Invariant | `inv.doc-set-covers`       | Explains its classes |                         | Every concept of a covered class, within the scope, is explained by an anchored section, and every check of a covered proof is named by one. |
 |           | `inv.doc-set-names-unique` | Unique names         |                         | No two doc sets share a name.                                                                                                                |
 
@@ -372,13 +373,14 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 
 ## Tool copy
 
-| Kind      | ID                             | Term             | Type               | Definition                                                                                                                                                                                                   |
-| --------- | ------------------------------ | ---------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Entity    | `ent.tool-copy`                | Tool copy        |                    | A project's copy of `tools/ont-check`, without its tests, and of the approach's LICENSE, from one commit of the approach, in a directory of its own.                                                         |
-| Field     | `field.tool-copy.pin`          | Pin              | text               | The file that names the commit of the copy, its date, the last decision of the approach at that commit and the hash of every file, and lists the files the project keeps in the copy's directory as its own. |
-| Relation  | `edge.tool-copy.last-decision` | Last decision    | ref `ent.decision` | The approach's last decision at the commit of the copy, which the pin names.                                                                                                                                 |
-| Invariant | `inv.copy-matches-pin`         | Copy matches pin |                    | Every file the pin names is in the copy with its hash, and the copy's directory holds no other file but the pin and the project's own.                                                                       |
-| Action    | `action.update-copy`           | Update the copy  |                    | Copy the tool from a commit of the approach, delete the files of the old pin that the commit no longer has, and write the pin.                                                                               |
+| Kind      | ID                             | Term               | Type               | Definition                                                                                                                                                                                                   |
+| --------- | ------------------------------ | ------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Entity    | `ent.tool-copy`                | Tool copy          |                    | A project's copy of `tools/ont-check`, without its tests, and of the approach's LICENSE, from one commit of the approach, in a directory of its own.                                                         |
+| Field     | `field.tool-copy.pin`          | Pin                | text               | The file that names the commit of the copy, its date, the last decision of the approach at that commit and the hash of every file, and lists the files the project keeps in the copy's directory as its own. |
+| Relation  | `edge.tool-copy.last-decision` | Last decision      | ref `ent.decision` | The approach's last decision at the commit of the copy, which the pin names.                                                                                                                                 |
+| Invariant | `inv.copy-matches-pin`         | Copy matches pin   |                    | Every file the pin names is in the copy with its hash, and the copy's directory holds no other file but the pin and the project's own.                                                                       |
+|           | `inv.tool-options-documented`  | Options documented |                    | Every file of the tool, every flag a script of the tool reads from its command line and every key of the configuration the tool reads is described in the tool's README.                                     |
+| Action    | `action.update-copy`           | Update the copy    |                    | Copy the tool from a commit of the approach, delete the files of the old pin that the commit no longer has, and write the pin.                                                                               |
 
 A fix to the tool is made in the approach and reaches a project with its next copy; a copy is never edited in place.
 
@@ -730,6 +732,8 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `field.doc-set.checks`     | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
 | `inv.doc-set-covers`       | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
 | `inv.doc-set-names-unique` | `tools/ont-check/ont-check.mjs`                            |      |
+| `field.doc-set.files` | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs`, `tools/ont-check/review.mjs`, `tools/ont-check/stamp-docs.mjs` | |
+| `inv.tool-options-documented` | `tools/ont-check/README.md`, `tools/ont-check/test/options-documented.test.mjs` | the test reads the scripts and the README |
 
 ### Reference page
 
@@ -796,6 +800,8 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-20: `rule.reviewed-before-merge` says that a fail stops the merge and when a verdict still counts (D-94, D-95).
+- 2026-11-20: a doc set may name its pages one by one, `field.doc-set.files`, and the tool's README describes every flag and configuration key, `inv.tool-options-documented` (D-96).
 - 2026-11-18: other words of a concept: `ent.other-word` with `field.other-word.word` and `edge.other-word.concept`, `inv.other-word-not-used` and `inv.other-word-resolves` (D-91, tentative).
 - 2026-11-18: the ontology shown to people as a tree: `ent.ontology-tree` with `edge.ontology-tree.concepts`, `rule.tree-structure-only` and `inv.tree-complete` (D-90, tentative).
 - 2026-11-18: the ontology is one graph by ID: `inv.ontology-connected` and `rule.link-is-real`; `field.concept.type` lets a view name the entities it shows, and `inv.typed-fields` allows it; the approach's pieces apart are joined by `edge.agent-rules.sources`, `edge.contract.entity`, `edge.reference-page.concepts`, `edge.profile.section` and `edge.tool-copy.last-decision` (D-89, tentative).

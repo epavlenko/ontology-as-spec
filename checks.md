@@ -272,6 +272,7 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 | `check.doc-set.unexplained`    | `inv.doc-set-covers`                         | an implemented action no help page anchors                                                             | the check runs | it names the action and the doc set, and fails | auto  |
 | `check.doc-set.unguided-check` | `inv.doc-set-covers`, `field.doc-set.checks` | a doc set lists manual checks, and the manual check of a built concept is named in none of its anchors | the check runs | it names the check and the doc set, and fails  | auto  |
 | `check.doc-set.duplicate-name` | `inv.doc-set-names-unique`                   | two doc sets are both named help                                                                       | the check runs | it names the doc set and fails                 | auto  |
+| `check.doc-set.named-pages` | `field.doc-set.files`, `inv.section-declared` | a doc set names `README.md`, whose section has no anchor, and `gone.md`, which does not exist | the check runs | it names the undeclared section of the README and the missing page, and fails | auto |
 
 ## Reference page
 
@@ -301,6 +302,7 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 | -------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | `check.tool-copy.removed-file-deleted` | `action.update-copy`, `field.tool-copy.pin`, `ent.tool-copy` | a copy pinned at a commit whose tool has `sub/b.mjs`, and a later commit that removed it                          | the copy is updated to the later commit | `sub/b.mjs` and its emptied directory are gone, every other file is the later commit's, the tests are not copied, and the pin names the commit, its last decision and the hash of every file | auto  |
 | `check.tool-copy.extra-file`           | `inv.copy-matches-pin`, `field.tool-copy.pin`                | the copy's directory holds `old/stale.mjs`, which its pin does not name, a file edited by hand and a file deleted | the pin is verified                     | it names the extra file, the changed one and the missing one, and fails; a file the pin lists as the project's own is neither named nor deleted                                              | auto  |
+| `check.tool-copy.options-documented` | `inv.tool-options-documented` | the scripts of the tool and its README | the tests run | every script of the tool is in the README's table of files, every flag a script reads from its command line, such as `--run`, and every key of the configuration the loader reads, such as `oracle`, `manualRuns.dir` or the `files` of each item of `docSets`, is named in the README, and a file, flag or key taken out of the README fails the test | auto |
 
 ## Formal form
 

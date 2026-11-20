@@ -55,13 +55,14 @@ export function loadConfig(configPath, text) {
   const at = (p) => (p ? resolve(base, p) : null);
   // Headings in another language are set in the config. Known divergences are found by the start of
   // their heading line, so "### Known divergences between code and ontology" matches the default.
+  // Every key is named here, not spread from the config, so that the README test sees each one (D-96);
+  // a key given as null, such as an implementation heading before code exists, stays null.
   const headings = {
-    implementation: "## Implementation status",
-    retired: "## Retired IDs",
-    otherWords: "## Other words",
-    divergences: "### Known divergences",
-    history: "## Revision history",
-    ...raw.headings,
+    implementation: raw.headings?.implementation === undefined ? "## Implementation status" : raw.headings.implementation,
+    retired: raw.headings?.retired === undefined ? "## Retired IDs" : raw.headings.retired,
+    otherWords: raw.headings?.otherWords === undefined ? "## Other words" : raw.headings.otherWords,
+    divergences: raw.headings?.divergences === undefined ? "### Known divergences" : raw.headings.divergences,
+    history: raw.headings?.history === undefined ? "## Revision history" : raw.headings.history,
   };
   // classes: an array of class names, or an object { class: "Kind label" }. The order is the order
   // of kinds inside every definition table; labels, when given, are checked in the Kind column.
@@ -115,7 +116,10 @@ export function loadConfig(configPath, text) {
     },
     // Test suites: each names the classes whose implemented concepts it must prove. The older
     // single "tests" key is a suite without a name.
-    testSuites: [...(raw.tests ? [{ name: "", ...raw.tests }] : []), ...(raw.testSuites ?? [])].map(
+    testSuites: [
+      ...(raw.tests ? [{ name: "", dir: raw.tests.dir, match: raw.tests.match, cover: raw.tests.cover, checks: raw.tests.checks }] : []),
+      ...(raw.testSuites ?? []),
+    ].map(
       (t) => ({
         name: t.name ?? "",
         dir: at(t.dir),
@@ -130,7 +134,7 @@ export function loadConfig(configPath, text) {
       require: raw.checks.require ?? ["inv", "rule"],
       // Axes the catalogue must cover (D-62): "outcome" for the outcome axis of every action, or
       // { "name", "values", "each" } for an axis of the project's own.
-      axes: (raw.checks.axes ?? []).map((a) => (a === "outcome" ? OUTCOME_AXIS : { each: [], ...a })),
+      axes: (raw.checks.axes ?? []).map((a) => (a === "outcome" ? OUTCOME_AXIS : { name: a.name, values: a.values, each: a.each ?? [] })),
       cannotOccur: raw.checks.cannotOccur ?? "^- Cannot occur:",
     },
     tickets: raw.tickets && {
@@ -141,13 +145,26 @@ export function loadConfig(configPath, text) {
     docSets: (raw.docSets ?? []).map((d) => ({
       name: d.name ?? "",
       dir: at(d.dir),
+      // A set of pages named one by one, such as a README and the agent instructions, instead of every
+      // page under a directory; a README named here is read like any page (D-96).
+      files: d.files ? d.files.map(at) : null,
       match: new RegExp(d.match ?? "\\.md$"),
       cover: d.cover ?? [],
       // Proofs whose checks the set must name, ["manual"] for a run guide (D-41).
       checks: d.checks ?? [],
       scope: d.scope ?? "implemented",
     })),
-    references: (raw.references ?? []).map((r) => ({ ...r, out: at(r.out) })),
+    references: (raw.references ?? []).map((r) => ({
+      out: at(r.out),
+      title: r.title,
+      intro: r.intro,
+      classes: r.classes,
+      implementedOnly: r.implementedOnly,
+      ids: r.ids,
+      kinds: r.kinds,
+      types: r.types,
+      checks: r.checks,
+    })),
     // Other ontologies whose IDs may appear here as examples, such as a worked example inside the
     // repository of a method: their IDs and checks are known, but they are not this ontology's.
     external: (raw.external ?? []).map((e) => ({ ontology: at(e.ontology), checks: at(e.checks) })),
@@ -159,7 +176,7 @@ export function loadConfig(configPath, text) {
 
 // Files under dir (recursively) whose relative path matches the pattern, README.md excluded. A directory
 // whose name matches is not a file to read.
-const isFile = (path) => {
+export const isFile = (path) => {
   try {
     return statSync(path).isFile();
   } catch {
@@ -175,6 +192,10 @@ export const listFiles = (dir, match) =>
         .map((f) => join(dir, f))
         .filter(isFile)
     : [];
+
+// The pages of a doc set: those it names that exist, or every page under its directory but a README.
+// ont: field.doc-set.files
+export const docSetFiles = (d) => (d.files ? d.files.filter(isFile) : listFiles(d.dir, d.match));
 
 // Tags in tests and ticket scenarios: [check.loan.renew-while-held] or [rule.renewal, field.loan.renewals].
 export const tagIds = (text, classes) => {
