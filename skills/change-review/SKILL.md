@@ -91,10 +91,10 @@ Verdict: ready to merge | fix first | cannot tell (with what is missing)
 
 `ready to merge` only when no check fails and no finding of this change remains. A check that already failed on the base and that the change does not touch is an earlier problem: report it, and do not let it block. A `not run` check does not block on its own, but say who has to run it before the merge. A verdict given in an earlier round of the same change still counts while the stamp `--review` prints for its check is the stamp it was given at and the commits since change none of the files you read for it. Give a new verdict to the checks whose stamp or files changed, and always read the new diff for errors and security.
 
-<!-- ont: ent.manual-run@893f59, rule.run-recorded@2b45ff, action.record-verdicts@d809af -->
+<!-- ont: ent.manual-run@893f59, rule.run-recorded@2b45ff, action.record-verdicts@d809af, rule.records-english-in-repo@bd7b45 -->
 ## 4. Record each verdict
 
-If the configuration has `manualRuns`, put your table of verdicts in a file outside the change, with a line `By: <your model and provider>` above it, and let the tool write the records from it (D-100):
+If the configuration has `manualRuns`, put your table of verdicts in a file outside the change, with a line `By: <your model and provider>` above it, and let the tool write the records from it (D-100). Write the table in English, with paths inside the repository only, such as `tools/ont-check/lib.mjs:12`, whatever language the rest of your answer is in: its rows are recorded in the repository, and the tool refuses a table with a letter of another script, an absolute path or a path that leaves the repository by `..`. Name what you keep outside in words, such as "the reviewer's log, kept outside the repository"; a URL is allowed (`rule.records-english-in-repo`, D-151).
 
 ```bash
 node tools/ont-check/ont-check.mjs --config ont.config.json --review main --record /tmp/verdicts.md
@@ -109,7 +109,7 @@ Commit: <the commit you reviewed; for changes not yet committed, it is followed 
 Stamp: <the stamp --review printed for the check>
 Verdict: pass | fail | not-run | not-applicable
 By: <your model and provider>
-Evidence: <where the evidence is, outside the repository, if the check kept any>
+Evidence: <where the evidence is, outside the repository, if the check kept any: a URL, or named in words>
 ```
 
 Evidence such as screenshots or data stays outside the repository; the record only links to it.
