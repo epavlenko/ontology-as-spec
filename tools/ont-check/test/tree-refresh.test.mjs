@@ -113,9 +113,8 @@ const footerOf = ({ commit, config, date }) =>
     commit === "no-commit" ? "no commit" : `<code>${commit}</code>`
   }${config === undefined ? "" : ` · <code>${config}</code>`} · ${date}</footer>`;
 const withFooter = (page, mark) => {
-  const out = page.replace(/<footer class="built"[^\n]*<\/footer>/, () => footerOf(mark));
-  assert.notEqual(out, page, "the footer was replaced");
-  return out;
+  assert.match(page, /<footer class="built"[^\n]*<\/footer>/, "the page has a footer to replace");
+  return page.replace(/<footer class="built"[^\n]*<\/footer>/, () => footerOf(mark));
 };
 
 test("[check.ontology-tree.refreshed-on-main] the first merge into main after the place is set writes the page, and so does a pull --ff-only", () => {
