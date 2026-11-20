@@ -17,7 +17,7 @@ Why now: not now. The guard compares an accepted entry with `HEAD`, or with the 
 
 ## Depends on
 
-The owner's answer to the tentative entry D-131, "The guard compares an accepted entry with the text of the first commit that accepted it, from the commit that brings the rule in". Until then `npm run gap` shows `rule.guard-from-acceptance` as a target that waits for the owner.
+The owner's answer to the tentative entry D-131, "The guard compares an accepted entry with the text of the first commit that accepted it, from the commit that brings the rule in". Until then `npm run gap` lists `rule.guard-from-acceptance` as a target taken by this ticket, and its line on tentative entries names D-131 as waiting for the owner.
 
 ## Done when
 

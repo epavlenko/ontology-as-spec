@@ -930,6 +930,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: normalising the path and then checking each part for a link (round 5 found a link before a `..` that the normalised path no longer has); following a `..` as the file system does and comparing the file it reaches (that file is at another path of the commit, which the configuration does not name); reading the footer wherever it is last among the elements, whatever is left open before it (round 5 found it inside a `<template>`); keeping the check of the generator's file before the branch (it speaks off main, where the hook has nothing to do); editing D-120 (an accepted entry is never edited, `inv.accepted-never-edited`).
 - Concepts: `rule.tree-refreshed-after-merge`, `field.ontology-tree.built-from`, `field.ontology-tree.place`, `derived.tree-stale`.
 
+### D-132 · The footer of the ontology tree is read only as a child of the page's body
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the thread's technical decisions from the narrow round 1 of the review of the result of task tree-refresh, 2026-11-20, under the owner's answer "995 - a" of 2026-11-20 that D-105 cites; the owner's answer of 2026-11-20 to question 1007, "I approved the goal. Carry it to the result. Decide yourself how many rounds are needed" (translated from Russian), leaves such choices to the thread.
+- Decision: adds to D-130. The footer that D-130 reads at the end of the page counts as its mark only when it is a child of `<body>` itself. Every element the page opens after `<html>` and `<body>` is closed by its own end tag before the footer, nested ones each by theirs, and an end tag that closes no open element makes the page carry no mark. Elements without end tags, such as `<meta>` and `<br>`, are not counted; elements whose content is raw text are skipped to their end tag, as D-130 says.
+- Why: D-130 listed the elements a footer must not be inside. The review found the exact footer inside a `<details>` left open, after its `<summary>`, folded away from the reader while the report stayed silent. Any element can fold or hide what it holds, so a list of them is never whole; the position in the body is. Styles that hide a footer that is in its place remain possible, and the report does not read them: a page edited by hand is outside what the mark proves.
+- Rejected: adding `<details>` to D-130's list (the next element would pass in the same way); reading the styles of the page (a renderer, not a check).
+- Concepts: `derived.tree-stale`, `field.ontology-tree.built-from`.
+
 ## Tentative
 
 ### D-131 · The guard compares an accepted entry with the text of the first commit that accepted it, from the commit that brings the rule in
