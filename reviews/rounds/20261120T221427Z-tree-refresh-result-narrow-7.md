@@ -9,4 +9,4 @@ Checks-listed: 54
 Checks-given: 54
 Checks-carried: 0
 Findings:
-- decision log contradicts itself · important · change · fixable
+- decision log contradicts itself · important · change · fixable · check.ontology-tree.mark-exact
