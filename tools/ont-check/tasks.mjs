@@ -32,7 +32,9 @@ export function readStatement(file) {
 // of the limits at which the task stops, a number of 1 or more written as a whole number or a decimal
 // with a point, such as 1.5; null when the line is not given or cannot be read.
 export const RESERVE_LINE = "Budget-reserve";
-export const reserveOf = (v) => (v !== undefined && v !== null && /^\d+(\.\d+)?$/.test(v) && Number(v) >= 1 ? Number(v) : null);
+// At most two decimal digits, as 1.5 or 1.25: the cap is then exact in whole numbers by construction, and
+// a reserve such as 1.9300000000000002 is not a reserve but a line the tool cannot read (D-150).
+export const reserveOf = (v) => (v !== undefined && v !== null && /^\d+(\.\d{1,2})?$/.test(String(v)) && Number(v) >= 1 ? Number(v) : null);
 
 // The limits of a statement as a record of done carries them (field.task-result.budget, D-147): each a
 // whole number or none. done.mjs writes these lines from the statement it read, and the check and
@@ -429,7 +431,10 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
       : exhausted
         ? `approved${by}, version ${hash.slice(0, 12)}, but ${STOP}; work may not ${end ? "go on" : "start"}`
         : `approved${by}, version ${hash.slice(0, 12)}: work may ${end ? "go on" : "start"} under it`;
-  const lines = [say("statement", statementLine), say("result", resultLine)];
+  // A step's next action named by the rounds says the budget is spent; when the cause is a line the tool
+  // cannot read, it says that instead (D-150).
+  const why = (t) => (unreadable && typeof t === "string" ? t.replaceAll(BUDGET_QUESTION, STOP) : t);
+  const lines = [say("statement", why(statementLine)), say("result", why(resultLine))];
   errors.push(...(statement?.wrong ?? []).map((w) => `the statement's line ${w}`));
   const latest = latestDone(done, task);
   // The limits a record of done carries are those of its own version of the statement, which the check

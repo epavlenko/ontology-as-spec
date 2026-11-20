@@ -7,7 +7,8 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { nextRound, parseRounds } from "../review-rounds.mjs";
-import { acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readStatement, sha256, taskBudget, taskState } from "../tasks.mjs";
+import { acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readStatement, reserveOf, sha256, taskBudget, taskState } from "../tasks.mjs";
+import { loadConfig } from "../lib.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
 const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
@@ -935,6 +936,12 @@ test("[check.task-statement.reserve-of-statement] a statement's line Budget-rese
   const comma = join(other.dir, "comma.md");
   writeFileSync(comma, "version C\nDone-when: npm test\nBudget-new-input: 3000000\nBudget-output: 1500000\nBudget-reserve: 1,5\n");
   assert.deepEqual(readStatement(comma).wrong, ["Budget-reserve: 1,5 is not a number of 1 or more, a whole number or a decimal with a point"]);
+  // A reserve has at most two decimal digits, in a statement and in the configuration (D-150).
+  assert.equal(reserveOf("1.25"), 1.25);
+  assert.equal(reserveOf("1.9300000000000002"), null);
+  const cfgBad = join(other.dir, "bad.config.json");
+  writeFileSync(cfgBad, JSON.stringify({ classes: { ent: "Entity" }, ontology: "ontology.md", budget: { newInput: 3000000, reserve: 1.9300000000000002 } }));
+  assert.throws(() => loadConfig(cfgBad), /budget\.reserve 1\.9300000000000002 is not a number of 1 or more with at most two digits/);
   // The cap is exact: 3000000 × 1.1 is 3300000, so a spend of exactly 3300000 stops (D-150).
   const exact = taskBudget({ rounds: [{ task: "t", step: "result-review", number: 1, time: T(12), tokens: { new: 3300000, cached: 0, out: 0 }, findings: [] }], spend: [], done: [], task: "t", defaults: limits(3000000, null, 1.1), statement: null });
   assert.equal(exact.cap.newInput, 3300000);
@@ -946,5 +953,6 @@ test("[check.task-statement.reserve-of-statement] a statement's line Budget-rese
   const c = checkWith(bad, {}, ["--task", "t", "--statement", join(bad.dir, "statement.md")]);
   assert.match(c.stdout, /a line of the statement's budget cannot be read/);
   assert.doesNotMatch(c.stdout, /work may (start|go on)/, c.stdout);
+  assert.doesNotMatch(c.stdout, /TASK t · result: the budget is exhausted/, "the result line names the unreadable line, not a spent budget");
   for (const d of [sc.dir, no.dir, other.dir, bad.dir]) rmSync(d, { recursive: true, force: true });
 });

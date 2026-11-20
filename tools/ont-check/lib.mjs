@@ -230,7 +230,14 @@ export function loadConfig(configPath, text) {
     budget: {
       newInput: raw.budget?.newInput ?? null,
       output: raw.budget?.output ?? null,
-      reserve: raw.budget?.reserve ?? null,
+      // A reserve of 1 or more with at most two decimal digits, as a statement's line is (D-150); any
+      // other value is refused at load, so that the cap stays exact.
+      reserve: (() => {
+        const r = raw.budget?.reserve ?? null;
+        if (r !== null && !(typeof r === "number" && r >= 1 && /^\d+(\.\d{1,2})?$/.test(String(r))))
+          throw new Error(`budget.reserve ${JSON.stringify(r)} is not a number of 1 or more with at most two digits after the point (D-150)`);
+        return r;
+      })(),
     },
     // When owner is set, a file of the code directories that names no defined concept fails the check (D-75).
     codeNames: { require: raw.codeNames?.require === true, owner: raw.codeNames?.owner === true },
