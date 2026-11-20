@@ -10,13 +10,13 @@ Checks-listed: 33
 Checks-given: 33
 Checks-carried: 0
 Findings:
-- budget stop at the end of a step · important · change · fixable
-- budget stop at the end of a step · important · change · fixable
-- budget stop at the end of a step · nit · change · fixable
+- budget stop at the end of a step · important · change · not fixable
+- budget stop at the end of a step · important · change · not fixable
+- budget stop at the end of a step · nit · change · not fixable
 
 Acceptance:
-- budget stop at the end of a step · important · change · fixable
-- budget stop at the end of a step · important · change · fixable
+- budget stop at the end of a step · important · change · not fixable
+- budget stop at the end of a step · important · change · not fixable
 
 ## Verdicts
 
