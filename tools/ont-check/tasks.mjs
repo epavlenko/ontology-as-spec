@@ -21,19 +21,26 @@ export function readStatement(file) {
     const v = value(name)[0];
     return v !== undefined && /^\d+$/.test(v.replaceAll("_", "")) ? Number(v.replaceAll("_", "")) : null;
   };
-  return {
-    file,
-    hash: sha256(text),
-    doneWhen: value("Done-when").filter(Boolean),
-    budget: { newInput: number("Budget-new-input"), output: number("Budget-output") },
-  };
+  const budget = { newInput: number("Budget-new-input"), output: number("Budget-output"), reserve: reserveOf(value("Budget-reserve")[0]) };
+  // A line of the budget the statement gives that the tool cannot read: --task names it, rather than
+  // stopping by the configuration's number in its place (D-150).
+  const wrong = BUDGET_ALL.filter(([k, name]) => value(name)[0] !== undefined && budget[k] === null).map(([, name]) => `${name}: ${value(name)[0]} is not ${name === RESERVE_LINE ? "a number of 1 or more, a whole number or a decimal with a point" : "a whole number"}`);
+  return { file, hash: sha256(text), doneWhen: value("Done-when").filter(Boolean), budget, wrong };
 }
+
+// The reserve of a statement or of a record of done (field.task-statement.budget, D-150): the multiplier
+// of the limits at which the task stops, a number of 1 or more written as a whole number or a decimal
+// with a point, such as 1.5; null when the line is not given or cannot be read.
+export const RESERVE_LINE = "Budget-reserve";
+export const reserveOf = (v) => (v !== undefined && v !== null && /^\d+(\.\d+)?$/.test(v) && Number(v) >= 1 ? Number(v) : null);
 
 // The limits of a statement as a record of done carries them (field.task-result.budget, D-147): each a
 // whole number or none. done.mjs writes these lines from the statement it read, and the check and
 // --rounds, which are given no statement, read the limits from them.
 export const BUDGET_LINES = [["newInput", "Budget-new-input"], ["output", "Budget-output"]];
-export const budgetLines = (budget) => BUDGET_LINES.map(([k, name]) => `${name}: ${budget?.[k] ?? "none"}`);
+// With the reserve, a line of its own a record of done made before D-150 lacks (D-150).
+export const BUDGET_ALL = [...BUDGET_LINES, ["reserve", RESERVE_LINE]];
+export const budgetLines = (budget) => BUDGET_ALL.map(([k, name]) => `${name}: ${budget?.[k] ?? "none"}`);
 
 // Records of done, of spend and of the owner's approval, with what is wrong with each.
 export function parseTaskRecords(dir) {
@@ -73,9 +80,12 @@ export function parseTaskRecords(dir) {
       const [commit, hash, time] = [field("Commit"), field("Statement-hash"), field("Time")];
       const limits = BUDGET_LINES.map(([k, name]) => [k, name, field(name)]);
       const given = limits.filter(([, , v]) => v !== null);
+      const reserveLine = field(RESERVE_LINE);
       const wrong = [
         given.length === 1 && `${given[0][1]} is given without ${limits.find(([, , v]) => v === null)[1]}`,
         ...given.filter(([, , v]) => v !== "none" && !/^\d+$/.test(v)).map(([, name, v]) => `${name.toLowerCase()} ${v} is not a whole number or none`),
+        reserveLine !== null && !given.length && `${RESERVE_LINE} is given without the limits`,
+        reserveLine !== null && reserveLine !== "none" && reserveOf(reserveLine) === null && `${RESERVE_LINE.toLowerCase()} ${reserveLine} is not a number of 1 or more, or none`,
         !task && "no task",
         task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
         !/^[0-9a-f]{40}$/.test(commit ?? "") && `commit ${commit ?? "(none)"} is not a full commit`,
@@ -86,8 +96,9 @@ export function parseTaskRecords(dir) {
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
-        // A record made before the lines existed carries no limits: budget is null (D-147).
-        const budget = given.length ? Object.fromEntries(limits.map(([k, , v]) => [k, v === "none" ? null : Number(v)])) : null;
+        // A record made before the lines existed carries no limits: budget is null (D-147); one made
+        // before the line of the reserve carries none, as one whose statement gives none (D-150).
+        const budget = given.length ? { ...Object.fromEntries(limits.map(([k, , v]) => [k, v === "none" ? null : Number(v)])), reserve: reserveOf(reserveLine) } : null;
         done.push({ file: name, task, commit, statementHash: hash, time, checks, budget });
       }
     } else if (kind === "approval") {
@@ -109,39 +120,56 @@ export function parseTaskRecords(dir) {
   return { spend, done, approvals, malformed };
 }
 
-// The records whose commits do not resolve in the repository (inv.named-commits-resolve, D-145), by the
-// one test of lib.mjs, sorted by what the record proves. Where its meaning rests on the commit, a missing
-// one is an error: a record of done cannot be read and binds no acceptance, so the task is not done; the
-// round whose clean verdict of acceptance follows the latest record of done of its task, the one that
-// would end the task, names a commit on Commits: that is not there. Every other round, and every manual
-// run, proves what it proves without the commit, which a clone made after a rewrite of the history may
-// lack: information, "names a commit this clone does not have". The check, --task and --rounds read the
-// records through this.
+// The records whose commits do not resolve in the repository (inv.named-commits-resolve, D-145, D-148),
+// by the one test of lib.mjs, sorted by what the record proves. Where its meaning rests on the commit, a
+// missing one is an error: a record of done cannot be read and binds no acceptance, so the task is not
+// done; the round that would end its task, as endingRound says, names a commit on Commits: that is not
+// there, and its acceptance is refused for it by endingWhy, in the check, --task and --rounds alike.
+// Every other round, and every manual run, proves what it proves without the commit, which a clone made
+// after a rewrite of the history may lack: information, "names a commit this clone does not have". The
+// check, --task and --rounds read the records through this: the rounds it gives carry the commits of
+// their line Commits: that the repository lacks, as missing.
 const hexOf = (range) => (range ?? "").split("..").map((c) => c.trim()).filter((c) => /^[0-9a-f]{7,40}$/.test(c));
 export const MISSING_COMMIT = "names a commit this clone does not have";
-// The rounds whose clean verdict of acceptance follows the latest record of done of their task: the
-// rounds that give the acceptance a task is done by (inv.acceptance-after-done).
-export const acceptingRounds = (rounds, done) =>
-  rounds.filter((r) => {
-    if (!r.acceptance || r.acceptance.findings.length) return false;
-    const latest = latestDone(done, r.task);
-    return Boolean(latest && latest.time < r.time);
-  });
-export function resolveRecords(top, { done = [], rounds = [], runs = [] }) {
-  const accepting = new Set(acceptingRounds(rounds, done));
-  const missing = (records, commitsOf) =>
-    records.flatMap((r) => commitsOf(r).filter((c) => !commitResolves(top, c)).map((c) => `${r.file}: ${MISSING_COMMIT}, ${c}${top ? "" : " (the project is not in a Git repository)"}`));
+export function resolveRecords(top, { done = [], rounds = [], runs = [], approvals = [] }) {
+  const lacks = (c) => !commitResolves(top, c);
+  const where = top ? "" : " (the project is not in a Git repository)";
+  const kept = done.filter((d) => commitResolves(top, d.commit));
+  const marked = rounds.map((r) => ({ ...r, missing: hexOf(r.commits).filter(lacks) }));
+  // The round that would end each task, by the records of done as they are written: a record of done
+  // whose own commit is missing is an error of its own, and the round that accepts it is held to its
+  // commits too, while --task and --rounds, which read only the records that resolve, refuse it.
+  const ending = new Set([...new Set(marked.map((r) => r.task))].map((task) => endingRound({ rounds: marked, done, approvals, task })).filter(Boolean));
+  const note = (r, commits) => commits.map((c) => `${r.file}: ${MISSING_COMMIT}, ${c}${where}`);
   const runCommit = (r) => [String(r.commit ?? "").replace(/\+working-tree$/, "")];
   return {
-    done: done.filter((d) => commitResolves(top, d.commit)),
+    done: kept,
+    rounds: marked,
     malformed: unresolvedCommits(top, done, (d) => [d.commit]),
-    problems: [...accepting].flatMap((r) =>
-      hexOf(r.commits)
-        .filter((c) => !commitResolves(top, c))
-        .map((c) => `${r.file}: the round gives the acceptance of the latest record of done of ${r.task}, and its line Commits: names commit ${c}, which is not in the repository${top ? "" : " (the project is not in a Git repository)"}`),
-    ),
-    notes: [...missing(rounds.filter((r) => !accepting.has(r)), (r) => hexOf(r.commits)), ...missing(runs, runCommit)],
+    problems: [...ending].flatMap((r) => r.missing.map((c) => `${r.file}: ${missingWhy(r.task, c)}${where}`)),
+    notes: [...marked.filter((r) => !ending.has(r)).flatMap((r) => note(r, r.missing)), ...runs.flatMap((r) => note(r, runCommit(r).filter(lacks)))],
   };
+}
+const missingWhy = (task, c) => `the round gives the acceptance of the latest record of done of ${task}, and its line Commits: names commit ${c}, which is not in the repository`;
+
+// The round whose clean verdict of acceptance would end a task (D-148): the last round by time of the
+// review of its result, clean on merging and in its acceptance, whose acceptance holds for the latest
+// record of done by every rule of acceptanceWhy; null when there is none. The question is answered here
+// once: resolveRecords holds only this round to the commits of its line Commits:, and endingWhy, which
+// --task, --rounds and the check ask through stepNext, refuses its acceptance when one is missing. A
+// round with a finding on merging, or one followed by another round, ends nothing, whatever it names.
+export function endingRound({ rounds, done = [], approvals = [], task, statement = null }) {
+  const last = ofTask(rounds, task, "result-review").at(-1);
+  if (!last || !last.acceptance || !isClean(last)) return null;
+  return acceptanceWhy(last, rounds, done, statement, { approvals, latest: true }) ? null : last;
+}
+// Why the acceptance of the last round of the review of a task's result does not end the task, or null:
+// acceptanceWhy for the latest record of done, then a commit of its line Commits: that the repository
+// does not have, as resolveRecords marked it (D-148).
+export function endingWhy(r, { rounds, done = [], approvals = [], statement = null }) {
+  const why = acceptanceWhy(r, rounds, done, statement, { approvals, latest: true });
+  if (why) return why;
+  return r.missing?.length ? `its line Commits: names commit ${r.missing.join(", ")}, which is not in the repository` : null;
 }
 
 // Two records of one contribution whose intervals overlap, even in part, or that begin in the same
@@ -245,7 +273,9 @@ export const latestDone = (done, task) => done.filter((d) => d.task === task).so
 // version's limits as the latest record of done of that version carries them. A record of done of
 // another version gives none: the limits of an older version are not the newer one's. With no approval
 // in force, the file given, the version under review. Each limit the configuration's where the
-// statement gives none, or where no record of its version carries them yet.
+// statement gives none, or where no record of its version carries them yet. The reserve is read the same
+// way, from the same place, as the limits (D-150): the statement's line Budget-reserve:, else the
+// configuration's budget.reserve, else none, which taskBudget reads as 1.
 export function taskLimits({ statement = null, rounds = [], approvals = [], done = [], task, defaults }) {
   const version = approvedHash(rounds, task, null, approvals) ?? statement?.hash ?? null;
   const own =
@@ -255,14 +285,14 @@ export function taskLimits({ statement = null, rounds = [], approvals = [], done
           done.filter((d) => d.statementHash === version),
           task,
         )?.budget ?? {});
-  return { newInput: own?.newInput ?? defaults?.newInput ?? null, output: own?.output ?? defaults?.output ?? null, version };
+  return { newInput: own?.newInput ?? defaults?.newInput ?? null, output: own?.output ?? defaults?.output ?? null, reserve: own?.reserve ?? defaults?.reserve ?? null, version };
 }
 
 // A task's spend against its limits (derived.task-budget); null when no limit is set.
 export function taskBudget({ rounds, spend, done = [], approvals = [], task, defaults, statement }) {
-  const { version, ...limits } = taskLimits({ statement, rounds, approvals, done, task, defaults });
+  const { version, reserve: given, ...limits } = taskLimits({ statement, rounds, approvals, done, task, defaults });
   if (limits.newInput === null && limits.output === null) return null;
-  const reserve = defaults?.reserve ?? 1;
+  const reserve = given ?? 1;
   const cap = (k) => (limits[k] === null ? null : limits[k] * reserve);
   const parts = [...rounds.filter((r) => r.task === task), ...spend.filter((s) => s.task === task)];
   // Records of one contribution that overlap would count it twice: the spend is not summed at all, and
@@ -275,7 +305,7 @@ export function taskBudget({ rounds, spend, done = [], approvals = [], task, def
     return {
       limits,
       reserve,
-      noReserve: defaults?.reserve === null || defaults?.reserve === undefined,
+      noReserve: given === null,
       used: null,
       conflict,
       known: 0,
@@ -291,7 +321,7 @@ export function taskBudget({ rounds, spend, done = [], approvals = [], task, def
   return {
     limits,
     reserve,
-    noReserve: defaults?.reserve === null || defaults?.reserve === undefined,
+    noReserve: given === null,
     used,
     conflict: [],
     known,
@@ -335,7 +365,7 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, exhaus
     const last = approvalEvents(rounds, task, approvals).at(-1);
     if (last?.kind === "approval") return { next: "clean", say: `the owner approved version ${last.hash.slice(0, 12)} (${last.file})` };
   }
-  return nextRound(of, { exhausted, refused: (r) => acceptanceWhy(r, rounds, done, statement, { approvals, latest: true }) });
+  return nextRound(of, { exhausted, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
 }
 
 // What a task needs next, its statement, its result and its budget, as lines; and the errors of its
@@ -386,12 +416,13 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
         ? `approved${by}, version ${hash.slice(0, 12)}, but ${BUDGET_QUESTION}; work may not ${end ? "go on" : "start"}`
         : `approved${by}, version ${hash.slice(0, 12)}: work may ${end ? "go on" : "start"} under it`;
   const lines = [say("statement", statementLine), say("result", resultLine)];
+  errors.push(...(statement?.wrong ?? []).map((w) => `the statement's line ${w}`));
   const latest = latestDone(done, task);
   // The limits a record of done carries are those of its own version of the statement, which the check
   // reads from it (D-147): the latest record of done of the file's version is compared with the file; a
   // record of an older version is not, since its limits were that version's.
   const ofFile = statement ? latestDone(done.filter((d) => d.statementHash === statement.hash), task) : null;
-  if (ofFile?.budget && BUDGET_LINES.some(([k]) => ofFile.budget[k] !== (statement.budget?.[k] ?? null)))
+  if (ofFile?.budget && BUDGET_ALL.some(([k]) => ofFile.budget[k] !== (statement.budget?.[k] ?? null)))
     errors.push(`${ofFile.file}: the record of done carries the limits ${budgetLines(ofFile.budget).join(", ")}, not the statement's, ${budgetLines(statement.budget).join(", ")}`);
   if (latest)
     lines.push(
@@ -407,7 +438,7 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
     const limit = (k) => (b.limits[k] === null ? `${LABEL[k]} ${num(b.used[k])}, no limit` : `${LABEL[k]} ${num(b.used[k])} of ${num(b.limits[k])} × ${num(b.reserve)} = ${num(b.cap[k])}`);
     lines.push(
       `BUDGET ${task}: ${limit("newInput")}, ${limit("output")}; known for ${b.known} of ${b.parts} contributions` +
-        (b.noReserve ? "; budget.reserve is not set, so the reserve is 1" : "") +
+        (b.noReserve ? "; neither Budget-reserve: of the statement nor budget.reserve is set, so the reserve is 1" : "") +
         (b.over ? `; overspend: ${overspendText(b)}` : b.exhausted ? "; exhausted" : ""),
     );
   }

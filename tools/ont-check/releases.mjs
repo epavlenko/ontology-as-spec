@@ -61,11 +61,9 @@ export function parseReleasesFile(text) {
 
 export const RELEASES_HEAD =
   "# Releases\n\nOne entry per release of the approach, written by `tools/ont-check/release.mjs`: its version, its date and the commit its tests and check passed on. The release commit adds only its entry and carries the annotated tag `v<version>`. The changes of a release are the entries of the decision log between its verified commit and the one of the release before, or the commit of `v0.1`; they are derived, not written here.\n\n";
-// The text of releases.md at a commit, byte for byte, or null when the commit has no such file.
-export const fileAt = (repo, commit, rel = RELEASES_FILE) => {
-  const r = spawnSync("git", ["-C", repo, "show", `${commit}:${rel}`], { encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 28 });
-  return r.status === 0 ? r.stdout : null;
-};
+// The text of releases.md at a commit, byte for byte, or null when the commit has no such file: a
+// directory of that name is no file (D-149).
+export const fileAt = (repo, commit, rel = RELEASES_FILE) => blobAt(repo, commit, rel).bytes?.toString("utf8") ?? null;
 // The log of releases with one entry appended (D-140): the text before it, or the heading of the file
 // when there was none, kept byte for byte, then a blank line and the entry. The release action writes
 // it and the test of a release commit compares with it, so the two cannot part.
@@ -84,8 +82,8 @@ export function decisionEntries(text) {
 }
 const decisionsAt = (repo, commit, rel) => {
   if (!commit) return [];
-  const r = git(repo, "show", `${commit}:${rel}`);
-  return r.ok ? decisionEntries(r.out) : [];
+  const text = fileAt(repo, commit, rel);
+  return text === null ? [] : decisionEntries(text);
 };
 // The entries the log gained from one commit to another (edge.protocol-release.changes).
 export function changesBetween(repo, from, to, rel = "decisions.md") {
@@ -333,12 +331,14 @@ export const inHistory = (top, commit) => commitResolves(top, commit) && isAnces
 // The pin of a release, by the configuration at its commit (edge.product-release.pin, D-125): the file
 // its releases.pin names, from the repository's top; a later move of the pin leaves an old release as it
 // was.
+// Each file it reads, the configuration and the pin, is read by blobAt: a directory at the path is refused
+// as no file, never hashed as Git's listing of a tree (D-149).
 export function pinAt(top, cfgRel, commit) {
-  const config = git(top, "show", `${commit}:${cfgRel}`);
-  if (!config.ok) return { error: `no configuration ${cfgRel} at commit ${commit.slice(0, 7)}` };
+  const config = blobAt(top, commit, cfgRel);
+  if (!config.bytes) return { error: `no configuration ${cfgRel} at commit ${commit.slice(0, 7)}${config.kind ? `: ${notFile(cfgRel, config.kind)}` : ""}` };
   let raw;
   try {
-    raw = JSON.parse(config.out);
+    raw = JSON.parse(config.bytes.toString("utf8"));
   } catch {
     return { error: `the configuration ${cfgRel} at commit ${commit.slice(0, 7)} is not JSON` };
   }
@@ -346,9 +346,9 @@ export function pinAt(top, cfgRel, commit) {
   const rel = repoPath(posix.dirname(cfgRel), raw.releases.pin);
   if (rel === "") return { error: `the pin ${raw.releases.pin} of the configuration at commit ${commit.slice(0, 7)} is the root of the repository, not a file` };
   if (rel === null) return { error: `the pin ${raw.releases.pin} of the configuration at commit ${commit.slice(0, 7)} is outside the repository` };
-  const file = spawnSync("git", ["-C", top, "show", `${commit}:${rel}`], { env: gitEnv(), maxBuffer: 1 << 28 });
-  if (file.status !== 0) return { rel, error: `the pin ${rel} is not at commit ${commit.slice(0, 7)}` };
-  return { rel, bytes: file.stdout, hash: sha256(file.stdout), config: config.out, raw };
+  const file = blobAt(top, commit, rel);
+  if (!file.bytes) return { rel, error: file.kind ? `the pin ${notFile(rel, file.kind)} at commit ${commit.slice(0, 7)}` : `the pin ${rel} is not at commit ${commit.slice(0, 7)}` };
+  return { rel, bytes: file.bytes, hash: sha256(file.bytes), config: config.bytes.toString("utf8"), raw };
 }
 
 // The version of the tool of a release (field.product-release.tool, D-141), as the release action
@@ -375,13 +375,29 @@ export function repoPath(base, rel = "") {
 }
 // How a path of the tree is named to a reader: the root by name.
 export const pathName = (p) => (p === "" ? "the root of the repository" : p);
-// Whether a path of the tree is a file (blob) or a directory (tree) at a commit; the root, "", is the
-// commit's own tree.
-export const pathAt = (top, commit, path, kind) => {
-  if (path === null) return false;
+// What a path of the tree is at a commit: "blob", a file, "tree", a directory, "commit", a submodule,
+// or null when the commit has nothing there; the root, "", is the commit's own tree.
+export const kindAt = (top, commit, path) => {
+  if (path === null) return null;
   const r = spawnSync("git", ["-C", top, "cat-file", "-t", `${commit}:${path}`], { encoding: "utf8", env: gitEnv() });
-  return r.status === 0 && r.stdout.trim() === kind;
+  return r.status === 0 ? r.stdout.trim() : null;
 };
+// Whether a path of the tree is of the kind it is read as, a file (blob) or a directory (tree), at a
+// commit (D-146, D-149): every path a release reads at a commit is tested by kind, through this or
+// blobAt, never only by being there.
+export const pathAt = (top, commit, path, kind) => kindAt(top, commit, path) === kind;
+// The bytes of a file at a commit (D-149): { bytes } when the path is a file (blob) there, and otherwise
+// { kind }, what is there instead, or null when nothing is. A directory is never read as a file: git show
+// of a tree gives its listing, which would be hashed or parsed as the file's text.
+export const blobAt = (top, commit, path) => {
+  const kind = kindAt(top, commit, path);
+  if (kind !== "blob") return { bytes: null, kind };
+  const r = spawnSync("git", ["-C", top, "cat-file", "blob", `${commit}:${path}`], { env: gitEnv(), maxBuffer: 1 << 28 });
+  return r.status === 0 ? { bytes: r.stdout, kind } : { bytes: null, kind: null };
+};
+const KIND = { tree: "a directory", commit: "a submodule" };
+// How a path that is not a file is named to a reader.
+export const notFile = (path, kind) => `${pathName(path)} is ${KIND[kind] ?? `a ${kind}`}, not a file`;
 // Everything a run of the checks of a release needs, read from its commit and the configuration there
 // (action.release-product, action.verify-release, D-142): the configuration, its pin, the tool in the
 // directory releases.tool names, or else the pin's own directory, as a copy of the tool keeps its pin,
@@ -410,10 +426,10 @@ export function releaseRecordProblems({ top, cfgRel, r }) {
   else if (pin.hash !== r.pin) out.push(`${r.file}: the pin's hash is not the hash of ${pin.rel} at commit ${r.commit.slice(0, 7)}`);
   if (!pin.error && r.tool !== toolVersionOf(pin, r.commit))
     out.push(`${r.file}: the tool ${r.tool} is not the version of the tool at commit ${r.commit.slice(0, 7)}, ${toolVersionOf(pin, r.commit)}: the commit its pin names, or the commit itself when the pin names none`);
-  const config = git(top, "show", `${r.commit}:${cfgRel}`);
+  const config = blobAt(top, r.commit, cfgRel);
   let required = null;
   try {
-    required = config.ok ? requiredChecks(config.out) : null;
+    required = config.bytes ? requiredChecks(config.bytes.toString("utf8")) : null;
   } catch {}
   const given = r.checks.map((c) => c.check);
   if (!required) out.push(`${r.file}: no configuration ${cfgRel} at commit ${r.commit.slice(0, 7)} that can be read`);

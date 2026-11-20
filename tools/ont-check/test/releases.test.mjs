@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { parseProductRecords, parseReleasesFile, productReleaseProblems, protocolReleaseProblems, releaseNews, releaseTag, repoPath, runningNow } from "../releases.mjs";
+import { blobAt, fileAt, kindAt, parseProductRecords, parseReleasesFile, productReleaseProblems, protocolReleaseProblems, releaseNews, releaseTag, repoPath, runningNow } from "../releases.mjs";
 import { sha256 } from "../tasks.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
@@ -699,4 +699,40 @@ test("[check.product-release.root-suite] a suite whose directory is the root, gi
   assert.equal(repoPath("sub", ".."), "");
   assert.equal(repoPath(".", "tests/"), "tests");
   assert.equal(repoPath("sub", "../.."), null);
+});
+
+// Round 6 of the review of the result of task releases-and-task (D-149).
+test("[check.product-release.pin-is-file] a pin that names a directory is refused by --product, the check and --verify, and every file a release reads at a commit is read only as a file", () => {
+  const { repo } = productRepo();
+  const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+  writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, releases: { ...cfg.releases, pin: "tools/ont-check", tool: "tools/ont-check" } }, null, 2));
+  const commit = commitAll(repo, "the pin names the tool's directory");
+  const r = product(repo, "--product", "1.0.1");
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stdout, new RegExp(`^ERROR · the pin tools/ont-check is a directory, not a file at commit ${commit.slice(0, 7)}; no record written`));
+  assert.doesNotMatch(r.stdout, /RELEASED/);
+  // A record written by hand with the hash of Git's listing of the directory, as the release hashed it before.
+  const listing = spawnSync("git", ["-C", repo, "show", `${commit}:tools/ont-check`], { env: ENV }).stdout;
+  mkdirSync(join(repo, "releases"), { recursive: true });
+  writeFileSync(join(repo, "releases", "1.0.1.md"), recordText({ Version: "1.0.1", Commit: commit, Pin: sha256(listing), Tool: commit, Date: "2026-11-20" }, ["- ont-check · pass", "- suite unit · pass"]));
+  commitAll(repo, "a record of the listing");
+  assert.match(problems(repo).join("\n"), new RegExp(`1\\.0\\.1\\.md: the pin tools/ont-check is a directory, not a file at commit ${commit.slice(0, 7)}`));
+  const c = checkProduct(repo);
+  assert.equal(c.status, 1, c.stdout);
+  assert.match(c.stdout, /records of releases and deployments that do not hold \(1\)/);
+  const v = product(repo, "--verify", "1.0.1");
+  assert.equal(v.status, 1, v.stdout);
+  assert.match(v.stdout, /^ERROR · release 1\.0\.1 is not intact, so it is not run:\n  1\.0\.1\.md: the pin tools\/ont-check is a directory, not a file/);
+  assert.doesNotMatch(v.stdout, /VERIFIED/);
+  // The one function every file is read through: a file gives its bytes, a directory and nothing give none.
+  assert.equal(kindAt(repo, commit, "tools/ont-check"), "tree");
+  assert.equal(blobAt(repo, commit, "tools/ont-check").bytes, null);
+  assert.equal(blobAt(repo, commit, "tools/ont-check").kind, "tree");
+  assert.equal(blobAt(repo, commit, "nothing-here").kind, null);
+  assert.equal(blobAt(repo, commit, "ont.config.json").bytes.toString("utf8"), readFileSync(join(repo, "ont.config.json"), "utf8"));
+  // releases.md and decisions.md of the protocol, a directory of that name: no file.
+  mkdirSync(join(repo, "releases.md"));
+  writeFileSync(join(repo, "releases.md", "x"), "x");
+  const dirCommit = commitAll(repo, "a directory named releases.md");
+  assert.equal(fileAt(repo, dirCommit), null);
 });

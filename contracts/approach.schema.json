@@ -576,7 +576,7 @@
           "type": "string"
         },
         "budget": {
-          "description": "The task's own limits of new input and output tokens, on the lines Budget-new-input: and Budget-output:, in place of the project's defaults.",
+          "description": "The task's own limits of new input and output tokens, on the lines Budget-new-input: and Budget-output:, and its reserve, the multiplier of the limits at which it stops, on the line Budget-reserve:, a number of 1 or more written as a whole number or a decimal with a point, such as 1.5, each in place of the project's default; a line given that cannot be read is named by --task.",
           "x-ont": "field.task-statement.budget",
           "type": "string"
         },
@@ -654,7 +654,7 @@
           "type": "string"
         },
         "budget": {
-          "description": "The statement's own limits, as done.mjs copies them from its lines Budget-new-input: and Budget-output:, each a whole number or none; the check and --rounds, given no statement, read the limits of the version the approval in force names from the latest record of done of that version, and --task refuses the latest record of done of its statement's file's version whose limits are not the file's; a record of done of another version is not compared with the file. A record made before these lines carries none.",
+          "description": "The statement's own limits and reserve, as done.mjs copies them from its lines Budget-new-input:, Budget-output: and Budget-reserve:, each a number or none; the check and --rounds, given no statement, read the limits of the version the approval in force names from the latest record of done of that version, and --task refuses the latest record of done of its statement's file's version whose limits or reserve are not the file's; a record of done of another version is not compared with the file. A record made before these lines carries none, and one made before the line of the reserve carries no reserve.",
           "x-ont": "field.task-result.budget",
           "type": "string"
         },
@@ -1134,7 +1134,7 @@
           "format": "date"
         },
         "pin": {
-          "description": "The pin of the protocol at the commit, by the SHA-256 of the file that releases.pin of the configuration at that commit names.",
+          "description": "The pin of the protocol at the commit, by the SHA-256 of the file that releases.pin of the configuration at that commit names, a file at that commit: a directory or anything else at the path is refused, never hashed.",
           "x-ont": "edge.product-release.pin",
           "type": "string",
           "x-ont-ref": "ent.tool-copy"

@@ -1343,7 +1343,7 @@ if (flag("--statement") > 0 && !(flag("--task") > 0)) fail("--statement needs --
 // --rounds: what follows the last round of each task's review, and the payoff of each step (D-97, D-99).
 // ont: derived.next-round, derived.step-payoff, inv.review-rounds-well-formed
 if (cfg.reviewRounds) {
-  const { rounds, malformed } = parseRounds(cfg.reviewRounds.dir);
+  const { rounds: parsedRounds, malformed } = parseRounds(cfg.reviewRounds.dir);
   report("review round records that cannot be read", malformed);
   // Records of done and of spend (D-107, D-108): a contribution recorded twice over one interval, and a
   // verdict of acceptance with no record of done behind it, are errors.
@@ -1352,10 +1352,13 @@ if (cfg.reviewRounds) {
   // Every commit a record names resolves in the project's repository where the record's meaning rests on
   // it (D-145): a record of done whose commit does not cannot be read, so it binds no acceptance in the
   // check, --task or --rounds; the round that gives the acceptance of the latest record of done is an
-  // error; any other round that names a commit this clone lacks is information.
+  // error; any other round that names a commit this clone lacks is information. Every use below takes
+  // the rounds resolveRecords gives, which carry their missing commits, so the round that would end a
+  // task is refused for one in the check, --task and --rounds alike (D-148).
   // ont: inv.named-commits-resolve
   const projectTop = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
-  const resolved = resolveRecords(projectTop, { done: parsed.done, rounds });
+  const resolved = resolveRecords(projectTop, { done: parsed.done, rounds: parsedRounds, approvals: parsed.approvals });
+  const { rounds } = resolved;
   const records = { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] };
   report("task records that cannot be read", records.malformed);
   report("rounds that give the acceptance of a task whose commits are not in the repository", resolved.problems);
