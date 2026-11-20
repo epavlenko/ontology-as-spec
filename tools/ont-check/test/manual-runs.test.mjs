@@ -205,6 +205,12 @@ test("[check.manual-run.english-in-repo] refuses a record with a path outside th
   assert.ok(!own.out.includes(`${names.ownCyrillic}: line 9`), own.out);
   assert.match(own.out, new RegExp(`${names.ownHome.replace(/\./g, "\\.")}: line 9: /home/x/notes\\.md:4 is a path outside the repository`));
 
+  // Every form of an absolute path, and a file: URL, is outside the repository; a web URL, a path that
+  // stays inside by .., a commit range and an end tag are not (D-151).
+  for (const bad of ["see file:///home/x/a.md", "see \\\\srv\\share\\x", "see C:/Users/x", "see C:\\Users\\x", "see [log](/var/log/x)", "see ~/notes"])
+    assert.equal(outsideRecord(bad, 1, {}).length, 1, bad);
+  for (const good of ["https://example.org/x", "`docs/../README.md`", "[a](docs/a b/../c.md)", "main..HEAD", "</svg>"])
+    assert.deepEqual(outsideRecord(good, 1, {}), [], good);
   // A record of a round is read the same way.
   const dir = mkdtempSync(join(tmpdir(), "rounds-"));
   try {

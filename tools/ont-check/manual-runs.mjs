@@ -28,10 +28,14 @@ export const runStamp = (c, ONT, rows, checkById, notes) =>
 // sets records.latinOnly, as this repository does for its rule of English only (D-03), no letter of a
 // script other than Latin. A URL is allowed. Each problem names its line, from 1.
 // ont: rule.records-english-in-repo
-const URL_RE = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>()`"'|]+/gi;
+// A URL of the web is allowed; a file: URL names a local file and is a path outside the repository.
+const URL_RE = /\bhttps?:\/\/[^\s<>()`"'|]+/gi;
 const NOT_LATIN = /[^\P{L}\p{Script=Latin}]/u;
 // An end tag such as </svg> is no path; a link in angle brackets, (</x>), is.
-const ABSOLUTE = /(?:^|[\s(\[`"'=,;|]|\(<)(\/[^\s/)>\]`"',;|]|~\/|[A-Za-z]:\\)/;
+// An absolute path: POSIX /x, ~/x, a Windows drive C:\ or C:/, a UNC \\server, or any URL with a scheme
+// other than http(s), such as file:///x, after a space, a bracket, a quote or the parenthesis of a
+// Markdown link.
+const ABSOLUTE = /(?:^|[\s(\[`"'=,;|]|\(<|\]\()(\/[^\s/)>\]`"',;|]|~\/|[A-Za-z]:[\\/]|\\\\[^\s\\]|[a-z][a-z0-9+.-]*:\/\/)/i;
 const leaves = (token) => {
   let depth = 0;
   for (const part of token.split(/[\\/]/)) {
