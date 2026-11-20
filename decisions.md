@@ -766,6 +766,24 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: forms in a file of their own (read apart from the definitions they restate); forms in a column of the tables (an action's statements do not fit a cell); definitions written as forms too (the tables are the overview people read); FEEL as the form language (nine packages, names in camelCase instead of the ontology's words, and traps a run found: a hyphen read as minus on loop variables, a filter hiding a parameter of the same name); the ontology executed as the product (D-73).
 - Concepts: `ent.formal-form`, `ent.trace`, `concept.oracle`, `rule.form-follows-rows`, `rule.oracle-not-the-product`, `rule.code-compared-with-oracle`, `inv.form-per-row`, `inv.form-names-defined`, `inv.forms-end`, `inv.writes-in-type`, `inv.trace-per-check`, `inv.traces-pass`.
 
+### D-94 · A failed check or a remaining finding stops a merge; a not run with its reason does not
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 955, "955 a": write into the row "Reviewed before merge" that a fail or a remaining finding forbids the merge and a not run with its reason does not, in an entry of its own that cites D-77 (translated from Russian).
+- Decision: `rule.reviewed-before-merge` says that a fail, or a finding of the change that remains, stops the merge, and that a not run or not applicable verdict with its reason does not stop it on its own. This is the rule `skills/change-review/SKILL.md` already set under D-77, moved into the row.
+- Why: the row asked only for a verdict on each check, and a fail is a verdict, so read by its words it let a change with a failed check be merged. The pilot of the approach's processes on the oracle found it: the form written by the row merged such a change.
+- Rejected: leaving the rule only in the skill (the ontology is the source of the approach's rules, and the oracle and a reader of the row would merge a failed change).
+- Concepts: `rule.reviewed-before-merge`, `field.manual-run.verdict`.
+
+### D-95 · A verdict counts for a merge while its check's stamp has not changed
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answers of 2026-11-20 to question 956, "956 a": a verdict holds while the check's stamp has not changed, as for the current run, and to question 966, "966 a": it holds while the stamp has not changed and the commits since change none of the files the reviewer read for it, and the check of code errors and security is given again on every new diff (translated from Russian).
+- Decision: `rule.reviewed-before-merge` counts a verdict while the stamp it was given at is the check's stamp now and the commits the change took since change none of the files the reviewer read for it; a check whose stamp changed, or whose files changed, needs a new verdict. The check of errors and security in code, `rule.code-reviewed-for-errors`, is given again on the diff of every new commit, so a later round reads every fix.
+- Why: the row did not say whether a verdict given before the last commits of a change still counts. Narrow rounds of review re-read only the fixes, which assumes the earlier verdicts stand. The stamp tells when a check's case or concepts changed, but not when the code did: a review of the protocol's redundancy found that a verdict carried by its stamp alone would let a new error in the fixed code through.
+- Rejected: the stamp alone (a fix of the code changes no stamp); only a verdict on the commit being merged (every fix would need every check reviewed again); any verdict of the change, whatever changed since (a check whose case changed would go unreviewed).
+- Concepts: `rule.reviewed-before-merge`, `rule.code-reviewed-for-errors`, `field.manual-run.stamp`, `derived.current-run`.
+
 ## Tentative
 
 ## Open questions

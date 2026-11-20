@@ -902,7 +902,7 @@
       ],
       "given": "a change about to be merged",
       "when": "a reviewer looks for its review",
-      "then": "an agent of another provider that did not write it gave each check `--review` listed a verdict, and a check it could not run is `not run` with the reason, not `not applicable`"
+      "then": "an agent of another provider that did not write it gave each check `--review` listed a verdict, and a check it could not run is `not run` with the reason, not `not applicable`; no check that failed and no finding of the change remains, and each verdict was given at the check's stamp now, on files no later commit changed, with the check of code errors given on the last diff"
     },
     {
       "id": "check.agent-rules.value-checked-against-source",
