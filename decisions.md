@@ -1014,6 +1014,7 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## History
 
+- 2026-11-20: the owner accepted the placement of D-111, the release of a product and the deployment as concepts of the protocol, a project setting only the directory of its records in its configuration: his answer of 2026-11-20 to question 1005, "1005 - a".
 - 2026-11-20: D-93 accepted by the owner: formal forms, traces and the oracle.
 - 2026-11-19: D-93, tentative, on the prototype branch: formal forms, traces and the oracle.
 - 2026-11-19: D-91 and D-92 accepted by the owner; D-91 supersedes D-51.
