@@ -11,7 +11,7 @@
 // ont: ent.ontology-tree, edge.ontology-tree.concepts, rule.tree-structure-only, inv.tree-complete
 // ont: field.ontology-tree.place, field.ontology-tree.built-from, derived.tree-stale, rule.tree-refreshed-after-merge
 import { execFileSync } from "node:child_process";
-import { lstatSync, readFileSync, readlinkSync, realpathSync, writeFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readlinkSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REF_TYPE, parseShows } from "./contracts.mjs";
@@ -319,6 +319,26 @@ export function refresh(cwd, { squash = false } = {}) {
   return [`${place}: ${built.files.length} ${built.files.length > 1 ? "ontologies" : "ontology"}, built from ${mark.commit}`];
 }
 
+// The kind of a file that is not a regular one, in words, or null for a regular file.
+const kindOf = (st) =>
+  st.isFile() ? null : st.isDirectory() ? "a directory" : st.isFIFO() ? "a named pipe" : st.isSocket() ? "a socket" : st.isCharacterDevice() || st.isBlockDevice() ? "a device" : "not a file";
+// The text of a regular file, links followed; any other kind throws an error with its kind, before it
+// is opened. The file is opened without waiting and checked again once open, so that one replaced by a
+// named pipe between the two is not read either.
+const readRegular = (path) => {
+  const fail = (kind) => Object.assign(new Error(`${path} is ${kind}`), { kind });
+  const before = kindOf(statSync(path));
+  if (before) throw fail(before);
+  const fd = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
+  try {
+    const now = kindOf(fstatSync(fd));
+    if (now) throw fail(now);
+    return readFileSync(fd, "utf8");
+  } finally {
+    closeSync(fd);
+  }
+};
+
 // Why the tree at the clone's place does not show main (derived.tree-stale): nothing when it does, or
 // when no place is set. It never fails, a file it cannot read included; a stale page is one to rewrite,
 // not a broken repository.
@@ -329,9 +349,12 @@ export function stale(cwd) {
   const at = `TREE_STALE ${place}:`;
   let html;
   try {
-    html = readFileSync(place, "utf8");
+    html = readRegular(place);
   } catch (e) {
-    // A place that is a directory, or a file this user cannot read, is reported like a missing one.
+    // A place of another kind is named and never opened: a read of a named pipe with no writer would
+    // wait for ever, and opening a device may do what the device does. A file this user cannot read is
+    // reported like a missing one.
+    if (e.kind) return [`${at} the place is ${e.kind}, not a regular file`];
     return [e.code === "ENOENT" ? `${at} the file does not exist` : `${at} the file cannot be read (${e.code ?? e.message})`];
   }
   const mark = readMark(html);

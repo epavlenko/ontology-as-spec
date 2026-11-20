@@ -33,7 +33,9 @@ const ENV = {
   GIT_EDITOR: "true",
 };
 const sh = (cwd, cmd, args) => {
-  const r = spawnSync(cmd, args, { cwd, env: ENV, encoding: "utf8" });
+  // A command that waits for ever, as a read of a named pipe with no writer does, fails the test.
+  const r = spawnSync(cmd, args, { cwd, env: ENV, encoding: "utf8", timeout: 120000 });
+  if (r.error) return { code: null, out: `${cmd} ${args.join(" ")}: ${r.error.message}`, stdout: "" };
   return { code: r.status, out: r.stdout + r.stderr, stdout: r.stdout };
 };
 
@@ -411,10 +413,17 @@ test("[check.ontology-tree.stale] each reason is reported; a current page, compa
     return s.out;
   };
   assert.match(stale(), /TREE_STALE .*tree\.html: the file does not exist\n/);
-  // A place that is a directory: reported as a file that cannot be read, and the report ends with 0.
+  // A place that is a directory, a named pipe with no writer, or a device: each is reported as not a
+  // regular file without being opened, and the report ends with 0 at once.
   mkdirSync(r.place);
-  assert.match(stale(), /TREE_STALE .*tree\.html: the file cannot be read \(EISDIR\)\n/);
+  assert.match(stale(), /TREE_STALE .*tree\.html: the place is a directory, not a regular file\n/);
   rmSync(r.place, { recursive: true });
+  assert.equal(sh(r.dir, "mkfifo", [r.place]).code, 0);
+  assert.match(stale(), /TREE_STALE .*tree\.html: the place is a named pipe, not a regular file\n/);
+  rmSync(r.place);
+  r.git("config", "--local", "ont.treeOut", "/dev/null");
+  assert.match(stale(), /TREE_STALE \/dev\/null: the place is a device, not a regular file\n/);
+  r.setPlace();
   writeFileSync(r.place, "<!doctype html><html><body>a tree</body></html>\n");
   assert.match(stale(), /: the page carries no mark of what it was built from\n/);
 
