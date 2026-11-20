@@ -6,7 +6,6 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const read = (path) => readFileSync(path, "utf8");
-
 // The variables Git reads as local to one repository, which it sets for a hook and which would point a
 // git command in another clone, worktree or directory at the hook's repository, its index, its objects
 // or its configuration: the list `git rev-parse --local-env-vars` gives
@@ -32,14 +31,21 @@ export const GIT_LOCAL_VARS = [
 let localVars = null;
 const gitLocalVars = () => {
   if (!localVars) {
-    const r = spawnSync("git", ["rev-parse", "--local-env-vars"], { encoding: "utf8", env: { PATH: process.env.PATH ?? "" } });
-    localVars = new Set([...GIT_LOCAL_VARS, ...(r.status === 0 ? r.stdout.split("\n").filter(Boolean) : [])]);
+    // The list above first, so that the query itself runs through gitEnv, with PATH alone, as every
+    // command of Git the tool runs does; Git's own list is added to it.
+    localVars = new Set(GIT_LOCAL_VARS);
+    const r = spawnSync("git", ["rev-parse", "--local-env-vars"], { encoding: "utf8", env: gitEnv({ PATH: process.env.PATH ?? "" }) });
+    if (r.status === 0) for (const v of r.stdout.split("\n").filter(Boolean)) localVars.add(v);
   }
   return localVars;
 };
-// The environment of a git command in a repository given by its directory, without those variables.
-export const gitEnv = (env = process.env) =>
+const withoutLocal = (env) =>
   Object.fromEntries(Object.entries(env).filter(([k]) => !gitLocalVars().has(k) && !/^GIT_CONFIG_(KEY|VALUE)_\d+$/.test(k)));
+// The environment of every command of Git the tool runs: in a repository given by its directory,
+// without those variables; in the hook's own repository, given its work tree, with the hook's variables
+// kept and the work tree named. Both with local replacements off, so that a commit is the content its
+// SHA names, never another commit's that a refs/replace of one clone puts there (D-137).
+export const gitEnv = (env = process.env, workTree = null) => ({ ...(workTree ? { ...env, GIT_WORK_TREE: workTree } : withoutLocal(env)), GIT_NO_REPLACE_OBJECTS: "1" });
 
 // Whether a commit a record names is an object of the repository (inv.named-commits-resolve, D-145):
 // git cat-file -e <commit>^{commit}, with the environment that is safe in a hook. The one test every

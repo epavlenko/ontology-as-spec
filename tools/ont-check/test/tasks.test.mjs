@@ -583,11 +583,13 @@ test("[check.task-result.task-name] done.mjs refuses a task that is not lower-ca
 });
 
 test("[check.task-result.git-env-of-hook] the variables Git sets for a hook of another repository do not reach a git command in this one", () => {
-  // Every variable Git names as local to a repository is dropped; the others stay.
+  // Every variable Git names as local to a repository is dropped; the others stay. The one the tool sets
+  // itself, local replacements off, is its own value, never the hook's (D-137).
   const local = spawnSync("git", ["rev-parse", "--local-env-vars"], { encoding: "utf8" }).stdout.split("\n").filter(Boolean);
   const given = Object.fromEntries([...local, "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"].map((k) => [k, "x"]));
   const kept = gitEnv({ ...given, GIT_AUTHOR_NAME: "t", PATH: "/bin" });
-  assert.deepEqual(Object.keys(kept).sort(), ["GIT_AUTHOR_NAME", "PATH"]);
+  assert.deepEqual(Object.keys(kept).sort(), ["GIT_AUTHOR_NAME", "GIT_NO_REPLACE_OBJECTS", "PATH"]);
+  assert.equal(kept.GIT_NO_REPLACE_OBJECTS, "1");
   // done.mjs run from a hook of another repository whose configuration makes a repository bare.
   const { repo, done, clean } = doneRepo("t");
   const other = mkdtempSync(join(tmpdir(), "other-repo-"));

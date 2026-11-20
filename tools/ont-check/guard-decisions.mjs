@@ -31,7 +31,6 @@ if (!configs.length && !files.length) configs.push("ont.config.json");
 // root's log. So every file is read through the top of its own repository, found without the hook's
 // variables, by its path from that top. The hook's variables, and the index of the commit being made,
 // are kept only for the hook's own repository, with its work tree named (lib.mjs, gitEnv).
-const clean = gitEnv();
 const real = (p) => {
   try {
     return realpathSync(p);
@@ -43,14 +42,13 @@ const hookGitDir = process.env.GIT_DIR ? real(resolve(process.env.GIT_DIR)) : nu
 const repoOf = (path) => {
   let dir = dirname(resolve(path));
   while (!existsSync(dir)) dir = dirname(dir);
-  const top = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, env: clean, encoding: "utf8" });
-  if (top.status !== 0) return { top: null, cwd: dir, env: clean };
+  const top = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, env: gitEnv(), encoding: "utf8" });
+  if (top.status !== 0) return { top: null, cwd: dir, workTree: null };
   const root = top.stdout.trim();
-  const gitDir = spawnSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: root, env: clean, encoding: "utf8" }).stdout.trim();
-  const env = hookGitDir && real(gitDir) === hookGitDir ? { ...process.env, GIT_WORK_TREE: root } : clean;
-  return { top: root, cwd: root, env };
+  const gitDir = spawnSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: root, env: gitEnv(), encoding: "utf8" }).stdout.trim();
+  return { top: root, cwd: root, workTree: hookGitDir && real(gitDir) === hookGitDir ? root : null };
 };
-const gitIn = (repo, ...args) => spawnSync("git", args, { cwd: repo.cwd, env: repo.env, encoding: "utf8" });
+const gitIn = (repo, ...args) => spawnSync("git", args, { cwd: repo.cwd, env: gitEnv(process.env, repo.workTree), encoding: "utf8" });
 const inTop = (repo, path) => relative(repo.top, resolve(path)).split(sep).join("/");
 // With --staged, the configuration is the staged one too, so that the guard checks what the commit holds.
 const stagedText = (path) => {

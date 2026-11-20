@@ -68,6 +68,48 @@ for (const [name, label, edit] of refused)
     }
   });
 
+// A local replacement makes Git read the base commit as another one, here one that holds the edit: the
+// guard reads the base by its own SHA all the same, and refuses the edit (D-137).
+test("[check.decision.accepted-edited] refuses an edit that a local replacement of the base would hide", () => {
+  const dir = mkdtempSync(join(tmpdir(), "guard-"));
+  const git = (...args) => {
+    const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd: dir, encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout.trim();
+  };
+  const guard = (...extra) => {
+    const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json"), ...extra], { cwd: dir, encoding: "utf8" });
+    return { code: r.status, out: r.stdout + r.stderr };
+  };
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    git("init", "-q");
+    git("add", ".");
+    git("commit", "-q", "-m", "base");
+    const base = git("rev-parse", "HEAD");
+    const path = join(dir, "decisions.md");
+    const edited = readFileSync(path, "utf8").replace("members remember one number", "members like one number");
+    git("checkout", "-q", "-b", "side");
+    writeFileSync(path, edited);
+    git("commit", "-q", "-am", "the edit, committed elsewhere");
+    const side = git("rev-parse", "HEAD");
+    git("checkout", "-q", "-");
+    writeFileSync(path, edited);
+    git("replace", base, side);
+    assert.match(git("show", `${base}:decisions.md`), /members like one number/, "the replacement is in force");
+    // Each run names the entry and its first changed line, as the check says, not only a refusal.
+    for (const [since, r] of [
+      [base, guard("--base", base)],
+      ["HEAD", guard()],
+    ]) {
+      assert.equal(r.code, 1, r.out);
+      assert.ok(r.out.includes(`ERROR · decisions.md: accepted entries edited since ${since} (1):\n  D-01, first change: - Why: members like one number. `), r.out);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // Before the first commit there is nothing to compare with: the guard says it is off and passes, while
 // a base that was named and is missing stays an error.
 test("[check.decision.guard-off] says GUARD_OFF before the first commit", () => {
@@ -327,4 +369,55 @@ test("[check.decision.guard-in-hook] in a hook of a linked worktree the guard re
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// What the guard sees of an edit committed with the hook skipped depends on the base: with the commit
+// that accepted the entry, the edit is refused; with a base from before the entry, as CI has for a pull
+// request that both adds the entry and edits it, the entry is new and nothing is refused. The pages
+// that tell of a commit made with --no-verify say so, rather than that CI always catches it.
+test("[inv.accepted-never-edited] an entry accepted after the base and edited with the hook skipped is not seen with that base, and the pages say so", () => {
+  const dir = mkdtempSync(join(tmpdir(), "guard-"));
+  const git = (...args) => {
+    const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd: dir, encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout.trim();
+  };
+  const guard = (base) => {
+    const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json"), "--base", base], { cwd: dir, encoding: "utf8" });
+    return { code: r.status, out: r.stdout + r.stderr };
+  };
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true });
+    git("init", "-q");
+    git("add", ".");
+    git("commit", "-q", "-m", "base");
+    const base = git("rev-parse", "HEAD");
+    const path = join(dir, "decisions.md");
+    const entry = "### D-17 · A new rule\n\n- Date: 2026-10-21 · Status: accepted\n- Source: the owner's answer of 2026-10-21\n- Decision: x.\n\n";
+    writeFileSync(path, readFileSync(path, "utf8").replace("## Tentative", `${entry}## Tentative`));
+    git("commit", "-q", "-am", "accept D-17");
+    const accepted = git("rev-parse", "HEAD");
+    writeFileSync(path, readFileSync(path, "utf8").replace("- Decision: x.", "- Decision: y."));
+    git("commit", "-q", "--no-verify", "-am", "edit D-17");
+    const seen = guard(accepted);
+    assert.equal(seen.code, 1, seen.out);
+    assert.ok(seen.out.includes("accepted entries edited"), seen.out);
+    const unseen = guard(base);
+    assert.equal(unseen.code, 0, unseen.out);
+    assert.match(unseen.out, /GUARD_OK/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  const repo = fileURLToPath(new URL("../../../", import.meta.url));
+  for (const file of ["docs/limitations.md", "docs/parts/decision-log.md"]) {
+    const paragraphs = readFileSync(join(repo, file), "utf8").split(/\n\n/).filter((p) => /--no-verify/.test(p) && /\bCI\b/.test(p));
+    assert.ok(paragraphs.length, `${file} tells of --no-verify and CI`);
+    for (const p of paragraphs) assert.match(p.replace(/\s+/g, " "), /an entry accepted after (?:that|the|its) base/, `${file}: CI with a base from before the entry does not see the edit`);
+  }
+  // The open question on the guard's point of comparison tells of the owner's choice for one restore,
+  // not of a way to commit.
+  const question = readFileSync(join(repo, "docs/limitations.md"), "utf8").match(/^- \*\*The guard's point of comparison\.\*\*.*$/m)?.[0] ?? "";
+  assert.ok(question, "the open question on the guard");
+  assert.doesNotMatch(question, /is itself committed with `--no-verify`/);
+  assert.match(question, /one choice for one restore, not a rule/);
 });

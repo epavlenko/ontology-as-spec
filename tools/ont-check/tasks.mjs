@@ -415,9 +415,12 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
 }
 
 // The environment of a command run on a commit: without the variable a running test runner sets, which
-// would make a test runner started by the command report to it instead of failing.
+// would make a test runner started by the command report to it instead of failing. The command is the
+// project's, not a command of Git the tool runs, so it gets no GIT_NO_REPLACE_OBJECTS of the tool's
+// (D-137 is about the tool's own commands): a test that makes a replacement sees it in force.
 export const cleanEnv = () => {
   const env = gitEnv();
+  delete env.GIT_NO_REPLACE_OBJECTS;
   delete env.NODE_TEST_CONTEXT;
   return env;
 };

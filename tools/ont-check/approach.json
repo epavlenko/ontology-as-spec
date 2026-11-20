@@ -327,6 +327,7 @@
     "rule.divergence-contradicts",
     "rule.findings-mislead",
     "rule.form-follows-rows",
+    "rule.guard-from-acceptance",
     "rule.guide-runs-check",
     "rule.intact-is-not-run",
     "rule.judge-sees-the-check",
