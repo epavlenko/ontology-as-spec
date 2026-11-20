@@ -114,7 +114,7 @@ Evidence: <where the evidence is, outside the repository, if the check kept any>
 
 Evidence such as screenshots or data stays outside the repository; the record only links to it.
 
-<!-- ont: ent.review-round@21a841, rule.round-recorded@649657, derived.next-round@fc6b9a -->
+<!-- ont: ent.review-round@21a841, rule.round-recorded@649657, derived.next-round@acc55e -->
 ## 5. Record the round
 
 If the configuration has `reviewRounds`, the author writes a record of each round of review in that directory, one file per round, and `ont-check --rounds` says what follows it:
@@ -139,7 +139,7 @@ Findings:
 ```
 
 <!-- ont: edge.review-round.statement@914220, field.review-round.contribution@51b2a4, field.review-round.acceptance@ca2653, rule.acceptance-against-approved@6987aa, rule.budget-before-next@7cdb47 -->
-A round also gives, when known, `Start:` and `Contribution: <provider> · <session or task ID>`, which go together, and on a review of a statement or of a result `Statement-hash: <SHA-256 of the statement's file>`, the version read. On a review of a result, after the executor's record of done, give the verdict of acceptance beside your verdict on merging: check the result against the approved version of the statement, each item of what to do and of done when and the owner's sources, and write `Acceptance: clean`, or `Acceptance:` and a finding line for each item the result does not meet (D-107). Such a round names on `Commits:` the commit the record of done is of, the last of a range; the check refuses the acceptance otherwise (D-117). The round is clean only when both are. Before each round the author runs `ont-check --task <task> --statement <file>`; when it says the budget is exhausted, the round waits for the owner (D-108).
+A round also gives, when known, `Start:` and `Contribution: <provider> · <session or task ID>`, which go together, and on a review of a statement or of a result `Statement-hash: <SHA-256 of the statement's file>`, the version read. On a review of a result, after the executor's record of done, give the verdict of acceptance beside your verdict on merging: check the result against the approved version of the statement, each item of what to do and of done when and the owner's sources, and write `Acceptance: clean`, or `Acceptance:` and a finding line for each item the result does not meet (D-107). Such a round names on `Commits:` the commit the record of done is of, the last of a range; the check refuses the acceptance otherwise (D-117). The round is clean only when both are, and a round of the result that gives no verdict of acceptance does not end the step (D-119). Before each round the author runs `ont-check --task <task> --statement <file>`; when it says the budget is exhausted, the round waits for the owner (D-108).
 
 <!-- ont: -->
 ## Licence

@@ -998,6 +998,16 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: counting an overlapping pair once (which of the two is right, and whether their union is, cannot be told from the records); summing and warning (the stop would rest on a number known to be wrong).
 - Concepts: `inv.contributions-apart`, `derived.task-budget`, `rule.budget-before-next`.
 
+### D-119 · A step of the review of a result ends clean only with a clean acceptance, and --rounds applies the budget
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-107 and D-108, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted in D-106; the reviewer's finding of round 1 of the review of the result of task releases-and-task, "budget stop at the end of a step", is the reviewer's, not the owner's words. Which limits `--rounds` reads is the thread's technical decision.
+- Decision: adds to D-97, D-107 and D-108. A round of the review of a result with no finding on merging and no verdict of acceptance does not end its step: `derived.next-round` says a round that gives the verdict follows, after `done.mjs` records done, and with the task's budget exhausted it says the question to the owner instead. This holds in `--task` and in `--rounds`, for every task whose records are read, those recorded before D-107 too.
+  - `--rounds` applies to each task the budget of the configuration's limits and its reserve; a statement's own limits are read only by `--task`, which is run before each step and round (`rule.budget-before-next`).
+- Why: `--rounds` computed the next round with no budget, and called a step of the result clean with no verdict of acceptance; `--task`, with the budget spent and such a round last, said only that no verdict was given yet, with no stop before the next action.
+- Rejected: exempting the tasks recorded before D-107 (the tool cannot tell them from a task whose acceptance was forgotten); reading the statement's limits in `--rounds` (it is not given a statement).
+- Concepts: `derived.next-round`, `rule.acceptance-against-approved`, `rule.budget-before-next`.
+
 ## Tentative
 
 ## Open questions

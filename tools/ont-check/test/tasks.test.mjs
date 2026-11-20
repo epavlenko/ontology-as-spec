@@ -238,6 +238,30 @@ test("[check.task-statement.budget-converging] rounds that converge give a quest
   assert.match(n.say, /the budget is exhausted: a question to the owner/);
 });
 
+test("[check.task-result.clean-needs-acceptance] a round of the result clean on merging with no verdict of acceptance does not end the step, and with the budget exhausted the next action is the question, in --task and in --rounds", () => {
+  const rounds = [{ ...approvedA, tokens: [600, 0, 10] }, finalRound({ acceptance: undefined, tokens: [600, 0, 10] })];
+  const sc = scenario({ rounds, done: [{ time: T(11) }] });
+  const rr = sc.rounds.filter((r) => r.step === "result-review");
+  assert.equal(nextRound(rr).next, "acceptance");
+  assert.match(nextRound(rr).say, /gives no verdict of acceptance yet: a round that gives it follows/);
+  assert.equal(nextRound(rr, { exhausted: true }).next, "budget");
+  // --task, within the budget and past it.
+  assert.match(state(sc, { statement: fileOf(A), defaults: limits(10000, 10000) }), /result: the last round is clean on merging and gives no verdict of acceptance yet/);
+  const spent = state(sc, { statement: fileOf(A), defaults: limits(1000, 1000) });
+  assert.match(spent, /result: the budget is exhausted: a question to the owner/);
+  assert.doesNotMatch(spent, /result: done|ended clean/);
+  // --rounds, through the check, with the configuration's limits.
+  const within = checkWith(sc, { budget: { newInput: 10000, output: 10000 } }, ["--rounds"]);
+  assert.match(within.stdout, /ROUNDS t · result-review: 1 full, 0 narrow · next: the last round is clean on merging and gives no verdict of acceptance yet/);
+  const past = checkWith(sc, { budget: { newInput: 1000, output: 1000 } }, ["--rounds"]);
+  assert.match(past.stdout, /ROUNDS t · result-review: 1 full, 0 narrow · next: the budget is exhausted: a question to the owner/);
+  assert.match(past.stdout, /ROUNDS t · statement-review: 1 full, 0 narrow · next: the step ended clean/);
+  // With a clean verdict of acceptance the step ends clean, past the budget too.
+  const accepted = scenario({ rounds: [{ ...approvedA, tokens: [600, 0, 10] }, finalRound({ tokens: [600, 0, 10] })], done: [{ time: T(11) }] });
+  assert.match(checkWith(accepted, { budget: { newInput: 1000, output: 1000 } }, ["--rounds"]).stdout, /ROUNDS t · result-review: 1 full, 0 narrow · next: the step ended clean/);
+  [sc, accepted].forEach((x) => rmSync(x.dir, { recursive: true, force: true }));
+});
+
 test("[check.task-result.acceptance-not-clean] a verdict of acceptance that finds an item not done makes the round not clean", () => {
   const sc = scenario({
     rounds: [approvedA, finalRound({ acceptance: ["- item not done · important · change · fixable · t.test.mjs"] })],

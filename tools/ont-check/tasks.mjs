@@ -239,7 +239,7 @@ export function taskState({ rounds, spend, done = [], task, defaults, statement 
   const end = rr.at(-1);
   if (!approved) lines.push(say("result", "work is not allowed: no approval in force for the statement"));
   else if (!end) lines.push(say("result", exhausted ? BUDGET_QUESTION : "the executor works, then records done with done.mjs"));
-  else if (isClean(end) && !end.acceptance) lines.push(say("result", "the last round is clean on merging and gives no verdict of acceptance yet"));
+  else if (isClean(end) && !end.acceptance) lines.push(say("result", nextRound(rr, { exhausted }).say));
   else if (isClean(end) && acceptanceWhy(end, rounds, done, statement))
     lines.push(say("result", `the verdict of acceptance of ${end.file} is refused: ${acceptanceWhy(end, rounds, done, statement)}; ${exhausted ? BUDGET_QUESTION : "the result needs a verdict of acceptance that holds"}`));
   else if (isClean(end)) {

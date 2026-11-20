@@ -48,7 +48,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { parseRounds, renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, gitEnv, overlaps, parseTaskRecords, readStatement, taskState } from "./tasks.mjs";
+import { acceptanceProblems, gitEnv, overlaps, parseTaskRecords, readStatement, taskBudget, taskState } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1342,7 +1342,9 @@ if (cfg.reviewRounds) {
   report("task records that cannot be read", records.malformed);
   report("contributions recorded twice over intervals that overlap", overlaps(rounds, records.spend));
   report("verdicts of acceptance refused", acceptanceProblems(rounds, records.done));
-  if (flag("--rounds") > 0) console.log(renderRounds(rounds));
+  // The next round of each step with the budget of its task, by the configuration's limits (D-119).
+  if (flag("--rounds") > 0)
+    console.log(renderRounds(rounds, { exhaustedOf: (t) => Boolean(taskBudget({ rounds, spend: records.spend, task: t, defaults: cfg.budget, statement: null })?.exhausted) }));
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
   // budget (D-106, D-108).
   // ont: derived.statement-state, derived.task-budget, rule.budget-before-next

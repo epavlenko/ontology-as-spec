@@ -138,12 +138,17 @@ const allTested = (r) => ofChange(r).every((x) => x.fixable && x.test);
 // next free number of its kind; with the task's budget exhausted, what would be another round is a
 // question to the owner, ahead of the branches of convergence (D-106, D-108).
 export const BUDGET_QUESTION = "the budget is exhausted: a question to the owner";
+// A step of the review of a result ends clean only with a clean verdict of acceptance in its last round
+// (D-119); without one, what follows is the round that gives it, or the question when the budget is
+// exhausted.
+export const NO_ACCEPTANCE = "the last round is clean on merging and gives no verdict of acceptance yet: a round that gives it follows, after done.mjs records done";
 export function nextRound(stepRounds, { exhausted = false } = {}) {
   const all = byTime(stepRounds);
   const full = all.filter((r) => !r.narrow);
   const narrow = all.filter((r) => r.narrow);
   const last = all.at(-1);
-  if (!last) return { next: "first round" };
+  if (!last) return exhausted ? { next: "budget", say: BUDGET_QUESTION } : { next: "first round" };
+  if (!classes(last) && last.step === "result-review" && !last.acceptance) return exhausted ? { next: "budget", say: BUDGET_QUESTION } : { next: "acceptance", say: NO_ACCEPTANCE };
   if (!classes(last)) return { next: "clean", say: "the step ended clean" };
   const ask = (why) => ({ next: "question", say: `a question to the owner: ${why}` });
   if (exhausted) return { next: "budget", say: BUDGET_QUESTION };
@@ -199,14 +204,16 @@ export function stepPayoff(rounds) {
   return out;
 }
 
-export function renderRounds(rounds) {
+// exhaustedOf(task) says whether a task's budget is exhausted, from the configuration's limits: a
+// statement's own limits are read by --task, which is run before each step (D-119).
+export function renderRounds(rounds, { exhaustedOf = () => false } = {}) {
   const lines = [];
   const tasks = [...new Set(rounds.map((r) => r.task))].sort();
   for (const t of tasks)
     for (const step of STEPS) {
       const of = rounds.filter((r) => r.task === t && r.step === step);
       if (!of.length) continue;
-      const n = nextRound(of);
+      const n = nextRound(of, { exhausted: exhaustedOf(t) });
       const full = of.filter((r) => !r.narrow).length;
       lines.push(`ROUNDS ${t} · ${step}: ${full} full, ${of.length - full} narrow · next: ${n.say}`);
     }

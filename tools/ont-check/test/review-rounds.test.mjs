@@ -79,7 +79,9 @@ test("[check.review-round.not-fixable] a finding not fixable within the task goe
 });
 
 test("[check.review-round.clean-ends] a round whose only finding was there before the change ends the step clean", () => {
-  assert.equal(nextRound([round(1, 2), round(2, 0, { before: 1 })]).next, "clean");
+  // A round of the result ends its step with its verdict of acceptance clean (D-119).
+  assert.equal(nextRound([round(1, 2), { ...round(2, 0, { before: 1 }), acceptance: { findings: [] } }]).next, "clean");
+  assert.equal(nextRound([round(1, 2), round(2, 0, { before: 1, step: "statement-review" })].map((r) => ({ ...r, step: "statement-review" }))).next, "clean");
 });
 
 const record = (fields, findings = []) =>
