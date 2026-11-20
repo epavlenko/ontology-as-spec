@@ -247,7 +247,8 @@ export function runAtCommit({ top, commit, dir = "", commands }) {
       root: tmp,
       results: commands.map((c) => {
         const r = typeof c === "function" ? c(tmp) : spawnSync(c, { shell: true, cwd: join(tmp, dir), env: cleanEnv(), encoding: "utf8", maxBuffer: 1 << 28 });
-        return { command: typeof c === "function" ? c.label : c, result: r.status === 0 ? "pass" : "fail", output: `${r.stdout ?? ""}${r.stderr ?? ""}` };
+        // A command may say its own result, as a test suite does when its tests were skipped (D-116).
+        return { command: typeof c === "function" ? c.label : c, result: r.result ?? (r.status === 0 ? "pass" : "fail"), detail: r.detail ?? null, output: `${r.stdout ?? ""}${r.stderr ?? ""}` };
       }),
     };
   } finally {

@@ -192,6 +192,29 @@ export function requiredChecks(configText) {
   return ["ont-check", ...suites.map((s) => `suite ${s.name || "tests"}`)];
 }
 
+// The results a check of a release can have (D-116): a test suite whose every test passed is pass; one
+// with tests skipped and none failed is skipped, with how many; one that ran no test is not run; any
+// failure is fail. A release is written, and is intact, only with pass and skipped.
+export const RESULTS = ["pass", "skipped", "not-run", "fail"];
+export const RELEASABLE = new Set(["pass", "skipped"]);
+// The result of a run of node --test with the TAP reporter, from its summary lines. The runner reports a
+// file that defines no test as a test of its own, named by the file's path, which passed: those are not
+// tests that ran.
+export function suiteResult(run, files = []) {
+  const out = `${run.stdout ?? ""}`;
+  const count = (k) => Number(out.match(new RegExp(`^# ${k} (\\d+)$`, "m"))?.[1] ?? NaN);
+  const [all, passed, skipped, todo] = ["tests", "pass", "skipped", "todo"].map(count);
+  const names = new Set(files);
+  const empty = out.split("\n").filter((l) => names.has(l.match(/^ok \d+ - (.*)$/)?.[1])).length;
+  const [tests, pass] = [all - empty, passed - empty];
+  if (run.status !== 0) return { result: "fail", detail: null };
+  if (Number.isNaN(all)) return { result: "fail", detail: "no summary of the test runner" };
+  if (tests === 0) return { result: "not-run", detail: "no test ran" };
+  const left = skipped + todo;
+  if (left > 0) return { result: "skipped", detail: `${left} of ${tests} tests skipped` };
+  return pass === tests ? { result: "pass", detail: null } : { result: "fail", detail: `${pass} of ${tests} tests passed` };
+}
+
 // Records of releases and of deployments in the directory of releases.
 export function parseProductRecords(dir) {
   const releases = [];
@@ -203,8 +226,8 @@ export function parseProductRecords(dir) {
     const field = (k) => text.match(new RegExp(`^${k}:[ \\t]*(.*?)\\s*$`, "m"))?.[1] ?? null;
     if (field("Version") !== null) {
       const checks = (blockLines(text, "Checks") ?? []).map((l) => {
-        const [check, result] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
-        return { check, result };
+        const [check, result, detail] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
+        return { check, result, detail: detail ?? null };
       });
       const r = { file: name, version: field("Version"), commit: field("Commit"), pin: field("Pin"), tool: field("Tool"), date: field("Date"), checks };
       const wrong = [
@@ -214,6 +237,7 @@ export function parseProductRecords(dir) {
         !r.tool && "no tool",
         !/^\d{4}-\d{2}-\d{2}$/.test(r.date ?? "") && `date ${r.date ?? "(none)"} is not a date`,
         !checks.length && "no checks",
+        ...checks.filter((c) => !RESULTS.includes(c.result)).map((c) => `check ${c.check ?? ""} has the result ${c.result ?? "(none)"}, not one of ${RESULTS.join(", ")}`),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else releases.push(r);
@@ -247,7 +271,7 @@ export function productReleaseProblems({ top, cfgRel, pinRel, releases, deployme
     const given = r.checks.map((c) => c.check);
     if (!required) out.push(`${r.file}: no configuration ${cfgRel} at commit ${r.commit.slice(0, 7)}`);
     else if (required.join("|") !== given.join("|")) out.push(`${r.file}: the checks ${given.join(", ")} are not the ones the configuration at ${r.commit.slice(0, 7)} requires, ${required.join(", ")}`);
-    const failed = r.checks.filter((c) => c.result !== "pass");
+    const failed = r.checks.filter((c) => !RELEASABLE.has(c.result));
     if (failed.length) out.push(`${r.file}: checks not passed: ${failed.map((c) => `${c.check} · ${c.result ?? "(none)"}`).join(", ")}`);
   }
   for (const d of deployments) if (!versions.has(d.release)) out.push(`${d.file}: a deployment of ${d.release}, which has no record of a release`);
@@ -274,7 +298,9 @@ export function runReleaseChecks({ top, commit, cfgRel, toolRel }) {
     Object.assign(
       (wt) => {
         const files = listFiles(join(wt, cfgDir, s.dir), new RegExp(s.match ?? "\\.test\\.[a-z]+$"));
-        return files.length ? node(["--test", ...files], join(wt, cfgDir)) : { status: 1, stdout: "", stderr: `no test files in ${s.dir}` };
+        if (!files.length) return { status: 0, stdout: "", stderr: `no test files in ${s.dir}`, result: "not-run", detail: "no test files" };
+        const run = node(["--test", "--test-reporter=tap", ...files], join(wt, cfgDir));
+        return { ...run, ...suiteResult(run, files) };
       },
       { label: `suite ${s.name || "tests"}` },
     ),
@@ -283,4 +309,4 @@ export function runReleaseChecks({ top, commit, cfgRel, toolRel }) {
 }
 
 export const releaseRecordText = ({ version, commit, pin, tool, date, results }) =>
-  [`Version: ${version}`, `Commit: ${commit}`, `Pin: ${pin}`, `Tool: ${tool}`, `Date: ${date}`, "Checks:", ...results.map((r) => `- ${r.command} · ${r.result}`), ""].join("\n");
+  [`Version: ${version}`, `Commit: ${commit}`, `Pin: ${pin}`, `Tool: ${tool}`, `Date: ${date}`, "Checks:", ...results.map((r) => `- ${r.command} · ${r.result}${r.detail ? ` · ${r.detail}` : ""}`), ""].join("\n");

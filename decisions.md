@@ -968,6 +968,17 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: escaping the name in the file's name (two names would make one file); a check on the path alone (a record named one way and read another would still pass).
 - Concepts: `field.review-round.task`, `field.task-result.task`, `action.record-done`.
 
+### D-116 · A suite whose tests were skipped is recorded as skipped, and a release is verified only when intact
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-111, from the owner's answer of 2026-11-20 to question 996, "996 - a", quoted there: "the release of the product: a release names the commit, the pin of the protocol and the checks passed" (translated from Russian); the reviewer's finding of round 1 of the review of the result of task releases-and-task, "product release run not proven", is the reviewer's, not the owner's words. The results, whether a release may be written with a skipped suite, and the order of `--verify` are the thread's technical decisions.
+- Decision: adds to D-111. A check of a release has one of four results (`field.product-release.checks`): pass when every test of the suite passed; skipped, with how many of how many, when tests were skipped and none failed; not run when the suite ran no test, a file that defines none not counted as one; fail otherwise. The suites run with the TAP reporter of `node --test` (https://nodejs.org/api/test.html#test-reporters), whose summary gives the counts.
+  - A release is written with checks that passed or were skipped, the record saying which were skipped and how many, and never with one that failed or ran no test (`action.release-product`). A suite skipped for want of what it needs, as a judged suite without its judge, does not stop a release, and its record does not claim it passed. A record with a check not run or failed is not intact (`inv.product-release-intact`).
+  - `release.mjs --verify` first checks the record's integrity as the check does and refuses, running nothing, a record that does not hold. Then it runs the checks and compares each with the record: equal, or pass where the record says skipped, when the run has what the release lacked (`action.verify-release`).
+- Why: the example's release recorded its judged suite as passed when its five tests had been skipped without a judge, since pass was read from the exit code, and `--verify` called a record verified whose pin hash the check refused.
+- Rejected: refusing a release with any skipped suite (a judged suite would make every release need a paid model); counting a skipped suite as passed (the record would claim what did not run); the integrity left to the check alone (`--verify` is the command a reviewer trusts).
+- Concepts: `field.product-release.checks`, `action.release-product`, `action.verify-release`, `inv.product-release-intact`.
+
 ## Tentative
 
 ## Open questions

@@ -1071,7 +1071,7 @@
           "type": "string"
         },
         "checks": {
-          "description": "The checks run on the commit, the project's check and each test suite of the configuration at that commit, each with its result.",
+          "description": "The checks run on the commit, the project's check and each test suite of the configuration at that commit, each with its result: pass when every test passed, skipped with how many when tests were skipped and none failed, not run when no test ran, or fail.",
           "x-ont": "field.product-release.checks",
           "type": "string"
         },
