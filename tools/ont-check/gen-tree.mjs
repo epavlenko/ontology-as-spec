@@ -201,27 +201,39 @@ export function buildTree(configPath, labelsFile) {
   return { title: (texts[0].match(/^# (.+)$/m) ?? [, "Ontology"])[1], html, label, inputs, files, configFile: resolve(configPath) };
 }
 
-// What the page is built from (field.ontology-tree.built-from). An input is clean when it is not a
-// symbolic link, lies inside the repository and its bytes equal the content of its path in HEAD; git
-// diff would compare a link itself, not what it points to. dirty lists the inputs that are not clean.
-export function markOf(built) {
+// What the page is built from (field.ontology-tree.built-from). The commit is read once, and every input
+// is compared with that commit, not with a HEAD that may move meanwhile. An input is clean when the path
+// it was asked for, taken as it is, lies inside the repository, no part of it is a symbolic link in the
+// working tree, and the commit holds a regular file at that path whose bytes are the bytes read; git
+// diff would compare a link itself, not what it points to, and following links would compare a file at
+// another path. dirty lists the inputs that are not clean. onHead, for the tests, runs once the commit
+// is read.
+export function markOf(built, { onHead } = {}) {
   const dir = dirname(built.configFile);
   const top = git(dir, ["rev-parse", "--show-toplevel"]);
   const head = top === null ? null : git(dir, ["rev-parse", "--verify", "--quiet", "HEAD"]);
   if (top === null || head === null) return { commit: "no-commit", config: null, dirty: [] };
-  const realTop = realpathSync(top);
+  onHead?.(head);
+  // Outside is only a path whose form relative to the root is .. or starts with ../; a file named
+  // ..ontology.md is inside.
   const inRepo = (path) => {
-    const real = join(realpathSync(dirname(path)), path.split(sep).at(-1));
-    const rel = relative(realTop, real);
-    return rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel.split(sep).join("/") : null;
+    const rel = relative(top, path);
+    return rel === "" || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel) ? null : rel.split(sep).join("/");
   };
-  const name = (path) => inRepo(path) ?? path;
+  const linked = (rel) => rel.split("/").some((_, k, parts) => lstatSync(join(top, ...parts.slice(0, k + 1)), { throwIfNoEntry: false })?.isSymbolicLink() ?? true);
+  // The bytes of the regular file the commit holds at rel, or null: the tree of its directory is read
+  // at the commit itself, so a directory that is a link there has no tree and the path is not found.
+  const committed = (rel) => {
+    const i = rel.lastIndexOf("/");
+    const list = git(top, ["ls-tree", "-z", i < 0 ? head : `${head}:${rel.slice(0, i)}`]);
+    const entry = (list ?? "").split("\0").map((e) => e.match(/^(\d+) (\w+) ([0-9a-f]+)\t(.*)$/s)).find((m) => m && m[4] === rel.slice(i + 1));
+    return entry && /^100(644|755)$/.test(entry[1]) && entry[2] === "blob" ? git(top, ["cat-file", "blob", entry[3]], "buffer") : null;
+  };
   const dirty = [];
   for (const { path, bytes } of built.inputs) {
     const rel = inRepo(path);
-    const link = lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink() ?? true;
-    const committed = rel === null || link ? null : git(top, ["show", `HEAD:${rel}`], "buffer");
-    if (committed === null || !committed.equals(bytes)) dirty.push(name(path));
+    const same = rel !== null && !linked(rel) && committed(rel)?.equals(bytes);
+    if (!same) dirty.push(rel ?? path);
   }
   const config = inRepo(built.configFile);
   return { commit: dirty.length ? `${head}+working-tree` : head, config, dirty: [...new Set(dirty)] };

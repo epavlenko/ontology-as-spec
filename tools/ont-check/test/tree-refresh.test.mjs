@@ -4,11 +4,12 @@
 // ont: rule.tree-refreshed-after-merge, field.ontology-tree.place, field.ontology-tree.built-from, derived.tree-stale
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { buildTree, markOf } from "../gen-tree.mjs";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 const TMP = [];
@@ -217,6 +218,53 @@ test("[check.ontology-tree.mark] changed inputs, a symbolic link whose target ch
   assert.equal(out.code, 0, out.out);
   assert.deepEqual(l.mark(), { commit: `${l.sha("HEAD")}+working-tree`, config: "ont.config.json" });
   assert.match(l.gen("--stale").out, /\+working-tree/);
+
+  // An input reached through a linked directory: the link points to the root, so the file read is the
+  // commit's ontology.md, but the commit has no via/ontology.md, and the page is not clean.
+  const d = repo();
+  d.setPlace();
+  symlinkSync(".", join(d.dir, "via"));
+  d.edit("ont.config.json", '"ontology": "ontology.md",', '"ontology": "via/ontology.md",');
+  d.git("add", "-A");
+  d.git("commit", "-q", "-m", "the ontology through a linked directory");
+  assert.equal(d.gen("--out", d.place).code, 0);
+  assert.deepEqual(d.mark(), { commit: `${d.sha("HEAD")}+working-tree`, config: "ont.config.json" }, "a linked directory");
+  assert.match(d.gen("--stale").out, /\+working-tree/);
+  // A committed directory replaced, not yet committed, by a link to a copy of it: the commit holds
+  // sub/ontology.md with the same bytes, but the path read passes through a link.
+  const w = repo();
+  w.setPlace();
+  mkdirSync(join(w.dir, "sub"));
+  cpSync(join(w.dir, "ontology.md"), join(w.dir, "sub", "ontology.md"));
+  w.edit("ont.config.json", '"ontology": "ontology.md",', '"ontology": "sub/ontology.md",');
+  w.git("add", "-A");
+  w.git("commit", "-q", "-m", "the ontology in a directory");
+  assert.equal(w.gen("--out", w.place).code, 0);
+  assert.deepEqual(w.mark(), { commit: w.sha("HEAD"), config: "ont.config.json" }, "the directory as committed");
+  renameSync(join(w.dir, "sub"), join(w.dir, "copy"));
+  symlinkSync("copy", join(w.dir, "sub"));
+  assert.equal(w.gen("--out", w.place).code, 0);
+  assert.deepEqual(w.mark(), { commit: `${w.sha("HEAD")}+working-tree`, config: "ont.config.json" }, "the directory replaced by a link");
+
+  // A committed ontology whose name begins with two dots lies inside the repository and is clean.
+  const t = repo();
+  t.setPlace();
+  cpSync(join(t.dir, "ontology.md"), join(t.dir, "..ontology.md"));
+  t.edit("ont.config.json", '"ontology": "ontology.md",', '"ontology": "..ontology.md",');
+  t.git("add", "-A");
+  t.git("commit", "-q", "-m", "the ontology named with two dots");
+  assert.equal(t.gen("--out", t.place).code, 0);
+  assert.deepEqual(t.mark(), { commit: t.sha("HEAD"), config: "ont.config.json" }, "..ontology.md");
+
+  // HEAD moves to a new commit while the mark is made: the files read are compared with the commit the
+  // mark names, which they are, not with the new HEAD, which changed the ontology.
+  const h = repo();
+  const built = buildTree(join(h.dir, "ont.config.json"));
+  const first = h.sha("HEAD");
+  let moved = null;
+  const hm = markOf(built, { onHead: () => (moved = h.commit("ontology.md", "# Ontology as Specification", "# Ontology as Specification, moved")) });
+  assert.notEqual(moved, first, "HEAD moved");
+  assert.deepEqual(hm, { commit: first, config: "ont.config.json", dirty: [] });
 
   // A configuration outside Git: no-commit, no configuration, and stale.
   const outside = temp("ont-outside-");
