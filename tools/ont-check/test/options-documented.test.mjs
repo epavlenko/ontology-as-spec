@@ -95,6 +95,7 @@ test("[check.tool-copy.options-documented] a configuration with every key of the
       code: [{ dir: "src", match: "\\.js$" }],
       reviewPaths: [{ dir: "data", concepts: ["ent.x"] }],
       manualRuns: { dir: "runs", require: true },
+      reviewRounds: { dir: "rounds" },
       codeNames: { require: true, owner: true },
       approachIds: { out: "a.json" },
       contracts: { out: "c.json", classes: ["field"], propertyCase: "camel" },

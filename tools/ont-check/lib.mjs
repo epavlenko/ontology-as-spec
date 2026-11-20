@@ -57,7 +57,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "reviewRounds.dir", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
