@@ -1,0 +1,322 @@
+// Releases of the protocol (D-109), what a project learns of them (D-110), and releases of a product
+// with their deployments (D-111). Every release here is made in a temporary repository.
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after, test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "../releases.mjs";
+import { sha256 } from "../tasks.mjs";
+
+const TOOLS = fileURLToPath(new URL("../", import.meta.url));
+const TEMPLATES = fileURLToPath(new URL("../../../templates/", import.meta.url));
+const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.org", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.org" };
+const made = [];
+after(() => made.forEach((d) => rmSync(d, { recursive: true, force: true })));
+const temp = (name) => {
+  const d = mkdtempSync(join(tmpdir(), name));
+  made.push(d);
+  return d;
+};
+const git = (cwd, ...a) => {
+  const r = spawnSync("git", ["-C", cwd, ...a], { encoding: "utf8", env: ENV });
+  assert.equal(r.status, 0, `git ${a.join(" ")}: ${r.stderr}`);
+  return r.stdout.trim();
+};
+const node = (cwd, script, ...a) => spawnSync(process.execPath, [script, ...a], { cwd, encoding: "utf8", env: ENV });
+const commitAll = (repo, message) => {
+  git(repo, "add", "-A");
+  git(repo, "commit", "-q", "-m", message);
+  return git(repo, "rev-parse", "HEAD");
+};
+const entry = (id, concept) =>
+  `### ${id} · A decision\n\n- Date: 2026-11-20 · Status: accepted\n- Decision: something.\n- Why: a reason.\n- Rejected: nothing.\n- Concepts: \`${concept}\`.\n\n`;
+const addEntry = (repo, id, concept = "action.close") => {
+  const p = join(repo, "decisions.md");
+  writeFileSync(p, readFileSync(p, "utf8").replace("## Tentative", `${entry(id, concept)}## Tentative`));
+  return commitAll(repo, `${id}`);
+};
+
+// A small repository of an approach: the templates, a test that fails while the file "fail" exists, and
+// the releases of the protocol in its configuration. Its first commit carries the tag v0.1.
+function approachRepo() {
+  const repo = temp("approach-");
+  cpSync(TEMPLATES, repo, { recursive: true });
+  const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+  writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, protocolReleases: { file: "releases.md" } }, null, 2));
+  writeFileSync(join(repo, "package.json"), JSON.stringify({ private: true, scripts: { test: "node t.js" } }));
+  writeFileSync(join(repo, "t.js"), 'process.exit(require("fs").existsSync("fail") ? 1 : 0);\n');
+  git(repo, "init", "-q", "-b", "main");
+  const first = commitAll(repo, "first");
+  git(repo, "tag", "-a", "v0.1", "-m", "v0.1");
+  return { repo, first };
+}
+const release = (repo, ...a) => node(repo, join(TOOLS, "release.mjs"), ...a);
+const check = (repo) => node(repo, join(TOOLS, "ont-check.mjs"), "--config", join(repo, "ont.config.json"));
+const tagged = (repo, tag) => spawnSync("git", ["-C", repo, "rev-parse", "-q", "--verify", `refs/tags/${tag}`]).status === 0;
+
+test("[check.protocol-release.changes-from-log] from v0.1, read as 0.1.0 with no entry, the changes of 0.2.0 are the entries between the verified commits", () => {
+  const { repo } = approachRepo();
+  assert.deepEqual(protocolReleaseProblems(repo).problems, []);
+  addEntry(repo, "D-02");
+  const verified = addEntry(repo, "D-03");
+  const r = release(repo, "0.2.0");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const message = git(repo, "tag", "-l", "--format=%(contents)", "v0.2.0");
+  assert.match(message, /- D-02 · A decision\n- D-03 · A decision/);
+  assert.doesNotMatch(message, /D-01/);
+  assert.match(readFileSync(join(repo, "releases.md"), "utf8"), new RegExp(`## v0\\.2\\.0 · \\d{4}-\\d{2}-\\d{2}\\n\\n- Verified: ${verified}`));
+  assert.deepEqual(protocolReleaseProblems(repo).problems, []);
+  // 0.3.0 counts from the verified commit of 0.2.0, not from v0.1.
+  addEntry(repo, "D-04");
+  assert.equal(release(repo, "0.3.0").status, 0);
+  assert.match(git(repo, "tag", "-l", "--format=%(contents)", "v0.3.0"), /^v0\.3\.0[\s\S]*- D-04 · A decision$/);
+  assert.doesNotMatch(git(repo, "tag", "-l", "--format=%(contents)", "v0.3.0"), /D-03/);
+  // A version not greater than the last is refused.
+  assert.match(release(repo, "0.2.5").stdout, /not greater than 0\.3\.0/);
+});
+
+test("[check.protocol-release.released-on-green] on green the release commit is a child of the verified one, changes only releases.md and is tagged; on a failure nothing is written", () => {
+  const { repo } = approachRepo();
+  const verified = addEntry(repo, "D-02");
+  assert.equal(release(repo, "0.2.0").status, 0);
+  const commit = git(repo, "rev-parse", "v0.2.0^{commit}");
+  assert.equal(commit, git(repo, "rev-parse", "HEAD"));
+  assert.equal(git(repo, "rev-parse", `${commit}^`), verified);
+  assert.equal(git(repo, "diff", "--name-only", verified, commit), "releases.md");
+  assert.equal(git(repo, "cat-file", "-t", "refs/tags/v0.2.0"), "tag");
+  assert.equal(check(repo).status, 0, check(repo).stdout);
+  // A failing test: no commit, no tag.
+  writeFileSync(join(repo, "fail"), "");
+  const head = commitAll(repo, "breaks the test");
+  const r = release(repo, "0.3.0");
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /npm test failed on [0-9a-f]{7}; nothing written/);
+  assert.equal(git(repo, "rev-parse", "HEAD"), head);
+  assert.equal(tagged(repo, "v0.3.0"), false);
+  assert.equal(git(repo, "status", "--porcelain"), "");
+  // A work tree that is not clean is refused before anything runs.
+  rmSync(join(repo, "fail"));
+  assert.match(release(repo, "0.3.0").stdout, /the work tree is not clean/);
+});
+
+// A release commit made by hand, as if release.mjs stopped before the tag.
+const releaseCommitWithoutTag = (repo, version, verified) => {
+  const p = join(repo, "releases.md");
+  writeFileSync(p, `# Releases\n\n## v${version} · 2026-11-20\n\n- Verified: ${verified}\n`);
+  return commitAll(repo, `Release v${version}`);
+};
+
+test("[check.protocol-release.untagged] a release commit without its tag fails the check, and --resume tags it", () => {
+  const { repo } = approachRepo();
+  const verified = addEntry(repo, "D-02");
+  const commit = releaseCommitWithoutTag(repo, "0.2.0", verified);
+  assert.match(protocolReleaseProblems(repo).problems.join("\n"), /v0\.2\.0: the release commit has no tag/);
+  const c = check(repo);
+  assert.equal(c.status, 1);
+  assert.match(c.stdout, /releases of the protocol that do not hold \(1\)/);
+  const r = release(repo, "--resume");
+  assert.equal(r.status, 0, r.stdout);
+  assert.equal(git(repo, "rev-parse", "v0.2.0^{commit}"), commit);
+  assert.deepEqual(protocolReleaseProblems(repo).problems, []);
+  assert.equal(check(repo).status, 0);
+});
+
+test("[check.protocol-release.tag-without-entry] a tag with no entry fails the check, v0.1 aside", () => {
+  const { repo } = approachRepo();
+  git(repo, "tag", "-a", "v0.3.0", "-m", "v0.3.0");
+  const p = protocolReleaseProblems(repo).problems;
+  assert.deepEqual(p, ["tag v0.3.0 has no entry in releases.md"]);
+  assert.equal(check(repo).status, 1);
+});
+
+test("[check.protocol-release.resume-reruns] --resume refuses to tag when the tests fail again on the verified commit", () => {
+  const { repo } = approachRepo();
+  writeFileSync(join(repo, "fail"), "");
+  const verified = commitAll(repo, "a verified commit whose test fails");
+  releaseCommitWithoutTag(repo, "0.2.0", verified);
+  rmSync(join(repo, "fail"), { force: true });
+  const r = release(repo, "--resume");
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /npm test failed; no tag/);
+  assert.equal(tagged(repo, "v0.2.0"), false);
+  // A release commit that changes more than releases.md is refused too.
+  const { repo: other } = approachRepo();
+  const v = addEntry(other, "D-02");
+  writeFileSync(join(other, "releases.md"), `# Releases\n\n## v0.2.0 · 2026-11-20\n\n- Verified: ${v}\n`);
+  writeFileSync(join(other, "extra.txt"), "x");
+  commitAll(other, "Release v0.2.0 and more");
+  assert.match(release(other, "--resume").stdout, /changes extra\.txt, releases\.md, not only releases\.md; no tag/);
+  assert.equal(tagged(other, "v0.2.0"), false);
+});
+
+test("[check.protocol-release.news] a project learns of newer releases from its approach clone, read by tag, and none of it fails the check", () => {
+  const { repo, first } = approachRepo();
+  const clone = join(temp("clone-parent-"), "early");
+  git(repo, "clone", "-q", repo, clone);
+  // D-02 names a rule of the approach that the templates' agent instructions use.
+  addEntry(repo, "D-02", "rule.start-from-ids");
+  const r2 = release(repo, "0.2.0");
+  assert.equal(r2.status, 0, r2.stdout);
+  const between = addEntry(repo, "D-03", "ent.thing");
+  addEntry(repo, "D-04", "action.close");
+  assert.equal(release(repo, "0.3.0").status, 0);
+  const used = new Set(["action.close", "rule.start-from-ids"]);
+  // Pinned before v0.2.0: both releases, with the changes that alter the project's rules.
+  const before = releaseNews({ clone: repo, pinCommit: first, used });
+  assert.equal(before.length, 2);
+  assert.match(before[0], /^version 0\.2\.0 was released \(\d{4}-\d{2}-\d{2}\); changes: D-02; of them, change this project's rules: D-02 \(rule\.start-from-ids\)$/);
+  assert.match(before[1], /^version 0\.3\.0 was released .*changes: D-03, D-04; of them, change this project's rules: D-04 \(action\.close\)$/);
+  // Pinned between the tags: only the release whose verified commit is not an ancestor of the pin.
+  const mid = releaseNews({ clone: repo, pinCommit: between, used });
+  assert.equal(mid.length, 1);
+  assert.match(mid[0], /^version 0\.3\.0/);
+  // A clone whose work tree stays on its first commit, its tags fetched: the entries are read by tag.
+  git(clone, "fetch", "-q", "--tags", "origin");
+  assert.equal(git(clone, "rev-parse", "HEAD"), first);
+  assert.equal(releaseNews({ clone, pinCommit: first, used }).length, 2);
+  // Nothing newer, a pin the clone does not have, no clone, a clone that cannot be read.
+  assert.match(releaseNews({ clone: repo, pinCommit: git(repo, "rev-parse", "HEAD"), used })[0], /^no newer version among the releases the approach clone knows \(to learn of new ones: git fetch --tags in the clone\)$/);
+  assert.match(releaseNews({ clone: repo, pinCommit: "f".repeat(40), used })[0], /^the comparison is not possible: the commit of the pin ffffffffffff is not in the approach clone$/);
+  assert.match(releaseNews({ clone: null, pinCommit: first, used })[0], /^no information about releases: ont\.approachClone is not set/);
+  assert.match(releaseNews({ clone: join(repo, "missing"), pinCommit: first, used })[0], /^no information about releases/);
+  // Through the check of a project with a copy of the tool: information, and ONT_OK.
+  const project = temp("project-");
+  cpSync(TEMPLATES, project, { recursive: true });
+  cpSync(TOOLS, join(project, "tools", "ont-check"), { recursive: true, filter: (src) => !src.includes(`${join(TOOLS, "test")}`) });
+  writeFileSync(join(project, "tools", "ont-check", "upstream.json"), JSON.stringify({ protocol: "v0.1", commit: first, files: {} }));
+  git(project, "init", "-q", "-b", "main");
+  const run = () => node(project, join(project, "tools", "ont-check", "ont-check.mjs"), "--config", join(project, "ont.config.json"));
+  const none = run();
+  assert.equal(none.status, 0, none.stdout);
+  assert.match(none.stdout, /info · releases of the approach \(1\):\n  no information about releases/);
+  git(project, "config", "--local", "ont.approachClone", repo);
+  const news = run();
+  assert.equal(news.status, 0, news.stdout);
+  assert.match(news.stdout, /info · releases of the approach \(2\):\n  version 0\.2\.0 was released.*change this project's rules: D-02 \(rule\.start-from-ids\)\n  version 0\.3\.0.*rules: none\n/);
+  assert.match(news.stdout, /ONT_OK/);
+});
+
+// A product with a copy of the tool, a test suite and the releases in its configuration.
+function productRepo() {
+  const repo = temp("product-");
+  cpSync(TEMPLATES, repo, { recursive: true });
+  cpSync(TOOLS, join(repo, "tools", "ont-check"), { recursive: true, filter: (src) => !src.includes(`${join(TOOLS, "test")}`) });
+  writeFileSync(join(repo, "tools", "ont-check", "upstream.json"), JSON.stringify({ protocol: "v0.2.0", commit: "c".repeat(40), files: {} }));
+  const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+  writeFileSync(
+    join(repo, "ont.config.json"),
+    JSON.stringify({ ...cfg, testSuites: [{ name: "unit", dir: "tests", match: "\\.test\\.mjs$", cover: [] }], releases: { dir: "releases", pin: "tools/ont-check/upstream.json" } }, null, 2),
+  );
+  mkdirSync(join(repo, "tests"));
+  writeFileSync(join(repo, "tests", "a.test.mjs"), 'import { test } from "node:test";\nimport { existsSync } from "node:fs";\ntest("a", () => { if (existsSync(new URL("../fail", import.meta.url))) throw new Error("fails"); });\n');
+  git(repo, "init", "-q", "-b", "main");
+  return { repo, first: commitAll(repo, "first") };
+}
+const product = (repo, ...a) => node(repo, join(repo, "tools", "ont-check", "release.mjs"), "--config", join(repo, "ont.config.json"), ...a);
+const checkProduct = (repo, ...a) => node(repo, join(repo, "tools", "ont-check", "ont-check.mjs"), "--config", join(repo, "ont.config.json"), ...a);
+const problems = (repo) => {
+  const { releases, deployments } = parseProductRecords(join(repo, "releases"));
+  return productReleaseProblems({ top: repo, cfgRel: "ont.config.json", pinRel: "tools/ont-check/upstream.json", releases, deployments });
+};
+const recordText = (fields, checks) => [...Object.entries(fields).map(([k, v]) => `${k}: ${v}`), "Checks:", ...checks, ""].join("\n");
+
+test("[check.product-release.released-intact] a release written by the action on a green commit is intact and verified", () => {
+  const { repo, first } = productRepo();
+  const r = product(repo, "--product", "1.0.0");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const text = readFileSync(join(repo, "releases", "1.0.0.md"), "utf8");
+  assert.match(text, new RegExp(`^Version: 1\\.0\\.0\\nCommit: ${first}\\nPin: ${sha256(readFileSync(join(repo, "tools", "ont-check", "upstream.json")))}\\nTool: ${"c".repeat(40)}\\nDate: \\d{4}-\\d{2}-\\d{2}\\nChecks:\\n- ont-check · pass\\n- suite unit · pass\\n$`));
+  commitAll(repo, "the release 1.0.0");
+  assert.deepEqual(problems(repo), []);
+  assert.equal(checkProduct(repo).status, 0, checkProduct(repo).stdout);
+  const v = product(repo, "--verify", "1.0.0");
+  assert.equal(v.status, 0, v.stdout);
+  assert.match(v.stdout, /VERIFIED 1\.0\.0: ont-check · pass, suite unit · pass/);
+  // On a commit whose test fails, the action writes nothing.
+  writeFileSync(join(repo, "fail"), "");
+  commitAll(repo, "breaks the test");
+  const bad = product(repo, "--product", "2.0.0");
+  assert.equal(bad.status, 1);
+  assert.match(bad.stdout, /suite unit failed on [0-9a-f]{7}; no record written/);
+  assert.deepEqual(readdirSync(join(repo, "releases")), ["1.0.0.md"]);
+});
+
+test("[check.product-release.by-hand] a record written by hand is intact, and --verify fails it on a commit whose test fails", () => {
+  const { repo } = productRepo();
+  writeFileSync(join(repo, "fail"), "");
+  const broken = commitAll(repo, "breaks the test");
+  mkdirSync(join(repo, "releases"));
+  const pin = sha256(readFileSync(join(repo, "tools", "ont-check", "upstream.json")));
+  writeFileSync(join(repo, "releases", "2.0.0.md"), recordText({ Version: "2.0.0", Commit: broken, Pin: pin, Tool: "c".repeat(40), Date: "2026-11-20" }, ["- ont-check · pass", "- suite unit · pass"]));
+  commitAll(repo, "a record by hand");
+  assert.deepEqual(problems(repo), []);
+  const v = product(repo, "--verify", "2.0.0");
+  assert.equal(v.status, 1);
+  assert.match(v.stdout, /release 2\.0\.0 is not verified on [0-9a-f]{7}: the run gave ont-check · pass, suite unit · fail/);
+});
+
+test("[check.product-release.broken] a pin of another commit, a commit the project lacks, and checks not of the configuration at the commit are errors", () => {
+  const { repo, first } = productRepo();
+  const pinAtFirst = sha256(readFileSync(join(repo, "tools", "ont-check", "upstream.json")));
+  writeFileSync(join(repo, "tools", "ont-check", "upstream.json"), JSON.stringify({ protocol: "v0.3.0", commit: "d".repeat(40), files: {} }));
+  const second = commitAll(repo, "a new pin");
+  const pinNow = sha256(readFileSync(join(repo, "tools", "ont-check", "upstream.json")));
+  mkdirSync(join(repo, "releases"));
+  const ok = ["- ont-check · pass", "- suite unit · pass"];
+  const base = { Tool: "c".repeat(40), Date: "2026-11-20" };
+  writeFileSync(join(repo, "releases", "1.0.0.md"), recordText({ Version: "1.0.0", Commit: first, Pin: pinNow, ...base }, ok));
+  writeFileSync(join(repo, "releases", "1.1.0.md"), recordText({ Version: "1.1.0", Commit: "e".repeat(40), Pin: pinNow, ...base }, ok));
+  writeFileSync(join(repo, "releases", "1.2.0.md"), recordText({ Version: "1.2.0", Commit: second, Pin: pinNow, ...base }, ["- ont-check · pass"]));
+  writeFileSync(join(repo, "releases", "1.3.0.md"), recordText({ Version: "1.3.0", Commit: first, Pin: pinAtFirst, ...base }, ok));
+  const p = problems(repo).join("\n");
+  assert.match(p, /1\.0\.0\.md: the pin's hash is not the hash of tools\/ont-check\/upstream\.json at commit/);
+  assert.match(p, /1\.1\.0\.md: commit eeeeeee is not in the project's history/);
+  assert.match(p, /1\.2\.0\.md: the checks ont-check are not the ones the configuration at [0-9a-f]{7} requires, ont-check, suite unit/);
+  assert.doesNotMatch(p, /1\.3\.0/);
+  const c = checkProduct(repo);
+  assert.equal(c.status, 1);
+  assert.match(c.stdout, /records of releases and deployments that do not hold \(3\)/);
+});
+
+test("[check.product-release.suites-changed-later] a suite added to the configuration later leaves an earlier release intact", () => {
+  const { repo } = productRepo();
+  assert.equal(product(repo, "--product", "1.0.0").status, 0);
+  commitAll(repo, "the release 1.0.0");
+  const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+  cfg.testSuites.push({ name: "e2e", dir: "e2e", match: "\\.test\\.mjs$", cover: [] });
+  writeFileSync(join(repo, "ont.config.json"), JSON.stringify(cfg, null, 2));
+  mkdirSync(join(repo, "e2e"));
+  writeFileSync(join(repo, "e2e", "b.test.mjs"), 'import { test } from "node:test";\ntest("b", () => {});\n');
+  commitAll(repo, "a second suite");
+  assert.deepEqual(problems(repo), []);
+  assert.equal(product(repo, "--product", "1.1.0").status, 0);
+  assert.match(readFileSync(join(repo, "releases", "1.1.0.md"), "utf8"), /- ont-check · pass\n- suite unit · pass\n- suite e2e · pass/);
+});
+
+test("[check.deployment.unknown-release] a deployment of a release with no record is an error", () => {
+  const { repo } = productRepo();
+  mkdirSync(join(repo, "releases"));
+  writeFileSync(join(repo, "releases", "deploy-1.md"), "Release: 9.9.9\nEnvironment: production\nTime: 2026-11-20T10:00:00Z\n");
+  assert.deepEqual(problems(repo), ["deploy-1.md: a deployment of 9.9.9, which has no record of a release"]);
+  assert.equal(checkProduct(repo).status, 1);
+});
+
+test("[check.deployment.running-now] the latest deployment in an environment is what runs there, and a project without deployments says nothing of them", () => {
+  const { repo } = productRepo();
+  assert.equal(product(repo, "--product", "1.0.0").status, 0);
+  assert.doesNotMatch(checkProduct(repo, "--releases").stdout, /RUNNING/);
+  assert.match(checkProduct(repo, "--releases").stdout, /RELEASE 1\.0\.0 · [0-9a-f]{7} · \d{4}-\d{2}-\d{2} · ont-check pass, suite unit pass/);
+  writeFileSync(join(repo, "releases", "1.1.0.md"), readFileSync(join(repo, "releases", "1.0.0.md"), "utf8").replace("Version: 1.0.0", "Version: 1.1.0"));
+  writeFileSync(join(repo, "releases", "deploy-b.md"), "Release: 1.1.0\nEnvironment: production\nTime: 2026-11-20T11:00:00Z\n");
+  writeFileSync(join(repo, "releases", "deploy-a.md"), "Release: 1.0.0\nEnvironment: production\nTime: 2026-11-20T10:00:00Z\n");
+  writeFileSync(join(repo, "releases", "deploy-c.md"), "Release: 1.0.0\nEnvironment: staging\nTime: 2026-11-20T12:00:00Z\n");
+  const out = checkProduct(repo, "--releases");
+  assert.equal(out.status, 0, out.stdout);
+  assert.match(out.stdout, /RUNNING production: 1\.1\.0, since 2026-11-20T11:00:00Z/);
+  assert.match(out.stdout, /RUNNING staging: 1\.0\.0, since 2026-11-20T12:00:00Z/);
+  const { deployments } = parseProductRecords(join(repo, "releases"));
+  assert.equal(runningNow(deployments).get("production").release, "1.1.0");
+});

@@ -49,6 +49,8 @@ import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { parseRounds, renderRounds } from "./review-rounds.mjs";
 import { acceptanceProblems, overlaps, parseTaskRecords, readStatement, taskState } from "./tasks.mjs";
+import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
+import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
 import { pathToFileURL } from "node:url";
 import { checkForms, checkTraces, readForms, readTraces, runTrace } from "./oracle.mjs";
@@ -1356,6 +1358,37 @@ if (cfg.reviewRounds) {
     report("task records that do not say what --task found", st.errors);
   }
 } else if (flag("--rounds") > 0 || flag("--task") > 0) console.log("ERROR · --rounds and --task need reviewRounds in the configuration");
+
+// Releases (D-109, D-110, D-111). In the approach's repository, every entry of releases.md has its tag
+// and every tag its entry. In a project with a copy of the tool, the releases its approach clone knows
+// that are newer than the pin, as information. With releases in the configuration, every record of a
+// release is intact and every deployment names a release; --releases prints them and what runs now.
+// ont: inv.release-tagged, derived.newer-releases, field.tool-copy.approach-clone, inv.product-release-intact, inv.deployment-of-release, derived.running-now
+const gitOut = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8" }).stdout?.trim() ?? "";
+if (cfg.protocolReleases) {
+  const top = gitOut("rev-parse", "--show-toplevel");
+  report("releases of the protocol that do not hold", top ? protocolReleaseProblems(top, relative(top, cfg.protocolReleases.file).split("\\").join("/")).problems : ["not in a Git repository"]);
+}
+// The pin is the one the configuration names under releases, or upstream.json in the copy's directory.
+const copyPin = [cfg.releases?.pin, join(dirname(fileURLToPath(import.meta.url)), "upstream.json")].find((f) => f && existsSync(f));
+const pin = copyPin ? (() => { try { return JSON.parse(read(copyPin)); } catch { return null; } })() : null;
+if (pin?.commit) {
+  const clone = gitOut("config", "--local", "ont.approachClone");
+  const usedText = [...cfg.agentInstructions, cfg.decisions?.file, cfg.ontology].filter((f) => f && existsSync(f)).map(read).join("\n");
+  const used = new Set(anyIds(usedText).filter(ofApproach));
+  report("releases of the approach", releaseNews({ clone: clone ? resolve(cfg.base, clone) : null, pinCommit: pin.commit, used }), false);
+}
+if (cfg.releases) {
+  const top = gitOut("rev-parse", "--show-toplevel");
+  const { releases, deployments, malformed } = parseProductRecords(cfg.releases.dir);
+  report("records of releases that cannot be read", malformed);
+  const rel = (p) => relative(top, p).split("\\").join("/");
+  report("records of releases and deployments that do not hold", productReleaseProblems({ top, cfgRel: rel(cfg.file), pinRel: rel(cfg.releases.pin), releases, deployments }));
+  if (flag("--releases") > 0) {
+    for (const r of releases) console.log(`RELEASE ${r.version} · ${r.commit.slice(0, 7)} · ${r.date} · ${r.checks.map((c) => `${c.check} ${c.result}`).join(", ")}`);
+    for (const [env, d] of runningNow(deployments)) console.log(`RUNNING ${env}: ${d.release}, since ${d.time}`);
+  }
+} else if (flag("--releases") > 0) console.log("ERROR · --releases needs releases in the configuration");
 
 console.log(
   [

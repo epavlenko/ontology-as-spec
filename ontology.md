@@ -467,16 +467,59 @@ The ontology is these tables and the check catalogue in [checks.md](./checks.md)
 
 ## Tool copy
 
-| Kind      | ID                             | Term               | Type               | Definition                                                                                                                                                                                                   |
-| --------- | ------------------------------ | ------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Entity    | `ent.tool-copy`                | Tool copy          |                    | A project's copy of `tools/ont-check`, without its tests, and of the approach's LICENSE, from one commit of the approach, in a directory of its own.                                                         |
-| Field     | `field.tool-copy.pin`          | Pin                | text               | The file that names the commit of the copy, its date, the last decision of the approach at that commit and the hash of every file, and lists the files the project keeps in the copy's directory as its own. |
-| Relation  | `edge.tool-copy.last-decision` | Last decision      | ref `ent.decision` | The approach's last decision at the commit of the copy, which the pin names.                                                                                                                                 |
-| Invariant | `inv.copy-matches-pin`         | Copy matches pin   |                    | Every file the pin names is in the copy with its hash, and the copy's directory holds no other file but the pin and the project's own.                                                                       |
-|           | `inv.tool-options-documented`  | Options documented |                    | Every file of the tool, every flag a script of the tool reads from its command line and every key of the configuration the tool reads is described in the tool's README.                                     |
-| Action    | `action.update-copy`           | Update the copy    |                    | Copy the tool from a commit of the approach, delete the files of the old pin that the commit no longer has, and write the pin.                                                                               |
+| Kind      | ID                               | Term               | Type               | Definition                                                                                                                                                                                                   |
+| --------- | -------------------------------- | ------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Entity    | `ent.tool-copy`                  | Tool copy          |                    | A project's copy of `tools/ont-check`, without its tests, and of the approach's LICENSE, from one commit of the approach, in a directory of its own.                                                         |
+| Field     | `field.tool-copy.pin`            | Pin                | text               | The file that names the commit of the copy, its date, the last decision of the approach at that commit and the hash of every file, and lists the files the project keeps in the copy's directory as its own. |
+|           | `field.tool-copy.approach-clone` | Approach clone     | text optional      | The local clone of the approach that a clone of the project names in its own Git configuration, `git config --local ont.approachClone <path>`, to learn of releases without the network.                     |
+| Relation  | `edge.tool-copy.last-decision`   | Last decision      | ref `ent.decision` | The approach's last decision at the commit of the copy, which the pin names.                                                                                                                                 |
+| Invariant | `inv.copy-matches-pin`           | Copy matches pin   |                    | Every file the pin names is in the copy with its hash, and the copy's directory holds no other file but the pin and the project's own.                                                                       |
+|           | `inv.tool-options-documented`    | Options documented |                    | Every file of the tool, every flag a script of the tool reads from its command line and every key of the configuration the tool reads is described in the tool's README.                                     |
+| Action    | `action.update-copy`             | Update the copy    |                    | Copy the tool from a commit of the approach, delete the files of the old pin that the commit no longer has, and write the pin.                                                                               |
 
 A fix to the tool is made in the approach and reaches a project with its next copy; a copy is never edited in place.
+
+## Protocol release
+
+| Kind      | ID                                | Term                 | Type                | Definition                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------- | --------------------------------- | -------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.protocol-release`            | Protocol release     |                     | A version of the approach: an entry of `releases.md` with its version, its date and its verified commit, the commit its checks passed on, and an annotated tag `v` and the version on the release commit, a child of the verified commit that only adds the entry. The tag `v0.1`, made before releases were recorded, is the starting point, read as 0.1.0, with no entry.                                         |
+| Field     | `field.protocol-release.version`  | Version              | text                | The version in Semantic Versioning 2.0.0, three numbers, greater than every release before it.                                                                                                                                                                                                                                                                                                                      |
+|           | `field.protocol-release.verified` | Verified commit      | text                | The commit the tests and the check passed on, in full; the parent of the release commit.                                                                                                                                                                                                                                                                                                                            |
+|           | `field.protocol-release.date`     | Date                 | date                | The day of the release.                                                                                                                                                                                                                                                                                                                                                                                             |
+| Relation  | `edge.protocol-release.changes`   | Changes              | refs `ent.decision` | The entries of the decision log between the verified commit of the release before, or the commit of `v0.1`, and this one's; derived from the log, never written by hand.                                                                                                                                                                                                                                            |
+| Derived   | `derived.newer-releases`          | Newer releases       |                     | For a project, the releases its approach clone knows whose verified commit is not an ancestor of the commit of its pin, each read from its tag, with its changes and those of them that change the project's rules, accepted entries that name a concept the project uses; otherwise that there are none, that the pin's commit is not in the clone, or that the clone is not known. Information that never blocks. |
+| Invariant | `inv.release-tagged`              | Releases tagged      |                     | Every entry of `releases.md` has its annotated tag, on a commit whose parent is the entry's verified commit and whose change from it is only `releases.md`, and every tag `v` and a version, but `v0.1`, has an entry.                                                                                                                                                                                              |
+| Action    | `action.release-protocol`         | Release the protocol |                     | In a clean work tree, run the tests and the check on the commit; on a failure, refuse and write nothing; otherwise commit the entry as the release commit and tag it. `--resume` tags a release commit left without its tag, after checking its shape and running the tests and the check again on its parent in a temporary worktree.                                                                              |
+
+- The approach's configuration names the file under `protocolReleases`. The changes of a release are what the decision log gained between two verified commits; the tag's message lists them.
+
+## Product release
+
+| Kind      | ID                              | Term                | Type                | Definition                                                                                                                                                                                                                                                         |
+| --------- | ------------------------------- | ------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Entity    | `ent.product-release`           | Product release     |                     | A version of a product made with the approach: a file in the directory the configuration names under `releases`, with its version, its commit, the hash of the pin of the protocol there, the checks run with their results, the version of the tool and the date. |
+| Field     | `field.product-release.version` | Version             | text                | The version in Semantic Versioning 2.0.0, unique among the releases.                                                                                                                                                                                               |
+|           | `field.product-release.commit`  | Commit              | text                | The commit released, in full, in the project's history.                                                                                                                                                                                                            |
+|           | `field.product-release.checks`  | Checks              | text                | The checks run on the commit, the project's check and each test suite of the configuration at that commit, each with its result.                                                                                                                                   |
+|           | `field.product-release.tool`    | Tool                | text                | The commit of the approach the tool that ran them comes from.                                                                                                                                                                                                      |
+|           | `field.product-release.date`    | Date                | date                | The day of the release.                                                                                                                                                                                                                                            |
+| Relation  | `edge.product-release.pin`      | Protocol pin        | ref `ent.tool-copy` | The pin of the protocol at the commit, by the SHA-256 of the file `releases.pin` names.                                                                                                                                                                            |
+| Rule      | `rule.intact-is-not-run`        | Intact is not a run |                     | That a record of a release is intact does not prove its checks were run, since a record can be written by hand; only verifying the release runs them again, and a reviewer of a release, or anyone who does not trust its record, verifies it.                     |
+| Invariant | `inv.product-release-intact`    | Release intact      |                     | Every record of a release names a commit of the project's history, the SHA-256 of the pin file at that commit, exactly the checks the configuration at that commit requires, each passed, and every field.                                                         |
+| Action    | `action.release-product`        | Release the product |                     | In a temporary worktree at the commit, run the project's check and its test suites from the configuration of that commit, and only when every one passes write the record of the release.                                                                          |
+|           | `action.verify-release`         | Verify a release    |                     | Run the checks of a release again in a temporary worktree at its commit and compare their results with its record; any difference or failure is an error.                                                                                                          |
+
+## Deployment
+
+| Kind      | ID                             | Term                    | Type                      | Definition                                                                                                                             |
+| --------- | ------------------------------ | ----------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity    | `ent.deployment`               | Deployment              |                           | A release put into an environment at a time, recorded in the directory of the releases; optional, since not every product is deployed. |
+| Field     | `field.deployment.environment` | Environment             | text                      | Where the release was put, such as staging or production.                                                                              |
+|           | `field.deployment.time`        | Time                    | datetime                  | When, in UTC to the second.                                                                                                            |
+| Relation  | `edge.deployment.release`      | Release                 | ref `ent.product-release` | The release deployed, by its version.                                                                                                  |
+| Derived   | `derived.running-now`          | Running now             |                           | For each environment, the release of its latest deployment by time.                                                                    |
+| Invariant | `inv.deployment-of-release`    | Deployment of a release |                           | Every deployment names a release that has a record.                                                                                    |
 
 ## Formal form
 
@@ -900,6 +943,28 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `inv.copy-matches-pin` | `tools/ont-check/pin.mjs` | |
 | `action.update-copy` | `tools/ont-check/pin.mjs`, `docs/lifecycle.md` | |
 
+### Protocol release
+
+| ID | Implemented in | Note |
+| -- | -------------- | ---- |
+| `ent.protocol-release`, `field.protocol-release.version`, `field.protocol-release.verified`, `field.protocol-release.date`, `edge.protocol-release.changes`, `inv.release-tagged` | `tools/ont-check/releases.mjs`, `tools/ont-check/ont-check.mjs` | |
+| `action.release-protocol` | `tools/ont-check/release.mjs`, `docs/lifecycle.md` | |
+| `derived.newer-releases`, `field.tool-copy.approach-clone` | `tools/ont-check/releases.mjs`, `tools/ont-check/ont-check.mjs` | |
+
+### Product release
+
+| ID | Implemented in | Note |
+| -- | -------------- | ---- |
+| `ent.product-release`, `field.product-release.version`, `field.product-release.commit`, `field.product-release.checks`, `field.product-release.tool`, `field.product-release.date`, `edge.product-release.pin`, `inv.product-release-intact` | `tools/ont-check/releases.mjs`, `tools/ont-check/ont-check.mjs` | |
+| `action.release-product`, `action.verify-release` | `tools/ont-check/release.mjs`, `tools/ont-check/releases.mjs` | |
+| `rule.intact-is-not-run` | `tools/ont-check/releases.mjs`, `tools/ont-check/release.mjs`, `docs/lifecycle.md` | that the check never claims a run is held by the code; that a reviewer of a release verified it is reviewed |
+
+### Deployment
+
+| ID | Implemented in | Note |
+| -- | -------------- | ---- |
+| `ent.deployment`, `field.deployment.environment`, `field.deployment.time`, `edge.deployment.release`, `derived.running-now`, `inv.deployment-of-release` | `tools/ont-check/releases.mjs`, `tools/ont-check/ont-check.mjs` | |
+
 ### Formal form
 
 | ID | Implemented in | Note |
@@ -932,6 +997,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-20: releases of the protocol and what a project learns of them, releases of a product and their deployments: `ent.protocol-release`, `ent.product-release`, `ent.deployment` and their rows, `field.tool-copy.approach-clone` (D-109, D-110, D-111).
 - 2026-11-20: a task's statement and its approval by version, `derived.next-round` by time with the next free number, acceptance after a record of done, and the task's budget from its records of spend: `ent.task-statement`, `ent.task-result`, `ent.task-spend` and their rows, new fields of `ent.review-round`, which `inv.review-rounds-well-formed` checks (D-106, D-107, D-108).
 - 2026-11-20: the tree is refreshed by the protocol's hook after a merge into main where a clone names its place: `field.ontology-tree.place`, `field.ontology-tree.built-from`, `derived.tree-stale` and `rule.tree-refreshed-after-merge`; `ent.ontology-tree` and `rule.tree-structure-only` say so (D-105).
 - 2026-11-20: a check's trace runs on the code through the project's adapter, changes of the forms find surviving mutations and empty tests, and a test compares the code with the oracle (D-101, D-102, D-103); on the code a trace compares how the code refused, not its words (D-104).

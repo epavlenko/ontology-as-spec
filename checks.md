@@ -369,6 +369,34 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 | `check.tool-copy.extra-file`           | `inv.copy-matches-pin`, `field.tool-copy.pin`                | the copy's directory holds `old/stale.mjs`, which its pin does not name, a file edited by hand and a file deleted | the pin is verified                     | it names the extra file, the changed one and the missing one, and fails; a file the pin lists as the project's own is neither named nor deleted                                              | auto  |
 | `check.tool-copy.options-documented` | `inv.tool-options-documented` | the scripts of the tool and its README | the tests run | every script of the tool is in the README's table of files, every flag a script reads from its command line, such as `--run`, and every key of the configuration the loader reads, such as `oracle`, `manualRuns.dir` or the `files` of each item of `docSets`, is named in the README, and a file, flag or key taken out of the README fails the test | auto |
 
+## Protocol release
+
+| Check | Concepts | GIVEN | WHEN | THEN | Proof |
+| --- | --- | --- | --- | --- | --- |
+| `check.protocol-release.changes-from-log` | `edge.protocol-release.changes`, `ent.protocol-release`, `field.protocol-release.version`, `field.protocol-release.date` | a repository whose tag `v0.1` has no entry, and decision entries added after it | `release.mjs 0.2.0` runs | `v0.1` is read as 0.1.0 and is no error, and the changes of 0.2.0 are the entries between the commit of `v0.1` and the verified commit | auto |
+| `check.protocol-release.released-on-green` | `action.release-protocol`, `field.protocol-release.verified` | a clean repository whose tests and check pass, and then one whose test fails | `release.mjs` runs | on green, the release commit is a child of the verified commit, changes only `releases.md` and carries the annotated tag; on the failure it refuses with no commit and no tag | auto |
+| `check.protocol-release.untagged` | `inv.release-tagged`, `action.release-protocol` | a release commit whose tag was not made | the check runs, then `release.mjs --resume` | the check fails on the entry with no tag; `--resume` tags the release commit and the check passes | auto |
+| `check.protocol-release.tag-without-entry` | `inv.release-tagged` | a tag `v0.3.0` with no entry in `releases.md`, beside `v0.1` | the check runs | it fails on `v0.3.0` and says nothing of `v0.1` | auto |
+| `check.protocol-release.resume-reruns` | `action.release-protocol` | a release commit of the right shape whose parent fails its tests | `release.mjs --resume` runs | it refuses and no tag is made | auto |
+| `check.protocol-release.news` | `derived.newer-releases`, `field.tool-copy.approach-clone` | a project pinned before `v0.2.0`, one pinned between two tags, an approach clone whose work tree is on an old commit while its tags are new, one that knows no newer release, one without the pin's commit, and no clone or one that cannot be read | the project is checked | it says a version was released, with its changes and those that change the project's rules; newer are only the releases whose verified commit is not an ancestor of the pin; the entry is read from the tag; it says there is none among those the clone knows, that the comparison is not possible, or that there is no information; and none of it fails the check | auto |
+
+## Product release
+
+| Check | Concepts | GIVEN | WHEN | THEN | Proof |
+| --- | --- | --- | --- | --- | --- |
+| `check.product-release.released-intact` | `action.release-product`, `inv.product-release-intact`, `action.verify-release`, `ent.product-release`, `field.product-release.version`, `field.product-release.commit`, `field.product-release.checks`, `field.product-release.tool`, `field.product-release.date`, `edge.product-release.pin` | a project whose check and test suites pass on a commit | `release.mjs --product` runs, then the check and `--verify` | the record names the commit, the hash of the pin there, each check passed and the tool; the check finds it intact and `--verify` passes | auto |
+| `check.product-release.by-hand` | `rule.intact-is-not-run`, `action.verify-release` | a record written by hand with the right fields for a commit whose test fails | the check runs, then `--verify` | the record is intact, and `--verify` fails on it | auto |
+| `check.product-release.broken` | `inv.product-release-intact` | records with the hash of the pin of another commit, with a commit the project does not have, and with checks that are not those of the configuration at the commit | the check runs | it names each record and what is wrong, and fails | auto |
+| `check.product-release.suites-changed-later` | `inv.product-release-intact` | a release, then a later commit that adds a test suite to the configuration | the check runs | the release stays intact: its checks are compared with the configuration at its commit | auto |
+| `check.product-release.verified-by-reviewer` | `rule.intact-is-not-run` | a release about to be trusted | its reviewer reads it | `--verify` was run on it and passed | manual |
+
+## Deployment
+
+| Check | Concepts | GIVEN | WHEN | THEN | Proof |
+| --- | --- | --- | --- | --- | --- |
+| `check.deployment.unknown-release` | `inv.deployment-of-release`, `edge.deployment.release`, `ent.deployment` | a deployment of version 9.9.9, which has no record | the check runs | it names the deployment and fails | auto |
+| `check.deployment.running-now` | `derived.running-now`, `field.deployment.environment`, `field.deployment.time` | two deployments of two releases into one environment, and a project with no deployment | `--releases` runs | the later deployment is the one running now; for the project without deployments nothing is said of environments | auto |
+
 ## Formal form
 
 | Check | Concepts | GIVEN | WHEN | THEN | Proof |

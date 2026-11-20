@@ -57,7 +57,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "reviewRounds.dir", "taskRecords.dir", "budget.newInput", "budget.output", "budget.reserve", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "reviewRounds.dir", "taskRecords.dir", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
@@ -165,6 +165,11 @@ export function loadConfig(configPath, text) {
     reviewRounds: raw.reviewRounds && { dir: at(raw.reviewRounds.dir) },
     // Records of a task's done and of the executor's spend, one file each (D-107, D-108).
     taskRecords: raw.taskRecords && { dir: at(raw.taskRecords.dir) },
+    // The approach's own releases (D-109): the file of their entries, in the approach's repository only.
+    protocolReleases: raw.protocolReleases && { file: at(raw.protocolReleases.file ?? "releases.md") },
+    // A product's releases and deployments, one file each, and the pin of the protocol whose hash a
+    // release records (D-111).
+    releases: raw.releases && { dir: at(raw.releases.dir), pin: at(raw.releases.pin) },
     // A task's default limits of new input and output tokens and their multiplier; the approach sets no
     // number, and a limit left out is null (D-108).
     budget: {

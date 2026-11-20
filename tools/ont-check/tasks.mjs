@@ -219,6 +219,14 @@ export function taskState({ rounds, spend, task, defaults, statement }) {
   return { lines, errors, approved, budget: b };
 }
 
+// The environment of a command run on a commit: without the variable a running test runner sets, which
+// would make a test runner started by the command report to it instead of failing.
+export const cleanEnv = () => {
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  return env;
+};
+
 // Runs each command in a temporary worktree at the commit, in the directory that matches dir there, and
 // gives each result; the worktree is removed after (D-107).
 export function runAtCommit({ top, commit, dir = "", commands }) {
@@ -232,7 +240,7 @@ export function runAtCommit({ top, commit, dir = "", commands }) {
     return {
       root: tmp,
       results: commands.map((c) => {
-        const r = typeof c === "function" ? c(tmp) : spawnSync(c, { shell: true, cwd: join(tmp, dir), encoding: "utf8", maxBuffer: 1 << 28 });
+        const r = typeof c === "function" ? c(tmp) : spawnSync(c, { shell: true, cwd: join(tmp, dir), env: cleanEnv(), encoding: "utf8", maxBuffer: 1 << 28 });
         return { command: typeof c === "function" ? c.label : c, result: r.status === 0 ? "pass" : "fail", output: `${r.stdout ?? ""}${r.stderr ?? ""}` };
       }),
     };

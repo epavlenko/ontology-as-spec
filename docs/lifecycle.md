@@ -71,6 +71,29 @@ The update copies the tool of the clone's `HEAD`, or of `--ref`, without its tes
 
 The copy's README describes every file of the tool, every flag a script reads and every key of the configuration, which the loader lists in a table and reads through a guard that refuses any other; a test of the approach fails when one is missing, so a project can learn from the README alone what the copy it took can do.
 
+<!-- ont: ent.protocol-release@1658b5, inv.release-tagged@8283d1, action.release-protocol@c56aba, derived.newer-releases@0f76e5, field.tool-copy.approach-clone@23b84e -->
+## Releases of the approach
+
+A release of the approach has a version of [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) with three numbers and two commits: the verified commit, on which `npm test` and the check passed, and the release commit, its child, which only adds the release's entry to `releases.md`, `## v<version> · <date>` with `- Verified: <commit>`. The [annotated tag](https://git-scm.com/docs/git-tag) `v<version>` is on the release commit. The tag `v0.1`, made before releases were recorded, is the starting point, read as 0.1.0, and has no entry (D-109).
+
+```bash
+node tools/ont-check/release.mjs 0.2.0     # in a clean work tree: the checks on HEAD, then the release commit and its tag
+node tools/ont-check/release.mjs --resume  # when it stopped before the tag: the checks again on the verified commit, then the tag
+```
+
+A release's changes are the entries the decision log gained since the verified commit of the release before, or the commit of `v0.1`; the tag's message lists them, and nothing is written by hand, as [Keep a Changelog](https://keepachangelog.com) would have it written. The check of the approach fails on an entry without its tag and on a tag without its entry, `v0.1` aside. Releasing the approach is a publication, which waits for the owner.
+
+A project learns of releases from its own clone of the approach, which a clone of the project names once: `git config --local ont.approachClone ../ontology-as-spec`. The check then says, as information that never fails it, which releases the clone knows are newer than the pin, those whose verified commit is not an ancestor of the pin's commit, each read from its tag rather than from the clone's work tree, with its changes and those of them that change the project's rules: accepted entries that name a concept of the approach the project's agent instructions, decision log or ontology use. It also says when there is none among those the clone knows, when the pin's commit is not in the clone, and when no clone is named. The check uses no network: `git fetch --tags` in the clone brings new releases (D-110).
+
+<!-- ont: ent.product-release@436295, inv.product-release-intact@4ef61d, rule.intact-is-not-run@dc4e4c, action.release-product@0ca436, action.verify-release@549292, ent.deployment@805192, inv.deployment-of-release@cab7dd, derived.running-now@007e11 -->
+## Releases of the product
+
+A project that names `releases` in its configuration, a directory and the pin of the protocol, records its releases there, one file each: the version, the commit, the SHA-256 of the pin at that commit, each check run with its result, the version of the tool and the date. `release.mjs --product <version>` makes a temporary worktree at the commit, runs there the project's check and each test suite of the configuration of that commit, and writes the record only when all pass (D-111).
+
+The check finds every record intact: its commit is in the project's history, the pin's hash is the one at that commit, its checks are exactly those the configuration at that commit requires, not today's, each passed. That is integrity, not proof: a record can be written by hand. `release.mjs --verify <version>` runs the checks again on the commit and compares them with the record; a reviewer of a release, and anyone who does not trust its record, runs it.
+
+A deployment, optional, is a file in the same directory with the release, the environment and the time. Every deployment names a release with a record, and `ont-check --releases` prints, for each environment, the release of its latest deployment: what runs there now.
+
 <!-- ont: action.add-concept@3509fd, ent.decision@4607b2, action.update-copy@32bd58, ent.agent-rules@99af23, ent.check@d0dcbc, ent.implementation-row@f093f9, ent.mockup-element@54a519, ent.doc-set@ca5d70 -->
 <!-- ont: concept.oracle@88e2a7 -->
 ## Adopting the approach

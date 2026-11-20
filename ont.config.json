@@ -107,5 +107,8 @@
   },
   "reviewRounds": {
     "dir": "reviews/rounds"
+  },
+  "protocolReleases": {
+    "file": "releases.md"
   }
 }

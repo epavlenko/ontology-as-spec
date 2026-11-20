@@ -111,7 +111,7 @@ With `reviewRounds` in the configuration, every round is a file of its own: the 
 
 The verdicts themselves are records of manual runs. The critic gives a table of them, and `ont-check --review <base> --record <table>` writes one record for each new verdict and none for a carried one, and refuses the table when a check is missing, unknown, given twice, carried at another stamp or over files that changed since, or is the check of errors in code, which reads every new diff (D-100).
 
-<!-- ont: ent.task-statement@1fd5ed, derived.approval@f58d9a, derived.statement-state@6f857b, rule.work-under-approval@619f52 -->
+<!-- ont: field.task-statement.sources@6e29bc, field.task-statement.todo@9fe07a, field.task-statement.not-todo@abce23, field.task-statement.ceilings@4f7d63, ent.task-statement@1fd5ed, derived.approval@f58d9a, derived.statement-state@6f857b, rule.work-under-approval@619f52 -->
 ## A task's statement and its approval
 
 A task starts from its statement, written before work: the owner's sources for it, what to do and what not to do, its condition of done as commands, its budget and the two ceilings of its rounds of review. It may live outside the repository, since it holds the owner's words; the tool reads only its lines `Done-when:`, `Budget-new-input:` and `Budget-output:`, and names its version by the SHA-256 of the file (D-106).

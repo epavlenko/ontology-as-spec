@@ -998,6 +998,11 @@
           "x-ont": "field.tool-copy.pin",
           "type": "string"
         },
+        "approachClone": {
+          "description": "The local clone of the approach that a clone of the project names in its own Git configuration, git config --local ont.approachClone <path>, to learn of releases without the network.",
+          "x-ont": "field.tool-copy.approach-clone",
+          "type": "string"
+        },
         "lastDecision": {
           "description": "The approach's last decision at the commit of the copy, which the pin names.",
           "x-ont": "edge.tool-copy.last-decision",
@@ -1008,6 +1013,123 @@
       "required": [
         "pin",
         "lastDecision"
+      ]
+    },
+    "protocol-release": {
+      "title": "Protocol release",
+      "description": "A version of the approach: an entry of releases.md with its version, its date and its verified commit, the commit its checks passed on, and an annotated tag v and the version on the release commit, a child of the verified commit that only adds the entry. The tag v0.1, made before releases were recorded, is the starting point, read as 0.1.0, with no entry.",
+      "x-ont": "ent.protocol-release",
+      "type": "object",
+      "properties": {
+        "version": {
+          "description": "The version in Semantic Versioning 2.0.0, three numbers, greater than every release before it.",
+          "x-ont": "field.protocol-release.version",
+          "type": "string"
+        },
+        "verified": {
+          "description": "The commit the tests and the check passed on, in full; the parent of the release commit.",
+          "x-ont": "field.protocol-release.verified",
+          "type": "string"
+        },
+        "date": {
+          "description": "The day of the release.",
+          "x-ont": "field.protocol-release.date",
+          "type": "string",
+          "format": "date"
+        },
+        "changes": {
+          "description": "The entries of the decision log between the verified commit of the release before, or the commit of v0.1, and this one's; derived from the log, never written by hand.",
+          "x-ont": "edge.protocol-release.changes",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ont-ref": "ent.decision"
+          }
+        }
+      },
+      "required": [
+        "version",
+        "verified",
+        "date",
+        "changes"
+      ]
+    },
+    "product-release": {
+      "title": "Product release",
+      "description": "A version of a product made with the approach: a file in the directory the configuration names under releases, with its version, its commit, the hash of the pin of the protocol there, the checks run with their results, the version of the tool and the date.",
+      "x-ont": "ent.product-release",
+      "type": "object",
+      "properties": {
+        "version": {
+          "description": "The version in Semantic Versioning 2.0.0, unique among the releases.",
+          "x-ont": "field.product-release.version",
+          "type": "string"
+        },
+        "commit": {
+          "description": "The commit released, in full, in the project's history.",
+          "x-ont": "field.product-release.commit",
+          "type": "string"
+        },
+        "checks": {
+          "description": "The checks run on the commit, the project's check and each test suite of the configuration at that commit, each with its result.",
+          "x-ont": "field.product-release.checks",
+          "type": "string"
+        },
+        "tool": {
+          "description": "The commit of the approach the tool that ran them comes from.",
+          "x-ont": "field.product-release.tool",
+          "type": "string"
+        },
+        "date": {
+          "description": "The day of the release.",
+          "x-ont": "field.product-release.date",
+          "type": "string",
+          "format": "date"
+        },
+        "pin": {
+          "description": "The pin of the protocol at the commit, by the SHA-256 of the file releases.pin names.",
+          "x-ont": "edge.product-release.pin",
+          "type": "string",
+          "x-ont-ref": "ent.tool-copy"
+        }
+      },
+      "required": [
+        "version",
+        "commit",
+        "checks",
+        "tool",
+        "date",
+        "pin"
+      ]
+    },
+    "deployment": {
+      "title": "Deployment",
+      "description": "A release put into an environment at a time, recorded in the directory of the releases; optional, since not every product is deployed.",
+      "x-ont": "ent.deployment",
+      "type": "object",
+      "properties": {
+        "environment": {
+          "description": "Where the release was put, such as staging or production.",
+          "x-ont": "field.deployment.environment",
+          "type": "string"
+        },
+        "time": {
+          "description": "When, in UTC to the second.",
+          "x-ont": "field.deployment.time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "release": {
+          "description": "The release deployed, by its version.",
+          "x-ont": "edge.deployment.release",
+          "type": "string",
+          "x-ont-ref": "ent.product-release"
+        }
+      },
+      "required": [
+        "environment",
+        "time",
+        "release"
       ]
     },
     "formal-form": {
