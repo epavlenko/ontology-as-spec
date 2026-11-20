@@ -444,3 +444,13 @@ test("[rule.tree-refreshed-after-merge] every page that tells of the hook names 
     }
   }
 });
+
+test("[rule.check-in-product-terms] the automatic checks of the tree say their cases without a command, a flag or a script", () => {
+  const rows = readFileSync(join(REPO, "checks.md"), "utf8").split("\n").filter((l) => /^\| `check\.ontology-tree\.[^`]+` \|.*\| auto \|$/.test(l));
+  assert.ok(rows.length >= 10, "the tree's automatic checks");
+  for (const row of rows) {
+    const [, id, , given, when, then] = row.split("|").map((c) => c.trim());
+    const cases = [given, when, then].join(" | ");
+    assert.doesNotMatch(cases, /`git [a-z]|(^|[\s`(])--[a-z]|\.mjs\b/, id);
+  }
+});
