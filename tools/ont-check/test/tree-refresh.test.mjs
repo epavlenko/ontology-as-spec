@@ -4,9 +4,9 @@
 // ont: rule.tree-refreshed-after-merge, field.ontology-tree.place, field.ontology-tree.built-from, derived.tree-stale
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, cpSync, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, lstatSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { buildTree, markOf } from "../gen-tree.mjs";
@@ -230,12 +230,60 @@ test("[check.ontology-tree.place-inside-refused] a place inside the repository, 
   }
   assert.equal(existsSync(join(r.dir, "docs", "new-tree.html")), false);
 
-  // A place outside the repository is written.
+  // A hard link outside the repository to the ontology: its path is outside, its file is the ontology.
+  // The merge refuses it, and so does the page written on demand.
+  const hard = join(outside, "hard.html");
+  linkSync(join(r.dir, "ontology.md"), hard);
+  r.git("config", "--local", "ont.treeOut", hard);
+  branch(r, "b5");
+  const hm = r.git("merge", "-q", "b5");
+  assert.equal(hm.code, 0, hm.out);
+  assert.match(hm.out, /tree: not written to .*hard\.html: the file there has 2 links, and another of them may be a file of the repository\n/);
+  assert.equal(before("ontology.md"), ontology, "the ontology is unchanged after the merge");
+  const ho = r.gen("--out", hard);
+  assert.notEqual(ho.code, 0, "the page on demand is refused too");
+  assert.match(ho.out, /hard\.html: the file there has 2 links/);
+  assert.equal(before("ontology.md"), ontology, "the ontology is unchanged after the page on demand");
+  // A place that is a named pipe is refused, not opened: a write would wait for a reader.
+  const pipe = join(outside, "pipe.html");
+  assert.equal(sh(r.dir, "mkfifo", [pipe]).code, 0);
+  r.git("config", "--local", "ont.treeOut", pipe);
+  branch(r, "b6");
+  const pm = r.git("merge", "-q", "b6");
+  assert.equal(pm.code, 0, pm.out);
+  assert.match(pm.out, /tree: not written to .*pipe\.html: it is a named pipe, not a regular file\n/);
+
+  // A place outside the repository is written; when a page is there already, the new page is a new file
+  // renamed over it, so whoever holds the old one still reads its old bytes, and nothing else is left.
   r.setPlace();
   branch(r, "b4");
   const ok = r.git("merge", "-q", "b4");
   assert.equal(ok.code, 0, ok.out);
   assert.deepEqual(r.mark(), { commit: r.sha("refs/heads/main"), config: "ont.config.json" });
+  const page = readFileSync(r.place, "utf8");
+  const held = openSync(r.place, "r");
+  const inode = statSync(r.place).ino;
+  branch(r, "b7");
+  const again = r.git("merge", "-q", "b7");
+  assert.equal(again.code, 0, again.out);
+  assert.deepEqual(r.mark(), { commit: r.sha("refs/heads/main"), config: "ont.config.json" });
+  assert.notEqual(readFileSync(r.place, "utf8"), page, "the page is written again");
+  assert.equal(readFileSync(held, "utf8"), page, "the old file keeps its bytes");
+  closeSync(held);
+  assert.notEqual(statSync(r.place).ino, inode, "a new file at the place");
+  assert.deepEqual(readdirSync(dirname(r.place)), [basename(r.place)], "no file of the write is left beside the page");
+  // A place that is a link outside the repository to a page outside it: the page it points to is
+  // rewritten the same way, and the link stays a link.
+  const served = join(temp("ont-served-"), "served.html");
+  writeFileSync(served, "old\n");
+  const via = join(outside, "served-link.html");
+  symlinkSync(served, via);
+  r.git("config", "--local", "ont.treeOut", via);
+  branch(r, "b8");
+  const sm = r.git("merge", "-q", "b8");
+  assert.equal(sm.code, 0, sm.out);
+  assert.match(readFileSync(served, "utf8"), /<footer class="built" data-commit="[0-9a-f]{40}"/);
+  assert.ok(lstatSync(via).isSymbolicLink(), "the link stays a link");
 });
 
 test("[check.ontology-tree.mark] changed inputs, a symbolic link whose target changed, and a configuration outside Git are not clean", () => {

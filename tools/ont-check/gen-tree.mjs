@@ -11,7 +11,8 @@
 // ont: ent.ontology-tree, edge.ontology-tree.concepts, rule.tree-structure-only, inv.tree-complete
 // ont: field.ontology-tree.place, field.ontology-tree.built-from, derived.tree-stale, rule.tree-refreshed-after-merge
 import { execFileSync } from "node:child_process";
-import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readlinkSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { chmodSync, closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REF_TYPE, parseShows } from "./contracts.mjs";
@@ -259,9 +260,36 @@ const DATE = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/;
 const dateOf = (d) => d.toISOString().replace(/\.\d+Z$/, "Z");
 export const isMarkDate = (s) => DATE.test(s) && !Number.isNaN(Date.parse(s)) && dateOf(new Date(s)) === s;
 
+// Why no page may be written at a path, or null: the file there, links followed, is not a regular
+// file, or has more than one link, so that another name of it, a file of the repository perhaps, would
+// change with it, which no check of the path can see (field.ontology-tree.place).
+const unwritable = (out) => {
+  const st = lstatSync(landing(out), { throwIfNoEntry: false });
+  if (!st) return null;
+  const kind = kindOf(st);
+  if (kind) return `it is ${kind}, not a regular file`;
+  return st.nlink > 1 ? `the file there has ${st.nlink} links, and another of them may be a file of the repository` : null;
+};
+
+// The page is written to a new file beside the file the path lands on and renamed over it, never into
+// the file that is there: one that changed between the check and the write is replaced, not changed,
+// and whoever holds the old file keeps its bytes. A link at the place stays a link.
 const writePage = (out, built, mark) => {
+  const why = unwritable(out);
+  if (why) throw new Error(`${out}: ${why}`);
   const date = dateOf(new Date());
-  writeFileSync(out, renderTree({ title: built.title, html: built.html }, built.label, { commit: mark.commit, config: mark.config, date }));
+  const html = renderTree({ title: built.title, html: built.html }, built.label, { commit: mark.commit, config: mark.config, date });
+  const at = landing(out);
+  const old = lstatSync(at, { throwIfNoEntry: false });
+  const tmp = join(dirname(at), `.${basename(at)}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`);
+  try {
+    writeFileSync(tmp, html, { flag: "wx" });
+    if (old) chmodSync(tmp, old.mode & 0o7777);
+    renameSync(tmp, at);
+  } catch (e) {
+    rmSync(tmp, { force: true });
+    throw e;
+  }
 };
 
 // The clone's own place for its tree (field.ontology-tree.place): only its local Git configuration,
@@ -298,8 +326,8 @@ const SELF = fileURLToPath(import.meta.url);
 
 // What the post-merge hook runs (rule.tree-refreshed-after-merge): on main with a place set, the tree
 // from the ont.config.json at the root, when every file read equals HEAD's. Silent off main or without
-// a place; at a place inside the repository, or after a squash merge, which leaves main where it was,
-// it says why it writes nothing.
+// a place; at a place inside the repository, at one that is not a regular file or has more than one
+// link, or after a squash merge, which leaves main where it was, it says why it writes nothing.
 export function refresh(cwd, { squash = false } = {}) {
   const top = git(cwd, ["rev-parse", "--show-toplevel"]);
   if (top === null) throw new Error("--refresh runs inside a Git repository");
@@ -309,6 +337,8 @@ export function refresh(cwd, { squash = false } = {}) {
   const inside = repositoryAt(top, place);
   if (inside)
     return [`tree: not written to ${place}: it is inside the repository, at ${inside}, where the page would overwrite its files; set ont.treeOut to a path outside it`];
+  const why = unwritable(place);
+  if (why) return [`tree: not written to ${place}: ${why}`];
   if (squash)
     return [`tree: not written to ${place}: a squash merge leaves main where it was; after committing it, run node ${relative(top, SELF)} --refresh`];
   const built = buildTree(join(top, ROOT_CONFIG));
