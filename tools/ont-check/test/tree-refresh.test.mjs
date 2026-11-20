@@ -4,6 +4,7 @@
 // ont: rule.tree-refreshed-after-merge, field.ontology-tree.place, field.ontology-tree.built-from, derived.tree-stale
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { closeSync, cpSync, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, lstatSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, sep } from "node:path";
@@ -81,7 +82,7 @@ const clone = (dir) => {
   const mark = () => {
     if (!existsSync(place)) return null;
     const html = readFileSync(place, "utf8");
-    const m = html.match(/\n<footer class="built" data-commit="([^"]*)"(?: data-config="([^"]*)")? data-date="([^"]*)">[^\n]*<\/footer>\n<\/body><\/html>\n$/);
+    const m = html.match(/\n<footer class="built" data-commit="([^"]*)"(?: data-config="([^"]*)")? data-date="([^"]*)" data-page="[0-9a-f]{64}">[^\n]*<\/footer>\n<\/body><\/html>\n$/);
     if (!m) return null;
     const d = m[3];
     assert.match(d, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/, `the date of the page at ${place}`);
@@ -106,15 +107,24 @@ const branch = (r, name = "b") => {
   r.git("checkout", "-q", "main");
 };
 
-// The footer the generator writes for a mark, in its own words, written out here rather than taken
-// from the generator, so that a page whose footer's text and attributes disagree is made by hand.
-const footerOf = ({ commit, config, date }) =>
-  `<footer class="built" data-commit="${commit}"${config === undefined ? "" : ` data-config="${config}"`} data-date="${date}">Built from ${
+// The footer the generator writes for a mark, in its own words, with the SHA-256 of the bytes of the
+// page before it, written out here rather than taken from the generator, so that a page whose footer's
+// text and attributes disagree is made by hand, and a page changed before its footer can be given the
+// hash computed again, as whoever forges a mark would (D-134).
+const hashOf = (before) => createHash("sha256").update(Buffer.from(before, "utf8")).digest("hex");
+const footerOf = ({ commit, config, date }, before) =>
+  `<footer class="built" data-commit="${commit}"${config === undefined ? "" : ` data-config="${config}"`} data-date="${date}" data-page="${hashOf(before)}">Built from ${
     commit === "no-commit" ? "no commit" : `<code>${commit}</code>`
   }${config === undefined ? "" : ` · <code>${config}</code>`} · ${date}</footer>`;
+const FOOTER = /<footer class="built"[^\n]*<\/footer>/;
 const withFooter = (page, mark) => {
-  assert.match(page, /<footer class="built"[^\n]*<\/footer>/, "the page has a footer to replace");
-  return page.replace(/<footer class="built"[^\n]*<\/footer>/, () => footerOf(mark));
+  assert.match(page, FOOTER, "the page has a footer to replace");
+  return page.replace(FOOTER, (_, at) => footerOf(mark, page.slice(0, at)));
+};
+// A page whose footer, the generator's own at its end, is given the hash of what is before it.
+const rehashed = (html) => {
+  const at = html.lastIndexOf('<footer class="built"');
+  return html.slice(0, at) + html.slice(at).replace(/ data-page="[0-9a-f]{64}"/, ` data-page="${hashOf(html.slice(0, at))}"`);
 };
 
 test("[check.ontology-tree.refreshed-on-main] the first merge into main after the place is set writes the page, and so does a pull --ff-only", () => {
@@ -260,7 +270,7 @@ test("[check.ontology-tree.dirty-inputs] a file of the tree changed, replaced by
 
   // The configuration, committed, names its ontology at detour/../ontology.md, with detour the committed
   // directory: the path as the configuration gives it has a .., so it is not the commit's file, though
-  // the path normalised by hand is the committed ontology.md (D-130). Then detour is replaced, not
+  // the path normalised by hand is the committed ontology.md (D-134). Then detour is replaced, not
   // committed, by a link to a directory that holds another ontology, which the file system reaches at
   // that path: named too, and nothing of it reaches the page.
   const kept = readFileSync(r.place);
@@ -637,7 +647,7 @@ test("[check.ontology-tree.mark] changed inputs, a symbolic link whose target ch
 
   // An ontology asked for through a directory that is not a link, followed by ..: plain/../ontology.md
   // leads to the committed ontology.md, but the path as the configuration gives it is not normalised,
-  // and a .. part is never the commit's file (D-130).
+  // and a .. part is never the commit's file (D-134).
   const n = repo();
   n.setPlace();
   mkdirSync(join(n.dir, "plain"));
@@ -752,7 +762,7 @@ test("[check.ontology-tree.mark] changed inputs, a symbolic link whose target ch
   const o = r.gen("--config", join(outside, "ont.config.json"), "--out", r.place);
   assert.equal(o.code, 0, o.out);
   assert.deepEqual(r.mark(), { commit: "no-commit", config: null });
-  assert.match(readFileSync(r.place, "utf8"), /<footer class="built" data-commit="no-commit" data-date="[^"]+">Built from no commit · /);
+  assert.match(readFileSync(r.place, "utf8"), /<footer class="built" data-commit="no-commit" data-date="[^"]+" data-page="[0-9a-f]{64}">Built from no commit · /);
   assert.match(r.gen("--stale").out, /built outside Git \(no-commit\)/);
 });
 
@@ -831,6 +841,7 @@ test("[check.ontology-tree.stale] each reason is reported; a current page, compa
     ["config", "the page carries no mark of what it was built from"],
     ["date", "the page carries no mark of what it was built from"],
     ["commit", "the page carries no mark of what it was built from"],
+    ["page", "the page carries no mark of what it was built from"],
   ]) {
     const partial = page.replace(new RegExp(` data-${attr}="[^"]*"`), "");
     assert.notEqual(partial, page, attr);
@@ -883,7 +894,7 @@ test("[check.ontology-tree.stale] each reason is reported; a current page, compa
   assert.equal(stale(), "", "no place");
 });
 
-test("[check.ontology-tree.mark-exact] the mark is only the footer of the generator's form at the end of the page; its fields anywhere else are no mark", () => {
+test("[check.ontology-tree.mark-exact] the mark is only the footer of the generator's form at the end of the page it wrote; its fields anywhere else, or any change before it, are no mark", () => {
   const r = repo();
   r.setPlace();
   assert.equal(r.gen("--refresh").code, 0);
@@ -897,21 +908,42 @@ test("[check.ontology-tree.mark-exact] the mark is only the footer of the genera
   const end = "</body></html>\n";
   const foot = page.match(/<footer class="built"[^\n]*<\/footer>\n/)[0];
   assert.ok(page.endsWith(`\n${foot}${end}`), "the footer is last on the page");
-  assert.deepEqual(readMark(page), { commit: r.sha("refs/heads/main"), config: "ont.config.json", date: r.date() });
+  const main = { commit: r.sha("refs/heads/main"), config: "ont.config.json", date: r.date() };
+  assert.deepEqual(readMark(page), main);
+  assert.deepEqual(readMark(readFileSync(r.place)), main, "the page read as bytes");
   // The page without its footer: every case below keeps the three fields of main's mark on the page.
   const body = page.slice(0, page.length - foot.length - end.length);
+  assert.equal(hashOf(body), foot.match(/data-page="([0-9a-f]{64})"/)[1], "the hash is of the bytes before the footer");
   const section = body.lastIndexOf("</section>");
+  const noMark = (what, html) => {
+    assert.notEqual(html, page, what);
+    assert.ok(html.includes(`data-commit="${main.commit}"`) && html.includes('data-config="ont.config.json"'), what);
+    writeFileSync(r.place, html);
+    assert.equal(readMark(html), null, what);
+    assert.match(stale(), /TREE_STALE .*tree\.html: the page carries no mark of what it was built from\n/, what);
+  };
+  // The fields elsewhere than in the generator's footer at the end of the page.
   for (const [what, html] of [
     ["in a comment", `${body}<!-- ${foot.trim()} -->\n${end}`],
     ["in a title attribute", `${body}<span title='${foot.trim()}'>tree</span>\n${end}`],
     ["in a footer before the end of the page", `${body.slice(0, section)}\n${foot}${body.slice(section)}${end}`],
     ["in a footer with an attribute more", `${body}${foot.replace('<footer class="built"', '<footer class="built" data-by="hand"')}${end}`],
-    ["after a comment left open", `${body}<!--\n${foot}${end}`],
     ["in a footer whose text says it was built from an older checkout", `${body}${foot.replace(/>Built from .*<\/footer>/, ">Built from an older checkout</footer>")}${end}`],
-    ["in a footer whose text names another commit", `${body}${foot.replace(`<code>${r.sha("refs/heads/main")}</code>`, `<code>${"0".repeat(40)}</code>`)}${end}`],
-    // The exact footer at the end of the page, inside an element no person sees (D-130).
+    ["in a footer whose text names another commit", `${body}${foot.replace(`<code>${main.commit}</code>`, `<code>${"0".repeat(40)}</code>`)}${end}`],
+    ["with an element between the footer and the end of the page", `${body}${foot}<p>after the footer</p>\n${end}`],
+    ["with text after the end of the page", `${body}${foot}${end}more text\n`],
+  ])
+    noMark(what, html);
+  // The generator's footer, unchanged, at the end of a page changed before it: each is refused by the
+  // hash alone, for with the hash computed again for the changed page, as a forger would, the same page
+  // is a mark (D-134). An element left open folds the footer away, and one closed or drawn changes the
+  // page all the same.
+  const oneByte = body.replace(/<b data-ont="([^"]+)"/, (_, id) => `<b data-ont="${id}" `);
+  for (const [what, html] of [
+    ["after a comment left open", `${body}<!--\n${foot}${end}`],
     ["inside a template left open", `${body}<template>\n${foot}${end}`],
     ["inside nested templates of which only the inner one is closed", `${body}<template><p>x</p><template></template>\n${foot}${end}`],
+    ["after a template closed", `${body}<template><template></template><p>x</p></template>\n${foot}${end}`],
     ["inside a details left open, after its summary", `${body}<details><summary>tree</summary>${foot}${end}`],
     ["inside a div left open", `${body}<div hidden>\n${foot}${end}`],
     ["after a stray end tag", `${body}</section>\n${foot}${end}`],
@@ -919,32 +951,42 @@ test("[check.ontology-tree.mark-exact] the mark is only the footer of the genera
     ["after an end tag of an svg that its slash closed", `${body}<svg/></svg>\n${foot}${end}`],
     ["after an end tag of a path that its slash closed, inside an svg", `${body}<svg><path/></path></svg>\n${foot}${end}`],
     ["after an end tag of a math that its slash closed", `${body}<math/></math>\n${foot}${end}`],
+    ["after an svg its slash closes", `${body}<svg/>\n${foot}${end}`],
+    ["after an svg whose path its slash closes", `${body}<svg><path d="M0 0"/></svg>\n${foot}${end}`],
+    ["inside an svg whose unquoted attribute ends in a slash", `${body}<svg id=icon/>\n${foot}${end}`],
+    ["inside a template written with a slash in an svg foreignObject", `${body}<svg><foreignObject><template/></foreignObject></svg>\n${foot}${end}`],
+    ["inside a template written with a slash in a math mtext", `${body}<math><mtext><template/></mtext></math>\n${foot}${end}`],
     ["after a script left open", `${body}<script>\n${foot}${end}`],
     ["after a style left open", `${body}<style>\n${foot}${end}`],
     ["after a textarea left open", `${body}<textarea>\n${foot}${end}`],
-    ["with an element between the footer and the end of the page", `${body}${foot}<p>after the footer</p>\n${end}`],
-    ["with text after the end of the page", `${body}${foot}${end}more text\n`],
+    ["with one byte of the tree changed", `${oneByte}${foot}${end}`],
   ]) {
-    assert.notEqual(html, page, what);
-    assert.ok(html.includes(`data-commit="${r.sha("refs/heads/main")}"`) && html.includes('data-config="ont.config.json"'), what);
-    writeFileSync(r.place, html);
-    assert.equal(readMark(html), null, what);
-    assert.match(stale(), /TREE_STALE .*tree\.html: the page carries no mark of what it was built from\n/, what);
+    assert.ok(html.endsWith(`${foot}${end}`), `the generator's footer at the end: ${what}`);
+    noMark(what, html);
+    assert.deepEqual(readMark(rehashed(html)), main, `with the hash computed again: ${what}`);
   }
-  // The page as the generator wrote it, with white space added between its footer and its end, and
-  // after a template closed before the footer: the mark, and current.
+  assert.equal(Buffer.byteLength(oneByte), Buffer.byteLength(body) + 1, "one byte more");
+  // The hash is of the bytes of the file, not of the text they decode to: a page whose U+FFFD is
+  // replaced by a byte that is not UTF-8, which decodes to U+FFFD again, is no mark.
+  const withFffd = rehashed(`${body}<p>\uFFFD</p>\n${foot}${end}`);
+  assert.deepEqual(readMark(withFffd), main, "a page with U+FFFD and its hash");
+  const bytes = Buffer.from(withFffd, "utf8");
+  const at = bytes.indexOf(Buffer.from("\uFFFD", "utf8"));
+  const bad = Buffer.concat([bytes.subarray(0, at), Buffer.from([0xff]), bytes.subarray(at + 3)]);
+  assert.equal(Buffer.from(bad.toString("utf8"), "utf8").equals(bytes), true, "the bad byte decodes to the same text");
+  writeFileSync(r.place, bad);
+  assert.equal(readMark(bad), null, "a byte that is not UTF-8");
+  assert.match(stale(), /: the page carries no mark of what it was built from\n/, "a byte that is not UTF-8");
+  // The page as the generator wrote it, and with white space added between its footer and its end,
+  // which is not before the footer: the mark, and current.
   for (const [what, html] of [
+    ["the page as the generator wrote it", page],
     ["white space between the footer and the end", `${body}${foot.trimEnd()} \t\n\n${end.trimEnd()}\n\n`],
-    ["a template closed before the footer", `${body}<template><template></template><p>x</p></template>\n${foot}${end}`],
-    ["an svg whose path its slash closes, before the footer", `${body}<svg><path d="M0 0"/></svg>\n${foot}${end}`],
-    ["an svg its slash closes, before the footer", `${body}<svg/>\n${foot}${end}`],
   ]) {
     writeFileSync(r.place, html);
-    assert.deepEqual(readMark(html), { commit: r.sha("refs/heads/main"), config: "ont.config.json", date: r.date() }, what);
+    assert.deepEqual(readMark(html), main, what);
     assert.equal(stale(), "", what);
   }
-  writeFileSync(r.place, page);
-  assert.equal(stale(), "");
 });
 
 test("[check.ontology-tree.place-resolved] a place through a linked directory followed by .. is the file the file system reaches, for the refresh and the stale report alike", () => {

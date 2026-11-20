@@ -4,7 +4,7 @@
 // and the entities a view shows. Nothing else: no notes, no graph, no history; the footer only says
 // what the page was built from. The page is not kept in the repository. It is written on demand with
 // --out, or by --refresh, which the post-merge hook runs, at the place a clone names in its own Git
-// configuration (ont.treeOut), from the files of HEAD when the working tree holds the same (D-130); --stale says
+// configuration (ont.treeOut), from the files of HEAD when the working tree holds the same (D-134); --stale says
 // why the page at that place does not show main.
 // Usage: node tools/ont-check/gen-tree.mjs [--config ont.config.json] --out tree.html [--labels labels.json]
 //        node tools/ont-check/gen-tree.mjs --refresh [--squash]   # on main, at ont.treeOut, from the root ont.config.json of HEAD
@@ -12,7 +12,7 @@
 // ont: ent.ontology-tree, edge.ontology-tree.concepts, rule.tree-structure-only, inv.tree-complete
 // ont: field.ontology-tree.place, field.ontology-tree.built-from, derived.tree-stale, rule.tree-refreshed-after-merge
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { chmodSync, closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -117,107 +117,56 @@ footer.built{margin-top:24px;color:var(--muted);font-size:11px}`;
 
 // What a page was built from, in its footer (field.ontology-tree.built-from): the commit, with
 // +working-tree when a file read is not that commit's, or no-commit outside Git; the configuration's
-// path from the root of the repository, except outside Git; and the date. The footer is not the tree.
-// It is the one form readMark accepts, its text included, and renderTree puts it last on the page (D-130).
-const footer = (built, word) => {
+// path from the root of the repository, except outside Git; the date; and in data-page the SHA-256 of
+// the page's bytes before the footer. The footer is not the tree. It is the one form readMark accepts,
+// its text included, and renderTree puts it last on the page (D-134).
+const footer = (built, word, page) => {
   if (!built) return "";
   const config = built.config === null ? "" : ` data-config="${esc(built.config)}"`;
   const commit = built.commit === "no-commit" ? word("no-commit") : `<code>${esc(built.commit)}</code>`;
   const shown = [commit, ...(built.config === null ? [] : [`<code>${esc(built.config)}</code>`]), esc(built.date)].join(" · ");
-  return `<footer class="built" data-commit="${esc(built.commit)}"${config} data-date="${esc(built.date)}">${word("built")} ${shown}</footer>\n`;
+  return `<footer class="built" data-commit="${esc(built.commit)}"${config} data-date="${esc(built.date)}" data-page="${esc(page)}">${word("built")} ${shown}</footer>\n`;
 };
+const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 // The page: the ontologies in the order given, the two buttons that open or close every branch, and
-// the footer, the last element of the page, when the page knows what it was built from.
+// the footer, the last element of the page, when the page knows what it was built from, with the hash
+// of the bytes written before it.
 export function renderTree(sections, label, built) {
   const word = (k) => esc(label(k) ?? WORDS[k]);
   const all = (open) => `document.querySelectorAll('details').forEach(d=>d.open=${open})`;
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(sections.title)}</title><style>${STYLE}</style></head><body>
+  const before = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(sections.title)}</title><style>${STYLE}</style></head><body>
 <div class="bar"><button onclick="${all(true)}">${word("expand-all")}</button><button onclick="${all(false)}">${word("collapse-all")}</button> ${word("hint")}</div>
 ${sections.html.join("\n")}
-${footer(built, word)}</body></html>
+`;
+  return `${before}${footer(built, word, sha256(Buffer.from(before, "utf8")))}</body></html>
 `;
 }
 
-// The mark a page carries, read back (D-130): only the footer footer() writes, the last element of the
+// The mark a page carries, read back (D-134): only the footer footer() writes, the last element of the
 // page, directly before the </body></html> that ends it with nothing but white space between and after,
-// and only when the page before it ends in plain text: no comment, tag, quoted value, element whose
-// content is text, such as a title, a script, a style or a textarea, or <template> left open, so that
-// the footer is one a person sees. The report reads that position and no other. The footer the
+// and only when the SHA-256 of the file's bytes before it is the one its data-page gives, so that the
+// page before the footer is the one the generator wrote with it, and no HTML is read. The footer the
 // generator would write for its attributes, in the generator's own words, is made again and must be the
 // element found, byte for byte, so that a text saying something else than the attributes, another
 // commit or other words, is no mark either; the refresh writes no labels, so the words are the page's
-// own. Anything else, the same fields in a comment or an attribute included, is no mark: null. A field
-// present but empty is null.
-const MARK = /(<footer class="built" data-commit="([^"<>]*)"(?: data-config="([^"<>]*)")? data-date="([^"<>]*)">[^\n]*<\/footer>)[ \t\n\r\f]*<\/body><\/html>[ \t\n\r\f]*$/;
+// own. Anything else, the same fields in a comment or an attribute, or any byte changed before the
+// footer, is no mark: null. A field present but empty is null. The page is its bytes, or a string taken
+// as UTF-8; the bytes are read one character each, so that a position found is a position in the bytes
+// and a byte that is not UTF-8 is never taken for another.
+const MARK = /(<footer class="built" data-commit="([^"<>]*)"(?: data-config="([^"<>]*)")? data-date="([^"<>]*)" data-page="([0-9a-f]{64})">[^\n]*<\/footer>)[ \t\n\r\f]*<\/body><\/html>[ \t\n\r\f]*$/;
 const unesc = (s) => s.replace(/&(amp|lt|gt|quot);/g, (_, c) => ({ amp: "&", lt: "<", gt: ">", quot: '"' })[c]);
-export function readMark(html) {
-  const m = html.match(MARK);
-  if (!m || !endsInText(html.slice(0, m.index))) return null;
-  const [commit, config, date] = [m[2], m[3], m[4]].map((s) => (s === undefined ? null : unesc(s)));
-  if (footer({ commit, config, date }, (k) => esc(WORDS[k])) !== `${m[1]}\n`) return null;
+export function readMark(page) {
+  const bytes = typeof page === "string" ? Buffer.from(page, "utf8") : page;
+  const m = bytes.toString("latin1").match(MARK);
+  if (!m) return null;
+  const [commit, config, date] = [m[2], m[3], m[4]].map((s) => (s === undefined ? null : unesc(Buffer.from(s, "latin1").toString("utf8"))));
+  const again = Buffer.from(footer({ commit, config, date }, (k) => esc(WORDS[k]), m[5]), "utf8");
+  if (!again.equals(Buffer.from(`${m[1]}\n`, "latin1"))) return null;
+  if (sha256(bytes.subarray(0, m.index)) !== m[5]) return null;
   const v = (s) => (s ? s : null);
   return { commit: v(commit), config: v(config), date: v(date) };
 }
-// Whether HTML read to its end is in plain text, directly in <body>: every comment, declaration and tag
-// closed, a quoted value of an attribute too, every element whose content is raw text closed by its end
-// tag, and every other element opened after <html> and <body> closed by its own end tag, nested ones each
-// by theirs, so that the footer is a child of <body> and of no <template>, <details>, <dialog> or other
-// element that could fold it away. Elements without end tags, such as <meta> and <br>, are not counted.
-const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
-const RAW_TEXT = new Set(["script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes", "noscript", "plaintext"]);
-const endsInText = (html) => {
-  const lower = html.toLowerCase();
-  const open = [];
-  let i = 0;
-  for (;;) {
-    const lt = html.indexOf("<", i);
-    if (lt < 0) return open.length === 2 && open[0] === "html" && open[1] === "body";
-    if (html.startsWith("<!--", lt)) {
-      const end = html.indexOf("-->", lt + 4);
-      if (end < 0) return false;
-      i = end + 3;
-      continue;
-    }
-    if (html.startsWith("<!", lt) || html.startsWith("<?", lt)) {
-      const end = html.indexOf(">", lt);
-      if (end < 0) return false;
-      i = end + 1;
-      continue;
-    }
-    const tag = html.slice(lt, lt + 64).match(/^<(\/?)([A-Za-z][^\s/>]*)/);
-    if (!tag) {
-      i = lt + 1;
-      continue;
-    }
-    let j = lt + tag[0].length;
-    for (let quote = null; j < html.length; j++) {
-      const c = html[j];
-      if (quote) quote = c === quote ? null : quote;
-      else if (c === '"' || c === "'") quote = c;
-      else if (c === ">") break;
-    }
-    if (j >= html.length) return false;
-    i = j + 1;
-    const name = tag[2].toLowerCase();
-    // In HTML a slash before > closes nothing: <template/> opens a template as <template> does. Inside
-    // <svg> or <math>, and for <svg/> and <math/> themselves, the content is foreign, and there a slash
-    // before > does close the element, as the HTML Standard parses foreign content.
-    const foreign = name === "svg" || name === "math" || open.includes("svg") || open.includes("math");
-    const selfClosed = foreign && html[j - 1] === "/";
-    if (tag[1]) {
-      if (open[open.length - 1] !== name) return false;
-      open.pop();
-    } else if (!VOID.has(name) && !RAW_TEXT.has(name) && !selfClosed) open.push(name);
-    if (!tag[1] && RAW_TEXT.has(name)) {
-      const close = name === "plaintext" ? -1 : lower.indexOf(`</${name}`, i);
-      if (close < 0) return false;
-      const gt = html.indexOf(">", close);
-      if (gt < 0) return false;
-      i = gt + 1;
-    }
-  }
-};
 
 // The labels file: keys are IDs of the ontologies shown, the classes the tree groups rows by, headings
 // of tables without an entity, or the words above. Any other key is an error, so that a typo or a
@@ -231,7 +180,7 @@ export function loadLabels(text, known) {
 }
 
 // Git, run in a directory, without the variables a hook may have set for another repository, and with
-// local replacements off, so that a commit is the content its SHA names (D-130). Returns the output, or
+// local replacements off, so that a commit is the content its SHA names (D-134). Returns the output, or
 // null when git fails, as it does outside a repository or for a path HEAD lacks.
 const HOOK_FREE = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_(DIR|WORK_TREE|INDEX_FILE|PREFIX)$/.test(k)));
 const git = (cwd, args, encoding = "utf8") => {
@@ -288,7 +237,7 @@ const readRegular = (path, { noFollow = false } = {}) => {
   }
 };
 
-// An input's path to the working tree (D-130), the one function that takes it there, for the refresh,
+// An input's path to the working tree (D-134), the one function that takes it there, for the refresh,
 // the page on demand and its mark alike: the path as the configuration gives it, from the directory of
 // whatever names it, never normalised; only its . and empty parts are dropped, which lead nowhere else.
 // A .. part, or a part that is a symbolic link or is missing, the file included, each prefix taken by
@@ -314,7 +263,7 @@ export const inputAt = (path, top = null) => {
   return { at: at.join(sep), rel: at.slice(root.length).join("/") };
 };
 
-// The files of the working tree, for the page on demand (D-130): each read once, at the path as asked
+// The files of the working tree, for the page on demand (D-134): each read once, at the path as asked
 // for, only when it is a regular file, and opened without waiting; inputAt looks at the path before the
 // read and again after it, with the file at the path then the file read, so that a link swapped for a
 // file, or a file for a link, while it is read is not clean. The bytes kept are the bytes the page
@@ -339,7 +288,7 @@ export const workingTree = ({ cwd = process.cwd(), onRead } = {}) => {
   };
 };
 
-// The regular file a commit holds at a path, walked from the root one directory at a time (D-130): a
+// The regular file a commit holds at a path, walked from the root one directory at a time (D-134): a
 // part before another, or before a .., must be a directory of the commit, never a symbolic link it
 // holds; a .. goes back to the directory walked from, and never above the root; the last must be a
 // regular file. Returns { bytes }, or { why } it holds none.
@@ -372,7 +321,7 @@ const inCommit = (top, sha, path) => {
   return { bytes: git(top, ["cat-file", "blob", file.object], "buffer") };
 };
 
-// The files of one commit, for the refresh (D-130): the page is built from nothing but that commit, so
+// The files of one commit, for the refresh (D-134): the page is built from nothing but that commit, so
 // it is the commit's by construction. A path is the commit's, from its root; an absolute one is
 // refused. inputs keeps each file read, its path as the configuration gives it and its bytes, for the
 // comparison with the working tree that the refresh makes before it writes.
@@ -393,7 +342,7 @@ const fromCommit = (top, sha) => ({
   },
 });
 
-// Whether the working tree holds a file of the commit as the commit does (D-105, D-130): its path, as
+// Whether the working tree holds a file of the commit as the commit does (D-105, D-134): its path, as
 // the configuration gives it, taken by inputAt, so that a .. part or a symbolic link on it, the file
 // included, is not the same whatever file it leads to; and the file a regular one, read without waiting
 // and never through a link, with the commit's bytes. A missing file, a named pipe or any other kind is
@@ -439,7 +388,7 @@ export function buildTree(configPath, labelsFile, source = workingTree()) {
 // input is compared with that commit, not with a HEAD that may move meanwhile. An input is clean when
 // its path, as given, had no .. part and no symbolic link when it was read and has none now, lies
 // inside the repository, and the commit holds a regular file at that path whose bytes are the bytes
-// read (D-130). dirty lists the inputs that are not clean. onHead, for the tests, runs once the commit
+// read (D-134). dirty lists the inputs that are not clean. onHead, for the tests, runs once the commit
 // is read.
 export function markOf(built, { onHead } = {}) {
   const dir = dirname(built.configAt);
@@ -476,7 +425,7 @@ const DATE = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/;
 const dateOf = (d) => d.toISOString().replace(/\.\d+Z$/, "Z");
 export const isMarkDate = (s) => DATE.test(s) && !Number.isNaN(Date.parse(s)) && dateOf(new Date(s)) === s;
 
-// The file a place names (field.ontology-tree.place, D-130): its base name in its directory as the
+// The file a place names (field.ontology-tree.place, D-134): its base name in its directory as the
 // file system resolves that directory, a link or a .. on the way taken as the file system takes it,
 // so that the file checked, the file written and the file the stale report reads are one. The system's
 // own realpath does it: Node's realpathSync without .native takes a .. away by hand first. The place is
@@ -559,7 +508,7 @@ const SELF = fileURLToPath(import.meta.url);
 // What the post-merge hook runs (rule.tree-refreshed-after-merge): on main with a place set, the tree
 // from the ont.config.json at the root as the commit of HEAD holds it, read once, written only when the
 // working tree holds the same files at the paths the configuration gives, and naming those that differ
-// when it does not (D-130). Silent
+// when it does not (D-134). Silent
 // off main or without a place; at a place inside the repository, at one that is a symbolic link, is
 // not a regular file or has more than one link, or after a squash merge, which leaves main where it
 // was, it says why it writes nothing.
@@ -582,7 +531,7 @@ export function refresh(cwd, { squash = false } = {}) {
   if (head === null) throw new Error("main has no commit");
   const built = buildTree(ROOT_CONFIG, null, fromCommit(top, head));
   // The page is written only when the working tree holds the files it was built from, so that a change
-  // not committed is named rather than passed over, and the page there stays as it was (D-105, D-130).
+  // not committed is named rather than passed over, and the page there stays as it was (D-105, D-134).
   const differ = [...new Set(built.inputs.filter(({ path, bytes }) => !sameInWorkingTree(top, path, bytes)).map(({ path }) => path))];
   if (differ.length)
     return [
@@ -602,9 +551,9 @@ export function stale(cwd) {
   const at = `TREE_STALE ${place}:`;
   const named = placeAt(place);
   if (named.why) return [`${at} ${named.why}`];
-  let html;
+  let page;
   try {
-    html = readRegular(named.at, { noFollow: true }).bytes.toString("utf8");
+    page = readRegular(named.at, { noFollow: true }).bytes;
   } catch (e) {
     // A place of another kind is named and never opened: a read of a named pipe with no writer would
     // wait for ever, and opening a device may do what the device does; a symbolic link the refresh
@@ -612,7 +561,7 @@ export function stale(cwd) {
     if (e.kind) return [`${at} the place is ${e.kind}, not a regular file`];
     return [e.code === "ENOENT" ? `${at} the file does not exist` : `${at} the file cannot be read (${e.code ?? e.message})`];
   }
-  const mark = readMark(html);
+  const mark = readMark(page);
   if (!mark) return [`${at} the page carries no mark of what it was built from`];
   const main = git(top, ["rev-parse", "--verify", "--quiet", "refs/heads/main"]);
   const out = [];
