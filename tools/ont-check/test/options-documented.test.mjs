@@ -110,6 +110,8 @@ test("[check.tool-copy.options-documented] a configuration with every key of the
       reviewPaths: [{ dir: "data", concepts: ["ent.x"] }],
       manualRuns: { dir: "runs", require: true },
       reviewRounds: { dir: "rounds" },
+      taskRecords: { dir: "tasks" },
+      budget: { newInput: 1000, output: 500, reserve: 1.5 },
       codeNames: { require: true, owner: true },
       approachIds: { out: "a.json" },
       contracts: { out: "c.json", classes: ["field"], propertyCase: "camel" },

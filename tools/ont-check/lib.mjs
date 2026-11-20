@@ -57,7 +57,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "reviewRounds.dir", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "reviewRounds.dir", "taskRecords.dir", "budget.newInput", "budget.output", "budget.reserve", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
@@ -163,6 +163,15 @@ export function loadConfig(configPath, text) {
     manualRuns: raw.manualRuns && { dir: at(raw.manualRuns.dir), require: raw.manualRuns.require === true },
     // Records of the rounds of review, one file per round (D-99).
     reviewRounds: raw.reviewRounds && { dir: at(raw.reviewRounds.dir) },
+    // Records of a task's done and of the executor's spend, one file each (D-107, D-108).
+    taskRecords: raw.taskRecords && { dir: at(raw.taskRecords.dir) },
+    // A task's default limits of new input and output tokens and their multiplier; the approach sets no
+    // number, and a limit left out is null (D-108).
+    budget: {
+      newInput: raw.budget?.newInput ?? null,
+      output: raw.budget?.output ?? null,
+      reserve: raw.budget?.reserve ?? null,
+    },
     // When owner is set, a file of the code directories that names no defined concept fails the check (D-75).
     codeNames: { require: raw.codeNames?.require === true, owner: raw.codeNames?.owner === true },
     // Set only in the approach's own repository: where gen-approach.mjs writes the approach's IDs.

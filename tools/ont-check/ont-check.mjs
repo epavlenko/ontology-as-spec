@@ -48,6 +48,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { parseRounds, renderRounds } from "./review-rounds.mjs";
+import { acceptanceProblems, overlaps, parseTaskRecords, readStatement, taskState } from "./tasks.mjs";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
 import { pathToFileURL } from "node:url";
 import { checkForms, checkTraces, readForms, readTraces, runTrace } from "./oracle.mjs";
@@ -1332,8 +1333,29 @@ if (flag("--review") > 0) {
 if (cfg.reviewRounds) {
   const { rounds, malformed } = parseRounds(cfg.reviewRounds.dir);
   report("review round records that cannot be read", malformed);
+  // Records of done and of spend (D-107, D-108): a contribution recorded twice over one interval, and a
+  // verdict of acceptance with no record of done behind it, are errors.
+  // ont: inv.contributions-apart, inv.acceptance-after-done
+  const records = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], malformed: [] };
+  report("task records that cannot be read", records.malformed);
+  report("contributions recorded twice over intervals that overlap", overlaps(rounds, records.spend));
+  report("verdicts of acceptance refused", acceptanceProblems(rounds, records.done));
   if (flag("--rounds") > 0) console.log(renderRounds(rounds));
-} else if (flag("--rounds") > 0) console.log("ERROR · --rounds needs reviewRounds in the configuration");
+  // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
+  // budget (D-106, D-108).
+  // ont: derived.statement-state, derived.task-budget, rule.budget-before-next
+  if (flag("--task") > 0) {
+    const task = process.argv[flag("--task") + 1];
+    const file = flag("--statement") > 0 ? process.argv[flag("--statement") + 1] : null;
+    if (!task || task.startsWith("--") || (flag("--statement") > 0 && (!file || !existsSync(file)))) {
+      console.log("ERROR · --task needs a task, and --statement an existing file");
+      process.exit(2);
+    }
+    const st = taskState({ rounds, spend: records.spend, task, defaults: cfg.budget, statement: file ? readStatement(file) : null });
+    console.log(st.lines.join("\n"));
+    report("task records that do not say what --task found", st.errors);
+  }
+} else if (flag("--rounds") > 0 || flag("--task") > 0) console.log("ERROR · --rounds and --task need reviewRounds in the configuration");
 
 console.log(
   [

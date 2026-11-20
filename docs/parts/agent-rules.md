@@ -95,7 +95,7 @@ Before a change is merged, an agent of another provider that did not write it re
 
 `ont-check --review <base>` gives the critic its checks: the manual checks of the project whose concepts the change touches, through a changed definition row, a changed check, a changed file that names the concept in `ont:` or is in its implementation row, a changed doc section anchored to it or a changed ticket that lists it, or a changed file under a directory the configuration names under `reviewPaths`, which data files without `ont:` names need; and the manual checks of the approach for the kinds of artifact the change touches, such as the Decision section when the decision log changed. The approach's manual checks travel with the tool. The critic follows the [change-review skill](../../skills/change-review/SKILL.md) and gives each check a verdict: pass, fail, not run when the check applies but could not be carried out, such as one that needs the running product, or not applicable, each with its evidence or reason. A check that could not be run is never written off as not applicable. A fail, or a finding of the change that remains, stops the merge; a not run with its reason does not stop it on its own (D-94). A verdict counts while the check's stamp is the one it was given at and the later commits change none of the files the critic read for it; a check whose case, concepts or files changed gets a new verdict, the check of errors and security reads every new diff, and the others stand (D-95). The approach's checks of a judge and of the screens come only when the change touches a judge, a judged check, a view or a screen, or a file the configuration does not describe (D-98). For a change of code the critic also gets the approach's check of errors and security: it reads the diff for errors of correctness, secrets, unchecked input, wider access and flawed dependencies, and fails the check on any of them ([profile Code](../profiles.md#code)).
 
-<!-- ont: ent.review-round@21a841, derived.next-round@8e673f, rule.round-ceilings@f10447, rule.whole-class@85d1af, rule.rounds-converge@62e714, rule.ready-after-clean-round@3b73e7 -->
+<!-- ont: ent.review-round@21a841, derived.next-round@fc6b9a, rule.round-ceilings@f10447, rule.whole-class@85d1af, rule.rounds-converge@62e714, rule.ready-after-clean-round@3b73e7 -->
 ## Rounds of review
 
 A review goes in rounds: the critic reports, the author fixes, the critic reads again. Each task sets two ceilings of rounds before it starts, one for the review of its statement and one for the review of its result; the approach sets no number for them (D-97). A critic who finds a problem looks for it across its whole class, not only where it showed, so that the next round does not find its neighbour.
@@ -104,12 +104,37 @@ When a ceiling runs out, the rounds go on while they converge: each full round f
 
 A clean round, with no finding of the change, makes the change ready to merge. Whether it is merged or published, and what more rounds may cost, is the owner's policy; the approach asks that it is followed and does not set it.
 
-<!-- ont: rule.round-recorded@649657, inv.review-rounds-well-formed@b57c93, derived.step-payoff@f3def6, action.record-verdicts@d809af -->
+<!-- ont: rule.round-recorded@649657, inv.review-rounds-well-formed@5d27d0, derived.step-payoff@f3def6, action.record-verdicts@d809af -->
 ## What a review costs and finds
 
 With `reviewRounds` in the configuration, every round is a file of its own: the task, the step, the round's number and whether it was narrow, the ceiling, the commits, the reviewer, the tokens that are known, how many checks were listed, given and carried, and a line for each finding with its class, its weight, whether it is of the change and fixable, and the test that holds its fix (D-99). `ont-check --rounds` says what follows the last round of each task, and once a step has ten applications, one step of one task with its rounds together, what it cost and found. A step whose applications found nothing is a candidate to simplify; the owner decides, and nothing is removed by the tool.
 
 The verdicts themselves are records of manual runs. The critic gives a table of them, and `ont-check --review <base> --record <table>` writes one record for each new verdict and none for a carried one, and refuses the table when a check is missing, unknown, given twice, carried at another stamp or over files that changed since, or is the check of errors in code, which reads every new diff (D-100).
+
+<!-- ont: ent.task-statement@1fd5ed, derived.approval@f58d9a, derived.statement-state@6f857b, rule.work-under-approval@619f52 -->
+## A task's statement and its approval
+
+A task starts from its statement, written before work: the owner's sources for it, what to do and what not to do, its condition of done as commands, its budget and the two ceilings of its rounds of review. It may live outside the repository, since it holds the owner's words; the tool reads only its lines `Done-when:`, `Budget-new-input:` and `Budget-output:`, and names its version by the SHA-256 of the file (D-106).
+
+The statement is reviewed in rounds like a change, and each round records the hash of the version it read on a line `Statement-hash:`. An approval is in force for a version when the last round of the review of the statement, by its time, is clean and read that version. The same criterion lets the executor start and lets a reviewer accept the result; a later round of a new version that finds something withdraws the approval of the old one too. When the statement is edited after a clean round, the next is a full round of the new version: it continues the numbers of the full rounds and counts in the same ceiling and the same six full rounds, and after six it is a question to the owner. A next round of either kind takes the next free number of its kind, and the three narrow rounds count every narrow round of the step.
+
+`ont-check --task <task> --statement <file>` says what the task needs next: a review of the statement, the next round, a full round of a changed statement, or that work may start; then what the result needs; then the budget.
+
+<!-- ont: ent.task-result@e8a449, action.record-done@1a54be, rule.acceptance-against-approved@6987aa, inv.acceptance-after-done@7fe0ac -->
+## Acceptance after done
+
+When the executor is done, `done.mjs <task> --statement <file>` runs the statement's commands of done on the commit in a temporary worktree and, under an approval in force for that version and only when every command passed, writes the record of done in the directory of `taskRecords`: the task, the commit, the hash of the statement and each command with its result (D-107).
+
+Then a reviewer checks the result against the approved version: every item of what to do and of done when, and the owner's sources. The verdict of acceptance is written in the same round of the review of the result, beside the verdict on merging, as `Acceptance: clean` or as `Acceptance:` with a finding line for each item the result does not meet. The round is clean only when both have no finding of the change. The check refuses a verdict of acceptance with no record of done, given before the record was made, after a record with a failed check, for another version of the statement, or with no approval in force for that version. An acceptance by the owner that his policy asks for, as before a publication, stays his.
+
+<!-- ont: ent.task-spend@f6e5ed, inv.contributions-apart@ca66fa, rule.budget-before-next@7cdb47, rule.no-default-budget@6ea160 -->
+## The budget of a task
+
+A project sets a task's default limits in its configuration, `budget.newInput` and `budget.output`, and the multiplier at which it stops, `budget.reserve`; a statement's own lines replace the limits for its task. With limits and no reserve the reserve is 1, and the tool says so; with no limit anywhere it says nothing of a budget. The approach sets no number (D-108).
+
+The spend is the new input and the output of every contribution to the task, one run of a model each, named by its provider and its session or task there: the rounds of its review, which give `Contribution:` with `Start:`, and the executor's own records of spend (`Record: spend`, with a start and an end). Cached tokens are not summed. Two records of one contribution over intervals that overlap, even in part, are an error, and so is a record that begins after it ends, which counts in no sum. The output says for how many contributions the spend is known; the stop is decided by what is known, each value on its own.
+
+The budget is checked when the next action is chosen, not after: run `--task` before every step of the executor and every round. When the budget with its reserve is exhausted, the next step or round is a question to the owner instead, ahead of the rules of convergence. A clean round that ends a step stays clean. A clean round of the review of the result, with acceptance clean, ends the task even past its budget: `--task` prints the overspend, the record of the round names it on a line `Overspend:`, the check fails without it, and the executor reports it to the owner. A clean review of the statement ends no task, so a budget spent past it blocks the start of work.
 
 <!-- ont: rule.strongest-step@4002fd, rule.departure-by-entry@4fa94e, rule.findings-mislead@0229fa -->
 ## How it fails in practice

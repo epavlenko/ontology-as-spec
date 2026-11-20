@@ -141,13 +141,14 @@ A ticket is a slice of the gap: an `IDs:` line, a `Checks:` line, what is out of
 
 Later parts, when the product has them: the mockup, the first implementation of the interface, written from the ontology, with each element labelled by `data-ont` and a map that links elements to concepts, and anchoring help pages so the check says which sections to reread after a definition changed. Both are described in `docs/parts/` of the repository.
 
-<!-- ont: rule.start-from-ids@8804d9, rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@779cd7 -->
+<!-- ont: rule.start-from-ids@8804d9, rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@779cd7, rule.work-under-approval@619f52, rule.budget-before-next@7cdb47 -->
 ## Rules for you, the agent
 
 - **Start every task from the IDs it touches.** If a concept you need has no ID, propose its definition row, in its entity's table, before writing code or markup.
 - **Never invent product meaning.** You propose; the owner decides. Record your proposal as a tentative entry with your recommendation.
 - **Change behavior in the ontology first**, its rows or its checks, then write the code and tests from it. What you would build that the ontology does not say goes into it first. Generated files (tooltips, contracts, reference pages) are regenerated, never edited by hand.
 - **Removing a concept is a decision**: write the entry and retire the ID; the check then finds every reference left.
+- **Work under an approved statement, within its budget.** Before each step and each round, run `ont-check --task <task> --statement <file>`: start only when it says work may start, stop and ask the owner when it says the budget is exhausted, and when done run `done.mjs` so that the result can be accepted (`rule.work-under-approval`, `rule.budget-before-next`, D-106, D-107, D-108).
 - **Report what misleads.** A consistency review lists what would mislead a reader or an agent, or would break a check, not style or the completeness of lists.
 
 <!-- ont: -->

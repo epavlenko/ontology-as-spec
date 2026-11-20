@@ -499,6 +499,27 @@
           "x-ont": "field.review-round.findings",
           "type": "string"
         },
+        "start": {
+          "description": "When the round began, in UTC to the second; given whenever the record names its contribution, and not after its time.",
+          "x-ont": "field.review-round.start",
+          "type": "string",
+          "format": "date-time"
+        },
+        "contribution": {
+          "description": "The run of a model the round was, by its provider and the ID of the session or task there, such as a thread or a delegated task: provider · ID.",
+          "x-ont": "field.review-round.contribution",
+          "type": "string"
+        },
+        "acceptance": {
+          "description": "On a review of the result, the verdict of acceptance beside the verdict on merging: clean, or a finding line for each item of the approved statement, of its condition of done or of the owner's sources the result does not meet.",
+          "x-ont": "field.review-round.acceptance",
+          "type": "string"
+        },
+        "overspend": {
+          "description": "On the round that ends the task, what it spent past its budget with reserve, new input and output each, as --task prints it.",
+          "x-ont": "field.review-round.overspend",
+          "type": "string"
+        },
         "runs": {
           "description": "The records of the verdicts the round gave, by file name.",
           "x-ont": "edge.review-round.runs",
@@ -507,6 +528,12 @@
             "type": "string",
             "x-ont-ref": "ent.manual-run"
           }
+        },
+        "statement": {
+          "description": "The version of the task's statement the round read, or checked the result against, by the SHA-256 of its file: the line Statement-hash:.",
+          "x-ont": "edge.review-round.statement",
+          "type": "string",
+          "x-ont-ref": "ent.task-statement"
         }
       },
       "required": [
@@ -515,6 +542,154 @@
         "number",
         "time",
         "by"
+      ]
+    },
+    "task-statement": {
+      "title": "Task statement",
+      "description": "What a task is to do, written before work on it starts: a file with the owner's sources for it, what to do and what not to do, its condition of done as commands, its budget and the two ceilings of its rounds of review. Its version is the SHA-256 of the file.",
+      "x-ont": "ent.task-statement",
+      "type": "object",
+      "properties": {
+        "file": {
+          "description": "The path of the statement, given to the tool with --statement; the file may live outside the repository.",
+          "x-ont": "field.task-statement.file",
+          "type": "string"
+        },
+        "sources": {
+          "description": "Links to the owner's words the task rests on: his answers and messages.",
+          "x-ont": "field.task-statement.sources",
+          "type": "string"
+        },
+        "todo": {
+          "description": "The items the result must meet.",
+          "x-ont": "field.task-statement.todo",
+          "type": "string"
+        },
+        "notTodo": {
+          "description": "What the task must leave alone.",
+          "x-ont": "field.task-statement.not-todo",
+          "type": "string"
+        },
+        "doneWhen": {
+          "description": "The commands that must pass on the result, one line Done-when: each.",
+          "x-ont": "field.task-statement.done-when",
+          "type": "string"
+        },
+        "budget": {
+          "description": "The task's own limits of new input and output tokens, on the lines Budget-new-input: and Budget-output:, in place of the project's defaults.",
+          "x-ont": "field.task-statement.budget",
+          "type": "string"
+        },
+        "ceilings": {
+          "description": "The ceiling of rounds of the review of the statement and the ceiling of the review of the result (rule.round-ceilings).",
+          "x-ont": "field.task-statement.ceilings",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file",
+        "sources",
+        "todo",
+        "notTodo",
+        "doneWhen",
+        "ceilings"
+      ]
+    },
+    "task-result": {
+      "title": "Task result",
+      "description": "The executor's record of done: the task, the commit of its result, the version of the approved statement and the commands of done with their results on that commit, one file in the directory the configuration names under taskRecords.",
+      "x-ont": "ent.task-result",
+      "type": "object",
+      "properties": {
+        "task": {
+          "description": "The task, named as in its rounds of review.",
+          "x-ont": "field.task-result.task",
+          "type": "string"
+        },
+        "commit": {
+          "description": "The commit of the result, in full.",
+          "x-ont": "field.task-result.commit",
+          "type": "string"
+        },
+        "checks": {
+          "description": "Each command of done with its result, pass or fail.",
+          "x-ont": "field.task-result.checks",
+          "type": "string"
+        },
+        "time": {
+          "description": "When the commands had run, in UTC to the second.",
+          "x-ont": "field.task-result.time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "statement": {
+          "description": "The version of the statement the result answers, by the SHA-256 of its file.",
+          "x-ont": "edge.task-result.statement",
+          "type": "string",
+          "x-ont-ref": "ent.task-statement"
+        }
+      },
+      "required": [
+        "task",
+        "commit",
+        "checks",
+        "time",
+        "statement"
+      ]
+    },
+    "task-spend": {
+      "title": "Task spend",
+      "description": "The executor's own work on a task in one run of a model, without the sessions of reviewers, which their rounds record: one file in the directory the configuration names under taskRecords.",
+      "x-ont": "ent.task-spend",
+      "type": "object",
+      "properties": {
+        "contribution": {
+          "description": "The run, by its provider and the ID of the session or task there: provider · ID; the interval is not part of it.",
+          "x-ont": "field.task-spend.contribution",
+          "type": "string"
+        },
+        "start": {
+          "description": "When the run began on the task, in UTC to the second.",
+          "x-ont": "field.task-spend.start",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "description": "When it ended, no earlier than its start.",
+          "x-ont": "field.task-spend.end",
+          "type": "string",
+          "format": "date-time"
+        },
+        "tokensNew": {
+          "description": "The input tokens it read that were not in a cache; left out when not known.",
+          "x-ont": "field.task-spend.tokens-new",
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensCached": {
+          "description": "The input tokens it read from a cache, which no budget counts.",
+          "x-ont": "field.task-spend.tokens-cached",
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensOut": {
+          "description": "The tokens it wrote; left out when not known.",
+          "x-ont": "field.task-spend.tokens-out",
+          "type": "integer",
+          "minimum": 0
+        },
+        "task": {
+          "description": "The task the work was for, named as in its rounds.",
+          "x-ont": "edge.task-spend.task",
+          "type": "string",
+          "x-ont-ref": "ent.task-statement"
+        }
+      },
+      "required": [
+        "contribution",
+        "start",
+        "end",
+        "task"
       ]
     },
     "test": {
