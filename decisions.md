@@ -989,6 +989,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: the approval read only as of now (the case above); the reviewed commit left to the reviewer's prose (the check cannot compare it).
 - Concepts: `inv.acceptance-after-done`, `derived.approval`, `field.review-round.commits`, `edge.task-result.statement`.
 
+### D-118 · Records of one contribution that overlap are not summed, and the stop holds until they are corrected
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-108, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted there; the reviewer's finding of round 1 of the review of the result of task releases-and-task, "budget spend counted twice", is the reviewer's, not the owner's words. Refusing the sum rather than counting the pair once is the thread's technical decision.
+- Decision: adds to D-108. Two records of one contribution overlap also when they begin in the same second, so two equal intervals, even of no length, overlap (`inv.contributions-apart`). When records of a task's contribution overlap, `--task` sums none of the spend: it says the spend cannot be summed, names each pair, and gives the budget as exhausted, so the next step or round is a question to the owner until the records are corrected (`derived.task-budget`, `rule.budget-before-next`). The check still fails on each pair.
+- Why: the overlap was an error of the check, yet both records were summed into the total that decides the stop, and a test held that inflated total; two records of one session within one second did not overlap at all.
+- Rejected: counting an overlapping pair once (which of the two is right, and whether their union is, cannot be told from the records); summing and warning (the stop would rest on a number known to be wrong).
+- Concepts: `inv.contributions-apart`, `derived.task-budget`, `rule.budget-before-next`.
+
 ## Tentative
 
 ## Open questions

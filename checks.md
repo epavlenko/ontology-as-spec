@@ -231,6 +231,7 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 | Check | Concepts | GIVEN | WHEN | THEN | Proof |
 | --- | --- | --- | --- | --- | --- |
 | `check.task-spend.overlap` | `inv.contributions-apart`, `field.task-spend.contribution`, `field.task-spend.start`, `field.task-spend.end`, `field.task-spend.tokens-new`, `field.task-spend.tokens-out`, `field.task-spend.tokens-cached` | one session recorded by a round from 10:15 to 10:45 and by a record of spend from 10:00 to 10:30, and a record of a round and one of spend that begin after they end | the check and `--task` run | the overlap is an error, the two that begin after they end are errors, and neither of those two is summed | auto |
+| `check.task-spend.overlap-not-summed` | `inv.contributions-apart`, `derived.task-budget`, `rule.budget-before-next` | two records of spend of one session, each starting and ending in the same second, 400 tokens of new input each, with a limit of 1000; then one of them alone | the check and `--task` run | the two overlap; `--task` sums neither, says the spend cannot be summed and why, and the next step is a question to the owner; the one record alone is summed once | auto |
 
 ## Test
 

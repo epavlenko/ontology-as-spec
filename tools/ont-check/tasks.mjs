@@ -80,8 +80,9 @@ export function parseTaskRecords(dir) {
   return { spend, done, malformed };
 }
 
-// Two records of one contribution whose intervals overlap, even in part (inv.contributions-apart). A
-// record that begins after it ends is malformed and never reaches here.
+// Two records of one contribution whose intervals overlap, even in part, or that begin in the same
+// second, as two equal intervals do, even of no length (inv.contributions-apart, D-118). A record that
+// begins after it ends is malformed and never reaches here.
 export function overlaps(rounds, spend) {
   const runs = [
     ...rounds.filter((r) => r.contribution && r.start).map((r) => ({ file: r.file, key: r.contribution.key, start: r.start, end: r.time })),
@@ -90,7 +91,7 @@ export function overlaps(rounds, spend) {
   const out = [];
   runs.forEach((a, i) =>
     runs.slice(i + 1).forEach((b) => {
-      if (a.key === b.key && a.start < b.end && b.start < a.end)
+      if (a.key === b.key && (a.start === b.start || (a.start < b.end && b.start < a.end)))
         out.push(`${a.file} (${a.start}–${a.end}) and ${b.file} (${b.start}–${b.end}): one contribution, ${a.key}, over intervals that overlap`);
     }),
   );
@@ -155,17 +156,34 @@ export function taskBudget({ rounds, spend, task, defaults, statement }) {
   };
   if (limits.newInput === null && limits.output === null) return null;
   const reserve = defaults?.reserve ?? 1;
+  const cap = (k) => (limits[k] === null ? null : limits[k] * reserve);
   const parts = [...rounds.filter((r) => r.task === task), ...spend.filter((s) => s.task === task)];
+  // Records of one contribution that overlap would count it twice: the spend is not summed at all, and
+  // the stop holds until they are corrected (D-118).
+  const conflict = overlaps(rounds.filter((r) => r.task === task), spend.filter((s) => s.task === task));
+  if (conflict.length)
+    return {
+      limits,
+      reserve,
+      noReserve: defaults?.reserve === null || defaults?.reserve === undefined,
+      used: null,
+      conflict,
+      known: 0,
+      parts: parts.length,
+      cap: { newInput: cap("newInput"), output: cap("output") },
+      exhausted: true,
+      over: false,
+    };
   const sum = (k) => parts.reduce((a, p) => a + (p.tokens[k] ?? 0), 0);
   const used = { newInput: sum("new"), output: sum("out") };
   const known = parts.filter((p) => p.tokens.new !== null && p.tokens.out !== null).length;
-  const cap = (k) => (limits[k] === null ? null : limits[k] * reserve);
   const reached = (k, strict) => cap(k) !== null && (strict ? used[k] > cap(k) : used[k] >= cap(k));
   return {
     limits,
     reserve,
     noReserve: defaults?.reserve === null || defaults?.reserve === undefined,
     used,
+    conflict: [],
     known,
     parts: parts.length,
     cap: { newInput: cap("newInput"), output: cap("output") },
@@ -230,7 +248,9 @@ export function taskState({ rounds, spend, done = [], task, defaults, statement 
       if (!end.overspend) errors.push(`${end.file}: the record of acceptance does not name the overspend (${overspendText(b)})`);
     } else lines.push(say("result", "done: the last round and its acceptance are clean"));
   } else lines.push(say("result", nextRound(rr, { exhausted }).say));
-  if (b) {
+  if (b?.conflict.length)
+    lines.push(`BUDGET ${task}: the spend cannot be summed, ${b.conflict.length} pair${b.conflict.length > 1 ? "s" : ""} of records of one contribution overlap: ${b.conflict.join("; ")}; ${BUDGET_QUESTION}, until the records are corrected`);
+  else if (b) {
     const limit = (k) => (b.limits[k] === null ? `${LABEL[k]} ${b.used[k]}, no limit` : `${LABEL[k]} ${b.used[k]} of ${b.limits[k]} × ${b.reserve} = ${b.cap[k]}`);
     lines.push(
       `BUDGET ${task}: ${limit("newInput")}, ${limit("output")}; known for ${b.known} of ${b.parts} contributions` +

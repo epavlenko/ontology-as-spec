@@ -334,14 +334,37 @@ test("[check.task-spend.overlap] one session recorded over intervals that overla
   assert.match(overlaps(sc.rounds, sc.records.spend)[0], /r0\.md .* and s0\.md .*: one contribution, openai · s1, over intervals that overlap/);
   assert.match(sc.malformed.join("\n"), /r1\.md: start .* is after its time/);
   assert.match(sc.records.malformed.join("\n"), /s1\.md: start .* is after its end/);
+  // The overlapping pair is not summed twice: the spend is refused and the stop holds (D-118).
   const b = taskBudget({ rounds: sc.rounds, spend: sc.records.spend, task: "t", defaults: limits(10 ** 6, 10 ** 6) });
-  assert.equal(b.used.newInput, 201);
+  assert.equal(b.used, null);
+  assert.equal(b.conflict.length, 1);
+  assert.equal(b.exhausted, true);
   const r = checkWith(sc, {}, ["--task", "t"]);
   assert.equal(r.status, 1, r.stdout);
   assert.match(r.stdout, /contributions recorded twice over intervals that overlap \(1\)/);
   assert.match(r.stdout, /task records that cannot be read \(1\)/);
   assert.match(r.stdout, /review round records that cannot be read \(1\)/);
   rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-spend.overlap-not-summed] two records of one session with equal start and end in one second overlap, and an overlap refuses the sum and stops the next step", () => {
+  const sc = scenario({
+    rounds: [{ ...approvedA, tokens: [0, 0, 0] }],
+    spend: [
+      { contribution: "openai · s1", start: T(10), end: T(10), tokens: [400, 0, 10] },
+      { contribution: "openai · s1", start: T(10), end: T(10), tokens: [400, 0, 10] },
+    ],
+  });
+  assert.equal(overlaps(sc.rounds, sc.records.spend).length, 1);
+  const out = state(sc, { statement: fileOf(A), defaults: limits(1000, 1000) });
+  assert.match(out, /BUDGET t: the spend cannot be summed, 1 pair of records of one contribution overlap: s0\.md .* and s1\.md .*; the budget is exhausted: a question to the owner, until the records are corrected/);
+  assert.match(out, /result: the budget is exhausted: a question to the owner/);
+  assert.doesNotMatch(out, /new input 800|new input 400/);
+  // One record of the session alone is summed once and leaves the budget open.
+  const one = scenario({ rounds: [{ ...approvedA, tokens: [0, 0, 0] }], spend: [{ contribution: "openai · s1", start: T(10), end: T(10), tokens: [400, 0, 10] }] });
+  assert.match(state(one, { statement: fileOf(A), defaults: limits(1000, 1000) }), /BUDGET t: new input 400 of 1000 × 1 = 1000/);
+  assert.match(state(one, { statement: fileOf(A), defaults: limits(1000, 1000) }), /result: the executor works/);
+  [sc, one].forEach((x) => rmSync(x.dir, { recursive: true, force: true }));
 });
 
 test("[check.task-statement.budget-final-over] through the check, --task fails when the record of acceptance does not name the overspend", () => {
