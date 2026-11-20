@@ -64,6 +64,16 @@ test("[check.tool-copy.options-documented] the loader cannot read a key its tabl
   assert.throws(() => guardConfig({ docSets: [{ name: "a", secret: 1 }] }).docSets.map(({ secret }) => secret), refused);
   assert.throws(() => [...guardConfig({ checks: { axes: [{ secret: 1 }] } }).checks.axes].map(($axis) => $axis?.secret), refused);
   assert.throws(() => guardConfig({ docSets: [{}] }).docSets.map ((axis$) => axis$ ["secret"]), refused);
+  // Nor through a descriptor, `in`, Reflect, or the keys and entries of an object.
+  assert.throws(() => Object.getOwnPropertyDescriptor(guardConfig({ hiddenRoot: "x" }), "hiddenRoot")?.value, refused);
+  assert.throws(() => "hiddenRoot" in guardConfig({}), refused);
+  assert.throws(() => Reflect.get(guardConfig({ hiddenRoot: "x" }), "hiddenRoot"), refused);
+  assert.deepEqual(Object.keys(guardConfig({ root: ".", hiddenRoot: "x" })), ["root"]);
+  assert.deepEqual(Object.entries(guardConfig({ root: ".", hiddenRoot: "x" })), [["root", "."]]);
+  assert.deepEqual({ ...guardConfig({ root: ".", hiddenRoot: "x" }) }, { root: "." });
+  // A descriptor of a listed key gives its value guarded too.
+  const nested = Object.getOwnPropertyDescriptor(guardConfig({ manualRuns: { dir: "r", secret: 1 } }), "manualRuns").value;
+  assert.throws(() => nested.secret, refused);
   // What the table lists is read as it is; the project's own classes are free.
   const ok = guardConfig({ docSets: [{ name: "a", files: ["x.md"] }], classes: { ent: "Entity", anything: "x" } });
   assert.deepEqual(ok.docSets.map((d) => [d.name, [...d.files]]), [["a", ["x.md"]]]);
@@ -74,6 +84,8 @@ test("[check.tool-copy.options-documented] the loader cannot read a key its tabl
   const body = lib.slice(start, lib.indexOf("\n}\n", start));
   assert.match(body, /const raw = guardConfig\(JSON\.parse\(/);
   assert.equal(body.match(/JSON\.parse/g).length, 1);
+  // and reads the file once, so its text is not parsed again around the guard.
+  assert.equal(body.match(/\bread(?:FileSync)?\(/g).length, 1);
 });
 
 test("[check.tool-copy.options-documented] a configuration with every key of the table loads", () => {
