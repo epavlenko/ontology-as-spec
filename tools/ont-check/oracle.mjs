@@ -639,7 +639,7 @@ function step(o, s, outcomes) {
 // Runs a trace: given, when (with its outcomes), then. Returns { ok, error }.
 // The trace runs on the oracle, or on any system that takes the same steps: put, advance, act, eval and
 // its notifications, such as the code through a project's adapter (D-101).
-export function runTrace(rows, formsRead, sample, t, system = null) {
+export function runTrace(rows, formsRead, sample, t, system = null, { collect = false } = {}) {
   const o = system ?? new Oracle(rows, formsRead, sample);
   // Which part of the trace was running, so that a failure says whether the case was set up at all.
   let part = "given";
@@ -656,7 +656,11 @@ export function runTrace(rows, formsRead, sample, t, system = null) {
     part = "then";
     const notified = o.notifications.slice(from);
     let i = -1;
+    // With collect, every line of THEN is checked and each failure kept, so that a known divergence can be
+    // held to the effect it allows (D-101); otherwise the first failure ends the trace.
+    const failures = [];
     for (const s of t.then) {
+     try {
       const x = s.text;
       let m;
       if ((m = x.match(/^outcome (ok|refused|empty)(?: by ([a-z]+\.[a-z0-9-]+))?$/))) {
@@ -682,7 +686,12 @@ export function runTrace(rows, formsRead, sample, t, system = null) {
       } else if ((m = x.match(/^not notified (\S+)$/))) {
         if (notified.some((n) => n.to === m[1])) throw new FormError("then", `line ${s.line}: ${m[1]} was notified`);
       } else step(o, x, null);
+     } catch (e) {
+      if (!collect || !(e instanceof FormError)) throw e;
+      failures.push(e.message);
+     }
     }
+    if (failures.length) return { ok: false, error: failures[0], part, failures };
     if (i + 1 !== outcomes.length) throw new FormError("then", `${outcomes.length} action(s) in WHEN, ${i + 1} outcome line(s) in THEN`);
     return { ok: true };
   } catch (e) {

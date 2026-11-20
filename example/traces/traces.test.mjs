@@ -3,8 +3,10 @@
 // runs the same tests on the oracle with one form changed, where each must fail when its trace does.
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { codeTests } from "../../tools/ont-check/code-traces.mjs";
 import * as adapter from "../app/adapter.mjs";
+
+// The tool, as ont-check gives it when it loads this file, or from the copy beside the example.
+const { codeTests } = globalThis.__ontCheck ?? (await import("../../tools/ont-check/code-traces.mjs"));
 
 const checkTest = codeTests({ config: fileURLToPath(new URL("../ont.config.json", import.meta.url)), adapter, test });
 

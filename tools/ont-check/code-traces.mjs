@@ -9,6 +9,10 @@ import { FormError } from "./expr.mjs";
 import { loadConfig, parseChecks, parseGlossary, read, section } from "./lib.mjs";
 import { Oracle, readForms, readTraces, runTrace } from "./oracle.mjs";
 
+// What a project's tests of systemTests take from the tool: ont-check, when it loads them, gives them its
+// own copy as globalThis.__ontCheck, so that they run wherever the project keeps its copy of the tool.
+export { Oracle, parseGlossary, readForms, readTraces };
+
 // The code as a system that takes the steps of a trace.
 export class CodeSystem {
   constructor(adapter, rows, formsRead, sample) {
@@ -51,15 +55,17 @@ export class CodeSystem {
   }
 }
 
-// A trace may differ on the code only for a check the adapter names under `diverges` with the ticket of a
-// known divergence whose line names one of the check's concepts, and only in its THEN: a case that cannot
-// even be set up, or a code that throws, fails whatever the divergence (rule.trace-runs-on-code).
+// A trace may differ on the code only for a check the adapter names under `diverges`, as
+// { ticket, allows(failures) }: the ticket of a known divergence whose line names one of the check's
+// concepts, and the whole effect that divergence may have, as the failing lines of THEN it accepts. Every
+// line of THEN is checked; a failure the divergence does not accept, a case that cannot even be set up, or
+// a code that throws fails (rule.trace-runs-on-code).
 export function allowedDivergences(adapter, lines, catalogue) {
   const allowed = new Map();
-  for (const [check, ticket] of Object.entries(adapter.diverges ?? {})) {
+  for (const [check, d] of Object.entries(adapter.diverges ?? {})) {
     const concepts = catalogue.get(check)?.concepts ?? [];
-    const line = lines.find((l) => l.includes(ticket) && concepts.some((x) => l.includes(`\`${x}\``)));
-    if (line) allowed.set(check, ticket);
+    const line = lines.find((l) => l.includes(d.ticket) && concepts.some((x) => l.includes(`\`${x}\``)));
+    if (line && typeof d.allows === "function") allowed.set(check, d);
   }
   return allowed;
 }
@@ -69,10 +75,11 @@ export function allowedDivergences(adapter, lines, catalogue) {
 export const registry = () => (globalThis.__ontCheckTests ??= { open: false, tests: [] });
 export function traceTest(trace, { rows, formsRead, sample, allowed = new Map() }) {
   return (system) => {
-    const r = runTrace(rows, formsRead, sample, trace, system);
+    const d = system.isCode ? allowed.get(trace.id) : null;
+    const r = runTrace(rows, formsRead, sample, trace, system, { collect: Boolean(d) });
     if (r.ok) return { ok: true };
-    if (system.isCode && allowed.has(trace.id) && r.part === "then" && !r.thrown) return { ok: true, diverged: `${allowed.get(trace.id)}: ${r.error}` };
-    throw new Error(`${trace.id}: ${r.error}`);
+    if (d && r.part === "then" && !r.thrown && r.failures && d.allows(r.failures)) return { ok: true, diverged: `${d.ticket}: ${r.failures.join("; ")}` };
+    throw new Error(`${trace.id}: ${r.failures?.join("; ") ?? r.error}`);
   };
 }
 
@@ -174,7 +181,20 @@ export function codeTests({ config, adapter, test }) {
     if (!fn && !trace) throw new Error(`${id} has no trace to run`);
     const run = fn ?? traceTest(trace, { rows, formsRead, sample, allowed });
     const reg = registry();
-    reg.tests.push({ check: id, name: title, fn: run, rows, sample });
+    reg.tests.push({ kind: "check", check: id, name: title, fn: run, rows, sample });
     if (!reg.open) test(title, () => run(new CodeSystem(adapter, rows, formsRead, sample)));
   };
+}
+
+// The test that compares the code with the oracle on random sequences, tagged
+// [check.formal-form.code-compared], and the other tests of a file of systemTests: registered so that the
+// check sees that the comparison exists (D-103), and run under node:test only when the registry is closed.
+export function compareTest(test, title, fn) {
+  const id = title.match(/^\[(check\.[a-z0-9.-]+)\]/)?.[1];
+  const reg = registry();
+  reg.tests.push({ kind: "compare", check: id, name: title });
+  if (!reg.open) test(title, fn);
+}
+export function plainTest(test, title, fn) {
+  if (!registry().open) test(title, fn);
 }

@@ -1385,14 +1385,24 @@ if (cfg.oracle) {
     console.log(`RUN ${passed} passed · ${failed.length} failed · ${t.skipped.size} not traced`);
     report("traces that do not hold on the oracle", failed);
   }
-  // D-103: with the oracle on and an action built, a test of the project's suites carries the approach's
-  // check of the comparison in its title; what it compares is the reviewer's check.
+  // The tests of systemTests, as their files register them: read by loading the files with the registry
+  // open, so that a test counts only when it is one, not when its name appears in a comment.
+  const reg = registry();
+  reg.open = true;
+  reg.tests = [];
+  globalThis.__ontCheck = await import("./code-traces.mjs");
+  for (const f of cfg.systemTests) {
+    if (!existsSync(f)) { report("files of systemTests that do not exist", [relative(cfg.base, f)]); continue; }
+    await import(pathToFileURL(f).href);
+  }
+  reg.open = false;
+  const registered = reg.tests;
+  // D-103: with the oracle on and an action built, a file of systemTests registers the comparison with the
+  // oracle, compareTest("[check.formal-form.code-compared] …"); what it compares is the reviewer's check.
   // ont: inv.code-compared
-  const suiteFiles = cfg.testSuites.flatMap((s) => listFiles(s.dir, s.match));
-  const suiteTags = new Set(suiteFiles.flatMap((f) => tagIds(read(f), ["check"])));
   report(
-    "implemented actions, and no test of the suites is tagged [check.formal-form.code-compared] (rule.code-compared-with-oracle)",
-    [...implemented].some((x) => x.startsWith("action.")) && !suiteTags.has("check.formal-form.code-compared") ? ["no test carries the tag"] : [],
+    "implemented actions, and no test of systemTests registers the comparison with the oracle, compareTest(\"[check.formal-form.code-compared] …\") (rule.code-compared-with-oracle)",
+    [...implemented].some((x) => x.startsWith("action.")) && !registered.some((t) => t.kind === "compare" && t.check === "check.formal-form.code-compared") ? ["no comparison is registered"] : [],
   );
   // D-101: every traced check whose concepts, and the actions its trace takes, are all built is run on the
   // code by a test of systemTests, checkTest("[check.id] …"), through the adapter, which runs every one of
@@ -1411,10 +1421,9 @@ if (cfg.oracle) {
     const adapter = await import(pathToFileURL(cfg.adapter).href);
     const runs = new Set(Object.keys(adapter.actions ?? {}));
     report("implemented actions that traces take and the adapter does not run", [...new Set(due.flatMap((c) => actionsOf(tracesRead.traces.get(c.id))))].filter((a) => !runs.has(a)).sort());
-    // The tests that run traces on the code are those of systemTests, apart from the suites, whose tags
-    // say what a test implements.
-    const systemText = cfg.systemTests.filter((f) => existsSync(f)).map(read).join("\n");
-    const named = new Set([...systemText.matchAll(/checkTest\(\s*["'`]\[(check\.[a-z0-9.-]+)\]/g)].map((m) => m[1]));
+    // The tests that run traces on the code are those systemTests registers, apart from the suites, whose
+    // tags say what a test implements.
+    const named = new Set(registered.filter((t) => t.kind === "check").map((t) => t.check));
     report("traced checks of implemented concepts that no test runs on the code (checkTest)", due.filter((c) => !named.has(c.id)).map((c) => c.id));
   }
   // D-102: --mutate changes one line of a form at a time; a change no trace fails on survives, and a test of
@@ -1425,11 +1434,7 @@ if (cfg.oracle) {
     const survivors = results.filter((m) => !m.killers.length);
     console.log(`MUTATE ${results.length} changes of the forms · ${results.length - survivors.length} failed by a trace · ${survivors.length} survive`);
     report("changes of the forms that no trace fails on (a case the catalogue does not hold, or a change that alters nothing)", survivors.map((m) => `line ${m.line}: ${m.from} → ${m.to}`), false);
-    const reg = registry();
-    reg.open = true;
-    for (const f of cfg.systemTests) await import(pathToFileURL(f).href);
-    reg.open = false;
-    const empty = emptyTests({ results, tests: reg.tests, rows, sample: tracesRead.sample });
+    const empty = emptyTests({ results, tests: registered.filter((t) => t.kind === "check"), rows, sample: tracesRead.sample });
     report("tests of checks that pass on a change of the forms their check's trace fails on (empty tests)", empty.map((e) => `${e.name}: ${e.missed.slice(0, 3).join("; ")}${e.missed.length > 3 ? ` and ${e.missed.length - 3} more` : ""}`));
   }
 } else if (flag("--run") > 0) {

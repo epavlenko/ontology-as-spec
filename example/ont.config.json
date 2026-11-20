@@ -87,7 +87,7 @@
   },
   "oracle": true,
   "adapter": "app/adapter.mjs",
-  "systemTests": ["traces/traces.test.mjs"],
+  "systemTests": ["traces/traces.test.mjs", "app/oracle.test.mjs"],
   "notYetShown": [
     "view",
     "action",

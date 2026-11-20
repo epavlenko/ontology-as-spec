@@ -36,14 +36,16 @@ const patch = (dir, file, from, to) => {
 };
 
 test("[check.formal-form.compare-required] with the oracle on and actions built, a test must run the oracle", () => {
-  const refused = /no test of the suites is tagged \[check\.formal-form\.code-compared\]/;
+  const refused = /no test of systemTests registers the comparison with the oracle/;
   const without = check((dir) => rmSync(join(dir, "app/oracle.test.mjs")));
   assert.equal(without.code, 1, without.out);
   assert.match(without.out, refused);
-  // A file that only mentions the oracle does not count; the tag on a test does.
-  const mention = check((dir) => writeFileSync(join(dir, "app/oracle.test.mjs"), "// new Oracle(\n"));
-  assert.equal(mention.code, 1, mention.out);
-  assert.match(mention.out, refused);
+  // A file that only mentions the oracle, or the check's tag, in a comment does not count; a registered test does.
+  for (const text of ["// new Oracle(\n", "// [check.formal-form.code-compared]\n", '// compareTest(test, "[check.formal-form.code-compared] x", () => {});\n']) {
+    const mention = check((dir) => writeFileSync(join(dir, "app/oracle.test.mjs"), text));
+    assert.equal(mention.code, 1, mention.out);
+    assert.match(mention.out, refused);
+  }
   const whole = check();
   assert.doesNotMatch(whole.out, refused);
 });
@@ -56,6 +58,13 @@ test("[check.trace.runs-on-code] a traced check of built concepts that no test r
   assert.match(r.out, /whose trace takes an action not implemented yet \(2\):\n {2}check\.member\.borrow-limit: action\.set-borrow-limit/);
   // Without an adapter, the traced checks of built concepts fail the check; an adapter that leaves out an
   // action the traces take fails it too.
+  // Tests named only in comments are no tests: every traced check of built concepts is then missing.
+  const commented = check((dir) => {
+    const path = join(dir, "traces/traces.test.mjs");
+    writeFileSync(path, readFileSync(path, "utf8").replace(/^checkTest\(/gm, "// checkTest("));
+  });
+  assert.equal(commented.code, 1, commented.out);
+  assert.match(commented.out, /no test runs on the code \(checkTest\) \(11\)/);
   const none = check((dir) => patch(dir, "ont.config.json", '  "adapter": "app/adapter.mjs",\n', ""));
   assert.equal(none.code, 1, none.out);
   assert.match(none.out, /no adapter to run them on the code/);
@@ -96,13 +105,21 @@ test("[check.trace.code-diverges] on the code a trace may differ only for a chec
   // Named by the adapter with the ticket of a divergence whose line names one of the check's concepts: allowed.
   const catalogue = new Map([["check.item.one-open-loan", { concepts: ["inv.one-loan-per-item", "action.checkout"] }]]);
   const line = "- **Item.** The code lends an item twice (`inv.one-loan-per-item`). Ticket: #9 One loan per item.";
-  const allowed = allowedDivergences({ diverges: { "check.item.one-open-loan": "#9 One loan per item" } }, [line], catalogue);
-  const r = traceTest(trace, { ...setup, allowed })(lax);
-  assert.equal(r.ok, true);
-  assert.match(r.diverged, /^#9 One loan per item: .*outcome/);
-  // A ticket no divergence line has, or a line that names none of the check's concepts, allows nothing.
-  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": "#8 Other" } }, [line], catalogue).size, 0);
-  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": "#9 One loan per item" } }, ["- Ticket: #9 One loan per item (`inv.other`)."], catalogue).size, 0);
+  // The divergence states its whole effect: the failing lines of THEN it accepts.
+  const only = (failures) => failures.length === 1 && /outcome 1 is ok/.test(failures[0]);
+  // The trace with an assertion added, which the lax code still holds and a worse one does not.
+  const asserted = { ...trace, then: [...trace.then, { text: 'assert count(l in loans where l.item = "dune-1") = 1', line: 999 }] };
+  const allowed = allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#9 One loan per item", allows: only } } }, [line], catalogue);
+  const r = traceTest(asserted, { ...setup, allowed })(lax);
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.match(r.diverged, /^#9 One loan per item: .*outcome 1 is ok/);
+  // Another error inside the same trace, beyond the effect the divergence accepts, fails it.
+  const worse = { ...lax, eval: () => false };
+  assert.throws(() => traceTest(asserted, { ...setup, allowed })(worse), /outcome 1 is ok.*; .*assert/);
+  // A ticket no divergence line has, a line that names none of the check's concepts, or no stated effect, allows nothing.
+  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#8 Other", allows: only } } }, [line], catalogue).size, 0);
+  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#9 One loan per item", allows: only } } }, ["- Ticket: #9 One loan per item (`inv.other`)."], catalogue).size, 0);
+  assert.equal(allowedDivergences({ diverges: { "check.item.one-open-loan": { ticket: "#9 One loan per item" } } }, [line], catalogue).size, 0);
   // A code that throws, or fails before THEN, is not a divergence.
   const broken = { ...lax, act: () => { throw new Error("unexpected database failure"); } };
   assert.throws(() => traceTest(trace, { ...setup, allowed })(broken), /unexpected database failure/);

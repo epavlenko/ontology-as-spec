@@ -8,11 +8,12 @@ import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test as nodeTest } from "node:test";
 import { fileURLToPath } from "node:url";
-import { parseGlossary } from "../../tools/ont-check/lib.mjs";
-import { Oracle, readForms, readTraces } from "../../tools/ont-check/oracle.mjs";
 import * as library from "./library.mjs";
+
+// The tool, as ont-check gives it when it loads this file, or from the copy beside the example.
+const { Oracle, compareTest, parseGlossary, plainTest, readForms, readTraces } = globalThis.__ontCheck ?? (await import("../../tools/ont-check/code-traces.mjs"));
 
 const HERE = fileURLToPath(new URL("../", import.meta.url));
 const md = readFileSync(join(HERE, "ontology.md"), "utf8");
@@ -183,7 +184,7 @@ export function compare(seeds, length, lib = library, make = sequence) {
 
 const SEEDS = process.env.ORACLE_SEED ? [Number(process.env.ORACLE_SEED)] : Array.from({ length: 500 }, (_, i) => i + 1);
 
-test("[check.formal-form.code-compared] the code agrees with the oracle on 500 random sequences, apart from the known divergences", () => {
+compareTest(nodeTest, "[check.formal-form.code-compared] the code agrees with the oracle on 500 random sequences, apart from the known divergences", () => {
   const r = compare(SEEDS, 30);
   if (process.env.ORACLE_STATS) console.log(JSON.stringify({ compared: r.compared, accepted: r.accepted, refused: r.refused, known: r.known }));
   assert.deepEqual(r.failures, []);
@@ -196,20 +197,20 @@ test("[check.formal-form.code-compared] the code agrees with the oracle on 500 r
   for (const [ticket, n] of Object.entries(r.known)) assert.ok(n > 0, `known divergence ${ticket} never met`);
 });
 
-test("a run that compares nothing fails", () => {
+plainTest(nodeTest, "a run that compares nothing fails", () => {
   const r = compare([], 30);
   assert.equal(r.compared, 0);
   assert.throws(() => assert.ok(r.compared >= 1000, `only ${r.compared} steps compared`));
 });
 
-test("a new difference in the code is caught: a loan period of 20 days instead of 21", () => {
+plainTest(nodeTest, "a new difference in the code is caught: a loan period of 20 days instead of 21", () => {
   const broken = { ...library, checkout: (s, a) => { const loan = library.checkout(s, a); loan.due = library.addDays(a.today, 20); return loan; } };
   const r = compare(Array.from({ length: 50 }, (_, i) => i + 1), 30, broken);
   assert.ok(r.failures.length > 0, "the injected difference was not caught");
   assert.match(r.failures[0], /loans differ/);
 });
 
-test("a difference hidden inside known divergence #4 is caught: a suspended member's loan due in 200 days", () => {
+plainTest(nodeTest, "a difference hidden inside known divergence #4 is caught: a suspended member's loan due in 200 days", () => {
   const broken = {
     ...library,
     checkout: (s, a) => {
@@ -223,7 +224,7 @@ test("a difference hidden inside known divergence #4 is caught: a suspended memb
   assert.ok(r.failures.length > 0, "the difference inside the known divergence was not caught");
 });
 
-test("a difference hidden inside known divergence #3 is caught: a return of a held title that leaves the loan open", () => {
+plainTest(nodeTest, "a difference hidden inside known divergence #3 is caught: a return of a held title that leaves the loan open", () => {
   const broken = {
     ...library,
     returnItem: (s, a) => {
@@ -244,13 +245,13 @@ const strangerRenews = () => [
   { day: "2026-10-05", action: "action.renew", args: { item: "dune-1" }, actor: "ben" },
 ];
 
-test("known divergence #5 is met when a member renews another member's loan", () => {
+plainTest(nodeTest, "known divergence #5 is met when a member renews another member's loan", () => {
   const r = compare([1], 2, library, strangerRenews);
   assert.deepEqual(r.failures, []);
   assert.equal(r.known["#5 Only the borrower renews a loan"], 1);
 });
 
-test("a difference hidden inside known divergence #5 is caught: a renewal of another member's loan that adds 15 days", () => {
+plainTest(nodeTest, "a difference hidden inside known divergence #5 is caught: a renewal of another member's loan that adds 15 days", () => {
   const broken = { ...library, renew: (s, a) => { const loan = library.renew(s, a); loan.due = library.addDays(loan.due, 1); return loan; } };
   const r = compare([1], 2, broken, strangerRenews);
   assert.equal(r.failures.length, 1, "the difference inside the known divergence was not caught");
