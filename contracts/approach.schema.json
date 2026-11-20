@@ -771,12 +771,12 @@
       "type": "object",
       "properties": {
         "place": {
-          "description": "Where a clone keeps its tree: a path in the clone's own Git configuration, ont.treeOut, never in ont.config.json, so that no path of one machine reaches the repository. Without it, no tree is refreshed and none is reported stale.",
+          "description": "Where a clone keeps its tree: a path in the clone's own Git configuration, ont.treeOut, never in ont.config.json, so that no path of one machine reaches the repository. Without it, no tree is refreshed and none is reported stale. A place inside the working tree of the repository, or a link that resolves into it, is refused with the reason and nothing is written there, so that a wrong setting never overwrites a file of the repository.",
           "x-ont": "field.ontology-tree.place",
           "type": "string"
         },
         "builtFrom": {
-          "description": "What the page was written from, in its footer: the commit of HEAD, marked +working-tree when a file the generator read is not that commit's file at the same path inside the repository, or no-commit outside Git; the path of the configuration from the root of the repository, except outside Git; and the date.",
+          "description": "What the page was written from, in its footer: the commit of HEAD, read once, marked +working-tree when a file the generator read is not that commit's file at the path it was asked for inside the repository, links not followed, or no-commit outside Git; the path of the configuration from the root of the repository, except outside Git; and the date.",
           "x-ont": "field.ontology-tree.built-from",
           "type": "string"
         },
