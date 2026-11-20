@@ -110,9 +110,9 @@ const branch = (r, name = "b") => {
 // The footer the generator writes for a mark, in its own words, with the SHA-256 of the bytes of the
 // page before it, written out here rather than taken from the generator, so that a page whose footer's
 // text and attributes disagree is made by hand, and a page changed before its footer can be given the
-// hash computed again, as whoever forges a mark would (D-134).
+// hash computed again, as whoever forges a mark would (D-136).
 const hashOf = (before, { commit, config, date }) =>
-  createHash("sha256").update(Buffer.from(before, "utf8")).update(`\0${commit}\0${config ?? ""}\0${date}`).digest("hex");
+  createHash("sha256").update(Buffer.from(before, "utf8")).update(`\0${commit}\0${config === null || config === undefined ? "-" : `=${config}`}\0${date}`).digest("hex");
 const footerOf = ({ commit, config, date }, before) =>
   `<footer class="built" data-commit="${commit}"${config === undefined ? "" : ` data-config="${config}"`} data-date="${date}" data-page="${hashOf(before, { commit, config, date })}">Built from ${
     commit === "no-commit" ? "no commit" : `<code>${commit}</code>`
@@ -273,7 +273,7 @@ test("[check.ontology-tree.dirty-inputs] a file of the tree changed, replaced by
 
   // The configuration, committed, names its ontology at detour/../ontology.md, with detour the committed
   // directory: the path as the configuration gives it has a .., so it is not the commit's file, though
-  // the path normalised by hand is the committed ontology.md (D-134). Then detour is replaced, not
+  // the path normalised by hand is the committed ontology.md (D-136). Then detour is replaced, not
   // committed, by a link to a directory that holds another ontology, which the file system reaches at
   // that path: named too, and nothing of it reaches the page.
   const kept = readFileSync(r.place);
@@ -650,7 +650,7 @@ test("[check.ontology-tree.mark] changed inputs, a symbolic link whose target ch
 
   // An ontology asked for through a directory that is not a link, followed by ..: plain/../ontology.md
   // leads to the committed ontology.md, but the path as the configuration gives it is not normalised,
-  // and a .. part is never the commit's file (D-134).
+  // and a .. part is never the commit's file (D-136).
   const n = repo();
   n.setPlace();
   mkdirSync(join(n.dir, "plain"));
@@ -767,6 +767,14 @@ test("[check.ontology-tree.mark] changed inputs, a symbolic link whose target ch
   assert.deepEqual(r.mark(), { commit: "no-commit", config: null });
   assert.match(readFileSync(r.place, "utf8"), /<footer class="built" data-commit="no-commit" data-date="[^"]+" data-page="[0-9a-f]{64}">Built from no commit · /);
   assert.match(r.gen("--stale").out, /built outside Git \(no-commit\)/);
+  // An empty configuration added to that footer by hand, attribute and text, is no mark: an empty one is
+  // not none (D-136).
+  {
+    const html = readFileSync(r.place, "utf8");
+    const added = html.replace('data-commit="no-commit" data-date=', 'data-commit="no-commit" data-config="" data-date=').replace("Built from no commit · ", "Built from no commit · <code></code> · ");
+    assert.notEqual(added, html);
+    assert.equal(readMark(added), null, "an empty configuration added by hand");
+  }
 });
 
 test("[check.ontology-tree.refresh-error] the generator refuses the committed ontology: the merge succeeds and the error is shown", () => {
@@ -918,7 +926,7 @@ test("[check.ontology-tree.mark-exact] the mark is only the footer of the genera
   const body = page.slice(0, page.length - foot.length - end.length);
   assert.equal(hashOf(body, main), foot.match(/data-page="([0-9a-f]{64})"/)[1], "the hash is of the bytes before the footer and of the footer's fields");
   // The footer's fields changed together, attributes and text, with the page and the hash left as they
-  // are: a page built from changed files whose +working-tree is taken away is no mark (D-135).
+  // are: a page built from changed files whose +working-tree is taken away is no mark (D-136).
   {
     const dirty = { ...main, commit: `${main.commit}+working-tree` };
     const built = page.replace(foot, `${footerOf(dirty, body)}\n`);
@@ -948,7 +956,7 @@ test("[check.ontology-tree.mark-exact] the mark is only the footer of the genera
     noMark(what, html);
   // The generator's footer, unchanged, at the end of a page changed before it: each is refused by the
   // hash alone, for with the hash computed again for the changed page, as a forger would, the same page
-  // is a mark (D-134). An element left open folds the footer away, and one closed or drawn changes the
+  // is a mark (D-136). An element left open folds the footer away, and one closed or drawn changes the
   // page all the same.
   const oneByte = body.replace(/<b data-ont="([^"]+)"/, (_, id) => `<b data-ont="${id}" `);
   for (const [what, html] of [
