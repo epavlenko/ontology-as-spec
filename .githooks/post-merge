@@ -1,18 +1,24 @@
 #!/bin/sh
 # After a merge, rewrites the ontology tree at the place this clone names in its own Git configuration
-# (git config --local ont.treeOut <path>), when the merge was into main (D-105, D-120). Git passes 1 when
+# (git config --local ont.treeOut <path>), when the merge was into main (D-105, D-130). Git passes 1 when
 # the merge was a squash, which leaves main where it was. The merge is done whatever happens here, so an
-# error of the generator is printed and the hook still ends with 0. Where the clone names a place on
-# main and the generator is missing from the working tree, the hook says so with the command that
-# restores it; elsewhere a missing generator is nobody's tree, and the hook says nothing.
+# error of the generator is printed and the hook still ends with 0.
 # ont: rule.tree-refreshed-after-merge, field.ontology-tree.place
+# Off main, or in a clone that names no place, the hook has nothing to do: it asks Git first, in the
+# shell, and ends saying nothing, before it looks for the generator or runs Node (D-130).
+[ "$(git symbolic-ref --quiet HEAD)" = refs/heads/main ] || exit 0
+[ -n "$(git config --local --get ont.treeOut)" ] || exit 0
+# Then the generator and the files it imports, each named with the command that restores it when it is
+# missing from the working tree; a test holds this list to the generator's imports.
 GEN=tools/ont-check/gen-tree.mjs
-if [ ! -f "$GEN" ]; then
-  if [ -n "$(git config --local --get ont.treeOut)" ] && [ "$(git symbolic-ref --quiet HEAD)" = refs/heads/main ]; then
-    echo "post-merge: the ontology tree was not written: $GEN is missing from the working tree; restore it with git restore $GEN, then run node $GEN --refresh" >&2
+MISSING=0
+for f in "$GEN" tools/ont-check/contracts.mjs tools/ont-check/lib.mjs; do
+  if [ ! -f "$f" ]; then
+    echo "post-merge: the ontology tree was not written: $f is missing from the working tree; restore it with git restore $f, then run node $GEN --refresh" >&2
+    MISSING=1
   fi
-  exit 0
-fi
+done
+[ "$MISSING" = 0 ] || exit 0
 if [ "$1" = 1 ]; then
   node "$GEN" --refresh --squash || echo "post-merge: the ontology tree was not written; the merge itself is done" >&2
 else

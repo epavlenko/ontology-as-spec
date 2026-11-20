@@ -69,7 +69,7 @@ for (const [name, label, edit] of refused)
   });
 
 // A local replacement makes Git read the base commit as another one, here one that holds the edit: the
-// guard reads the base by its own SHA all the same, and refuses the edit (D-120).
+// guard reads the base by its own SHA all the same, and refuses the edit (D-130).
 test("[check.decision.accepted-edited] refuses an edit that a local replacement of the base would hide", () => {
   const dir = mkdtempSync(join(tmpdir(), "guard-"));
   const git = (...args) => {
@@ -97,9 +97,13 @@ test("[check.decision.accepted-edited] refuses an edit that a local replacement 
     writeFileSync(path, edited);
     git("replace", base, side);
     assert.match(git("show", `${base}:decisions.md`), /members like one number/, "the replacement is in force");
-    for (const r of [guard("--base", base), guard()]) {
+    // Each run names the entry and its first changed line, as the check says, not only a refusal.
+    for (const [since, r] of [
+      [base, guard("--base", base)],
+      ["HEAD", guard()],
+    ]) {
       assert.equal(r.code, 1, r.out);
-      assert.ok(r.out.includes("accepted entries edited"), r.out);
+      assert.ok(r.out.includes(`ERROR · decisions.md: accepted entries edited since ${since} (1):\n  D-01, first change: - Why: members like one number. `), r.out);
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -257,27 +257,74 @@ test("[check.ontology-tree.dirty-inputs] a file of the tree changed, replaced by
   assert.match(m.out, /built from [0-9a-f]{40}\n/);
   assert.deepEqual(r.mark(), { commit: r.sha("refs/heads/main"), config: "ont.config.json" });
   assert.equal(r.gen("--stale").out, "");
+
+  // The configuration, committed, names its ontology at detour/../ontology.md, with detour the committed
+  // directory: the path as the configuration gives it has a .., so it is not the commit's file, though
+  // the path normalised by hand is the committed ontology.md (D-130). Then detour is replaced, not
+  // committed, by a link to a directory that holds another ontology, which the file system reaches at
+  // that path: named too, and nothing of it reaches the page.
+  const kept = readFileSync(r.place);
+  mkdirSync(at("detour"));
+  writeFileSync(at("detour/keep.md"), "a committed directory\n");
+  r.edit("ont.config.json", '"ontology": "ontology.md",', '"ontology": "detour/../ontology.md",');
+  r.git("add", "-A");
+  r.git("commit", "-q", "-m", "the ontology through detour/..");
+  for (const [what, change] of [
+    ["through the committed directory", () => {}],
+    [
+      "through a link that leads to another ontology",
+      () => {
+        mkdirSync(at("elsewhere/inner"), { recursive: true });
+        writeFileSync(at("elsewhere/ontology.md"), readFileSync(at("ontology.md"), "utf8").replace(title, `${title}, reached through detour`));
+        rmSync(at("detour"), { recursive: true });
+        symlinkSync(join("elsewhere", "inner"), at("detour"));
+        assert.match(readFileSync(`${r.dir}${sep}detour${sep}..${sep}ontology.md`, "utf8"), /, reached through detour/, "the file system reaches the other ontology");
+      },
+    ],
+  ]) {
+    const name = `dot${what.length}`;
+    branch(r, name);
+    change();
+    const d = sh(r.dir, "git", ["merge", "-q", name], 30000);
+    assert.equal(d.code, 0, `${what}: ${d.out}`);
+    const said = d.out.match(/tree: not written to (.*): the working tree differs from commit ([0-9a-f]{40}) at ([^;\n]*); the page there is kept/);
+    assert.ok(said, `${what}: the merge says why it wrote nothing:\n${d.out}`);
+    assert.deepEqual(said[3].split(", "), ["detour/../ontology.md"], `${what}: the path as the configuration gives it`);
+    assert.ok(readFileSync(r.place).equals(kept), `${what}: the page at the place keeps its bytes`);
+    assert.doesNotMatch(readFileSync(r.place, "utf8"), /reached through detour/, what);
+  }
 });
 
-test("[check.ontology-tree.replaced-commit] a local replacement of main's commit does not reach the page, by the refresh or on demand", () => {
+test("[check.ontology-tree.replaced-commit] a local replacement of main's ontology or commit does not reach the page, by a merge through the hook or on demand", () => {
   const r = repo();
   r.setPlace();
-  const main = r.sha("refs/heads/main");
+  const start = r.sha("refs/heads/main");
   const title = "# Ontology as Specification";
   r.git("checkout", "-q", "-b", "other");
   const other = r.commit("ontology.md", title, `${title}, of another commit`);
   const otherText = readFileSync(join(r.dir, "ontology.md"), "utf8");
   r.git("checkout", "-q", "main");
-  // Git now reads main's commit as the other one wherever replacements are honoured.
-  r.git("replace", main, other);
-  assert.match(r.git("show", `${main}:ontology.md`).out, /, of another commit/, "the replacement is in force");
-  const f = r.gen("--refresh");
-  assert.equal(f.code, 0, f.out);
-  assert.match(f.out, new RegExp(`built from ${main}\n`));
+  // Git now reads main's ontology, the object its commit names, as the other commit's wherever
+  // replacements are honoured. A merge of a branch that leaves the ontology as it is keeps that object,
+  // so Git does not touch the file in the working tree, which holds main's own text: the merge, through
+  // the hook, writes the page of main's own ontology, never the text the replacement puts in its place.
+  r.git("replace", r.git("rev-parse", `${start}:ontology.md`).out.trim(), r.git("rev-parse", `${other}:ontology.md`).out.trim());
+  branch(r, "b");
+  assert.match(r.git("show", "b:ontology.md").out, /, of another commit/, "the replacement is in force");
+  const m = r.git("merge", "-q", "b");
+  assert.equal(m.code, 0, m.out);
+  const main = r.sha("refs/heads/main");
+  assert.equal(main, r.sha("b"), "the merge is done");
+  assert.doesNotMatch(readFileSync(join(r.dir, "ontology.md"), "utf8"), /of another commit/, "the working tree holds main's own ontology");
+  assert.match(m.out, new RegExp(`built from ${main}\n`), m.out);
   assert.deepEqual(r.mark(), { commit: main, config: "ont.config.json" });
   const page = readFileSync(r.place, "utf8");
   assert.ok(!page.includes("of another commit"), "the page shows main's own ontology, nothing of the other commit");
   assert.equal(r.gen("--stale").out, "");
+  // And a replacement of main's commit itself by the other commit.
+  r.git("replace", "-d", r.git("rev-parse", `${start}:ontology.md`).out.trim());
+  r.git("replace", main, other);
+  assert.match(r.git("show", `${main}:ontology.md`).out, /, of another commit/, "the replacement is in force");
   // The working tree holds the other commit's ontology: on demand it is not main's, whatever the
   // replacement says.
   writeFileSync(join(r.dir, "ontology.md"), otherText);
@@ -326,6 +373,66 @@ test("[check.ontology-tree.generator-missing] a missing generator is named by th
   r.git("restore", gen);
   assert.equal(r.gen("--refresh").code, 0);
   assert.deepEqual(r.mark(), { commit: r.sha("refs/heads/main"), config: "ont.config.json" });
+});
+
+test("[check.ontology-tree.generator-missing] a missing import of the generator is named on main with a place, and nothing is said or run off main or without one", () => {
+  const lib = "tools/ont-check/lib.mjs";
+  const quiet = (m, what) => {
+    assert.equal(m.code, 0, `${what}: ${m.out}`);
+    assert.equal(m.out, "", `${what}: the hook says nothing, and Node, which would fail on the missing import, does not run`);
+  };
+  // Without a place, on main and off it: the hook asks Git and ends, before it looks for any file.
+  const n = repo();
+  branch(n, "b");
+  n.git("checkout", "-q", "-b", "x");
+  branch(n, "y");
+  n.git("checkout", "-q", "x");
+  rmSync(join(n.dir, lib));
+  quiet(n.git("merge", "-q", "y"), "no place, another branch");
+  n.git("checkout", "-q", "main");
+  quiet(n.git("merge", "-q", "b"), "no place, main");
+  // With a place, off main: nothing said either; on main, the import is named with its command.
+  const r = repo();
+  r.setPlace();
+  branch(r, "b");
+  r.git("checkout", "-q", "-b", "x");
+  branch(r, "y");
+  r.git("checkout", "-q", "x");
+  rmSync(join(r.dir, lib));
+  quiet(r.git("merge", "-q", "y"), "a place, another branch");
+  r.git("checkout", "-q", "main");
+  const m = r.git("merge", "-q", "b");
+  assert.equal(m.code, 0, m.out);
+  assert.equal(r.sha("refs/heads/main"), r.sha("b"), "the merge is done");
+  assert.equal(
+    m.out,
+    `post-merge: the ontology tree was not written: ${lib} is missing from the working tree; restore it with git restore ${lib}, then run node tools/ont-check/gen-tree.mjs --refresh\n`,
+  );
+  assert.equal(existsSync(r.place), false);
+});
+
+test("[check.ontology-tree.generator-missing] the hook looks for the generator and every file it imports, and for nothing else", () => {
+  // The files the generator loads: its own and, from each, the files of the tool it imports by a
+  // relative path, followed through those files in turn.
+  const tool = join(REPO, "tools/ont-check");
+  const needed = new Set();
+  const visit = (f) => {
+    if (needed.has(f)) return;
+    needed.add(f);
+    for (const [, rel] of readFileSync(join(tool, f), "utf8").matchAll(/^import [^;]*? from "\.\/([^"]+)";/gm)) visit(rel);
+  };
+  visit("gen-tree.mjs");
+  assert.ok(needed.size >= 3, [...needed].join(", "));
+  const hook = readFileSync(join(REPO, ".githooks/post-merge"), "utf8");
+  const loop = hook.match(/^for f in "\$GEN" ([^;]*); do$/m);
+  assert.ok(loop, "the hook's loop over the generator's files");
+  const listed = new Set(["gen-tree.mjs", ...loop[1].split(/\s+/).map((p) => p.replace(/^tools\/ont-check\//, ""))]);
+  assert.deepEqual([...listed].sort(), [...needed].sort());
+  // And the hook asks about the branch and the place before it looks for a file or runs Node.
+  const first = (re) => hook.split("\n").findIndex((l) => !l.startsWith("#") && re.test(l));
+  for (const re of [/^for f in /, /\bnode /]) {
+    assert.ok(first(/symbolic-ref --quiet HEAD/) < first(re) && first(/config --local --get ont\.treeOut/) < first(re), `before ${re}`);
+  }
 });
 
 test("[check.ontology-tree.place-inside-refused] a place inside the repository, or a link to one of its files, is refused; a place outside it is written", () => {
@@ -481,6 +588,22 @@ test("[check.ontology-tree.mark] changed inputs, a symbolic link whose target ch
   symlinkSync("copy", join(w.dir, "sub"));
   assert.equal(w.gen("--out", w.place).code, 0);
   assert.deepEqual(w.mark(), { commit: `${w.sha("HEAD")}+working-tree`, config: "ont.config.json" }, "the directory replaced by a link");
+
+  // An ontology asked for through a directory that is not a link, followed by ..: plain/../ontology.md
+  // leads to the committed ontology.md, but the path as the configuration gives it is not normalised,
+  // and a .. part is never the commit's file (D-130).
+  const n = repo();
+  n.setPlace();
+  mkdirSync(join(n.dir, "plain"));
+  writeFileSync(join(n.dir, "plain", "keep.md"), "a committed directory\n");
+  n.edit("ont.config.json", '"ontology": "ontology.md",', '"ontology": "plain/../ontology.md",');
+  n.git("add", "-A");
+  n.git("commit", "-q", "-m", "the ontology through plain/..");
+  const no = n.gen("--out", n.place);
+  assert.equal(no.code, 0, no.out);
+  assert.deepEqual(n.mark(), { commit: `${n.sha("HEAD")}+working-tree`, config: "ont.config.json" }, "a .. through a plain directory");
+  const nb = buildTree(join(n.dir, "ont.config.json"), null, workingTree({ cwd: n.dir }));
+  assert.ok(markOf(nb).dirty.includes(`${n.dir}${sep}plain${sep}..${sep}ontology.md`), "the input named at its path as given");
 
   // Paths through a linked directory followed by ..: via points to deep/inner, so via/.. is deep, while
   // the path normalised by hand is the root. The labels file read there has the bytes of the committed
@@ -740,12 +863,30 @@ test("[check.ontology-tree.mark-exact] the mark is only the footer of the genera
     ["after a comment left open", `${body}<!--\n${foot}${end}`],
     ["in a footer whose text says it was built from an older checkout", `${body}${foot.replace(/>Built from .*<\/footer>/, ">Built from an older checkout</footer>")}${end}`],
     ["in a footer whose text names another commit", `${body}${foot.replace(`<code>${r.sha("refs/heads/main")}</code>`, `<code>${"0".repeat(40)}</code>`)}${end}`],
+    // The exact footer at the end of the page, inside an element no person sees (D-130).
+    ["inside a template left open", `${body}<template>\n${foot}${end}`],
+    ["inside nested templates of which only the inner one is closed", `${body}<template><p>x</p><template></template>\n${foot}${end}`],
+    ["after a script left open", `${body}<script>\n${foot}${end}`],
+    ["after a style left open", `${body}<style>\n${foot}${end}`],
+    ["after a textarea left open", `${body}<textarea>\n${foot}${end}`],
+    ["with an element between the footer and the end of the page", `${body}${foot}<p>after the footer</p>\n${end}`],
+    ["with text after the end of the page", `${body}${foot}${end}more text\n`],
   ]) {
     assert.notEqual(html, page, what);
     assert.ok(html.includes(`data-commit="${r.sha("refs/heads/main")}"`) && html.includes('data-config="ont.config.json"'), what);
     writeFileSync(r.place, html);
     assert.equal(readMark(html), null, what);
     assert.match(stale(), /TREE_STALE .*tree\.html: the page carries no mark of what it was built from\n/, what);
+  }
+  // The page as the generator wrote it, with white space added between its footer and its end, and
+  // after a template closed before the footer: the mark, and current.
+  for (const [what, html] of [
+    ["white space between the footer and the end", `${body}${foot.trimEnd()} \t\n\n${end.trimEnd()}\n\n`],
+    ["a template closed before the footer", `${body}<template><template></template><p>x</p></template>\n${foot}${end}`],
+  ]) {
+    writeFileSync(r.place, html);
+    assert.deepEqual(readMark(html), { commit: r.sha("refs/heads/main"), config: "ont.config.json", date: r.date() }, what);
+    assert.equal(stale(), "", what);
   }
   writeFileSync(r.place, page);
   assert.equal(stale(), "");
