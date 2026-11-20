@@ -426,3 +426,21 @@ test("[field.ontology-tree.place] [rule.tree-refreshed-after-merge] every file t
       assert.ok(names.includes(id), `${file} does not name ${id}`);
     }
 });
+
+test("[rule.tree-refreshed-after-merge] every page that tells of the hook names the merges it misses and the command after them, under an anchor of the refresh", () => {
+  for (const file of ["docs/parts/documentation.md", "AGENTS.md", "tools/ont-check/README.md"]) {
+    const text = readFileSync(join(REPO, file), "utf8");
+    // The anchored sections that tell of the post-merge hook, each from its anchor to the next; the
+    // usage lines above the first section only list the commands.
+    const sections = text.split(/(?=^<!-- ont:[^\n]*-->\n#+ )/m).filter((x) => x.startsWith("<!-- ont:") && /post-merge/.test(x));
+    assert.ok(sections.length, `${file} tells of the hook`);
+    for (const section of sections) {
+      const anchor = section.match(/^<!-- ont:([^\n]*)-->/)?.[1] ?? "";
+      assert.match(anchor, /\brule\.tree-refreshed-after-merge\b/, `${file}: the anchor of the section`);
+      assert.doesNotMatch(section, /every merge/, `${file} promises every merge`);
+      assert.match(section, /git merge --continue/, `${file}: a merge ended after a conflict`);
+      assert.match(section, /rebase/, `${file}: a rebase`);
+      assert.match(section, /gen-tree\.mjs --refresh/, `${file}: the command after them`);
+    }
+  }
+});
