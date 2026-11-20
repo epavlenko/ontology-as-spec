@@ -111,9 +111,10 @@ const branch = (r, name = "b") => {
 // page before it, written out here rather than taken from the generator, so that a page whose footer's
 // text and attributes disagree is made by hand, and a page changed before its footer can be given the
 // hash computed again, as whoever forges a mark would (D-134).
-const hashOf = (before) => createHash("sha256").update(Buffer.from(before, "utf8")).digest("hex");
+const hashOf = (before, { commit, config, date }) =>
+  createHash("sha256").update(Buffer.from(before, "utf8")).update(`\0${commit}\0${config ?? ""}\0${date}`).digest("hex");
 const footerOf = ({ commit, config, date }, before) =>
-  `<footer class="built" data-commit="${commit}"${config === undefined ? "" : ` data-config="${config}"`} data-date="${date}" data-page="${hashOf(before)}">Built from ${
+  `<footer class="built" data-commit="${commit}"${config === undefined ? "" : ` data-config="${config}"`} data-date="${date}" data-page="${hashOf(before, { commit, config, date })}">Built from ${
     commit === "no-commit" ? "no commit" : `<code>${commit}</code>`
   }${config === undefined ? "" : ` · <code>${config}</code>`} · ${date}</footer>`;
 const FOOTER = /<footer class="built"[^\n]*<\/footer>/;
@@ -124,7 +125,9 @@ const withFooter = (page, mark) => {
 // A page whose footer, the generator's own at its end, is given the hash of what is before it.
 const rehashed = (html) => {
   const at = html.lastIndexOf('<footer class="built"');
-  return html.slice(0, at) + html.slice(at).replace(/ data-page="[0-9a-f]{64}"/, ` data-page="${hashOf(html.slice(0, at))}"`);
+  const f = html.slice(at).match(/data-commit="([^"]*)"(?: data-config="([^"]*)")? data-date="([^"]*)"/);
+  const fields = { commit: f[1], config: f[2], date: f[3] };
+  return html.slice(0, at) + html.slice(at).replace(/ data-page="[0-9a-f]{64}"/, ` data-page="${hashOf(html.slice(0, at), fields)}"`);
 };
 
 test("[check.ontology-tree.refreshed-on-main] the first merge into main after the place is set writes the page, and so does a pull --ff-only", () => {
@@ -913,7 +916,16 @@ test("[check.ontology-tree.mark-exact] the mark is only the footer of the genera
   assert.deepEqual(readMark(readFileSync(r.place)), main, "the page read as bytes");
   // The page without its footer: every case below keeps the three fields of main's mark on the page.
   const body = page.slice(0, page.length - foot.length - end.length);
-  assert.equal(hashOf(body), foot.match(/data-page="([0-9a-f]{64})"/)[1], "the hash is of the bytes before the footer");
+  assert.equal(hashOf(body, main), foot.match(/data-page="([0-9a-f]{64})"/)[1], "the hash is of the bytes before the footer and of the footer's fields");
+  // The footer's fields changed together, attributes and text, with the page and the hash left as they
+  // are: a page built from changed files whose +working-tree is taken away is no mark (D-135).
+  {
+    const dirty = { ...main, commit: `${main.commit}+working-tree` };
+    const built = page.replace(foot, `${footerOf(dirty, body)}\n`);
+    assert.deepEqual(readMark(built), dirty, "a page marked +working-tree");
+    const cleaned = built.replace(`data-commit="${dirty.commit}"`, `data-commit="${main.commit}"`).replace(`<code>${dirty.commit}</code>`, `<code>${main.commit}</code>`);
+    assert.equal(readMark(cleaned), null, "its +working-tree taken away by hand");
+  }
   const section = body.lastIndexOf("</section>");
   const noMark = (what, html) => {
     assert.notEqual(html, page, what);

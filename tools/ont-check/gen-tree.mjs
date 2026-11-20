@@ -118,7 +118,7 @@ footer.built{margin-top:24px;color:var(--muted);font-size:11px}`;
 // What a page was built from, in its footer (field.ontology-tree.built-from): the commit, with
 // +working-tree when a file read is not that commit's, or no-commit outside Git; the configuration's
 // path from the root of the repository, except outside Git; the date; and in data-page the SHA-256 of
-// the page's bytes before the footer. The footer is not the tree. It is the one form readMark accepts,
+// the page's bytes before the footer and of those three fields (D-135). The footer is not the tree. It is the one form readMark accepts,
 // its text included, and renderTree puts it last on the page (D-134).
 const footer = (built, word, page) => {
   if (!built) return "";
@@ -128,6 +128,11 @@ const footer = (built, word, page) => {
   return `<footer class="built" data-commit="${esc(built.commit)}"${config} data-date="${esc(built.date)}" data-page="${esc(page)}">${word("built")} ${shown}</footer>\n`;
 };
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+// The hash a footer carries: of the page's bytes before the footer and of the footer's own fields, the
+// commit, the configuration and the date, so that neither the page nor what its footer says can change
+// alone (D-135).
+export const pageHash = (before, built) =>
+  createHash("sha256").update(before).update(`\0${built.commit}\0${built.config ?? ""}\0${built.date}`).digest("hex");
 
 // The page: the ontologies in the order given, the two buttons that open or close every branch, and
 // the footer, the last element of the page, when the page knows what it was built from, with the hash
@@ -139,7 +144,7 @@ export function renderTree(sections, label, built) {
 <div class="bar"><button onclick="${all(true)}">${word("expand-all")}</button><button onclick="${all(false)}">${word("collapse-all")}</button> ${word("hint")}</div>
 ${sections.html.join("\n")}
 `;
-  return `${before}${footer(built, word, sha256(Buffer.from(before, "utf8")))}</body></html>
+  return `${before}${footer(built, word, built ? pageHash(Buffer.from(before, "utf8"), built) : "")}</body></html>
 `;
 }
 
@@ -163,7 +168,7 @@ export function readMark(page) {
   const [commit, config, date] = [m[2], m[3], m[4]].map((s) => (s === undefined ? null : unesc(Buffer.from(s, "latin1").toString("utf8"))));
   const again = Buffer.from(footer({ commit, config, date }, (k) => esc(WORDS[k]), m[5]), "utf8");
   if (!again.equals(Buffer.from(`${m[1]}\n`, "latin1"))) return null;
-  if (sha256(bytes.subarray(0, m.index)) !== m[5]) return null;
+  if (pageHash(bytes.subarray(0, m.index), { commit, config, date }) !== m[5]) return null;
   const v = (s) => (s ? s : null);
   return { commit: v(commit), config: v(config), date: v(date) };
 }
