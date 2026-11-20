@@ -8,7 +8,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { parseChecks, parseGlossary } from "../lib.mjs";
-import { runStamp } from "../manual-runs.mjs";
+import { outsideRecord, recordVerdicts, runStamp } from "../manual-runs.mjs";
+import { parseRounds } from "../review-rounds.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
 const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
@@ -166,4 +167,55 @@ test("[check.manual-run.ambiguous] fails on two records of one check with the sa
   });
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /ERROR · manual run records that two files claim .*\(1\):\n {2}20261105T090000Z-check\.loan\.overdue-in-real-time-a1b2\.md and 20261105T090000Z-check\.loan\.overdue-in-real-time-e5f6\.md/);
+});
+
+// A Cyrillic word, written with escapes so that this file stays English (D-03).
+const CYRILLIC = "\u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430";
+
+test("[check.manual-run.english-in-repo] refuses a record with non-Latin letters or a path outside the repository, and names its file and line", () => {
+  const at = (dir, time, evidence, tail) => {
+    const name = `${time.replace(/[-:]/g, "")}-${CHECK}-${tail}.md`;
+    record(dir, name, { Time: time, Stamp: stampIn(dir, CHECK), Verdict: "pass", Evidence: evidence });
+    return name;
+  };
+  const names = {};
+  const r = run((dir) => {
+    names.cyrillic = at(dir, "2026-11-05T09:00:00Z", `the screen shows ${CYRILLIC}`, "aaaa");
+    names.home = at(dir, "2026-11-05T09:01:00Z", "see /home/x/notes.md:4", "bbbb");
+    names.up = at(dir, "2026-11-05T09:02:00Z", "see ../outside/log.md", "cccc");
+    names.clean = at(dir, "2026-11-05T09:03:00Z", "https://example.org/runs/2026-11-05 and `docs/../README.md`, the reviewer's log, kept outside the repository", "dddd");
+  });
+  assert.equal(r.code, 1, r.out);
+  // The Evidence line is the record's ninth: a heading, a blank line, then Check, Commit, By, Time, Stamp, Verdict.
+  assert.match(r.out, new RegExp(`${names.cyrillic.replace(/\./g, "\\.")}: line 9: the letter . is not English text`));
+  assert.match(r.out, new RegExp(`${names.home.replace(/\./g, "\\.")}: line 9: /home/x/notes\\.md:4 is a path outside the repository`));
+  assert.match(r.out, new RegExp(`${names.up.replace(/\./g, "\\.")}: line 9: \\.\\./outside/log\\.md leaves the repository`));
+  assert.ok(!r.out.includes(names.clean), r.out);
+
+  // A record of a round is read the same way.
+  const dir = mkdtempSync(join(tmpdir(), "rounds-"));
+  try {
+    const round = (findings) => ["Task: t", "Step: result-review", "Number: 1", "Ceiling: 3", "Time: 2026-11-20T10:00:00Z", "By: a model", "Findings:", findings, ""].join("\n");
+    writeFileSync(join(dir, "a.md"), round("- a log in /tmp/log · nit · change · fixable"));
+    writeFileSync(join(dir, "b.md"), round("- a log, kept outside the repository · nit · change · fixable").replace("Task: t", "Task: u"));
+    const { malformed, rounds } = parseRounds(dir);
+    assert.deepEqual(malformed, ["a.md: line 8: /tmp/log is a path outside the repository"]);
+    assert.equal(rounds.length, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+
+  // The table of verdicts is refused whole, with its line, and no record is written.
+  const listed = new Map([[CHECK, { id: CHECK }]]);
+  const table = (evidence) => ["By: a model of a provider", "", "| Check | Verdict | Evidence |", "| --- | --- | --- |", `| ${CHECK} | pass | ${evidence} |`].join("\n");
+  const refused = recordVerdicts({ text: table(`the screen shows ${CYRILLIC}`), listed, runs: [], stamp: () => "s", commit: "c", now: new Date(), source: "verdicts.md" });
+  assert.deepEqual(refused.records, []);
+  assert.ok(refused.problems.some((p) => /^verdicts\.md: line 5: the letter . is not English text$/.test(p)), refused.problems.join("\n"));
+  const held = recordVerdicts({ text: table("https://example.org/x"), listed, runs: [], stamp: () => "s", commit: "c", now: new Date(), source: "verdicts.md" });
+  assert.deepEqual(held.problems, []);
+  assert.equal(held.records.length, 1);
+
+  // What is no path outside: a URL, a path inside, a range of commits, an end tag, a bare "..", a slash between words.
+  for (const ok of ["https://github.com/a/b", "`docs/../README.md:3`", "main..HEAD", "`<svg/></svg>`", "a `..` part", "pass/fail", "C# and F#"]) assert.deepEqual(outsideRecord(ok), [], ok);
+  for (const bad of ["~/notes.md", "C:\\Users\\x", "(</srv/a b.md>)", "`../../x`", "docs/../../x"]) assert.equal(outsideRecord(bad).length, 1, bad);
 });

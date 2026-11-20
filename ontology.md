@@ -665,6 +665,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | --- | --- | --- |
 | `ent.manual-run`, `edge.manual-run.check`, `field.manual-run.time`, `field.manual-run.commit`, `field.manual-run.stamp`, `field.manual-run.verdict`, `field.manual-run.by`, `field.manual-run.evidence`, `derived.current-run` | `tools/ont-check/manual-runs.mjs`, `tools/ont-check/ont-check.mjs` | |
 | `inv.manual-checks-run`, `inv.manual-runs-well-formed` | `tools/ont-check/ont-check.mjs` | |
+| `rule.records-english-in-repo` | `tools/ont-check/manual-runs.mjs`, `tools/ont-check/review-rounds.mjs` | |
 | `rule.run-recorded` | `skills/change-review/SKILL.md`, `docs/parts/checks-and-tests.md` | the skill writes the records; that every verdict was recorded is reviewed |
 
 ### Test

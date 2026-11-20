@@ -2,7 +2,7 @@
 // names under manualRuns. A record says which check ran, when, on which commit, with which stamp and
 // verdict, by whom, and where the evidence is; the evidence itself stays outside the repository
 // (rule.manual-evidence-kept).
-// ont: ent.manual-run, edge.manual-run.check, field.manual-run.time, field.manual-run.commit, field.manual-run.stamp, field.manual-run.verdict, field.manual-run.by, field.manual-run.evidence, derived.current-run
+// ont: ent.manual-run, rule.records-english-in-repo, edge.manual-run.check, field.manual-run.time, field.manual-run.commit, field.manual-run.stamp, field.manual-run.verdict, field.manual-run.by, field.manual-run.evidence, derived.current-run
 import { createHash } from "node:crypto";
 import { basename } from "node:path";
 import { listFiles, read } from "./lib.mjs";
@@ -23,12 +23,45 @@ export const runStamp = (c, ONT, rows, checkById, notes) =>
     .digest("hex")
     .slice(0, 8);
 
+// What a record may hold, since it sits in the repository (rule.records-english-in-repo, D-151): English
+// text only, a letter of a script other than Latin refused by construction, and no path outside the
+// repository, absolute or leaving it by "..". A URL is allowed. Each problem names its line, from 1.
+// ont: rule.records-english-in-repo
+const URL_RE = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>()`"'|]+/gi;
+const NOT_LATIN = /[^\P{L}\p{Script=Latin}]/u;
+// An end tag such as </svg> is no path; a link in angle brackets, (</x>), is.
+const ABSOLUTE = /(?:^|[\s(\[`"'=,;|]|\(<)(\/[^\s/)>\]`"',;|]|~\/|[A-Za-z]:\\)/;
+const leaves = (token) => {
+  let depth = 0;
+  for (const part of token.split(/[\\/]/)) {
+    if (part === "..") depth--;
+    else if (part && part !== ".") depth++;
+    if (depth < 0) return true;
+  }
+  return false;
+};
+export function outsideRecord(text, from = 1) {
+  const problems = [];
+  text.split("\n").forEach((line, i) => {
+    const plain = line.replace(URL_RE, " ");
+    const at = `line ${i + from}`;
+    const letter = plain.match(NOT_LATIN);
+    if (letter) problems.push(`${at}: the letter ${letter[0]} is not English text`);
+    const abs = plain.match(ABSOLUTE);
+    if (abs) problems.push(`${at}: ${plain.slice(abs.index).trim().split(/[\s)>\]`"',;|]/)[0]} is a path outside the repository`);
+    const up = plain.split(/[\s()<>\[\]`"',;|]+/).find((t) => /[\\/]/.test(t) && /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(t) && leaves(t.replace(/:\d+(?:-\d+)?$/, "")));
+    if (up) problems.push(`${at}: ${up} leaves the repository`);
+  });
+  return problems;
+}
+
 // Every record of the directory, with what is wrong with it.
 export function parseRuns(dir, known) {
   const runs = [];
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
-    const pairs = read(f)
+    const text = read(f);
+    const pairs = text
       .split("\n")
       .map((l) => l.match(/^(Check|Time|Commit|Stamp|Verdict|By|Evidence):\s*(.*?)\s*$/))
       .filter(Boolean)
@@ -47,6 +80,7 @@ export function parseRuns(dir, known) {
       !fields.by && "no author",
       !named && "the name is not <UTC time>-<check>-<4 characters>.md, such as 20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md",
       named && (named[2] !== fields.check || named[1] !== compact(fields.time)) && "the name does not match the record's check and time",
+      ...outsideRecord(text),
     ].filter(Boolean);
     if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
     else runs.push({ file: name, ...fields });
@@ -77,15 +111,19 @@ export const currentRun = (runs, id, stamp) =>
 // not of its check or not at its stamp now, or the check of errors in code is carried.
 // ont: action.record-verdicts
 const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
-export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [] }) {
+export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], source = "the table" }) {
   const by = text.match(/^By:\s*(.+?)\s*$/m)?.[1];
-  const rows = text
-    .split("\n")
+  const lines = text.split("\n");
+  const rows = lines
     .map((l) => l.match(/^\|\s*`?(check\.[a-z0-9.-]+)`?\s*\|\s*([a-z-]+)\s*\|\s*(.*?)\s*\|\s*$/))
     .filter(Boolean)
     .map((m) => ({ check: m[1], verdict: m[2], evidence: m[3].replace(/^`|`$/g, "") }));
   const problems = [];
   if (!by) problems.push("no By: line naming the reviewer");
+  // What the records would hold, the By: line and the rows, is read as a record is (D-151).
+  lines.forEach((l, i) => {
+    if (/^By:/.test(l) || /^\|\s*`?check\./.test(l)) problems.push(...outsideRecord(l, i + 1).map((p) => `${source}: ${p}`));
+  });
   const seen = new Set();
   for (const r of rows) {
     if (seen.has(r.check)) problems.push(`${r.check}: given twice`);

@@ -1319,7 +1319,7 @@ if (flag("--review") > 0) {
       if (diff.status !== 0) return files;
       return [...new Set([...noSnapshot, ...diff.stdout.split("\n").filter(Boolean)])];
     };
-    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince });
+    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, source: table });
     if (res.problems.length) {
       console.log(`ERROR · the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`);
       process.exit(1);
