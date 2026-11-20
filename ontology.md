@@ -855,6 +855,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-20: after the narrow round 7 of the review of the result: the stale report computes the one formula of the footer's hash, as D-137 says, which supersedes D-136.
 - 2026-11-20: after the narrow round 6 of the review of the result: one formula of the footer's hash, with an empty configuration told from none (D-136, which supersedes D-134 and D-135).
 - 2026-11-20: after the narrow round 5 of the review of the result: the hash of the tree's footer covers its commit, configuration and date too (D-135).
 - 2026-11-20: after the narrow round 4 of the review of the result: `field.ontology-tree.built-from` and `derived.tree-stale` take the footer for the mark only when it carries the SHA-256 of the page's bytes before it; the stale report reads no HTML (D-134, which supersedes D-130, D-132 and D-133).
