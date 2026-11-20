@@ -6,10 +6,10 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { closeSync, cpSync, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, lstatSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { buildTree, markOf } from "../gen-tree.mjs";
+import { buildTree, markOf, readMark, workingTree } from "../gen-tree.mjs";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 const TMP = [];
@@ -32,9 +32,9 @@ const ENV = {
   GIT_COMMITTER_EMAIL: "test@example.org",
   GIT_EDITOR: "true",
 };
-const sh = (cwd, cmd, args) => {
+const sh = (cwd, cmd, args, timeout = 120000) => {
   // A command that waits for ever, as a read of a named pipe with no writer does, fails the test.
-  const r = spawnSync(cmd, args, { cwd, env: ENV, encoding: "utf8", timeout: 120000 });
+  const r = spawnSync(cmd, args, { cwd, env: ENV, encoding: "utf8", timeout });
   if (r.error) return { code: null, out: `${cmd} ${args.join(" ")}: ${r.error.message}`, stdout: "" };
   return { code: r.status, out: r.stdout + r.stderr, stdout: r.stdout };
 };
@@ -73,17 +73,26 @@ const clone = (dir) => {
     return git("rev-parse", "HEAD").out.trim();
   };
   const sha = (ref) => git("rev-parse", "--verify", ref).out.trim();
-  // The mark of the page at the place, its commit and configuration; wherever a test reads it, the page
-  // also carries a whole date, UTC to the second and a real day, so that no test of a written page
-  // passes on a page whose date the stale report would refuse.
+  // The mark of the page at the place, its commit and configuration, read as the stale report reads it:
+  // the footer last on the page. Wherever a test reads it, the page also carries a whole date, UTC to
+  // the second and a real day, so that no test of a written page passes on a page whose date the stale
+  // report would refuse; and wherever the mark is not clean, the stale report, run on the same place,
+  // names it, so that no test makes such a page without asking the report (check.ontology-tree.mark).
   const mark = () => {
     if (!existsSync(place)) return null;
     const html = readFileSync(place, "utf8");
-    const m = html.match(/<footer class="built" data-commit="([^"]*)"(?: data-config="([^"]*)")?/);
+    const m = html.match(/\n<footer class="built" data-commit="([^"]*)"(?: data-config="([^"]*)")? data-date="([^"]*)">[^\n]*<\/footer>\n<\/body><\/html>\n$/);
     if (!m) return null;
-    const d = (html.match(/<footer class="built"[^>]* data-date="([^"]*)"/) ?? [])[1];
-    assert.match(d ?? "", /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/, `the date of the page at ${place}`);
+    const d = m[3];
+    assert.match(d, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/, `the date of the page at ${place}`);
     assert.equal(new Date(d).toISOString().replace(".000Z", "Z"), d, `a real date: ${d}`);
+    if (m[1] === "no-commit" || m[1].endsWith("+working-tree")) {
+      assert.equal(git("config", "--local", "ont.treeOut").out.trim(), place, "the stale report reads this page");
+      const why = m[1] === "no-commit" ? "built outside Git (no-commit)" : `built from files that differ from commit ${m[1].replace(/\+working-tree$/, "")} (+working-tree)`;
+      const s = gen("--stale");
+      assert.equal(s.code, 0, s.out);
+      assert.ok(s.out.includes(`TREE_STALE ${place}: ${why}\n`), `the stale report names the page marked ${m[1]}:\n${s.out}`);
+    }
     return { commit: m[1], config: m[2] ?? null };
   };
   const date = () => (readFileSync(place, "utf8").match(/<footer class="built"[^>]* data-date="([^"]*)"/) ?? [])[1] ?? null;
@@ -184,20 +193,51 @@ test("[check.ontology-tree.refresh-skipped] another branch, no place, or a squas
   assert.equal(existsSync(r.place), false, "a squash merge");
 });
 
-test("[check.ontology-tree.dirty-inputs] an uncommitted change of the ontology, or of ont.config.json, stops the hook, which names the file", () => {
-  for (const [file, from, to] of [
-    ["ontology.md", "# Ontology as Specification", "# Ontology as Specification, changed"],
-    ["ont.config.json", '"ontology": "ontology.md",', '"ontology":  "ontology.md",'],
-  ]) {
-    const r = repo();
-    r.setPlace();
-    branch(r);
-    r.edit(file, from, to);
-    const m = r.git("merge", "-q", "b");
-    assert.equal(m.code, 0, m.out);
-    assert.match(m.out, new RegExp(`tree: not written to .*: these files differ from HEAD .*: ${file.replace(".", "\\.")}\n`));
-    assert.equal(existsSync(r.place), false, file);
-  }
+test("[check.ontology-tree.dirty-inputs] the hook builds the tree from the commit: a file changed, replaced by a link or a named pipe, or removed in the working tree neither stops it nor reaches the page", () => {
+  const r = repo();
+  r.setPlace();
+  // The page of the committed files, its footer taken away: the tree every merge below must write.
+  const tree = () => readFileSync(r.place, "utf8").replace(/\n<footer class="built"[^\n]*<\/footer>\n/, "\n");
+  assert.equal(r.gen("--refresh").code, 0);
+  const committed = tree();
+  const title = "# Ontology as Specification";
+  const inputs = ["ont.config.json", "ontology.md", "example/ontology.md", "templates/ontology.md"];
+  const at = (f) => join(r.dir, f);
+  const cases = [
+    ["the ontology changed", () => r.edit("ontology.md", title, `${title}, changed`)],
+    ["the configuration changed", () => r.edit("ont.config.json", '"ontology": "ontology.md",', '"ontology": "example/ontology.md",')],
+    [
+      "the ontology replaced by a link to another text",
+      () => {
+        writeFileSync(at("other.md"), readFileSync(at("ontology.md"), "utf8").replace(title, `${title}, through a link`));
+        rmSync(at("ontology.md"));
+        symlinkSync("other.md", at("ontology.md"));
+      },
+    ],
+    [
+      "the ontology replaced by a named pipe with no writer",
+      () => {
+        rmSync(at("ontology.md"));
+        assert.equal(sh(r.dir, "mkfifo", [at("ontology.md")]).code, 0);
+      },
+    ],
+    ["every input removed", () => inputs.forEach((f) => rmSync(at(f)))],
+  ];
+  cases.forEach(([what, change], k) => {
+    branch(r, `b${k}`);
+    change();
+    // A hook that read the named pipe would wait for ever, and the merge with it; both end in time.
+    const m = sh(r.dir, "git", ["merge", "-q", `b${k}`], 30000);
+    assert.equal(m.code, 0, `${what}: ${m.out}`);
+    assert.match(m.out, /built from [0-9a-f]{40}\n/, what);
+    assert.doesNotMatch(m.out, /not written/, what);
+    assert.equal(tree(), committed, `${what}: the page is the commit's tree`);
+    assert.deepEqual(r.mark(), { commit: r.sha("refs/heads/main"), config: "ont.config.json" }, what);
+    assert.equal(r.gen("--stale").out, "", what);
+    for (const f of [...inputs, "other.md"]) rmSync(at(f), { force: true });
+    r.git("checkout", "-q", "--", ...inputs);
+    assert.equal(r.git("status", "--porcelain").out, "", what);
+  });
 });
 
 test("[check.ontology-tree.place-inside-refused] a place inside the repository, or a link to one of its files, is refused; a place outside it is written", () => {
@@ -223,7 +263,7 @@ test("[check.ontology-tree.place-inside-refused] a place inside the repository, 
     branch(r, name);
     const m = r.git("merge", "-q", name);
     assert.equal(m.code, 0, m.out);
-    assert.match(m.out, new RegExp(`tree: not written to .*${link.replace(".", "\\.")}: it is inside the repository`), link);
+    assert.match(m.out, new RegExp(`tree: not written to .*${link.replace(".", "\\.")}: it is a symbolic link; set the place to the file itself\n`), link);
     assert.notEqual(before("README.md"), readme, "the merge itself is done");
     assert.ok(!before("README.md").includes("<!doctype html>"), link);
     assert.ok(before("README.md").startsWith(readmeNow.slice(0, 20)), link);
@@ -253,6 +293,18 @@ test("[check.ontology-tree.place-inside-refused] a place inside the repository, 
   assert.equal(pm.code, 0, pm.out);
   assert.match(pm.out, /tree: not written to .*pipe\.html: it is a named pipe, not a regular file\n/);
 
+  // A place that is a file of another worktree of the repository, whose path contains a line break:
+  // Git lists the worktrees with their paths ended by NUL, and the whole path is the worktree's.
+  const wt = join(temp("ont-worktree-"), "with\nline break");
+  r.git("worktree", "add", "-q", "-b", "w", wt);
+  const wtOntology = readFileSync(join(wt, "ontology.md"), "utf8");
+  r.git("config", "--local", "ont.treeOut", join(wt, "ontology.md"));
+  branch(r, "b9");
+  const wm = r.git("merge", "-q", "b9");
+  assert.equal(wm.code, 0, wm.out);
+  assert.match(wm.out, /tree: not written to [^]*: it is inside the repository, at [^]*with\nline break, where the page would overwrite its files/);
+  assert.equal(readFileSync(join(wt, "ontology.md"), "utf8"), wtOntology, "the file of the other worktree is unchanged");
+
   // A place outside the repository is written; when a page is there already, the new page is a new file
   // renamed over it, so whoever holds the old one still reads its old bytes, and nothing else is left.
   r.setPlace();
@@ -272,8 +324,8 @@ test("[check.ontology-tree.place-inside-refused] a place inside the repository, 
   closeSync(held);
   assert.notEqual(statSync(r.place).ino, inode, "a new file at the place");
   assert.deepEqual(readdirSync(dirname(r.place)), [basename(r.place)], "no file of the write is left beside the page");
-  // A place that is a link outside the repository to a page outside it: the page it points to is
-  // rewritten the same way, and the link stays a link.
+  // A place that is a link outside the repository to a page outside it is refused too: a link is never
+  // followed, and the page it points to and the link are unchanged.
   const served = join(temp("ont-served-"), "served.html");
   writeFileSync(served, "old\n");
   const via = join(outside, "served-link.html");
@@ -282,7 +334,8 @@ test("[check.ontology-tree.place-inside-refused] a place inside the repository, 
   branch(r, "b8");
   const sm = r.git("merge", "-q", "b8");
   assert.equal(sm.code, 0, sm.out);
-  assert.match(readFileSync(served, "utf8"), /<footer class="built" data-commit="[0-9a-f]{40}"/);
+  assert.match(sm.out, /tree: not written to .*served-link\.html: it is a symbolic link; set the place to the file itself\n/);
+  assert.equal(readFileSync(served, "utf8"), "old\n");
   assert.ok(lstatSync(via).isSymbolicLink(), "the link stays a link");
 });
 
@@ -378,6 +431,43 @@ test("[check.ontology-tree.mark] changed inputs, a symbolic link whose target ch
   const uc = u.gen("--config", `via${"/"}..${"/"}ont.config.json`, "--out", u.place);
   assert.equal(uc.code, 0, uc.out);
   assert.equal(u.mark().commit, `${u.sha("HEAD")}+working-tree`, "a configuration through via/..");
+  // A configuration through via/.. into a directory, deep/sub as the file system takes it, where the
+  // path normalised by hand, sub, does not exist: the repository is the one the file system finds
+  // there, and the page is not clean, never outside Git.
+  for (const f of ["ont.config.json", "ontology.md", "example/ontology.md", "templates/ontology.md"]) {
+    mkdirSync(join(u.dir, "deep", "sub", f, ".."), { recursive: true });
+    cpSync(join(u.dir, f), join(u.dir, "deep", "sub", f));
+  }
+  assert.equal(existsSync(join(u.dir, "sub")), false);
+  const us = u.gen("--config", ["via", "..", "sub", "ont.config.json"].join("/"), "--out", u.place);
+  assert.equal(us.code, 0, us.out);
+  assert.equal(u.mark().commit, `${u.sha("HEAD")}+working-tree`, "a configuration through via/../sub");
+
+  // An input that is a symbolic link when it is read, to a copy with the commit's bytes, and the
+  // commit's regular file by the time it is compared: the link seen at the read makes it not clean.
+  const k = repo();
+  cpSync(join(k.dir, "ontology.md"), join(k.dir, "copy.md"));
+  rmSync(join(k.dir, "ontology.md"));
+  symlinkSync("copy.md", join(k.dir, "ontology.md"));
+  const swap = (path) => {
+    if (!path.endsWith(`${sep}ontology.md`) || !lstatSync(path).isSymbolicLink()) return;
+    rmSync(path);
+    cpSync(join(k.dir, "copy.md"), path);
+  };
+  const ks = markOf(buildTree(join(k.dir, "ont.config.json"), null, workingTree({ onRead: swap })));
+  assert.equal(lstatSync(join(k.dir, "ontology.md")).isSymbolicLink(), false, "the link was swapped for the commit's file");
+  assert.deepEqual(ks, { commit: `${k.sha("HEAD")}+working-tree`, config: "ont.config.json", dirty: ["ontology.md"] }, "a link swapped after its read");
+
+  // An ontology that is a named pipe with no writer: the page on demand reads only a regular file, so
+  // it is refused in time with the kind of the file, and no page is written.
+  const f = repo();
+  f.setPlace();
+  rmSync(join(f.dir, "ontology.md"));
+  assert.equal(sh(f.dir, "mkfifo", [join(f.dir, "ontology.md")]).code, 0);
+  const fo = sh(f.dir, "node", [join(f.dir, "tools/ont-check/gen-tree.mjs"), "--out", f.place], 30000);
+  assert.notEqual(fo.code, 0, fo.out);
+  assert.match(fo.out, /tree: not written: .*ontology\.md is a named pipe, not a regular file\n/);
+  assert.equal(existsSync(f.place), false);
 
   // A committed ontology whose name begins with two dots lies inside the repository and is clean.
   const t = repo();
@@ -482,8 +572,8 @@ test("[check.ontology-tree.stale] each reason is reported; a current page, compa
   const page = readFileSync(r.place, "utf8");
   for (const [attr, reason] of [
     ["config", "the mark names no configuration"],
-    ["date", "the mark carries no date"],
-    ["commit", "the mark names no commit"],
+    ["date", "the page carries no mark of what it was built from"],
+    ["commit", "the page carries no mark of what it was built from"],
   ]) {
     const partial = page.replace(new RegExp(` data-${attr}="[^"]*"`), "");
     assert.notEqual(partial, page, attr);
@@ -492,6 +582,16 @@ test("[check.ontology-tree.stale] each reason is reported; a current page, compa
   }
   writeFileSync(r.place, page.replace(/ data-date="[^"]*"/, ' data-date=""'));
   assert.match(stale(), /: the mark carries no date\n/, "an empty date");
+  writeFileSync(r.place, page.replace(/ data-commit="[^"]*"/, ' data-commit=""'));
+  assert.match(stale(), /: the mark names no commit\n/, "an empty commit");
+  // A place that is a symbolic link to the current page: the refresh refuses it, and the report does
+  // not follow it.
+  const target = join(temp("ont-target-"), "page.html");
+  writeFileSync(target, page);
+  rmSync(r.place);
+  symlinkSync(target, r.place);
+  assert.match(stale(), /TREE_STALE .*tree\.html: the place is a symbolic link, not a regular file\n/);
+  rmSync(r.place);
   // A date that is not one, one of another form, and one of the right form that no calendar has.
   for (const date of ["not-a-date", "2026-11-20", "2026-11-20T09:30:00.000Z", "2026-13-40T25:61:61Z", "2026-02-30T00:00:00Z"]) {
     writeFileSync(r.place, page.replace(/ data-date="[^"]*"/, ` data-date="${date}"`));
@@ -520,6 +620,80 @@ test("[check.ontology-tree.stale] each reason is reported; a current page, compa
   unlinkSync(r.place);
   r.git("config", "--local", "--unset", "ont.treeOut");
   assert.equal(stale(), "", "no place");
+});
+
+test("[check.ontology-tree.mark-exact] the mark is only the footer of the generator's form at the end of the page; its fields anywhere else are no mark", () => {
+  const r = repo();
+  r.setPlace();
+  assert.equal(r.gen("--refresh").code, 0);
+  const stale = () => {
+    const s = r.gen("--stale");
+    assert.equal(s.code, 0, s.out);
+    return s.out;
+  };
+  assert.equal(stale(), "", "the page as the generator wrote it");
+  const page = readFileSync(r.place, "utf8");
+  const end = "</body></html>\n";
+  const foot = page.match(/<footer class="built"[^\n]*<\/footer>\n/)[0];
+  assert.ok(page.endsWith(`\n${foot}${end}`), "the footer is last on the page");
+  assert.deepEqual(readMark(page), { commit: r.sha("refs/heads/main"), config: "ont.config.json", date: r.date() });
+  // The page without its footer: every case below keeps the three fields of main's mark on the page.
+  const body = page.slice(0, page.length - foot.length - end.length);
+  const section = body.lastIndexOf("</section>");
+  for (const [what, html] of [
+    ["in a comment", `${body}<!-- ${foot.trim()} -->\n${end}`],
+    ["in a title attribute", `${body}<span title='${foot.trim()}'>tree</span>\n${end}`],
+    ["in a footer before the end of the page", `${body.slice(0, section)}\n${foot}${body.slice(section)}${end}`],
+    ["in a footer with an attribute more", `${body}${foot.replace('<footer class="built"', '<footer class="built" data-by="hand"')}${end}`],
+    ["after a comment left open", `${body}<!--\n${foot}${end}`],
+  ]) {
+    assert.ok(html.includes(`data-commit="${r.sha("refs/heads/main")}"`) && html.includes('data-config="ont.config.json"'), what);
+    writeFileSync(r.place, html);
+    assert.equal(readMark(html), null, what);
+    assert.match(stale(), /TREE_STALE .*tree\.html: the page carries no mark of what it was built from\n/, what);
+  }
+  writeFileSync(r.place, page);
+  assert.equal(stale(), "");
+});
+
+test("[check.ontology-tree.place-resolved] a place through a linked directory followed by .. is the file the file system reaches, for the refresh and the stale report alike", () => {
+  const r = repo();
+  // via points into the repository's docs, so via/.. is the root of the repository, while the path
+  // normalised by hand is a file of the directory of the link.
+  const o = temp("ont-via-");
+  writeFileSync(join(o, "README.md"), "another file\n");
+  symlinkSync(join(r.dir, "docs"), join(o, "via"));
+  r.git("config", "--local", "ont.treeOut", [o, "via", "..", "README.md"].join("/"));
+  branch(r, "b1");
+  const before = readFileSync(join(r.dir, "README.md"), "utf8");
+  const m = r.git("merge", "-q", "b1");
+  assert.equal(m.code, 0, m.out);
+  assert.match(m.out, /tree: not written to .*: it is inside the repository, at .*, where the page would overwrite its files; /);
+  assert.equal(readFileSync(join(o, "README.md"), "utf8"), "another file\n", "the file at the path normalised by hand");
+  assert.ok(!readFileSync(join(r.dir, "README.md"), "utf8").includes("<!doctype html>"), "the file of the repository");
+  assert.notEqual(readFileSync(join(r.dir, "README.md"), "utf8"), before, "the merge itself is done");
+
+  // via points to a directory deep outside the repository: the page is written beside deep, not in the
+  // directory of the link, and the stale report reads it there.
+  const t = temp("ont-target-");
+  mkdirSync(join(t, "deep"));
+  const o2 = temp("ont-via-");
+  symlinkSync(join(t, "deep"), join(o2, "via"));
+  r.git("config", "--local", "ont.treeOut", [o2, "via", "..", "tree.html"].join("/"));
+  branch(r, "b2");
+  const w = r.git("merge", "-q", "b2");
+  assert.equal(w.code, 0, w.out);
+  assert.match(w.out, /built from [0-9a-f]{40}\n/);
+  assert.equal(existsSync(join(o2, "tree.html")), false, "nothing at the path normalised by hand");
+  const mark = readMark(readFileSync(join(t, "tree.html"), "utf8"));
+  assert.equal(mark.commit, r.sha("refs/heads/main"));
+  assert.equal(mark.config, "ont.config.json");
+  assert.equal(r.gen("--stale").out, "", "the stale report reads the page written");
+  // And a page left at the path normalised by hand is not the one it reads.
+  const written = readFileSync(join(t, "tree.html"), "utf8");
+  rmSync(join(t, "tree.html"));
+  writeFileSync(join(o2, "tree.html"), written);
+  assert.match(r.gen("--stale").out, /TREE_STALE .*tree\.html: the file does not exist\n/);
 });
 
 test("[field.ontology-tree.place] [rule.tree-refreshed-after-merge] every file the implementation table gives for a concept of the tree names it", () => {
