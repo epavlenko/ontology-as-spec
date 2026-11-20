@@ -449,7 +449,7 @@
           "format": "date-time"
         },
         "commits": {
-          "description": "The commit or the range of commits the round reviewed; none for a review of a statement.",
+          "description": "The commit or the range of commits the round reviewed, its last commit the one reviewed; none for a review of a statement, and required of a round that gives a verdict of acceptance.",
           "x-ont": "field.review-round.commits",
           "type": "string"
         },

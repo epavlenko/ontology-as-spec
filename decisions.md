@@ -979,6 +979,16 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: refusing a release with any skipped suite (a judged suite would make every release need a paid model); counting a skipped suite as passed (the record would claim what did not run); the integrity left to the check alone (`--verify` is the command a reviewer trusts).
 - Concepts: `field.product-release.checks`, `action.release-product`, `action.verify-release`, `inv.product-release-intact`.
 
+### D-117 · An acceptance is bound to its record of done, to the approval it was made under and to the reviewed commit
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-107, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted in D-106; the reviewer's finding of round 1 of the review of the result of task releases-and-task, "acceptance not bound to approval and commit", is the reviewer's, not the owner's words. The order of the checks and the line that names the reviewed commit are the thread's technical decisions.
+- Decision: adds to D-106 and D-107. A verdict of acceptance holds only when all of these hold (`inv.acceptance-after-done`): it comes after a record of done, the last one before it, whose every check passed; that record comes after the approval in force for its version, which is the last round of the review of the statement that ended before it (`derived.approval`); the approval is still in force for that version when the acceptance is given; the acceptance, the record and the approval name one hash of the statement; the record's commit is the commit the round reviewed, the last of its line `Commits:`, which a round with a verdict of acceptance must give (`field.review-round.commits`); and, when `--task` is given the statement's file, the file's hash is that hash.
+  - `--task` says the result is done only for an acceptance that holds; otherwise it names the round and why its acceptance is refused.
+- Why: a record of done of another commit was accepted; an acceptance given before an approval passed when that version was approved later, since the approval was read as of now; and the statement's current file had no part in whether the verdict holds.
+- Rejected: the approval read only as of now (the case above); the reviewed commit left to the reviewer's prose (the check cannot compare it).
+- Concepts: `inv.acceptance-after-done`, `derived.approval`, `field.review-round.commits`, `edge.task-result.statement`.
+
 ## Tentative
 
 ## Open questions

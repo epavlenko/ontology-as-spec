@@ -100,29 +100,47 @@ export function overlaps(rounds, spend) {
 const ofTask = (rounds, task, step) => byTime(rounds.filter((r) => r.task === task && (!step || r.step === step)));
 
 // The hash of the version under an approval in force: the last round by time of the review of the
-// statement is clean and names the version it read (derived.approval).
-export function approvedHash(rounds, task) {
-  const last = ofTask(rounds, task, "statement-review").at(-1);
+// statement is clean and names the version it read (derived.approval). With a time, the approval in
+// force then: the last such round that ended before it (D-117).
+export function approvedHash(rounds, task, before = null) {
+  const last = ofTask(rounds, task, "statement-review")
+    .filter((r) => before === null || r.time < before)
+    .at(-1);
   return last && isClean(last) && last.statementHash ? last.statementHash : null;
+}
+
+// The commit a round reviewed: the commit of its line Commits:, or the last of its range.
+export const reviewedCommit = (r) => {
+  const c = (r.commits ?? "").split("..").at(-1).trim();
+  return /^[0-9a-f]{7,40}$/.test(c) ? c : null;
+};
+
+// Why a verdict of acceptance is refused, or null (inv.acceptance-after-done, D-117): it follows the
+// record of done, which follows the approval in force; the acceptance, the record and that approval
+// name one version of the statement, the approval is still in force when the acceptance is given, the
+// record's commit is the one the round reviewed, and, when the statement's file is given, its version
+// is the file's.
+export function acceptanceWhy(r, rounds, done, statement = null) {
+  const records = done.filter((d) => d.task === r.task).sort((a, b) => a.time.localeCompare(b.time));
+  const before = records.filter((d) => d.time < r.time).at(-1);
+  const reviewed = reviewedCommit(r);
+  if (!records.length) return "there is no record of done";
+  if (!before) return "it was given before the record of done was made";
+  if (before.checks.some((c) => c.result !== "pass")) return `the record of done ${before.file} has a check that failed`;
+  if (r.statementHash !== before.statementHash) return `it names another version of the statement than the record of done ${before.file}`;
+  if (approvedHash(rounds, r.task, before.time) !== before.statementHash) return `the record of done ${before.file} was made with no approval in force for its version of the statement`;
+  if (approvedHash(rounds, r.task, r.time) !== before.statementHash) return "no approval is in force for that version of the statement";
+  if (!reviewed) return "the round names no commit it reviewed (Commits:)";
+  if (!before.commit.startsWith(reviewed)) return `the record of done ${before.file} is of commit ${before.commit.slice(0, 7)}, not of the commit the round reviewed, ${reviewed.slice(0, 7)}`;
+  if (statement?.hash && statement.hash !== before.statementHash) return `the statement's file is version ${statement.hash.slice(0, 12)}, not the version ${before.statementHash.slice(0, 12)} the record of done names`;
+  return null;
 }
 
 // Why each verdict of acceptance is refused (inv.acceptance-after-done).
 export function acceptanceProblems(rounds, done) {
   const out = [];
   for (const r of rounds.filter((x) => x.acceptance)) {
-    const records = done.filter((d) => d.task === r.task).sort((a, b) => a.time.localeCompare(b.time));
-    const before = records.filter((d) => d.time <= r.time).at(-1);
-    const why = !records.length
-      ? "there is no record of done"
-      : !before
-        ? "it was given before the record of done was made"
-        : before.checks.some((c) => c.result !== "pass")
-          ? `the record of done ${before.file} has a check that failed`
-          : r.statementHash !== before.statementHash
-            ? `it names another version of the statement than the record of done ${before.file}`
-            : approvedHash(rounds, r.task) !== before.statementHash
-              ? "no approval is in force for that version of the statement"
-              : null;
+    const why = acceptanceWhy(r, rounds, done);
     if (why) out.push(`${r.file}: acceptance of ${r.task} refused: ${why}`);
   }
   return out;
@@ -165,7 +183,7 @@ export const overspendText = (b) =>
 
 // What a task needs next, its statement, its result and its budget, as lines; and the errors of its
 // records that only --task can see (derived.statement-state, rule.budget-before-next).
-export function taskState({ rounds, spend, task, defaults, statement }) {
+export function taskState({ rounds, spend, done = [], task, defaults, statement }) {
   const b = taskBudget({ rounds, spend, task, defaults, statement });
   const exhausted = Boolean(b?.exhausted);
   const errors = [];
@@ -204,6 +222,8 @@ export function taskState({ rounds, spend, task, defaults, statement }) {
   if (!approved) lines.push(say("result", "work is not allowed: no approval in force for the statement"));
   else if (!end) lines.push(say("result", exhausted ? BUDGET_QUESTION : "the executor works, then records done with done.mjs"));
   else if (isClean(end) && !end.acceptance) lines.push(say("result", "the last round is clean on merging and gives no verdict of acceptance yet"));
+  else if (isClean(end) && acceptanceWhy(end, rounds, done, statement))
+    lines.push(say("result", `the verdict of acceptance of ${end.file} is refused: ${acceptanceWhy(end, rounds, done, statement)}; ${exhausted ? BUDGET_QUESTION : "the result needs a verdict of acceptance that holds"}`));
   else if (isClean(end)) {
     if (b?.over) {
       lines.push(say("result", `done, with an overspend: ${overspendText(b)}; report it to the owner`));

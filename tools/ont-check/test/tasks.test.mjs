@@ -17,7 +17,7 @@ const T = (h, m = 0) => `2026-11-20T${String(h).padStart(2, "0")}:${String(m).pa
 const finding = (i, test = "t.test.mjs") => `- class ${i} · important · change · fixable${test ? ` · ${test}` : ""}`;
 
 // A record of a round: its fields, then its findings, then its verdict of acceptance.
-const roundText = ({ task = "t", step = "statement-review", number = 1, narrow, ceiling, start, time, hash, found = 0, tokens, contribution, acceptance, overspend, untested }) =>
+const roundText = ({ task = "t", step = "statement-review", number = 1, narrow, ceiling, start, time, hash, found = 0, tokens, contribution, acceptance, overspend, untested, commits }) =>
   [
     `Task: ${task}`,
     `Step: ${step}`,
@@ -27,6 +27,7 @@ const roundText = ({ task = "t", step = "statement-review", number = 1, narrow, 
     ...(start ? [`Start: ${start}`] : []),
     `Time: ${time}`,
     `By: a model (a provider)`,
+    ...(commits ? [`Commits: ${commits}`] : []),
     ...(contribution ? [`Contribution: ${contribution}`] : []),
     ...(hash ? [`Statement-hash: ${hash}`] : []),
     ...(tokens ? [`Tokens-new: ${tokens[0]}`, `Tokens-cached: ${tokens[1]}`, `Tokens-out: ${tokens[2]}`] : []),
@@ -53,7 +54,7 @@ function scenario({ rounds = [], spend = [], done = [] }) {
   return { dir, ...r, records: t };
 }
 const state = (sc, { statement = null, defaults = { newInput: null, output: null, reserve: null } } = {}) =>
-  taskState({ rounds: sc.rounds, spend: sc.records.spend, task: "t", defaults, statement }).lines.join("\n");
+  taskState({ rounds: sc.rounds, spend: sc.records.spend, done: sc.records.done, task: "t", defaults, statement }).lines.join("\n");
 const fileOf = (hash) => ({ hash, budget: { newInput: null, output: null } });
 const approvedA = { step: "statement-review", number: 1, ceiling: 2, time: T(9), hash: A };
 
@@ -85,7 +86,7 @@ test("[check.task-statement.later-version-findings] a full round of version B wi
   assert.match(out, /statement: narrow round 2, on the fixes of the last round/);
   assert.doesNotMatch(out, /ended clean|approved/);
   assert.match(out, /result: work is not allowed/);
-  assert.deepEqual(acceptanceProblems(sc.rounds, sc.records.done), ["r3.md: acceptance of t refused: no approval is in force for that version of the statement"]);
+  assert.deepEqual(acceptanceProblems(sc.rounds, sc.records.done), ["r3.md: acceptance of t refused: the record of done d0.md was made with no approval in force for its version of the statement"]);
   // Ordered full rounds first, the clean narrow round would have ended the step: by time it does not.
   assert.notEqual(nextRound(sc.rounds.filter((r) => r.step === "statement-review")).next, "clean");
 });
@@ -184,7 +185,8 @@ test("[check.task-statement.budget-silent] with no limit anywhere nothing is sai
   assert.equal(taskBudget({ rounds: sc.rounds, spend: [], task: "t", defaults: limits(null, null) }), null);
 });
 
-const finalRound = (extra = {}) => ({ step: "result-review", number: 1, ceiling: 2, time: T(12), hash: A, acceptance: "clean", ...extra });
+// The commit a round of the result reviewed is the one the records of done name, "a" forty times.
+const finalRound = (extra = {}) => ({ step: "result-review", number: 1, ceiling: 2, time: T(12), hash: A, acceptance: "clean", commits: `${"b".repeat(7)}..${"a".repeat(7)}`, ...extra });
 
 test("[check.task-statement.budget-final-exact] a clean final round that spends the budget exactly ends the task with no question and no overspend", () => {
   const sc = scenario({ rounds: [{ ...approvedA, tokens: [500, 0, 10] }, finalRound({ tokens: [500, 0, 10] })], done: [{ time: T(11) }] });
@@ -195,14 +197,14 @@ test("[check.task-statement.budget-final-exact] a clean final round that spends 
 
 test("[check.task-statement.budget-final-over] a clean final round past the budget ends the task and says the overspend, which its record must name", () => {
   const named = scenario({ rounds: [{ ...approvedA, tokens: [500, 0, 10] }, finalRound({ tokens: [600, 0, 10], overspend: "new input 1100 of 1000" })], done: [{ time: T(11) }] });
-  const st = taskState({ rounds: named.rounds, spend: [], task: "t", defaults: limits(1000, 1000), statement: fileOf(A) });
+  const st = taskState({ rounds: named.rounds, spend: [], done: named.records.done, task: "t", defaults: limits(1000, 1000), statement: fileOf(A) });
   const out = st.lines.join("\n");
   assert.match(out, /result: done, with an overspend: new input 1100 of 1000, output 20 of 1000; report it to the owner/);
   assert.match(out, /BUDGET t: .*; overspend: new input 1100 of 1000/);
   assert.doesNotMatch(out, /question/);
   assert.deepEqual(st.errors, []);
   const unnamed = scenario({ rounds: [{ ...approvedA, tokens: [500, 0, 10] }, finalRound({ tokens: [600, 0, 10] })], done: [{ time: T(11) }] });
-  const st2 = taskState({ rounds: unnamed.rounds, spend: [], task: "t", defaults: limits(1000, 1000), statement: fileOf(A) });
+  const st2 = taskState({ rounds: unnamed.rounds, spend: [], done: unnamed.records.done, task: "t", defaults: limits(1000, 1000), statement: fileOf(A) });
   assert.match(st2.errors.join("\n"), /does not name the overspend/);
 });
 
@@ -282,6 +284,37 @@ test("[check.task-result.acceptance-refused] acceptance with no record of done, 
   assert.equal(r.status, 1, r.stdout);
   assert.match(r.stdout, /verdicts of acceptance refused \(4\)/);
   rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-result.acceptance-bound] an acceptance is refused for a done of another commit, for an approval given after the done, for an approval withdrawn before it, and for a statement file of another version", () => {
+  // The record of done is of commit "c…", the round reviewed "a…".
+  const other = scenario({ rounds: [approvedA, finalRound()], done: [{ time: T(11), commit: "c".repeat(40) }] });
+  assert.deepEqual(acceptanceProblems(other.rounds, other.records.done), ["r1.md: acceptance of t refused: the record of done d0.md is of commit ccccccc, not of the commit the round reviewed, aaaaaaa"]);
+  assert.match(state(other, { statement: fileOf(A) }), /result: the verdict of acceptance of r1\.md is refused: the record of done d0\.md is of commit ccccccc/);
+  assert.doesNotMatch(state(other, { statement: fileOf(A) }), /result: done/);
+  // A round with no commit it reviewed.
+  const none = scenario({ rounds: [approvedA, finalRound({ commits: null })], done: [{ time: T(11) }] });
+  assert.match(acceptanceProblems(none.rounds, none.records.done).join("\n"), /names no commit it reviewed/);
+  // Done at 11 and accepted at 12, under a round of the statement with findings at 10; A approved only at 13.
+  const late = scenario({
+    rounds: [
+      { step: "statement-review", number: 1, ceiling: 2, time: T(10), hash: A, found: 1 },
+      finalRound(),
+      { step: "statement-review", number: 1, narrow: true, time: T(13), hash: A },
+    ],
+    done: [{ time: T(11) }],
+  });
+  assert.deepEqual(acceptanceProblems(late.rounds, late.records.done), ["r1.md: acceptance of t refused: the record of done d0.md was made with no approval in force for its version of the statement"]);
+  // Approved at 9 and done at 11, the approval withdrawn by a round with findings at 11:30, accepted at 12.
+  const withdrawn = scenario({ rounds: [approvedA, { step: "statement-review", number: 2, time: T(11, 30), hash: A, found: 1 }, finalRound()], done: [{ time: T(11) }] });
+  assert.match(acceptanceProblems(withdrawn.rounds, withdrawn.records.done).join("\n"), /refused: no approval is in force for that version of the statement/);
+  // Everything bound, but the statement's file is now version B.
+  const bound = scenario({ rounds: [approvedA, finalRound()], done: [{ time: T(11) }] });
+  assert.deepEqual(acceptanceProblems(bound.rounds, bound.records.done), []);
+  assert.match(state(bound, { statement: fileOf(A) }), /result: done: the last round and its acceptance are clean/);
+  const st = taskState({ rounds: bound.rounds, spend: [], done: bound.records.done, task: "t", defaults: limits(null, null), statement: fileOf(B) });
+  assert.doesNotMatch(st.lines.join("\n"), /result: done/);
+  [other, none, late, withdrawn, bound].forEach((sc) => rmSync(sc.dir, { recursive: true, force: true }));
 });
 
 test("[check.task-spend.overlap] one session recorded over intervals that overlap is an error, and a record that begins after it ends is not summed", () => {

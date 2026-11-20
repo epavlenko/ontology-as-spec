@@ -1353,7 +1353,7 @@ if (cfg.reviewRounds) {
       console.log("ERROR · --task needs a task, and --statement an existing file");
       process.exit(2);
     }
-    const st = taskState({ rounds, spend: records.spend, task, defaults: cfg.budget, statement: file ? readStatement(file) : null });
+    const st = taskState({ rounds, spend: records.spend, done: records.done, task, defaults: cfg.budget, statement: file ? readStatement(file) : null });
     console.log(st.lines.join("\n"));
     report("task records that do not say what --task found", st.errors);
   }

@@ -105,6 +105,7 @@ export function parseRounds(dir) {
       by: fields.by,
       contribution,
       statementHash: fields["statement-hash"] ?? null,
+      commits: fields.commits ?? null,
       tokens: { new: n("tokens-new"), cached: n("tokens-cached"), out: n("tokens-out") },
       findings,
       acceptance: acceptance && { findings: acceptance.findings },
