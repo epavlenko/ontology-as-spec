@@ -344,6 +344,26 @@ test("[check.ontology-tree.replaced-commit] a local replacement of main's ontolo
   assert.equal(r.sha("refs/heads/main"), c, "the merge is done");
   assert.doesNotMatch(readFileSync(r.place, "utf8"), /of another commit/, "the hook never writes the replacement's text");
   assert.deepEqual(r.mark(), { commit: c, config: "ont.config.json" });
+  // And with the commit the merge brings replaced while the hook runs: Git checks the replacement's
+  // files out, the hook reads the real commit, finds the working tree differing from it, and keeps the
+  // page; the replacement's text never reaches it.
+  r.git("replace", "-d", main);
+  // The replacement is a commit on main as d is, so that Git still fast-forwards to d.
+  r.git("checkout", "-q", "-b", "e");
+  const e = r.commit("ontology.md", title, `${title}, of another commit`);
+  r.git("checkout", "-q", "main");
+  r.git("checkout", "-q", "-b", "d");
+  const d = r.commit("README.md", "", "a change of the branch d\n");
+  r.git("checkout", "-q", "main");
+  r.git("replace", d, e);
+  const kept = readFileSync(r.place);
+  const hd = r.git("merge", "-q", d);
+  assert.equal(hd.code, 0, hd.out);
+  assert.equal(r.sha("refs/heads/main"), d, "the merge fast-forwards to d");
+  assert.match(readFileSync(join(r.dir, "ontology.md"), "utf8"), /of another commit/, "Git checked the replacement's files out");
+  assert.match(hd.out, /the working tree differs from commit/, hd.out);
+  assert.ok(readFileSync(r.place).equals(kept), "the page is kept");
+  assert.doesNotMatch(readFileSync(r.place, "utf8"), /of another commit/, "the hook never writes the replacement's text");
 });
 
 test("[check.ontology-tree.replaced-commit] [inv.accepted-never-edited] every command of Git the tool runs turns local replacements off", () => {
@@ -379,7 +399,7 @@ test("[check.ontology-tree.generator-missing] a missing generator is named by th
   assert.equal(m.code, 0, m.out);
   assert.equal(r.sha("refs/heads/main"), r.sha("b"), "the merge is done");
   assert.ok(
-    m.out.includes(`post-merge: the ontology tree was not written: ${gen} is missing from the working tree; restore it with git restore --source=HEAD --staged --worktree -- ${gen}, then run node ${gen} --refresh`),
+    m.out.includes(`post-merge: the ontology tree was not written: ${gen} is missing from the working tree; restore it with git restore --source=HEAD --worktree -- ${gen}, which leaves the index as it is, then run node ${gen} --refresh`),
     m.out,
   );
   assert.equal(existsSync(r.place), false);
@@ -419,14 +439,22 @@ test("[check.ontology-tree.generator-missing] a missing import of the generator 
   assert.equal(r.sha("refs/heads/main"), r.sha("b"), "the merge is done");
   assert.equal(
     m.out,
-    `post-merge: the ontology tree was not written: ${lib} is missing from the working tree; restore it with git restore --source=HEAD --staged --worktree -- ${lib}, then run node tools/ont-check/gen-tree.mjs --refresh\n`,
+    `post-merge: the ontology tree was not written: ${lib} is missing from the working tree; restore it with git restore --source=HEAD --worktree -- ${lib}, which leaves the index as it is, then run node tools/ont-check/gen-tree.mjs --refresh\n`,
   );
   assert.equal(existsSync(r.place), false);
-  // The command it names restores the file whether its removal is staged or not.
+  // The command it names brings the file back whether its removal is staged or not, and leaves the
+  // index as it is, so a change staged for the file is not lost.
   r.git("rm", "-q", "--cached", lib);
-  const restore = r.git("restore", "--source=HEAD", "--staged", "--worktree", "--", lib);
+  const restore = r.git("restore", "--source=HEAD", "--worktree", "--", lib);
   assert.equal(restore.code, 0, restore.out);
   assert.ok(existsSync(join(r.dir, lib)), "the command the hook names brings the file back after a staged removal");
+  r.git("reset", "-q", "--", lib);
+  writeFileSync(join(r.dir, lib), readFileSync(join(r.dir, lib), "utf8") + "// a staged change\n");
+  r.git("add", lib);
+  rmSync(join(r.dir, lib));
+  const again = r.git("restore", "--source=HEAD", "--worktree", "--", lib);
+  assert.equal(again.code, 0, again.out);
+  assert.match(r.git("show", `:${lib}`).out, /\/\/ a staged change/, "the change staged for the file is still in the index");
 });
 
 test("[check.ontology-tree.generator-missing] the hook looks for the generator and every file it imports, and for nothing else", () => {
@@ -887,6 +915,7 @@ test("[check.ontology-tree.mark-exact] the mark is only the footer of the genera
     ["inside a details left open, after its summary", `${body}<details><summary>tree</summary>${foot}${end}`],
     ["inside a div left open", `${body}<div hidden>\n${foot}${end}`],
     ["after a stray end tag", `${body}</section>\n${foot}${end}`],
+    ["inside a template written with a slash", `${body}<template/>\n${foot}${end}`],
     ["after a script left open", `${body}<script>\n${foot}${end}`],
     ["after a style left open", `${body}<style>\n${foot}${end}`],
     ["after a textarea left open", `${body}<textarea>\n${foot}${end}`],

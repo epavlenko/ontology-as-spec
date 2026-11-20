@@ -200,11 +200,11 @@ const endsInText = (html) => {
     if (j >= html.length) return false;
     i = j + 1;
     const name = tag[2].toLowerCase();
-    const selfClosed = html[j - 1] === "/";
+    // In HTML a slash before > closes nothing: <template/> opens a template as <template> does.
     if (tag[1]) {
       if (open[open.length - 1] !== name) return false;
       open.pop();
-    } else if (!VOID.has(name) && !selfClosed && !RAW_TEXT.has(name)) open.push(name);
+    } else if (!VOID.has(name) && !RAW_TEXT.has(name)) open.push(name);
     if (!tag[1] && RAW_TEXT.has(name)) {
       const close = name === "plaintext" ? -1 : lower.indexOf(`</${name}`, i);
       if (close < 0) return false;
