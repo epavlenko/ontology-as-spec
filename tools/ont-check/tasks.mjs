@@ -293,7 +293,12 @@ export function taskBudget({ rounds, spend, done = [], approvals = [], task, def
   const { version, reserve: given, ...limits } = taskLimits({ statement, rounds, approvals, done, task, defaults });
   if (limits.newInput === null && limits.output === null) return null;
   const reserve = given ?? 1;
-  const cap = (k) => (limits[k] === null ? null : limits[k] * reserve);
+  // The reserve as a fraction of whole numbers, num / den, from its decimal digits, so that the cap and
+  // the comparison with it are exact: 3000000 × 1.1 is 3300000, never 3300000.0000000005 (D-150).
+  const digits = String(reserve).split(".")[1] ?? "";
+  const den = 10 ** digits.length;
+  const num = Math.round(reserve * den);
+  const cap = (k) => (limits[k] === null ? null : (limits[k] * num) / den);
   const parts = [...rounds.filter((r) => r.task === task), ...spend.filter((s) => s.task === task)];
   // Records of one contribution that overlap would count it twice: the spend is not summed at all, and
   // the stop holds until they are corrected (D-118); the pairs are those of every task's records, as the
@@ -317,7 +322,12 @@ export function taskBudget({ rounds, spend, done = [], approvals = [], task, def
   const sum = (k) => parts.reduce((a, p) => a + (p.tokens[k] ?? 0), 0);
   const used = { newInput: sum("new"), output: sum("out") };
   const known = parts.filter((p) => p.tokens.new !== null && p.tokens.out !== null).length;
-  const reached = (k, strict) => cap(k) !== null && (strict ? used[k] > cap(k) : used[k] >= cap(k));
+  // Compared in whole numbers: used × den against limit × num.
+  const reached = (k, strict) => {
+    if (limits[k] === null) return false;
+    const [a, b] = [BigInt(used[k]) * BigInt(den), BigInt(limits[k]) * BigInt(num)];
+    return strict ? a > b : a >= b;
+  };
   return {
     limits,
     reserve,
@@ -375,7 +385,11 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, exhaus
 // (D-121); the task is done only when the latest record of done has its own acceptance (D-128).
 export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement }) {
   const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement });
-  const exhausted = Boolean(b?.exhausted);
+  // A line of the statement's budget the tool cannot read stops the task as a spent budget does: no
+  // next action is named under a budget the tool does not know (D-150).
+  const unreadable = (statement?.wrong ?? []).length > 0;
+  const exhausted = Boolean(b?.exhausted) || unreadable;
+  const STOP = unreadable ? "a line of the statement's budget cannot be read: a question to the owner, with no next round" : BUDGET_QUESTION;
   const errors = [];
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
   const st = ofTask(rounds, task, "statement-review");
@@ -383,7 +397,7 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
   const hash = statement?.hash ?? null;
   let statementLine;
   let approved = false;
-  if (!last) statementLine = exhausted ? BUDGET_QUESTION : "it needs a review of the statement";
+  if (!last) statementLine = exhausted ? STOP : "it needs a review of the statement";
   else if (last.kind === "round" && !isClean(last.round)) statementLine = stepNext({ rounds, done, approvals, task, step: "statement-review", exhausted, statement }).say;
   else if (!hash) statementLine = `${last.kind === "approval" ? "the owner approved a version" : "the last round is clean"}; give --statement <file> to compare the version it names with the file`;
   else if (last.hash !== hash) {
@@ -394,7 +408,7 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
       full.length >= FULL_ROUNDS
         ? `the statement changed after ${FULL_ROUNDS} full rounds: a question to the owner`
         : exhausted
-          ? BUDGET_QUESTION
+          ? STOP
           : `the statement changed after its approval: next is full round ${next} of the new version${ceiling ? (next <= ceiling ? `, within the ceiling of ${ceiling}` : `, past the ceiling of ${ceiling}`) : ""}`;
   } else approved = true;
   const rr = ofTask(rounds, task, "result-review");
@@ -403,7 +417,7 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
   const finished = n?.next === "clean";
   let resultLine;
   if (!approved) resultLine = "work is not allowed: no approval in force for the statement";
-  else if (!end) resultLine = exhausted ? BUDGET_QUESTION : "the executor works, then records done with done.mjs";
+  else if (!end) resultLine = exhausted ? STOP : "the executor works, then records done with done.mjs";
   else if (finished) {
     resultLine = b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean";
     errors.push(...overspendProblems(end, b));
@@ -413,7 +427,7 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
     statementLine = finished
       ? `approved${by}, version ${hash.slice(0, 12)}: the task is done`
       : exhausted
-        ? `approved${by}, version ${hash.slice(0, 12)}, but ${BUDGET_QUESTION}; work may not ${end ? "go on" : "start"}`
+        ? `approved${by}, version ${hash.slice(0, 12)}, but ${STOP}; work may not ${end ? "go on" : "start"}`
         : `approved${by}, version ${hash.slice(0, 12)}: work may ${end ? "go on" : "start"} under it`;
   const lines = [say("statement", statementLine), say("result", resultLine)];
   errors.push(...(statement?.wrong ?? []).map((w) => `the statement's line ${w}`));

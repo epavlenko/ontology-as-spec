@@ -28,6 +28,9 @@ const file = value("--statement");
 if (!file) refuse("give the statement with --statement FILE");
 const statement = readStatement(file);
 if (!statement.doneWhen.length) refuse("the statement has no line Done-when: with a command of done");
+// A record of done carries the statement's budget; a line of it the tool cannot read is refused, never
+// written as none (D-150).
+if (statement.wrong?.length) refuse(`the statement's ${statement.wrong.join("; ")}`);
 const { rounds } = parseRounds(cfg.reviewRounds.dir);
 // The owner's approvals count as the check counts them (D-121).
 const { approvals } = parseTaskRecords(cfg.taskRecords.dir);

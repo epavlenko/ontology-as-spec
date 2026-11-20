@@ -537,6 +537,15 @@ test("[check.task-result.done-recorded] done.mjs records done only under an appr
     assert.equal(unapproved.status, 1);
     assert.match(unapproved.stdout, /the approval in force is for version/);
     assert.equal(readdirSync(join(repo, "tasks")).length, 1);
+    // A statement whose budget line the tool cannot read is refused, under an approval in force, and no
+    // record is written with the reserve as none (D-150).
+    const comma = join(outside, "comma.md");
+    writeFileSync(comma, "# A comma\n\nDone-when: true\nBudget-new-input: 100\nBudget-reserve: 1,5\n");
+    approve(comma, 3, T(11));
+    const c = done(comma);
+    assert.equal(c.status, 1, c.stdout);
+    assert.match(c.stdout, /Budget-reserve: 1,5 is not a number/);
+    assert.equal(readdirSync(join(repo, "tasks")).length, 1);
     assert.equal(git(repo, "worktree", "list").split("\n").length, 1);
   } finally {
     rmSync(repo, { recursive: true, force: true });
@@ -926,5 +935,16 @@ test("[check.task-statement.reserve-of-statement] a statement's line Budget-rese
   const comma = join(other.dir, "comma.md");
   writeFileSync(comma, "version C\nDone-when: npm test\nBudget-new-input: 3000000\nBudget-output: 1500000\nBudget-reserve: 1,5\n");
   assert.deepEqual(readStatement(comma).wrong, ["Budget-reserve: 1,5 is not a number of 1 or more, a whole number or a decimal with a point"]);
-  for (const d of [sc.dir, no.dir, other.dir]) rmSync(d, { recursive: true, force: true });
+  // The cap is exact: 3000000 × 1.1 is 3300000, so a spend of exactly 3300000 stops (D-150).
+  const exact = taskBudget({ rounds: [{ task: "t", step: "result-review", number: 1, time: T(12), tokens: { new: 3300000, cached: 0, out: 0 }, findings: [] }], spend: [], done: [], task: "t", defaults: limits(3000000, null, 1.1), statement: null });
+  assert.equal(exact.cap.newInput, 3300000);
+  assert.equal(exact.exhausted, true, "a spend of exactly the limit times the reserve stops");
+  // A line of the budget the tool cannot read stops the task with one answer, and done.mjs refuses it
+  // rather than writing the reserve as none (D-150).
+  const bad = scenario({ rounds: spent(sha256(readFileSync(comma))), done: [] });
+  writeFileSync(join(bad.dir, "statement.md"), readFileSync(comma));
+  const c = checkWith(bad, {}, ["--task", "t", "--statement", join(bad.dir, "statement.md")]);
+  assert.match(c.stdout, /a line of the statement's budget cannot be read/);
+  assert.doesNotMatch(c.stdout, /work may (start|go on)/, c.stdout);
+  for (const d of [sc.dir, no.dir, other.dir, bad.dir]) rmSync(d, { recursive: true, force: true });
 });
