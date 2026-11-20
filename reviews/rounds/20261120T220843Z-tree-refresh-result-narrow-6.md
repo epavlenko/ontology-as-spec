@@ -9,5 +9,5 @@ Checks-listed: 40
 Checks-given: 40
 Checks-carried: 0
 Findings:
-- decision log contradicts itself · important · change · fixable
-- freshness mark incomplete · nit · change · fixable
+- decision log contradicts itself · important · change · fixable · check.ontology-tree.mark-exact
+- freshness mark incomplete · nit · change · fixable · check.ontology-tree.mark
