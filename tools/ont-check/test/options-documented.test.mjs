@@ -16,7 +16,7 @@ export const flagsOf = (text) =>
   new Set([...text.matchAll(/\b(?:flag|opt|value|values|includes|indexOf)\("(--[a-z][a-z-]*)"\)/g)].map((m) => m[1]));
 // A list: a key of the configuration, `raw.docSets` or `raw.checks.axes`, mapped item by item; its
 // path, "checks.axes", and the name of its item.
-export const listsOf = (text) => [...text.matchAll(/\braw\.((?:[a-zA-Z]+\??\.)*[a-zA-Z]+) \?\? \[\]\)(?:,?\s*\])?\.map\(\s*\(?([a-z])\)? =>/g)].map((m) => Object.assign(m, { 1: m[1].replaceAll("?", "") }));
+export const listsOf = (text) => [...text.matchAll(/\braw\.((?:[a-zA-Z]+\??\.)*[a-zA-Z]+) \?\? \[\]\)(?:,?\s*\])?\.map\(\s*\(?([A-Za-z_$][\w$]*)\)? =>/g)].map((m) => Object.assign(m, { 1: m[1].replaceAll("?", "") }));
 // The keys the loader reads from the configuration: a top-level key, `raw.manualRuns`; a key of an
 // object, `raw.manualRuns.dir` or `raw.codeNames?.owner`, as "manualRuns.dir"; and a key of each item
 // of a list, `(raw.docSets ?? []).map((d) => … d.files …)`, as "docSets[].files".
@@ -68,8 +68,17 @@ test("[check.tool-copy.options-documented] the loader names every key it passes 
   for (const k of ["headings.otherWords", "headings.history", "references[].title", "checks.axes[].each", "tests.cover"]) assert.ok(keys.has(k), k);
   // Every list the loader maps item by item is one the test reads, so a key of its items is not missed.
   const body = loader.slice(loader.indexOf("export function loadConfig"), loader.indexOf("\n}\n", loader.indexOf("export function loadConfig")));
-  const mapped = body.match(/\.map\(\s*\(?[a-z]\)? =>/g).length;
+  // Every .map in the loader's body but .map(at), which maps paths, is a list the test reads, whatever
+  // its item is called or however it is written.
+  const mapped = body.match(/\.map\(/g).length - (body.match(/\.map\(at\)/g) ?? []).length;
   assert.equal(listsOf(body).length, mapped, "a list of the configuration the test does not read");
+  // A list added under another name, or with its item destructured, is caught.
+  for (const added of ["axesCopy: (raw.checks.axes ?? []).map((axis) => axis.secret),", "names: (raw.docSets ?? []).map(({ name }) => name),"]) {
+    const more = body.replace("return {", `return {\n    ${added}`);
+    const counted = more.match(/\.map\(/g).length - (more.match(/\.map\(at\)/g) ?? []).length;
+    const fails = listsOf(more).length !== counted || [...keysOf(more)].some((k) => !describesKey(readme, k));
+    assert.ok(fails, `not caught: ${added}`);
+  }
 });
 
 test("[check.tool-copy.options-documented] a flag or a key taken out of the README fails", () => {
