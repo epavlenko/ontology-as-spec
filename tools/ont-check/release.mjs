@@ -26,8 +26,12 @@ import {
   entryText,
   git,
   RELEASABLE,
+  inHistory,
   parseProductRecords,
+  pinAt,
   productReleaseProblems,
+  releaseRecordProblems,
+  runMatchesRecord,
   parseReleasesFile,
   previousVerified,
   releaseCommitProblems,
@@ -35,7 +39,7 @@ import {
   releaseTags,
   runReleaseChecks,
 } from "./releases.mjs";
-import { cleanEnv, gitEnv, runAtCommit, sha256 } from "./tasks.mjs";
+import { cleanEnv, gitEnv, runAtCommit } from "./tasks.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -163,7 +167,6 @@ function product() {
   if (!cfg.releases) refuse("the configuration names no releases: the directory of records and the pin");
   const top = git(cfg.base, "rev-parse", "--show-toplevel").out;
   const cfgRel = relative(top, cfg.file).split("\\").join("/");
-  const pinRel = relative(top, cfg.releases.pin).split("\\").join("/");
   const tool = toolIn(top);
   const { releases } = parseProductRecords(cfg.releases.dir);
   const run = (commit) =>
@@ -177,17 +180,15 @@ function product() {
     if (!r) refuse(`no record of release ${version}`);
     // The record's integrity first, as the check finds it: a run cannot vouch for a record whose commit,
     // pin or checks do not hold (D-116).
-    const broken = productReleaseProblems({ top, cfgRel, pinRel, releases: [r], deployments: [] });
+    const broken = productReleaseProblems({ top, cfgRel, releases: [r], deployments: [] });
     if (broken.length) refuse(`release ${version} is not intact, so it is not run:\n${broken.map((b) => `  ${b}`).join("\n")}`);
     const res = run(r.commit);
     if (res.error) refuse(res.error);
-    const got = res.results.map((x) => `${x.command} · ${x.result}`);
-    const want = r.checks.map((c) => `${c.check} · ${c.result}`);
-    // Each check gives the result its record says; a check the record says was skipped may pass now,
-    // where the run had what it lacked, such as a judge.
-    const same =
-      res.results.length === r.checks.length &&
-      res.results.every((x, i) => x.command === r.checks[i].check && (x.result === r.checks[i].result || (r.checks[i].result === "skipped" && x.result === "pass")));
+    const got = res.results.map((x) => `${x.command} · ${x.result}${x.result === "skipped" ? ` · ${x.detail}` : ""}`);
+    const want = r.checks.map((c) => `${c.check} · ${c.result}${c.result === "skipped" ? ` · ${c.detail}` : ""}`);
+    // Each check gives the result its record says, a skipped one with the same counts; a check the record
+    // says was skipped may pass now, where the run had what it lacked, such as a judge (D-125).
+    const same = runMatchesRecord(r.checks, res.results);
     const failed = res.results.filter((x) => !RELEASABLE.has(x.result));
     if (failed.length || !same)
       refuse(`release ${version} is not verified on ${r.commit.slice(0, 7)}: the run gave ${got.join(", ")}; the record says ${want.join(", ")}${failed.length ? `\n${tail(failed[0].output)}` : ""}`);
@@ -200,8 +201,11 @@ function product() {
   if (releases.some((r) => r.version === version)) refuse(`release ${version} has a record already`);
   const commit = git(cfg.base, "rev-parse", "--verify", `${value("--commit") ?? "HEAD"}^{commit}`).out;
   if (!commit) refuse(`no commit ${value("--commit") ?? "HEAD"}`);
-  const pin = spawnSync("git", ["-C", top, "show", `${commit}:${pinRel}`], { env: gitEnv(), maxBuffer: 1 << 28 });
-  if (pin.status !== 0) refuse(`the pin ${pinRel} is not at commit ${commit.slice(0, 7)}`);
+  // The rules of the check, before anything runs: a commit of the history, the pin of its configuration
+  // (D-125).
+  if (!inHistory(top, commit)) refuse(`commit ${commit.slice(0, 7)} is not in the project's history, the history of HEAD; no record written`);
+  const pin = pinAt(top, cfgRel, commit);
+  if (pin.error) refuse(`${pin.error}; no record written`);
   const res = run(commit);
   if (res.error) refuse(res.error);
   // A release is written with checks that passed or were skipped, never with one that failed or ran no
@@ -212,11 +216,17 @@ function product() {
   // tool is the approach's own, as in the approach's example.
   let toolVersion = commit;
   try {
-    toolVersion = JSON.parse(pin.stdout.toString("utf8")).commit ?? commit;
+    toolVersion = JSON.parse(pin.bytes.toString("utf8")).commit ?? commit;
   } catch {}
+  // The record is validated as the check validates it, by the same function, before it is written
+  // (D-125): the action never writes a record the check refuses.
+  const record = { version, commit, pin: pin.hash, tool: toolVersion, date: today(), results: res.results };
+  const checks = res.results.map((x) => ({ check: x.command, result: x.result, detail: x.detail }));
+  const wrong = releaseRecordProblems({ top, cfgRel, r: { ...record, file: `${version}.md`, checks } });
+  if (wrong.length) refuse(`the record would not hold: ${wrong.join("; ")}; no record written`);
   mkdirSync(cfg.releases.dir, { recursive: true });
   const file = join(cfg.releases.dir, `${version}.md`);
-  writeFileSync(file, releaseRecordText({ version, commit, pin: sha256(pin.stdout), tool: toolVersion, date: today(), results: res.results }));
+  writeFileSync(file, releaseRecordText(record));
   const skipped = res.results.filter((x) => x.result === "skipped");
   console.log(`RELEASED ${version}: ${res.results.map((x) => `${x.command} · ${x.result}`).join(", ")} on ${commit.slice(0, 7)}${skipped.length ? `; skipped, as the record says: ${skipped.map((x) => `${x.command} (${x.detail})`).join(", ")}` : ""}; recorded in ${relative(process.cwd(), resolve(file))}`);
 }

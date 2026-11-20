@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "../releases.mjs";
+import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, releaseTag, runningNow } from "../releases.mjs";
 import { sha256 } from "../tasks.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
@@ -218,6 +218,24 @@ test("[check.protocol-release.news-unreadable] a tag of the approach clone with 
   assert.ok(!news.some((l) => /among the releases the approach clone knows/.test(l)));
 });
 
+test("[check.protocol-release.lightweight-tag] a lightweight tag on a valid release commit is no release, for the check of the approach and for the news of a project alike", () => {
+  const { repo, first } = approachRepo();
+  addEntry(repo, "D-02");
+  assert.equal(release(repo, "0.2.0").status, 0);
+  const commit = git(repo, "rev-parse", "v0.2.0^{commit}");
+  assert.equal(releaseNews({ clone: repo, pinCommit: first, used: new Set() }).length, 1);
+  git(repo, "tag", "-d", "v0.2.0");
+  git(repo, "tag", "v0.2.0", commit);
+  assert.equal(git(repo, "cat-file", "-t", "refs/tags/v0.2.0"), "commit");
+  assert.deepEqual(protocolReleaseProblems(repo).problems, ["v0.2.0: the tag is not annotated"]);
+  assert.equal(releaseTag(repo, "v0.2.0").entry, null);
+  const news = releaseNews({ clone: repo, pinCommit: first, used: new Set() });
+  assert.deepEqual(news, [
+    "the releases of the approach clone are not known in full: tag v0.2.0: the tag is not annotated; it is not counted",
+    "no newer version among the releases of the approach clone that can be read",
+  ]);
+});
+
 test("[check.protocol-release.news] a project learns of newer releases from its approach clone, read by tag, and none of it fails the check", () => {
   const { repo, first } = approachRepo();
   const clone = join(temp("clone-parent-"), "early");
@@ -285,7 +303,7 @@ const product = (repo, ...a) => node(repo, join(repo, "tools", "ont-check", "rel
 const checkProduct = (repo, ...a) => node(repo, join(repo, "tools", "ont-check", "ont-check.mjs"), "--config", join(repo, "ont.config.json"), ...a);
 const problems = (repo) => {
   const { releases, deployments } = parseProductRecords(join(repo, "releases"));
-  return productReleaseProblems({ top: repo, cfgRel: "ont.config.json", pinRel: "tools/ont-check/upstream.json", releases, deployments });
+  return productReleaseProblems({ top: repo, cfgRel: "ont.config.json", releases, deployments });
 };
 const recordText = (fields, checks) => [...Object.entries(fields).map(([k, v]) => `${k}: ${v}`), "Checks:", ...checks, ""].join("\n");
 
@@ -356,10 +374,71 @@ test("[check.product-release.skipped-suite] a suite whose every test is skipped 
   assert.deepEqual(problems(repo), []);
   const wrong = product(repo, "--verify", "1.0.1");
   assert.equal(wrong.status, 1, wrong.stdout);
-  assert.match(wrong.stdout, /release 1\.0\.1 is not verified .*the run gave ont-check · pass, suite unit · pass, suite judged · skipped; the record says .*suite judged · pass/);
+  assert.match(wrong.stdout, /release 1\.0\.1 is not verified .*the run gave ont-check · pass, suite unit · pass, suite judged · skipped · 1 of 1 tests skipped; the record says .*suite judged · pass/);
   // A record that says a suite ran no test is not intact.
   writeFileSync(join(repo, "releases", "1.0.2.md"), recordText({ Version: "1.0.2", Commit: commit, Pin: pin, Tool: "c".repeat(40), Date: "2026-11-20" }, ["- ont-check · pass", "- suite unit · pass", "- suite judged · not-run"]));
   assert.match(problems(repo).join("\n"), /1\.0\.2\.md: checks not passed: suite judged · not-run/);
+});
+
+test("[check.product-release.verify-skipped-count] --verify compares the count of skipped tests exactly, and a skipped check with no count is not intact", () => {
+  const { repo } = productRepo();
+  const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+  writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, testSuites: [...cfg.testSuites, { name: "judged", dir: "judged", match: "\\.judged\\.mjs$", cover: [] }] }, null, 2));
+  mkdirSync(join(repo, "judged"));
+  writeFileSync(join(repo, "judged", "a.judged.mjs"), 'import { test } from "node:test";\nfor (const n of [1, 2, 3, 4, 5]) test(`judged ${n}`, { skip: "no judge" }, () => {});\n');
+  const commit = commitAll(repo, "five judged tests, all skipped");
+  mkdirSync(join(repo, "releases"));
+  const pin = sha256(readFileSync(join(repo, "tools", "ont-check", "upstream.json")));
+  const rec = (version, judged) => writeFileSync(join(repo, "releases", `${version}.md`), recordText({ Version: version, Commit: commit, Pin: pin, Tool: "c".repeat(40), Date: "2026-11-20" }, ["- ont-check · pass", "- suite unit · pass", `- suite judged · ${judged}`]));
+  rec("1.0.0", "skipped · 1 of 5 tests skipped");
+  rec("1.0.1", "skipped · 5 of 5 tests skipped");
+  commitAll(repo, "two records by hand");
+  assert.deepEqual(problems(repo), []);
+  const wrong = product(repo, "--verify", "1.0.0");
+  assert.equal(wrong.status, 1, wrong.stdout);
+  assert.match(wrong.stdout, /release 1\.0\.0 is not verified .*the run gave .*suite judged · skipped · 5 of 5 tests skipped; the record says .*suite judged · skipped · 1 of 5 tests skipped/);
+  const right = product(repo, "--verify", "1.0.1");
+  assert.equal(right.status, 0, right.stdout);
+  // Skipped with no count cannot be compared: the record is not intact.
+  rec("1.0.2", "skipped");
+  assert.match(problems(repo).join("\n"), /1\.0\.2\.md: skipped with no count: suite judged/);
+});
+
+test("[check.product-release.commit-outside-history] --product refuses a commit outside the history of HEAD before it writes, by the rule of the check", () => {
+  const { repo } = productRepo();
+  git(repo, "checkout", "-q", "-b", "side");
+  writeFileSync(join(repo, "side.txt"), "x");
+  const side = commitAll(repo, "a commit on another branch");
+  git(repo, "checkout", "-q", "main");
+  const r = product(repo, "--product", "1.0.0", "--commit", side);
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stdout, /^ERROR · commit [0-9a-f]{7} is not in the project's history, the history of HEAD; no record written/);
+  assert.equal(readdirSync(repo).includes("releases"), false);
+  // The same rule as the check: a record of that commit written by hand is refused by it.
+  mkdirSync(join(repo, "releases"));
+  const pin = sha256(readFileSync(join(repo, "tools", "ont-check", "upstream.json")));
+  writeFileSync(join(repo, "releases", "1.0.0.md"), recordText({ Version: "1.0.0", Commit: side, Pin: pin, Tool: "c".repeat(40), Date: "2026-11-20" }, ["- ont-check · pass", "- suite unit · pass"]));
+  assert.match(problems(repo).join("\n"), /1\.0\.0\.md: commit [0-9a-f]{7} is not in the project's history/);
+});
+
+test("[check.product-release.pin-moved] a pin moved to another path later leaves an earlier release intact: its pin is read by the configuration at its commit", () => {
+  const { repo } = productRepo();
+  assert.equal(product(repo, "--product", "1.0.0").status, 0);
+  commitAll(repo, "the release 1.0.0");
+  mkdirSync(join(repo, "pins"));
+  git(repo, "mv", "tools/ont-check/upstream.json", "pins/upstream.json");
+  const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+  writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, releases: { ...cfg.releases, pin: "pins/upstream.json" } }, null, 2));
+  commitAll(repo, "the pin moved");
+  assert.deepEqual(problems(repo), []);
+  const c = checkProduct(repo);
+  assert.doesNotMatch(c.stdout, /records of releases and deployments that do not hold/);
+  const v = product(repo, "--verify", "1.0.0");
+  assert.equal(v.status, 0, v.stdout);
+  // A release of the commit after the move hashes the pin at its new path.
+  const r = product(repo, "--product", "1.1.0");
+  assert.equal(r.status, 0, r.stdout);
+  assert.match(readFileSync(join(repo, "releases", "1.1.0.md"), "utf8"), new RegExp(`Pin: ${sha256(readFileSync(join(repo, "pins", "upstream.json")))}`));
 });
 
 test("[check.product-release.verify-intact-first] --verify refuses a record that is not intact before it runs anything", () => {

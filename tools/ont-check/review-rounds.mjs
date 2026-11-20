@@ -142,13 +142,20 @@ export const BUDGET_QUESTION = "the budget is exhausted: a question to the owner
 // (D-119); without one, what follows is the round that gives it, or the question when the budget is
 // exhausted.
 export const NO_ACCEPTANCE = "the last round is clean on merging and gives no verdict of acceptance yet: a round that gives it follows, after done.mjs records done";
-export function nextRound(stepRounds, { exhausted = false } = {}) {
+// refused(round) says why a clean verdict of acceptance does not hold, or null (inv.acceptance-after-done):
+// such a round does not end its step either (D-123). tasks.mjs stepNext gives it, for --task and --rounds.
+export function nextRound(stepRounds, { exhausted = false, refused = () => null } = {}) {
   const all = byTime(stepRounds);
   const full = all.filter((r) => !r.narrow);
   const narrow = all.filter((r) => r.narrow);
   const last = all.at(-1);
   if (!last) return exhausted ? { next: "budget", say: BUDGET_QUESTION } : { next: "first round" };
   if (!classes(last) && last.step === "result-review" && !last.acceptance) return exhausted ? { next: "budget", say: BUDGET_QUESTION } : { next: "acceptance", say: NO_ACCEPTANCE };
+  const why = !classes(last) && last.step === "result-review" ? refused(last) : null;
+  if (why)
+    return exhausted
+      ? { next: "budget", say: `the verdict of acceptance of ${last.file} is refused: ${why}; ${BUDGET_QUESTION}` }
+      : { next: "refused", say: `the verdict of acceptance of ${last.file} is refused: ${why}; the result needs a verdict of acceptance that holds` };
   if (!classes(last)) return { next: "clean", say: "the step ended clean" };
   const ask = (why) => ({ next: "question", say: `a question to the owner: ${why}` });
   if (exhausted) return { next: "budget", say: BUDGET_QUESTION };
@@ -205,15 +212,17 @@ export function stepPayoff(rounds) {
 }
 
 // exhaustedOf(task) says whether a task's budget is exhausted, from the configuration's limits: a
-// statement's own limits are read by --task, which is run before each step (D-119).
-export function renderRounds(rounds, { exhaustedOf = () => false } = {}) {
+// statement's own limits are read by --task, which is run before each step (D-119). nextOf(task, step,
+// rounds) gives the next round of a step; the check passes tasks.mjs stepNext, the function --task uses,
+// so the two never disagree (D-123).
+export function renderRounds(rounds, { exhaustedOf = () => false, nextOf = null } = {}) {
   const lines = [];
   const tasks = [...new Set(rounds.map((r) => r.task))].sort();
   for (const t of tasks)
     for (const step of STEPS) {
       const of = rounds.filter((r) => r.task === t && r.step === step);
       if (!of.length) continue;
-      const n = nextRound(of, { exhausted: exhaustedOf(t) });
+      const n = nextOf ? nextOf(t, step, of) : nextRound(of, { exhausted: exhaustedOf(t) });
       const full = of.filter((r) => !r.narrow).length;
       lines.push(`ROUNDS ${t} · ${step}: ${full} full, ${of.length - full} narrow · next: ${n.say}`);
     }

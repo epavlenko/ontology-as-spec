@@ -1087,7 +1087,7 @@
           "format": "date"
         },
         "pin": {
-          "description": "The pin of the protocol at the commit, by the SHA-256 of the file releases.pin names.",
+          "description": "The pin of the protocol at the commit, by the SHA-256 of the file that releases.pin of the configuration at that commit names.",
           "x-ont": "edge.product-release.pin",
           "type": "string",
           "x-ont-ref": "ent.tool-copy"

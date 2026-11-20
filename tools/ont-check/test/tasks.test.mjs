@@ -11,7 +11,9 @@ import { acceptanceProblems, gitEnv, overlaps, parseTaskRecords, readStatement, 
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
 const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
-const A = sha256("version A");
+// Version A of a statement: its one command of done is the one the records of done here ran.
+const A_TEXT = "version A\nDone-when: npm test\n";
+const A = sha256(A_TEXT);
 const B = sha256("version B");
 const T = (h, m = 0) => `2026-11-20T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00Z`;
 const finding = (i, test = "t.test.mjs") => `- class ${i} · important · change · fixable${test ? ` · ${test}` : ""}`;
@@ -38,8 +40,8 @@ const roundText = ({ task = "t", step = "statement-review", number = 1, narrow, 
   ].join("\n");
 const spendText = ({ task = "t", contribution = "a provider · run-1", start, end, tokens = [0, 0, 0] }) =>
   [`Record: spend`, `Task: ${task}`, `Contribution: ${contribution}`, `Start: ${start}`, `End: ${end}`, `Tokens-new: ${tokens[0]}`, `Tokens-cached: ${tokens[1]}`, `Tokens-out: ${tokens[2]}`, ""].join("\n");
-const doneText = ({ task = "t", hash = A, time, result = "pass", commit = "a".repeat(40) }) =>
-  [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${hash}`, `Time: ${time}`, `Checks:`, `- npm test · ${result}`, ""].join("\n");
+const doneText = ({ task = "t", hash = A, time, result = "pass", commit = "a".repeat(40), command = "npm test" }) =>
+  [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${hash}`, `Time: ${time}`, `Checks:`, `- ${command} · ${result}`, ""].join("\n");
 
 // Writes the records into two directories and reads them as the check does.
 function scenario({ rounds = [], spend = [], done = [] }) {
@@ -55,7 +57,7 @@ function scenario({ rounds = [], spend = [], done = [] }) {
 }
 const state = (sc, { statement = null, defaults = { newInput: null, output: null, reserve: null } } = {}) =>
   taskState({ rounds: sc.rounds, spend: sc.records.spend, done: sc.records.done, task: "t", defaults, statement }).lines.join("\n");
-const fileOf = (hash) => ({ hash, budget: { newInput: null, output: null } });
+const fileOf = (hash) => ({ hash, doneWhen: ["npm test"], budget: { newInput: null, output: null } });
 const approvedA = { step: "statement-review", number: 1, ceiling: 2, time: T(9), hash: A };
 
 test("[check.task-statement.needs-review] a task with no round of the review of its statement needs one", () => {
@@ -391,10 +393,84 @@ test("[check.task-spend.overlap-not-summed] two records of one session with equa
   [sc, one].forEach((x) => rmSync(x.dir, { recursive: true, force: true }));
 });
 
+test("[check.task-result.done-commands] an acceptance is refused when the record of done ran other commands than the statement's commands of done", () => {
+  const text = "version C\nDone-when: false\n";
+  const C = sha256(text);
+  const sc = scenario({ rounds: [{ ...approvedA, hash: C }, finalRound({ hash: C })], done: [{ time: T(11), hash: C, command: "true" }] });
+  writeFileSync(join(sc.dir, "statement.md"), text);
+  const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "statement.md")]);
+  assert.match(r.stdout, /TASK t · result: the verdict of acceptance of r1\.md is refused: the commands of the record of done d0\.md, "true", are not the statement's commands of done, "false"/);
+  assert.doesNotMatch(r.stdout, /result: done/);
+  // The same record against a statement whose command of done is the one it ran is done.
+  const same = scenario({ rounds: [approvedA, finalRound()], done: [{ time: T(11) }] });
+  writeFileSync(join(same.dir, "statement.md"), A_TEXT);
+  assert.match(checkWith(same, {}, ["--task", "t", "--statement", join(same.dir, "statement.md")]).stdout, /TASK t · result: done: the last round and its acceptance are clean/);
+  [sc, same].forEach((x) => rmSync(x.dir, { recursive: true, force: true }));
+});
+
+test("[check.task-result.rounds-agree] with no record of done, --rounds and --task both refuse the verdict of acceptance and neither calls the step clean", () => {
+  const sc = scenario({ rounds: [approvedA, finalRound()] });
+  const rounds = checkWith(sc, {}, ["--rounds"]);
+  assert.equal(rounds.status, 1, rounds.stdout);
+  assert.match(rounds.stdout, /verdicts of acceptance refused \(1\):\n  r1\.md: acceptance of t refused: there is no record of done/);
+  assert.match(rounds.stdout, /ROUNDS t · result-review: 1 full, 0 narrow · next: the verdict of acceptance of r1\.md is refused: there is no record of done; the result needs a verdict of acceptance that holds/);
+  assert.doesNotMatch(rounds.stdout, /result-review: .* next: the step ended clean/);
+  assert.match(state(sc, { statement: fileOf(A) }), /result: the verdict of acceptance of r1\.md is refused: there is no record of done/);
+  // Past the budget, both give the stop.
+  const past = checkWith(sc, { budget: { newInput: 0, output: 0 } }, ["--rounds"]);
+  assert.match(past.stdout, /ROUNDS t · result-review: .* next: the verdict of acceptance of r1\.md is refused: there is no record of done; the budget is exhausted: a question to the owner/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-spend.overlap-across-tasks] records of one session that overlap across two tasks stop the budget of each, as the check finds them", () => {
+  const sc = scenario({
+    rounds: [{ ...approvedA, tokens: [0, 0, 0] }, { ...approvedA, task: "u", tokens: [0, 0, 0] }],
+    spend: [
+      { task: "t", contribution: "openai · s1", start: T(10), end: T(11), tokens: [100, 0, 10] },
+      { task: "u", contribution: "openai · s1", start: T(10, 30), end: T(11, 30), tokens: [100, 0, 10] },
+    ],
+  });
+  for (const task of ["t", "u"]) {
+    const st = taskState({ rounds: sc.rounds, spend: sc.records.spend, done: [], task, defaults: limits(100000, 100000), statement: fileOf(A) });
+    const out = st.lines.join("\n");
+    assert.match(out, new RegExp(`BUDGET ${task}: the spend cannot be summed, 1 pair of records of one contribution overlap: s0\\.md .*task t\\) and s1\\.md .*task u\\): one contribution, openai · s1`));
+    assert.match(out, /result: the budget is exhausted: a question to the owner/);
+    assert.doesNotMatch(out, /new input 100|new input 200|work may start/);
+  }
+  const r = checkWith(sc, { budget: { newInput: 100000, output: 100000 } }, ["--task", "t", "--rounds"]);
+  assert.match(r.stdout, /contributions recorded twice over intervals that overlap \(1\)/);
+  assert.match(r.stdout, /BUDGET t: the spend cannot be summed/);
+  assert.match(r.stdout, /ROUNDS t · statement-review: 1 full, 0 narrow · next: the step ended clean/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.budget-one-action] after a round of the result with the budget spent, --task names one next action, the stop", () => {
+  const sc = scenario({ rounds: [{ ...approvedA, tokens: [600, 0, 10] }, { step: "result-review", number: 1, ceiling: 2, time: T(12), found: 1, tokens: [600, 0, 10] }] });
+  const out = state(sc, { statement: fileOf(A), defaults: limits(1000, 1000) });
+  assert.match(out, /statement: approved, version [0-9a-f]{12}, but the budget is exhausted: a question to the owner; work may not go on/);
+  assert.match(out, /result: the budget is exhausted: a question to the owner/);
+  assert.doesNotMatch(out, /work may (start|go on) under it|round 2/);
+  // Within the budget, the same rounds let work go on, and the next is round 2.
+  const within = state(sc, { statement: fileOf(A), defaults: limits(10000, 10000) });
+  assert.match(within, /statement: approved, version [0-9a-f]{12}: work may go on under it/);
+  assert.match(within, /result: round 2, within the ceiling of 2/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.budget-executor-no-round] the executor's spend past the limit with no round at all, through the check, is the stop", () => {
+  const sc = scenario({ spend: [{ start: T(10), end: T(11), tokens: [2000, 0, 10] }] });
+  assert.equal(sc.rounds.length, 0);
+  const r = checkWith(sc, { budget: { newInput: 1000, output: 1000 } }, ["--task", "t"]);
+  assert.match(r.stdout, /TASK t · statement: the budget is exhausted: a question to the owner/);
+  assert.match(r.stdout, /TASK t · result: work is not allowed/);
+  assert.match(r.stdout, /BUDGET t: new input 2000 of 1000 × 1 = 1000, output 10 of 1000 × 1 = 1000; known for 1 of 1 contributions; .*overspend: new input 2000 of 1000/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
 test("[check.task-statement.budget-final-over] through the check, --task fails when the record of acceptance does not name the overspend", () => {
   const sc = scenario({ rounds: [{ ...approvedA, tokens: [500, 0, 10] }, finalRound({ tokens: [600, 0, 10] })], done: [{ time: T(11) }] });
   // A file whose SHA-256 is version A's.
-  writeFileSync(join(sc.dir, "statement.md"), "version A");
+  writeFileSync(join(sc.dir, "statement.md"), A_TEXT);
   const r = checkWith(sc, { budget: { newInput: 1000, output: 1000 } }, ["--task", "t", "--statement", join(sc.dir, "statement.md")]);
   assert.equal(r.status, 1, r.stdout);
   assert.match(r.stdout, /TASK t · result: done, with an overspend/);

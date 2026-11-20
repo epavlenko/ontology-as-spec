@@ -81,22 +81,27 @@ export function parseTaskRecords(dir) {
 }
 
 // Two records of one contribution whose intervals overlap, even in part, or that begin in the same
-// second, as two equal intervals do, even of no length (inv.contributions-apart, D-118). A record that
-// begins after it ends is malformed and never reaches here.
-export function overlaps(rounds, spend) {
+// second, as two equal intervals do, even of no length (inv.contributions-apart, D-118), of one task or
+// of two, with the tasks each names. A record that begins after it ends is malformed and never reaches
+// here. The check and every task's budget read these same pairs (D-124).
+export function overlapPairs(rounds, spend) {
   const runs = [
-    ...rounds.filter((r) => r.contribution && r.start).map((r) => ({ file: r.file, key: r.contribution.key, start: r.start, end: r.time })),
-    ...spend.map((s) => ({ file: s.file, key: s.contribution.key, start: s.start, end: s.end })),
+    ...rounds.filter((r) => r.contribution && r.start).map((r) => ({ file: r.file, task: r.task, key: r.contribution.key, start: r.start, end: r.time })),
+    ...spend.map((s) => ({ file: s.file, task: s.task, key: s.contribution.key, start: s.start, end: s.end })),
   ];
   const out = [];
   runs.forEach((a, i) =>
     runs.slice(i + 1).forEach((b) => {
       if (a.key === b.key && (a.start === b.start || (a.start < b.end && b.start < a.end)))
-        out.push(`${a.file} (${a.start}–${a.end}) and ${b.file} (${b.start}–${b.end}): one contribution, ${a.key}, over intervals that overlap`);
+        out.push({
+          tasks: [a.task, b.task],
+          text: `${a.file} (${a.start}–${a.end}${a.task === b.task ? "" : `, task ${a.task}`}) and ${b.file} (${b.start}–${b.end}${a.task === b.task ? "" : `, task ${b.task}`}): one contribution, ${a.key}, over intervals that overlap`,
+        });
     }),
   );
   return out;
 }
+export const overlaps = (rounds, spend) => overlapPairs(rounds, spend).map((p) => p.text);
 
 const ofTask = (rounds, task, step) => byTime(rounds.filter((r) => r.task === task && (!step || r.step === step)));
 
@@ -120,7 +125,7 @@ export const reviewedCommit = (r) => {
 // record of done, which follows the approval in force; the acceptance, the record and that approval
 // name one version of the statement, the approval is still in force when the acceptance is given, the
 // record's commit is the one the round reviewed, and, when the statement's file is given, its version
-// is the file's.
+// is the file's and the record's commands are exactly its commands of done (D-123).
 export function acceptanceWhy(r, rounds, done, statement = null) {
   const records = done.filter((d) => d.task === r.task).sort((a, b) => a.time.localeCompare(b.time));
   const before = records.filter((d) => d.time < r.time).at(-1);
@@ -134,6 +139,10 @@ export function acceptanceWhy(r, rounds, done, statement = null) {
   if (!reviewed) return "the round names no commit it reviewed (Commits:)";
   if (!before.commit.startsWith(reviewed)) return `the record of done ${before.file} is of commit ${before.commit.slice(0, 7)}, not of the commit the round reviewed, ${reviewed.slice(0, 7)}`;
   if (statement?.hash && statement.hash !== before.statementHash) return `the statement's file is version ${statement.hash.slice(0, 12)}, not the version ${before.statementHash.slice(0, 12)} the record of done names`;
+  const ran = before.checks.map((c) => c.command);
+  const want = statement ? (statement.doneWhen ?? []) : null;
+  if (want && (ran.length !== want.length || ran.some((c, i) => c !== want[i])))
+    return `the commands of the record of done ${before.file}, ${ran.map((c) => `"${c}"`).join(", ")}, are not the statement's commands of done, ${want.map((c) => `"${c}"`).join(", ") || "none"}`;
   return null;
 }
 
@@ -159,8 +168,11 @@ export function taskBudget({ rounds, spend, task, defaults, statement }) {
   const cap = (k) => (limits[k] === null ? null : limits[k] * reserve);
   const parts = [...rounds.filter((r) => r.task === task), ...spend.filter((s) => s.task === task)];
   // Records of one contribution that overlap would count it twice: the spend is not summed at all, and
-  // the stop holds until they are corrected (D-118).
-  const conflict = overlaps(rounds.filter((r) => r.task === task), spend.filter((s) => s.task === task));
+  // the stop holds until they are corrected (D-118); the pairs are those of every task's records, as the
+  // check finds them, that involve this task (D-124).
+  const conflict = overlapPairs(rounds, spend)
+    .filter((p) => p.tasks.includes(task))
+    .map((p) => p.text);
   if (conflict.length)
     return {
       limits,
@@ -199,55 +211,59 @@ export const overspendText = (b) =>
     .map((k) => `${LABEL[k]} ${b.used[k]} of ${b.cap[k]}`)
     .join(", ");
 
+// The next round of one step of a task, as --task and --rounds both give it (D-123): derived.next-round,
+// with the task's budget and with a clean verdict of acceptance that does not hold read as refused.
+export function stepNext({ rounds, done = [], task, step, exhausted = false, statement = null }) {
+  return nextRound(ofTask(rounds, task, step), { exhausted, refused: (r) => acceptanceWhy(r, rounds, done, statement) });
+}
+
 // What a task needs next, its statement, its result and its budget, as lines; and the errors of its
-// records that only --task can see (derived.statement-state, rule.budget-before-next).
+// records that only --task can see (derived.statement-state, rule.budget-before-next). With the budget
+// exhausted and the task not done, every line that names a next action names the stop (D-124).
 export function taskState({ rounds, spend, done = [], task, defaults, statement }) {
   const b = taskBudget({ rounds, spend, task, defaults, statement });
   const exhausted = Boolean(b?.exhausted);
   const errors = [];
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
-  const lines = [];
   const st = ofTask(rounds, task, "statement-review");
   const last = st.at(-1);
   const hash = statement?.hash ?? null;
+  let statementLine;
   let approved = false;
-  if (!last) lines.push(say("statement", exhausted ? BUDGET_QUESTION : "it needs a review of the statement"));
-  else if (!isClean(last)) lines.push(say("statement", nextRound(st, { exhausted }).say));
-  else if (!hash) lines.push(say("statement", "the last round is clean; give --statement <file> to compare the version it read with the file"));
+  if (!last) statementLine = exhausted ? BUDGET_QUESTION : "it needs a review of the statement";
+  else if (!isClean(last)) statementLine = stepNext({ rounds, done, task, step: "statement-review", exhausted, statement }).say;
+  else if (!hash) statementLine = "the last round is clean; give --statement <file> to compare the version it read with the file";
   else if (last.statementHash !== hash) {
     const full = st.filter((r) => !r.narrow);
     const next = Math.max(0, ...full.map((r) => r.number)) + 1;
     const ceiling = full.find((r) => r.ceiling)?.ceiling;
-    lines.push(
-      say(
-        "statement",
-        full.length >= FULL_ROUNDS
-          ? `the statement changed after ${FULL_ROUNDS} full rounds: a question to the owner`
-          : exhausted
-            ? BUDGET_QUESTION
-            : `the statement changed after its approval: next is full round ${next} of the new version${ceiling ? (next <= ceiling ? `, within the ceiling of ${ceiling}` : `, past the ceiling of ${ceiling}`) : ""}`,
-      ),
-    );
-  } else {
-    approved = true;
-    const started = rounds.some((r) => r.task === task && r.step === "result-review");
-    lines.push(
-      say("statement", exhausted && !started ? `approved, version ${hash.slice(0, 12)}, but ${BUDGET_QUESTION}; work may not start` : `approved, version ${hash.slice(0, 12)}: work may start under it`),
-    );
-  }
+    statementLine =
+      full.length >= FULL_ROUNDS
+        ? `the statement changed after ${FULL_ROUNDS} full rounds: a question to the owner`
+        : exhausted
+          ? BUDGET_QUESTION
+          : `the statement changed after its approval: next is full round ${next} of the new version${ceiling ? (next <= ceiling ? `, within the ceiling of ${ceiling}` : `, past the ceiling of ${ceiling}`) : ""}`;
+  } else approved = true;
   const rr = ofTask(rounds, task, "result-review");
   const end = rr.at(-1);
-  if (!approved) lines.push(say("result", "work is not allowed: no approval in force for the statement"));
-  else if (!end) lines.push(say("result", exhausted ? BUDGET_QUESTION : "the executor works, then records done with done.mjs"));
-  else if (isClean(end) && !end.acceptance) lines.push(say("result", nextRound(rr, { exhausted }).say));
-  else if (isClean(end) && acceptanceWhy(end, rounds, done, statement))
-    lines.push(say("result", `the verdict of acceptance of ${end.file} is refused: ${acceptanceWhy(end, rounds, done, statement)}; ${exhausted ? BUDGET_QUESTION : "the result needs a verdict of acceptance that holds"}`));
-  else if (isClean(end)) {
+  const n = approved && end ? stepNext({ rounds, done, task, step: "result-review", exhausted, statement }) : null;
+  const finished = n?.next === "clean";
+  let resultLine;
+  if (!approved) resultLine = "work is not allowed: no approval in force for the statement";
+  else if (!end) resultLine = exhausted ? BUDGET_QUESTION : "the executor works, then records done with done.mjs";
+  else if (finished) {
     if (b?.over) {
-      lines.push(say("result", `done, with an overspend: ${overspendText(b)}; report it to the owner`));
+      resultLine = `done, with an overspend: ${overspendText(b)}; report it to the owner`;
       if (!end.overspend) errors.push(`${end.file}: the record of acceptance does not name the overspend (${overspendText(b)})`);
-    } else lines.push(say("result", "done: the last round and its acceptance are clean"));
-  } else lines.push(say("result", nextRound(rr, { exhausted }).say));
+    } else resultLine = "done: the last round and its acceptance are clean";
+  } else resultLine = n.say;
+  if (approved)
+    statementLine = finished
+      ? `approved, version ${hash.slice(0, 12)}: the task is done`
+      : exhausted
+        ? `approved, version ${hash.slice(0, 12)}, but ${BUDGET_QUESTION}; work may not ${end ? "go on" : "start"}`
+        : `approved, version ${hash.slice(0, 12)}: work may ${end ? "go on" : "start"} under it`;
+  const lines = [say("statement", statementLine), say("result", resultLine)];
   if (b?.conflict.length)
     lines.push(`BUDGET ${task}: the spend cannot be summed, ${b.conflict.length} pair${b.conflict.length > 1 ? "s" : ""} of records of one contribution overlap: ${b.conflict.join("; ")}; ${BUDGET_QUESTION}, until the records are corrected`);
   else if (b) {

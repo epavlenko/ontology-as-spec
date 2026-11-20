@@ -48,7 +48,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { parseRounds, renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, gitEnv, overlaps, parseTaskRecords, readStatement, taskBudget, taskState } from "./tasks.mjs";
+import { acceptanceProblems, gitEnv, overlaps, parseTaskRecords, readStatement, stepNext, taskBudget, taskState } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1342,9 +1342,12 @@ if (cfg.reviewRounds) {
   report("task records that cannot be read", records.malformed);
   report("contributions recorded twice over intervals that overlap", overlaps(rounds, records.spend));
   report("verdicts of acceptance refused", acceptanceProblems(rounds, records.done));
-  // The next round of each step with the budget of its task, by the configuration's limits (D-119).
-  if (flag("--rounds") > 0)
-    console.log(renderRounds(rounds, { exhaustedOf: (t) => Boolean(taskBudget({ rounds, spend: records.spend, task: t, defaults: cfg.budget, statement: null })?.exhausted) }));
+  // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
+  // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
+  if (flag("--rounds") > 0) {
+    const exhaustedOf = (t) => Boolean(taskBudget({ rounds, spend: records.spend, task: t, defaults: cfg.budget, statement: null })?.exhausted);
+    console.log(renderRounds(rounds, { exhaustedOf, nextOf: (t, step) => stepNext({ rounds, done: records.done, task: t, step, exhausted: exhaustedOf(t) }) }));
+  }
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
   // budget (D-106, D-108).
   // ont: derived.statement-state, derived.task-budget, rule.budget-before-next
@@ -1388,7 +1391,7 @@ if (cfg.releases) {
   // Integrity rests on the project's history: a copy of the files outside it cannot be checked.
   report(
     "records of releases and deployments that do not hold",
-    !releases.length && !deployments.length ? [] : top ? productReleaseProblems({ top, cfgRel: rel(cfg.file), pinRel: rel(cfg.releases.pin), releases, deployments }) : ["the records cannot be checked outside the project's Git repository"],
+    !releases.length && !deployments.length ? [] : top ? productReleaseProblems({ top, cfgRel: rel(cfg.file), releases, deployments }) : ["the records cannot be checked outside the project's Git repository"],
   );
   if (flag("--releases") > 0) {
     for (const r of releases) console.log(`RELEASE ${r.version} · ${r.commit.slice(0, 7)} · ${r.date} · ${r.checks.map((c) => `${c.check} ${c.result}`).join(", ")}`);

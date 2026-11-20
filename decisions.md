@@ -1008,6 +1008,46 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: exempting the tasks recorded before D-107 (the tool cannot tell them from a task whose acceptance was forgotten); reading the statement's limits in `--rounds` (it is not given a statement).
 - Concepts: `derived.next-round`, `rule.acceptance-against-approved`, `rule.budget-before-next`.
 
+### D-122 · A tag is a release only by one test, which the check of the approach and the news of a project share
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-109 and D-110, from the owner's answer of 2026-11-20 to question 996, "996 - a", quoted in D-109; the reviewer's finding of round 2 of the review of the result of task releases-and-task, "tag not matched to its release entry", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. That one function decides, and its messages, are the thread's technical decisions.
+- Decision: adds to D-109, D-110 and D-114. A tag is a release only when it is `v` and three numbers of Semantic Versioning, annotated, and on the release commit of its entry (`inv.release-tagged`); every other tag is an invalid tag, named with why. One function of `releases.mjs`, `releaseTag`, says it: the check of the approach asks it with the entry of `releases.md`, a project's news (`derived.newer-releases`) with the entry the tag's commit has. A lightweight tag on a valid release commit is refused by both, and the news does not count it.
+- Why: the news read a lightweight tag as a release while the check of the approach refused it, since each had its own test of a tag.
+- Rejected: adding the test of annotation to the news alone (the two tests would part again at the next change).
+- Concepts: `inv.release-tagged`, `derived.newer-releases`.
+
+### D-123 · --rounds and --task give the state of a step by one function, and a record of done names exactly the statement's commands of done
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-106 and D-107, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted in D-106; the reviewer's finding of round 2 of the review of the result of task releases-and-task, "acceptance not bound to approval and commit", is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. The shared function and the exact comparison are the thread's technical decisions.
+- Decision: adds to D-107, D-117 and D-119. `tasks.mjs` `stepNext` gives the next round of a step of a task for `--task` and for `--rounds` alike: `derived.next-round`, with the task's budget, and a clean verdict of acceptance that `inv.acceptance-after-done` refuses read as refused, so the step has not ended: the next is a round whose verdict holds, or the question to the owner when the budget is exhausted.
+  - Where the statement's file is read, an acceptance holds only when the commands of the record of done are exactly the file's lines `Done-when:`, in their order (`inv.acceptance-after-done`).
+- Why: `--task` accepted a record of done whose command was `true` while the statement's command of done was `false`; without a record of done, the check refused the acceptance while `--rounds` called the step clean.
+- Rejected: comparing the commands as sets (the order is the statement's); a second refusal in `renderRounds` (two functions would part again).
+- Concepts: `derived.next-round`, `inv.acceptance-after-done`, `field.task-statement.done-when`.
+
+### D-124 · An overlap of one contribution across tasks stops the budget of each, and with the budget exhausted the stop is the one next action
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-108, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted in D-106; the reviewer's findings of round 2 of the review of the result of task releases-and-task, "budget spend counted twice" and "budget stop at the end of a step", are the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. The wording of `--task` is the thread's technical decision.
+- Decision: adds to D-108 and D-118. A task's budget reads the pairs of records that overlap from all the records of every task, by the same function the check uses (`overlapPairs`), and any pair that involves the task leaves its spend unsummed and the budget exhausted until they are corrected (`derived.task-budget`).
+  - With the budget exhausted and the task not done, every line of `--task` that names a next action names the stop: the statement's line says the approval and that work may not start or go on, and no line lets work start or names a next round (`rule.budget-before-next`). A task done stays done, and its statement's line says so.
+- Why: two tasks with records of one session over overlapping intervals got an error from the check while `--task` still summed each and proposed the next round; after a first round of the result with the budget spent, `--task` said both that work may start and that the budget was exhausted.
+- Rejected: keeping the overlap per task (one session counted once in each of two tasks is counted twice).
+- Concepts: `derived.task-budget`, `inv.contributions-apart`, `rule.budget-before-next`, `derived.statement-state`.
+
+### D-125 · A record of a product release is validated by the check's function before it is written, its pin read by the configuration at its commit, and skipped counts compared exactly
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-111 and D-116, from the owner's answer of 2026-11-20 to question 996, "996 - a", quoted in D-111; the reviewer's findings of round 2 of the review of the result of task releases-and-task, "git context and paths" and "product release run not proven", are the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. The shared validation and the comparison of counts are the thread's technical decisions.
+- Decision: adds to D-111 and D-116. One function, `releaseRecordProblems`, validates a record of a release for the check and for `release.mjs` (`inv.product-release-intact`): `--product` refuses a commit outside the history of HEAD and a pin its configuration does not name before anything runs, and validates the record it would write by that function before writing it, so it never writes a record the check refuses.
+  - The pin of a release is the file `releases.pin` names in the configuration at the release's commit (`edge.product-release.pin`): a later move of the pin leaves an earlier release intact.
+  - A check recorded as skipped says how many of how many tests were skipped; a skipped check with no count is not intact. `--verify` compares the counts exactly: a check skipped again with other counts is a difference, and one the record says was skipped may still pass (`action.verify-release`).
+- Why: `--product --commit` wrote a record of a commit outside the branch's history that the check then refused; moving the pin in the current configuration broke an old release, whose pin was looked up under the new path; `--verify` accepted a record of 1 of 5 tests skipped when all 5 were skipped.
+- Rejected: reading the pin's path from the current configuration (it moves); comparing only the result of a skipped check (the count is what the record claims).
+- Concepts: `inv.product-release-intact`, `edge.product-release.pin`, `action.release-product`, `action.verify-release`, `field.product-release.checks`.
+
 ## Tentative
 
 ## Open questions
