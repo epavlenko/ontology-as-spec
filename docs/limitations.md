@@ -87,7 +87,8 @@ The forms restate the rows in a small language of records, actions, refusals and
 - **Several products sharing concepts.** When a word means different things in two neighbouring products, one ontology with namespaces, or two ontologies with a mapping?
 - **How much behavior belongs in the ontology.** Too little, and agents guess. Too much, and the ontology becomes the verbose spec that Böckeler criticizes. Formal forms (D-93) put behavior under the tables, folded, so the tables stay the overview; whether people still read the ontology when every row has a form is not known yet.
 - **Two languages.** The target model can be written in the team's language while code and user documentation use another. The approach handles this as two vocabularies with recorded divergences. Does it hold up with a larger team?
-- **Versioning.** Should the ontology be versioned against releases, or is the decision log enough history?
+
+Versions are no longer an open question: a release of the approach is an entry of `releases.md` and its tag, a release of a product records the commit and the pin its checks passed on, and both are described in the lifecycle, [Releases of the approach](lifecycle.md#releases-of-the-approach) and [Releases of the product](lifecycle.md#releases-of-the-product) (D-109, D-111).
 
 <!-- ont: -->
 ## Deferred

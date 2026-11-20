@@ -515,3 +515,17 @@ test("[check.deployment.running-now] the latest deployment in an environment is 
   const { deployments } = parseProductRecords(join(repo, "releases"));
   assert.equal(runningNow(deployments).get("production").release, "1.1.0");
 });
+
+test("[check.protocol-release.docs-not-open] the limitations do not keep versions as an open question, and point to the releases of the lifecycle", () => {
+  const DOCS = fileURLToPath(new URL("../../../docs/", import.meta.url));
+  const page = readFileSync(join(DOCS, "limitations.md"), "utf8");
+  const open = page.slice(page.indexOf("## Open questions"), page.indexOf("\n## ", page.indexOf("## Open questions") + 1));
+  const questions = open.split("\n").filter((l) => l.startsWith("- "));
+  assert.ok(questions.length > 0);
+  assert.deepEqual(questions.filter((q) => /version|release/i.test(q)), []);
+  assert.match(open, /\]\(lifecycle\.md#releases-of-the-approach\)/);
+  assert.match(open, /\]\(lifecycle\.md#releases-of-the-product\)/);
+  const lifecycle = readFileSync(join(DOCS, "lifecycle.md"), "utf8");
+  assert.match(lifecycle, /^## Releases of the approach$/m);
+  assert.match(lifecycle, /^## Releases of the product$/m);
+});
