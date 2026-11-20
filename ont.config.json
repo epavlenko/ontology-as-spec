@@ -108,6 +108,9 @@
   "reviewRounds": {
     "dir": "reviews/rounds"
   },
+  "taskRecords": {
+    "dir": "reviews/tasks"
+  },
   "protocolReleases": {
     "file": "releases.md"
   }
