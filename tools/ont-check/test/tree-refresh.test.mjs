@@ -916,6 +916,9 @@ test("[check.ontology-tree.mark-exact] the mark is only the footer of the genera
     ["inside a div left open", `${body}<div hidden>\n${foot}${end}`],
     ["after a stray end tag", `${body}</section>\n${foot}${end}`],
     ["inside a template written with a slash", `${body}<template/>\n${foot}${end}`],
+    ["after an end tag of an svg that its slash closed", `${body}<svg/></svg>\n${foot}${end}`],
+    ["after an end tag of a path that its slash closed, inside an svg", `${body}<svg><path/></path></svg>\n${foot}${end}`],
+    ["after an end tag of a math that its slash closed", `${body}<math/></math>\n${foot}${end}`],
     ["after a script left open", `${body}<script>\n${foot}${end}`],
     ["after a style left open", `${body}<style>\n${foot}${end}`],
     ["after a textarea left open", `${body}<textarea>\n${foot}${end}`],
@@ -933,6 +936,8 @@ test("[check.ontology-tree.mark-exact] the mark is only the footer of the genera
   for (const [what, html] of [
     ["white space between the footer and the end", `${body}${foot.trimEnd()} \t\n\n${end.trimEnd()}\n\n`],
     ["a template closed before the footer", `${body}<template><template></template><p>x</p></template>\n${foot}${end}`],
+    ["an svg whose path its slash closes, before the footer", `${body}<svg><path d="M0 0"/></svg>\n${foot}${end}`],
+    ["an svg its slash closes, before the footer", `${body}<svg/>\n${foot}${end}`],
   ]) {
     writeFileSync(r.place, html);
     assert.deepEqual(readMark(html), { commit: r.sha("refs/heads/main"), config: "ont.config.json", date: r.date() }, what);

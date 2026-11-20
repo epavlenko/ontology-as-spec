@@ -200,11 +200,15 @@ const endsInText = (html) => {
     if (j >= html.length) return false;
     i = j + 1;
     const name = tag[2].toLowerCase();
-    // In HTML a slash before > closes nothing: <template/> opens a template as <template> does.
+    // In HTML a slash before > closes nothing: <template/> opens a template as <template> does. Inside
+    // <svg> or <math>, and for <svg/> and <math/> themselves, the content is foreign, and there a slash
+    // before > does close the element, as the HTML Standard parses foreign content.
+    const foreign = name === "svg" || name === "math" || open.includes("svg") || open.includes("math");
+    const selfClosed = foreign && html[j - 1] === "/";
     if (tag[1]) {
       if (open[open.length - 1] !== name) return false;
       open.pop();
-    } else if (!VOID.has(name) && !RAW_TEXT.has(name)) open.push(name);
+    } else if (!VOID.has(name) && !RAW_TEXT.has(name) && !selfClosed) open.push(name);
     if (!tag[1] && RAW_TEXT.has(name)) {
       const close = name === "plaintext" ? -1 : lower.indexOf(`</${name}`, i);
       if (close < 0) return false;
