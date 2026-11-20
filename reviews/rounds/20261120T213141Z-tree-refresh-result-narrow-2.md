@@ -9,6 +9,6 @@ Checks-listed: 46
 Checks-given: 46
 Checks-carried: 0
 Findings:
-- freshness mark incomplete · important · change · fixable
-- documentation promises more than the hook · important · change · fixable
-- tests miss cases of the statement · nit · change · fixable
+- freshness mark incomplete · important · change · fixable · check.ontology-tree.mark-exact
+- documentation promises more than the hook · important · change · fixable · check.ontology-tree.generator-missing
+- tests miss cases of the statement · nit · change · fixable · check.ontology-tree.replaced-commit
