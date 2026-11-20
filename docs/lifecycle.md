@@ -69,7 +69,7 @@ node tools/ontology-as-spec/pin.mjs verify --pin tools/ontology-as-spec.upstream
 
 The update copies the tool of the clone's `HEAD`, or of `--ref`, without its tests and with the approach's LICENSE, deletes the files the approach removed since the old pin, and writes the pin: the commit, its date, the last decision of the approach and the hash of every file. It lists the decisions since the old pin, which the project reads and carries into its own rules, and the files in the directory that no pin names, which it leaves in place. The verification runs with the check, and fails on a file that is missing or changed and on any file in the directory that the pin does not name. A note the project keeps beside the copy is listed under `own` in the pin.
 
-The copy's README describes every file of the tool, every flag a script reads and every key of the configuration; a test of the approach fails when one is missing, so a project can learn from the README alone what the copy it took can do.
+The copy's README describes every file of the tool, every flag a script reads and every key of the configuration, which the loader lists in a table and reads through a guard that refuses any other; a test of the approach fails when one is missing, so a project can learn from the README alone what the copy it took can do.
 
 <!-- ont: action.add-concept@3509fd, ent.decision@4607b2, action.update-copy@32bd58, ent.agent-rules@99af23, ent.check@d0dcbc, ent.implementation-row@f093f9, ent.mockup-element@54a519, ent.doc-set@ca5d70 -->
 <!-- ont: concept.oracle@88e2a7 -->
