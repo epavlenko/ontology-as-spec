@@ -855,6 +855,7 @@ IDs that had to change. The decision log keeps using them; everywhere else the c
 
 ## Revision history
 
+- 2026-11-20: after the narrow round 3 of the review of the result: inside SVG and MathML a slash closes an element before the footer (D-133).
 - 2026-11-20: after the narrow round 1 of the review of the result: `derived.tree-stale` and `field.ontology-tree.built-from` take the footer only as a child of the page's body (D-132).
 - 2026-11-20: after round 5 of the review of the result: `field.ontology-tree.built-from` and `rule.tree-refreshed-after-merge` take an input's path as the configuration gives it, a `..` part or a symbolic link on it not clean; `derived.tree-stale` reads the mark only directly before the end of the page, after nothing left open; the hook asks about the branch and the place first (D-130, which supersedes D-120). The target `rule.guard-from-acceptance`, the guard's point of comparison, waits for the owner's answer to D-131.
 - 2026-11-20: after round 4 of the review of the result: `rule.tree-refreshed-after-merge` builds the tree from the files of HEAD and writes it only when the working tree holds the same files, names a file that differs, reads no commit through a local replacement, and says when the generator is missing; `field.ontology-tree.built-from` and `derived.tree-stale` take only the footer whose text is the generator's for its attributes (D-120, which supersedes D-113).

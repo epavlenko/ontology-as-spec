@@ -939,6 +939,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: adding `<details>` to D-130's list (the next element would pass in the same way); reading the styles of the page (a renderer, not a check).
 - Concepts: `derived.tree-stale`, `field.ontology-tree.built-from`.
 
+### D-133 · In SVG and MathML a slash closes the element, as HTML parses foreign content
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the thread's technical decisions from the narrow round 3 of the review of the result of task tree-refresh, 2026-11-20, under the owner's answer "995 - a" of 2026-11-20 that D-105 cites, and his answer of 2026-11-20 to question 1007, "I approved the goal. Carry it to the result. Decide yourself how many rounds are needed" (translated from Russian).
+- Decision: adds to D-132. An element the page opens before the footer is closed by its own end tag, or, inside `<svg>` or `<math>` and for `<svg/>` and `<math/>` themselves, by a slash before its `>`. In HTML outside them a slash closes nothing, so `<template/>` stays open. An end tag of an element that its slash has closed closes nothing open, and the page carries no mark.
+- Why: the review found `<svg/></svg>` before the footer taken for closed elements, while the HTML Standard closes the svg at its slash and the second tag is a stray one (https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inforeign). The rule follows how a browser reads the page, so that what the report takes for the body is what a person sees.
+- Rejected: refusing every page with SVG or MathML before the footer (the generator writes none, but a project's page may draw one).
+- Concepts: `derived.tree-stale`, `field.ontology-tree.built-from`.
+
 ## Tentative
 
 ### D-131 · The guard compares an accepted entry with the text of the first commit that accepted it, from the commit that brings the rule in
