@@ -154,6 +154,7 @@ test("[check.manual-run.record-verdicts] one record for each new verdict, none f
     commit: "abc123",
     now,
     changedSince: (since, files) => (assert.deepEqual([since, files], ["abc", ["app/library.mjs"]]), []),
+    runs: runs.map((x) => (x.check === "check.b" ? { ...x, commit: "abc" } : x)),
   });
   assert.deepEqual(r.problems, []);
   assert.equal(r.records.length, 1);
@@ -181,9 +182,13 @@ test("[check.manual-run.record-refused] a table with a check not listed, twice, 
   const carry = "| check.b | carried | 20261120T090000Z-check.b-abcd.md";
   const r6 = refused(["| check.a | pass | |", `${carry} |`]);
   assert.ok(r6.problems.some((p) => p.includes("without the files read for it")), r6.problems.join("\n"));
-  const r7 = recordVerdicts({ text: table(["| check.a | pass | |", `${carry} · app/library.mjs, app/cli.mjs |`]), listed, runs, stamp, commit: "c", now, changedSince: () => ["app/cli.mjs"] });
+  const committed = runs.map((x) => ({ ...x, commit: "abc" }));
+  const r7 = recordVerdicts({ text: table(["| check.a | pass | |", `${carry} · app/library.mjs, app/cli.mjs |`]), listed, runs: committed, stamp, commit: "c", now, changedSince: () => ["app/cli.mjs"] });
   assert.ok(r7.problems.some((p) => p.includes("app/cli.mjs changed since its commit")), r7.problems.join("\n"));
-  for (const r of [r1, r2, r3, r4, r5, r6, r7]) assert.deepEqual(r.records, []);
+  // A record of uncommitted changes has no commit that holds what was read: it is not carried.
+  const r8 = recordVerdicts({ text: table(["| check.a | pass | |", `${carry} · app/library.mjs |`]), listed, runs, stamp, commit: "c", now, changedSince: () => [] });
+  assert.ok(r8.problems.some((p) => p.includes("given on uncommitted changes (abc+working-tree)")), r8.problems.join("\n"));
+  for (const r of [r1, r2, r3, r4, r5, r6, r7, r8]) assert.deepEqual(r.records, []);
   assert.ok(recordVerdicts({ text: table(["| check.a | pass | |", "| check.b | pass | |"], ""), listed, runs, stamp, commit: "c", now }).problems.includes("no By: line naming the reviewer"));
 });
 
@@ -196,7 +201,10 @@ test("[check.manual-run.record-verdicts] --review --record writes the records in
     git("add", "-A");
     git("commit", "-q", "-m", "base");
     writeFileSync(join(dir, "app/format.mjs"), "export const pad = (s) => String(s).padStart(2, '0');\n");
-    const cli = (...a) => spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), "--review", "HEAD", ...a], { encoding: "utf8" });
+    // The change is committed, so its records name a commit that holds what was read.
+    git("add", "-A");
+    git("commit", "-q", "-m", "change");
+    const cli = (...a) => spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), "--review", "HEAD~1", ...a], { encoding: "utf8" });
     const out = cli().stdout;
     const ids = [...out.slice(out.indexOf("REVIEW HEAD")).matchAll(/^ {2}(check\.\S+)/gm)].map((m) => m[1]);
     assert.ok(ids.length > 0);
@@ -208,8 +216,9 @@ test("[check.manual-run.record-verdicts] --review --record writes the records in
     const r = cli("--record", tableFile);
     assert.match(r.stdout, new RegExp(`RECORDED ${ids.length} verdicts, 0 carried`), r.stdout);
     assert.equal(readdirSync(join(dir, "verify/runs")).length, before + ids.length);
-    // A later round carries the verdicts over app/format.mjs, which git does not track: it has no
-    // snapshot to compare with, so the carrying is refused; over a tracked file left alone, it holds.
+    // A later round carries the verdicts over app/format.mjs, changed since: refused; over files with no
+    // snapshot in the record's commit, refused; over a tracked file left alone, it holds.
+    writeFileSync(join(dir, "app/format.mjs"), "export const pad = (s) => String(s).padStart(3, '0');\n");
     const records = readdirSync(join(dir, "verify/runs")).filter((f) => ids.some((id) => f.includes(id)));
     const carry = (file) => table(ids.map((id) => `| ${id} | ${id === "check.agent-rules.code-reviewed-for-errors" ? "pass" : "carried"} | ${id === "check.agent-rules.code-reviewed-for-errors" ? "" : `${records.find((f) => f.includes(`-${id}-`))} · ${file}`} |`));
     writeFileSync(tableFile, carry("app/format.mjs"));

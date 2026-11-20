@@ -91,7 +91,7 @@ Verdict: ready to merge | fix first | cannot tell (with what is missing)
 
 `ready to merge` only when no check fails and no finding of this change remains. A check that already failed on the base and that the change does not touch is an earlier problem: report it, and do not let it block. A `not run` check does not block on its own, but say who has to run it before the merge. A verdict given in an earlier round of the same change still counts while the stamp `--review` prints for its check is the stamp it was given at and the commits since change none of the files you read for it. Give a new verdict to the checks whose stamp or files changed, and always read the new diff for errors and security.
 
-<!-- ont: ent.manual-run@893f59, rule.run-recorded@2b45ff, action.record-verdicts@965723 -->
+<!-- ont: ent.manual-run@893f59, rule.run-recorded@2b45ff, action.record-verdicts@d809af -->
 ## 4. Record each verdict
 
 If the configuration has `manualRuns`, put your table of verdicts in a file outside the change, with a line `By: <your model and provider>` above it, and let the tool write the records from it (D-100):
@@ -100,7 +100,7 @@ If the configuration has `manualRuns`, put your table of verdicts in a file outs
 node tools/ont-check/ont-check.mjs --config ont.config.json --review main --record /tmp/verdicts.md
 ```
 
-Each row is `| check ID | verdict | evidence |`. In a later round of the same change, a verdict you do not give again is `carried`, with the file of the record it carries and the files you read for it in place of evidence: `| check ID | carried | <record file> · <file>, <file> |`. The tool refuses it when the record is of another check or another stamp, when no files are named or one of them changed since the record's commit, and always refuses a carried check of errors in code. It writes one record for each new verdict in the directory of `manualRuns`, with the stamp and the commit of the review, and refuses the whole table when a listed check has no verdict, a check is not listed or one is given twice. These records are the only files you create: you do not change the change itself and you do not commit; the author commits them with the change. A record reads:
+Each row is `| check ID | verdict | evidence |`. In a later round of the same change, a verdict you do not give again is `carried`, with the file of the record it carries and the files you read for it in place of evidence: `| check ID | carried | <record file> · <file>, <file> |`. The tool refuses it when the record is of another check or another stamp, when no files are named, the record was of uncommitted changes, or one of the files changed since the record's commit, and always refuses a carried check of errors in code. It writes one record for each new verdict in the directory of `manualRuns`, with the stamp and the commit of the review, and refuses the whole table when a listed check has no verdict, a check is not listed or one is given twice. These records are the only files you create: you do not change the change itself and you do not commit; the author commits them with the change. A record reads:
 
 ```
 Check: <check ID>

@@ -104,7 +104,7 @@ When a ceiling runs out, the rounds go on while they converge: each full round f
 
 A clean round, with no finding of the change, makes the change ready to merge. Whether it is merged or published, and what more rounds may cost, is the owner's policy; the approach asks that it is followed and does not set it.
 
-<!-- ont: rule.round-recorded@649657, inv.review-rounds-well-formed@b57c93, derived.step-payoff@f3def6, action.record-verdicts@965723 -->
+<!-- ont: rule.round-recorded@649657, inv.review-rounds-well-formed@b57c93, derived.step-payoff@f3def6, action.record-verdicts@d809af -->
 ## What a review costs and finds
 
 With `reviewRounds` in the configuration, every round is a file of its own: the task, the step, the round's number and whether it was narrow, the ceiling, the commits, the reviewer, the tokens that are known, how many checks were listed, given and carried, and a line for each finding with its class, its weight, whether it is of the change and fixable, and the test that holds its fix (D-99). `ont-check --rounds` says what follows the last round of each task, and once a step has ten applications, one step of one task with its rounds together, what it cost and found. A step whose applications found nothing is a candidate to simplify; the owner decides, and nothing is removed by the tool.

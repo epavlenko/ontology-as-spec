@@ -104,8 +104,11 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
       else if (run.check !== r.check) problems.push(`${r.check}: carries ${file}, a record of ${run.check}`);
       else if (run.stamp !== stamp(c)) problems.push(`${r.check}: carries ${file}, given at stamp ${run.stamp}, and the check's stamp is now ${stamp(c)}`);
       else if (!files.length) problems.push(`${r.check}: carries ${file} without the files read for it`);
+      // A verdict given on changes not yet committed read files no commit holds, so nothing can show they
+      // are the same now; it is given again.
+      else if (/\+working-tree$/.test(run.commit)) problems.push(`${r.check}: carries ${file}, given on uncommitted changes (${run.commit}), which no commit holds to compare with`);
       else {
-        const changed = changedSince(run.commit.replace(/\+working-tree$/, ""), files);
+        const changed = changedSince(run.commit, files);
         if (changed.length) problems.push(`${r.check}: carries ${file}, and ${changed.join(", ")} changed since its commit ${run.commit}`);
       }
     } else if (!VERDICTS.includes(r.verdict)) problems.push(`${r.check}: verdict ${r.verdict} is not one of ${[...VERDICTS, "carried"].join(", ")}`);
