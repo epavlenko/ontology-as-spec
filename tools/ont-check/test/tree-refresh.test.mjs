@@ -413,3 +413,16 @@ test("[check.ontology-tree.stale] each reason is reported; a current page, compa
   r.git("config", "--local", "--unset", "ont.treeOut");
   assert.equal(stale(), "", "no place");
 });
+
+test("[field.ontology-tree.place] [rule.tree-refreshed-after-merge] every file the implementation table gives for a concept of the tree names it", () => {
+  const md = readFileSync(join(REPO, "ontology.md"), "utf8");
+  const table = md.slice(md.indexOf("## Implementation status"));
+  const tree = /^(ent\.ontology-tree|edge\.ontology-tree\.|field\.ontology-tree\.|derived\.tree-|rule\.tree-|inv\.tree-)/;
+  const rows = [...table.matchAll(/^\| `([a-z]+\.[^`]+)` \| ([^|]*) \|/gm)].filter((m) => tree.test(m[1]));
+  assert.ok(rows.length >= 8, "the tree's rows of the implementation table");
+  for (const [, id, cell] of rows)
+    for (const [, file] of cell.matchAll(/`([^`]+)`/g)) {
+      const names = [...readFileSync(join(REPO, file), "utf8").matchAll(/ont:([^\n]*)/g)].flatMap((m) => m[1].split(/[\s,]+/).map((x) => x.replace(/@.*$/, "")));
+      assert.ok(names.includes(id), `${file} does not name ${id}`);
+    }
+});
