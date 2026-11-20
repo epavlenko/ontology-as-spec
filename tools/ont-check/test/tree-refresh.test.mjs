@@ -286,6 +286,22 @@ test("[check.ontology-tree.stale] each reason is reported; a current page, compa
   const first = r.sha("refs/heads/main");
   assert.equal(r.gen("--refresh").code, 0);
   assert.equal(stale(), "", "a page of main");
+  // The same page with a part of its mark taken away: the commit is main's, and still it is reported.
+  const page = readFileSync(r.place, "utf8");
+  for (const [attr, reason] of [
+    ["config", "the mark names no configuration"],
+    ["date", "the mark carries no date"],
+    ["commit", "the mark names no commit"],
+  ]) {
+    const partial = page.replace(new RegExp(` data-${attr}="[^"]*"`), "");
+    assert.notEqual(partial, page, attr);
+    writeFileSync(r.place, partial);
+    assert.match(stale(), new RegExp(`: ${reason}\n`), attr);
+  }
+  writeFileSync(r.place, page.replace(/ data-date="[^"]*"/, ' data-date=""'));
+  assert.match(stale(), /: the mark carries no date\n/, "an empty date");
+  writeFileSync(r.place, page);
+  assert.equal(stale(), "");
   const second = r.commit("README.md", "# Ontology as Specification", "# Ontology as Specification\n");
   assert.match(stale(), new RegExp(`: built from ${first}, but main is ${second}\n`));
 

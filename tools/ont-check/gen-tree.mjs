@@ -136,10 +136,17 @@ ${footer(built, word)}</body></html>
 `;
 }
 
-// The mark a page carries, read back: { commit, config } or null for a page without one.
+// The mark a page carries, read back: { commit, config, date }, each null when the footer lacks it, or
+// null for a page without the footer. The attributes are read in any order.
+const unesc = (s) => s.replace(/&(amp|lt|gt|quot);/g, (_, c) => ({ amp: "&", lt: "<", gt: ">", quot: '"' })[c]);
 export function readMark(html) {
-  const m = html.match(/<footer class="built" data-commit="([^"]*)"(?: data-config="([^"]*)")?/);
-  return m ? { commit: m[1], config: m[2] ?? null } : null;
+  const tag = html.match(/<footer class="built"([^>]*)>/);
+  if (!tag) return null;
+  const attr = (k) => {
+    const m = tag[1].match(new RegExp(`\\sdata-${k}="([^"]*)"`));
+    return m && m[1] ? unesc(m[1]) : null;
+  };
+  return { commit: attr("commit"), config: attr("config"), date: attr("date") };
 }
 
 // The labels file: keys are IDs of the ontologies shown, the classes the tree groups rows by, headings
@@ -292,12 +299,18 @@ export function stale(cwd) {
   if (!mark) return [`${at} the page carries no mark of what it was built from`];
   const main = git(top, ["rev-parse", "--verify", "--quiet", "refs/heads/main"]);
   const out = [];
-  if (mark.commit === "no-commit") out.push(`${at} built outside Git (no-commit)`);
+  // Silence needs the whole mark: a clean commit equal to main, the root configuration and the date.
+  // A part missing is reported, not taken as current.
+  const outsideGit = mark.commit === "no-commit";
+  if (mark.commit === null) out.push(`${at} the mark names no commit`);
+  else if (outsideGit) out.push(`${at} built outside Git (no-commit)`);
   else if (mark.commit.endsWith("+working-tree")) out.push(`${at} built from files that differ from commit ${mark.commit.replace(/\+working-tree$/, "")} (+working-tree)`);
-  if (mark.config !== null && mark.config !== ROOT_CONFIG) out.push(`${at} built from another configuration, ${mark.config}, not the ${ROOT_CONFIG} at the root`);
-  const sha = mark.commit.replace(/\+working-tree$/, "");
+  if (mark.config === null && !outsideGit) out.push(`${at} the mark names no configuration`);
+  else if (mark.config !== null && mark.config !== ROOT_CONFIG) out.push(`${at} built from another configuration, ${mark.config}, not the ${ROOT_CONFIG} at the root`);
+  if (mark.date === null) out.push(`${at} the mark carries no date`);
+  const sha = mark.commit?.replace(/\+working-tree$/, "");
   if (main === null) out.push(`${at} the repository has no branch main`);
-  else if (mark.commit !== "no-commit" && sha !== main) out.push(`${at} built from ${sha}, but main is ${main}`);
+  else if (sha && !outsideGit && sha !== main) out.push(`${at} built from ${sha}, but main is ${main}`);
   if (out.length) out.push(`  rewrite it on main with node ${relative(top, SELF)} --refresh`);
   return out;
 }
