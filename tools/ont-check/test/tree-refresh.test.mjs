@@ -4,7 +4,7 @@
 // ont: rule.tree-refreshed-after-merge, field.ontology-tree.place, field.ontology-tree.built-from, derived.tree-stale
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { test } from "node:test";
@@ -39,8 +39,8 @@ const sh = (cwd, cmd, args) => {
 
 // A clone of a copy of this repository's files: one commit on main, the post-merge hook enabled the way
 // the project enables its hooks, and a place for the tree in a directory of its own.
-const repo = () => {
-  const dir = temp("ont-refresh-");
+const repo = (prefix = "ont-refresh-") => {
+  const dir = temp(prefix);
   cpSync(REPO, dir, { recursive: true, filter: (src) => !/^(\.git|node_modules)(\/|$)/.test(relative(REPO, src)) });
   // The pre-commit hook runs the whole check on every commit; it is not what these tests are about.
   rmSync(join(dir, ".githooks/pre-commit"), { force: true });
@@ -109,6 +109,22 @@ test("[check.ontology-tree.refreshed-on-main] the first merge into main after th
   assert.notEqual(fresh, old);
   assert.deepEqual(c.mark(), { commit: fresh, config: "ont.config.json" });
   assert.equal(c.gen("--stale").out, "");
+
+  // A clone whose path contains #, which a URL built from the path by hand reads as a fragment.
+  const h = repo("ont-refresh-#-");
+  assert.match(h.dir, /#/);
+  h.setPlace();
+  branch(h);
+  const hm = h.git("merge", "-q", "b");
+  assert.equal(hm.code, 0, hm.out);
+  assert.match(hm.out, /built from [0-9a-f]{40}/);
+  assert.deepEqual(h.mark(), { commit: h.sha("refs/heads/main"), config: "ont.config.json" });
+  assert.equal(h.gen("--stale").out, "");
+
+  // The same mistake anywhere in the tool: no script makes a file URL out of a path by hand.
+  const tools = join(REPO, "tools/ont-check");
+  for (const f of readdirSync(tools).filter((f) => f.endsWith(".mjs")))
+    assert.doesNotMatch(readFileSync(join(tools, f), "utf8"), /new URL\(`file:\/\/\$\{|["'`]file:\/\/["'`]\s*\+/, f);
 });
 
 test("[check.ontology-tree.refresh-skipped] another branch, no place, or a squash merge writes no page", () => {

@@ -334,7 +334,17 @@ export function stale(cwd) {
   return out;
 }
 
-const isMain = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href;
+// Run as a command, not imported: this file's path against the script Node was given, both as paths. A
+// URL built from the argument by hand would read a # or a % in the clone's path as a URL's own.
+const isMain = (() => {
+  const arg = process.argv[1];
+  if (!arg) return false;
+  try {
+    return realpathSync(arg) === SELF;
+  } catch {
+    return resolve(arg) === SELF;
+  }
+})();
 if (isMain) {
   const args = process.argv.slice(2);
   const opt = (name) => {
