@@ -177,6 +177,14 @@ test("[check.formal-form.write-out-of-type] a datetime is read as RFC 3339: lowe
   for (const bad of ["2026-10-01T00:00:00", "2026-10-01T12:00:60Z", "2026-10-01T00:00Z", "2026-02-30T00:00:00Z", "2026-10-01T24:00:00Z", "1990-12-30T23:59:60Z", "1990-12-31T00:59:60+01:00", "1990-12-30T15:59:60-08:00", "1990-12-30T23:59:60.5z", "2026-12-31T23:59:60Z"]) assert.ok(!ofType("datetime", bad, schema, {}), bad);
 });
 
+test("[check.formal-form.unknown-name] a field whose ID ends in a word of the language is read after a dot", () => {
+  const rows = parseGlossary(readFileSync(join(EXAMPLE, "ontology.md"), "utf8")).rows;
+  const schema = schemaOf(rows);
+  schema.entities.loan.fields.by = { id: "field.loan.by", ref: null, type: "text" };
+  assert.equal(evaluate(parse('l.by = "ana"'), { state: {}, byId: new Map() }, { l: { by: "ana" } }), true);
+  assert.deepEqual(names(parse("l.by"), { schema, scope: { l: "loan" }, forms: new Map() }).bad, []);
+});
+
 test("[check.formal-form.unknown-name] names are typed by entity: a relation leads on, a loop variable is seen only inside its loop", () => {
   const ok = names(parse("loan.item.copy-of = loan.item.copy-of and some i in items where i.copy-of = loan.item.copy-of"), { schema, scope: { loan: "loan" }, forms: new Map() });
   assert.deepEqual(ok.bad, []);

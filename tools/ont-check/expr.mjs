@@ -126,7 +126,9 @@ export function parse(src) {
   };
   const path = (base) => {
     let node = base;
-    while (is("op", ".")) { p++; node = { k: "field", of: node, f: take("name").v }; }
+    // After a dot comes the last part of a field's ID, which may be a word of the language:
+    // `field.manual-run.by` is read as `r.by`.
+    while (is("op", ".")) { p++; node = { k: "field", of: node, f: (is("kw") ? toks[p++] : take("name")).v }; }
     return node;
   };
   const tree = expr();
