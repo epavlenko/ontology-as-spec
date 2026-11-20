@@ -257,6 +257,7 @@
     "rule.divergence-contradicts",
     "rule.findings-mislead",
     "rule.form-follows-rows",
+    "rule.guard-from-acceptance",
     "rule.guide-runs-check",
     "rule.judge-sees-the-check",
     "rule.kind-order",

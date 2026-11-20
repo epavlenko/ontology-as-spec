@@ -4,20 +4,20 @@ A gap of the guard the review of task tree-refresh found, recorded as a ticket a
 
 ## Slice
 
-IDs: `inv.accepted-never-edited`.
+IDs: `rule.guard-from-acceptance`, a target the ontology does not implement yet.
 
-Checks: `check.decision.accepted-edited`.
+Checks: `check.decision.compared-with-acceptance`.
 
-Why now: not now. The guard compares an accepted entry with `HEAD`, or with the base CI gives it, so an edit committed with the hook skipped becomes the text it then protects, and CI misses the edit of an entry accepted after its base. Which commit should be the point of comparison, the first that accepted the entry, and from which commit on, so that edits merged before the change do not fail the check, is the open question "The guard's point of comparison" in [docs/limitations.md](../docs/limitations.md); take this up once the owner answers it.
+Why now: not now. The guard compares an accepted entry with `HEAD`, or with the base CI gives it, so an edit committed with the hook skipped becomes the text it then protects, and CI misses the edit of an entry accepted after its base. Which commit should be the point of comparison, the first that accepted the entry, and from which commit on, so that edits merged before the change do not fail the check, is asked by the tentative entry D-131 in [decisions.md](../decisions.md), with its options and the agent's recommendation, and in the open question "The guard's point of comparison" in [docs/limitations.md](../docs/limitations.md). `rule.guard-from-acceptance` states the recommended answer as a target; take this up once the owner answers D-131, and rewrite the target first if the answer is another option.
 
 ## Out of scope
 
 - Any change to what counts as an accepted entry or as its text.
-- Restoring entries edited before the change; the answer to the open question says from which commit on the guard compares.
+- Restoring entries edited before the change; the answer to D-131 says from which commit on the guard compares.
 
 ## Depends on
 
-The owner's answer to the open question "The guard's point of comparison" in [docs/limitations.md](../docs/limitations.md).
+The owner's answer to the tentative entry D-131, "The guard compares an accepted entry with the text of the first commit that accepted it, from the commit that brings the rule in". Until then `npm run gap` shows `rule.guard-from-acceptance` as a target that waits for the owner.
 
 ## Done when
 
@@ -26,7 +26,7 @@ npm run gap -- issues/0006-guard-point-of-comparison.md   # SLICE_DONE
 npm test
 ```
 
-The test of `check.decision.accepted-edited` holds the case the answer to the open question settles: an entry accepted after the base and edited in a later commit with the hook skipped, and what the guard then says.
+`SLICE_DONE` means `rule.guard-from-acceptance` is in the implementation table and `check.decision.compared-with-acceptance` has a test: an entry accepted after the base and edited in a later commit with the hook skipped is refused whatever the base, the restore of its accepted text is not, and an entry edited before the starting commit is not.
 
 ## Pre-authorized
 
