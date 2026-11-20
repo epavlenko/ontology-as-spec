@@ -4,7 +4,7 @@
 // ont: rule.tree-refreshed-after-merge, field.ontology-tree.place, field.ontology-tree.built-from, derived.tree-stale
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { test } from "node:test";
@@ -280,6 +280,10 @@ test("[check.ontology-tree.stale] each reason is reported; a current page, compa
     return s.out;
   };
   assert.match(stale(), /TREE_STALE .*tree\.html: the file does not exist\n/);
+  // A place that is a directory: reported as a file that cannot be read, and the report ends with 0.
+  mkdirSync(r.place);
+  assert.match(stale(), /TREE_STALE .*tree\.html: the file cannot be read \(EISDIR\)\n/);
+  rmSync(r.place, { recursive: true });
   writeFileSync(r.place, "<!doctype html><html><body>a tree</body></html>\n");
   assert.match(stale(), /: the page carries no mark of what it was built from\n/);
 

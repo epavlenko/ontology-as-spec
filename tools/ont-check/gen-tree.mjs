@@ -11,7 +11,7 @@
 // ont: ent.ontology-tree, edge.ontology-tree.concepts, rule.tree-structure-only, inv.tree-complete
 // ont: field.ontology-tree.place, field.ontology-tree.built-from, derived.tree-stale, rule.tree-refreshed-after-merge
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync, writeFileSync } from "node:fs";
+import { lstatSync, readFileSync, readlinkSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REF_TYPE, parseShows } from "./contracts.mjs";
@@ -288,14 +288,21 @@ export function refresh(cwd, { squash = false } = {}) {
 }
 
 // Why the tree at the clone's place does not show main (derived.tree-stale): nothing when it does, or
-// when no place is set. It never fails; a stale page is one to rewrite, not a broken repository.
+// when no place is set. It never fails, a file it cannot read included; a stale page is one to rewrite,
+// not a broken repository.
 export function stale(cwd) {
   const top = git(cwd, ["rev-parse", "--show-toplevel"]);
   const place = top === null ? null : placeOf(top);
   if (!place) return [];
   const at = `TREE_STALE ${place}:`;
-  if (!existsSync(place)) return [`${at} the file does not exist`];
-  const mark = readMark(readFileSync(place, "utf8"));
+  let html;
+  try {
+    html = readFileSync(place, "utf8");
+  } catch (e) {
+    // A place that is a directory, or a file this user cannot read, is reported like a missing one.
+    return [e.code === "ENOENT" ? `${at} the file does not exist` : `${at} the file cannot be read (${e.code ?? e.message})`];
+  }
+  const mark = readMark(html);
   if (!mark) return [`${at} the page carries no mark of what it was built from`];
   const main = git(top, ["rev-parse", "--verify", "--quiet", "refs/heads/main"]);
   const out = [];
@@ -336,7 +343,12 @@ if (isMain) {
       process.exit(1);
     }
   } else if (flag("--stale")) {
-    for (const line of stale(process.cwd())) console.log(line);
+    // The report never fails (derived.tree-stale): what stops it is itself reported, and it ends with 0.
+    try {
+      for (const line of stale(process.cwd())) console.log(line);
+    } catch (e) {
+      console.log(`TREE_STALE: the report could not be made: ${e.message}`);
+    }
   } else {
     const out = opt("--out");
     if (!out) throw new Error("--out is not set: the file to write the tree to");
