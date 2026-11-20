@@ -12,7 +12,7 @@
 // again and compares the results with the record.
 // ont: action.release-protocol, action.release-product, action.verify-release, inv.release-tagged, rule.intact-is-not-run
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./lib.mjs";
@@ -28,6 +28,7 @@ import {
   parseProductRecords,
   parseReleasesFile,
   previousVerified,
+  releaseCommitProblems,
   releaseRecordText,
   releaseTags,
   runReleaseChecks,
@@ -47,6 +48,13 @@ const tail = (out) => out.split("\n").slice(-15).join("\n");
 const toolIn = (top) => {
   const rel = relative(top, HERE);
   return rel.startsWith("..") || isAbsolute(rel) ? null : rel;
+};
+
+// The tree of a commit with one file at the root of the repository replaced by a blob.
+const treeWith = (top, commit, name, blob) => {
+  const entries = git(top, "ls-tree", "-z", commit).out.split("\0").filter(Boolean).filter((l) => l.split("\t")[1] !== name);
+  const r = spawnSync("git", ["-C", top, "mktree", "-z"], { input: [...entries, `100644 blob ${blob}\t${name}`].map((l) => `${l}\0`).join(""), encoding: "utf8", env: gitEnv() });
+  return r.status === 0 ? r.stdout.trim() : null;
 };
 
 if (argv.includes("--product") || argv.includes("--verify")) product();
@@ -83,14 +91,17 @@ function protocol() {
     const untagged = entries.filter((e) => !git(top, "rev-parse", "--verify", "-q", `refs/tags/v${e.version}`).ok);
     if (!untagged.length) refuse("no release commit is waiting for its tag");
     for (const e of untagged) {
-      // The release commit: a child of the verified commit, on the way to HEAD, that changes only releases.md.
-      const commit = git(top, "rev-list", "--parents", "HEAD").out
+      // The release commit: a child of the verified commit, on the way to HEAD, that adds exactly this
+      // entry to releases.md and changes nothing else (D-114).
+      const children = git(top, "rev-list", "--parents", "HEAD").out
         .split("\n")
         .map((l) => l.split(" "))
-        .find(([, ...parents]) => parents.length === 1 && parents[0] === e.verified)?.[0];
-      if (!commit) refuse(`v${e.version}: no commit on the way to HEAD is a child of the verified commit ${e.verified.slice(0, 7)}`);
-      const changed = git(top, "diff", "--name-only", e.verified, commit).out.split("\n").filter(Boolean);
-      if (changed.join() !== RELEASES_FILE) refuse(`v${e.version}: the release commit ${commit.slice(0, 7)} changes ${changed.join(", ")}, not only ${RELEASES_FILE}; no tag`);
+        .filter(([, ...parents]) => parents.length === 1 && parents[0] === e.verified)
+        .map(([c]) => c);
+      if (!children.length) refuse(`v${e.version}: no commit on the way to HEAD is a child of the verified commit ${e.verified.slice(0, 7)}`);
+      const why = children.map((c) => releaseCommitProblems(top, c, e));
+      const commit = children.find((c, i) => !why[i].length);
+      if (!commit) refuse(`v${e.version}: ${why.flat().join("; ")}; no tag`);
       const run = runAtCommit({ top, commit: e.verified, commands: checksIn(top) });
       if (run.error) refuse(run.error);
       const failed = run.results.filter((r) => r.result !== "pass");
@@ -113,15 +124,36 @@ function protocol() {
     if (r.status !== 0) refuse(`${c.label} failed on ${verified.slice(0, 7)}; nothing written\n${tail(`${r.stdout}${r.stderr}`)}`);
   }
   if (!existsSync(config)) refuse(`no ${relative(process.cwd(), config)}`);
-  const before = existsSync(path) ? readFileSync(path, "utf8") : RELEASES_HEAD;
-  writeFileSync(path, `${before.replace(/\n*$/, "\n\n")}${entryText({ version, date: today(), verified })}`);
-  const add = git(top, "add", RELEASES_FILE);
-  // The checks ran on the verified commit; the release commit adds only the entry, so the hooks are not run again.
-  const commit = add.ok && git(top, "commit", "--no-verify", "-q", "-m", `Release v${version}`, "--", RELEASES_FILE);
-  if (!commit?.ok) refuse(`the release commit was not made: ${commit?.err ?? add.err}`);
-  const head = git(top, "rev-parse", "HEAD").out;
-  tag(version, head, verified);
-  console.log(`RELEASED v${version}: release commit ${head.slice(0, 7)}, a child of the verified ${verified.slice(0, 7)}, tagged v${version}`);
+  const existed = existsSync(path);
+  const before = existed ? readFileSync(path, "utf8") : RELEASES_HEAD;
+  const restore = () => (existed ? writeFileSync(path, before) : rmSync(path, { force: true }));
+  const date = today();
+  writeFileSync(path, `${before.replace(/\n*$/, "\n\n")}${entryText({ version, date, verified })}`);
+  // The release commit is made from the verified commit's tree with the entry, by Git's plumbing, which
+  // runs no hook: the checks ran on the verified commit, and the commit adds only the entry. The tag goes
+  // on the commit this returned, after checking it is the release commit of this entry, and the branch
+  // moves to it only from the verified commit (D-114).
+  const blob = git(top, "hash-object", "-w", "--", RELEASES_FILE);
+  const tree = blob.ok && treeWith(top, verified, RELEASES_FILE, blob.out);
+  const made = tree && git(top, "commit-tree", tree, "-p", verified, "-m", `Release v${version}`);
+  if (!made?.ok || !/^[0-9a-f]{40}$/.test(made.out)) {
+    restore();
+    refuse(`the release commit was not made: ${made?.err ?? blob.err ?? "no tree"}`);
+  }
+  const commit = made.out;
+  const wrong = releaseCommitProblems(top, commit, { version, date, verified });
+  if (wrong.length) {
+    restore();
+    refuse(`the commit made is not the release commit: ${wrong.join("; ")}; no tag`);
+  }
+  const moved = git(top, "update-ref", "-m", `release v${version}`, "HEAD", commit, verified);
+  if (!moved.ok) {
+    restore();
+    refuse(`HEAD is no longer the verified commit ${verified.slice(0, 7)}, so the release commit ${commit.slice(0, 7)} is not taken: ${moved.err}`);
+  }
+  git(top, "reset", "-q", "--", RELEASES_FILE);
+  tag(version, commit, verified);
+  console.log(`RELEASED v${version}: release commit ${commit.slice(0, 7)}, a child of the verified ${verified.slice(0, 7)}, tagged v${version}`);
 }
 
 function product() {

@@ -948,6 +948,17 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: integrity presented as a proof of the run (a record is text); the checks compared with the current configuration (adding a suite later would break every earlier release); a deployment required of every product (the owner's answer makes it optional); the rows in `templates/ontology.md` (every project would carry its own copy of rows the tool, not the project, defines, and the template describes a product).
 - Concepts: `ent.product-release`, `field.product-release.version`, `field.product-release.commit`, `field.product-release.checks`, `field.product-release.tool`, `field.product-release.date`, `edge.product-release.pin`, `rule.intact-is-not-run`, `inv.product-release-intact`, `action.release-product`, `action.verify-release`, `ent.deployment`, `edge.deployment.release`, `field.deployment.environment`, `field.deployment.time`, `derived.running-now`, `inv.deployment-of-release`.
 
+### D-114 · A release commit adds exactly the entry of its version, and a tag that does not is said
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-109 and D-110, from the owner's answer of 2026-11-20 to question 996, "996 - a", quoted there; the reviewer's finding of round 1 of the review of the result of task releases-and-task, "tag not matched to its release entry", is the reviewer's, not the owner's words. How the release commit is made and checked is the thread's technical decision.
+- Decision: adds to D-109 and D-110. A tagged commit is the release commit of an entry only when its one parent is the entry's verified commit, it changes only `releases.md`, and that file gains exactly this entry, every entry before it kept as it was (`inv.release-tagged`). A commit that adds only the heading, the entry of another version, or changes an earlier entry is not; the check fails on it, and `release.mjs --resume` tags no such commit.
+  - `release.mjs <version>` makes the release commit from the verified commit's tree with the entry by Git's plumbing (`git commit-tree`, which runs no hook), checks the commit it got is that, moves the branch to it only while HEAD is still the verified commit (`git update-ref` with the old value), and tags the SHA it made, never HEAD read again.
+  - In a project, a tag of the approach clone whose commit is not the release commit of its own entry is said, "the releases of the approach clone are not known in full: …; it is not counted", and is never silently skipped; with no newer release among the rest, the tool says "no newer version among the releases of the approach clone that can be read" (`derived.newer-releases`).
+- Why: a tag on a commit with only the heading of `releases.md`, its entry added later, passed the check, `--resume` could tag it, and a project then read "no newer version". A release that read HEAD after its own commit tagged whatever a hook had committed after it.
+- Rejected: the shape checked by the file's name alone (the case above); skipping a tag that cannot be read (a project would believe it is up to date); `git commit` with the hooks skipped (a hook after the commit still runs and may move HEAD).
+- Concepts: `inv.release-tagged`, `action.release-protocol`, `derived.newer-releases`.
+
 ## Tentative
 
 ## Open questions

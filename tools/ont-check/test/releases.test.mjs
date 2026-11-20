@@ -152,6 +152,72 @@ test("[check.protocol-release.resume-reruns] --resume refuses to tag when the te
   assert.equal(tagged(other, "v0.2.0"), false);
 });
 
+test("[check.protocol-release.entry-in-commit] a tag on a commit that adds only the heading, the entry of another version or changes an earlier entry fails the check, and --resume does not tag it", () => {
+  // The tag on a commit that adds only the heading of releases.md; the entry comes in a later commit.
+  const { repo } = approachRepo();
+  const verified = addEntry(repo, "D-02");
+  writeFileSync(join(repo, "releases.md"), "# Releases\n");
+  const heading = commitAll(repo, "only the heading");
+  git(repo, "tag", "-a", "v0.2.0", heading, "-m", "v0.2.0");
+  writeFileSync(join(repo, "releases.md"), `# Releases\n\n## v0.2.0 · 2026-11-20\n\n- Verified: ${verified}\n`);
+  commitAll(repo, "the entry, later");
+  assert.match(protocolReleaseProblems(repo).problems.join("\n"), new RegExp(`^v0\\.2\\.0: the release commit ${heading.slice(0, 7)} adds no entry, not exactly the entry of v0\\.2\\.0 verified on ${verified.slice(0, 7)}$`));
+  assert.equal(check(repo).status, 1);
+  // The same commits with no tag: --resume finds no release commit of the entry and tags nothing.
+  git(repo, "tag", "-d", "v0.2.0");
+  const r = release(repo, "--resume");
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stdout, /v0\.2\.0: the release commit [0-9a-f]{7} adds no entry, not exactly the entry of v0\.2\.0 .*; no tag/);
+  assert.equal(tagged(repo, "v0.2.0"), false);
+  // A commit that adds the entry of another version, and one that changes an earlier entry.
+  const { repo: other } = approachRepo();
+  const v2 = addEntry(other, "D-02");
+  writeFileSync(join(other, "releases.md"), `# Releases\n\n## v0.2.0 · 2026-11-20\n\n- Verified: ${v2}\n`);
+  const c2 = commitAll(other, "Release v0.2.0");
+  git(other, "tag", "-a", "v0.2.0", c2, "-m", "v0.2.0");
+  assert.deepEqual(protocolReleaseProblems(other).problems, []);
+  const v3 = addEntry(other, "D-03");
+  writeFileSync(join(other, "releases.md"), `# Releases\n\n## v0.2.0 · 2026-11-19\n\n- Verified: ${v2}\n\n## v0.3.0 · 2026-11-20\n\n- Verified: ${v3}\n`);
+  const c3 = commitAll(other, "Release v0.3.0, the date of v0.2.0 changed");
+  git(other, "tag", "-a", "v0.3.0", c3, "-m", "v0.3.0");
+  const p3 = protocolReleaseProblems(other).problems.join("\n");
+  assert.match(p3, /v0\.3\.0: the release commit [0-9a-f]{7} changes or removes the entries of v0\.2\.0/);
+});
+
+test("[check.protocol-release.commit-returned] the release tags the commit it made, not what HEAD is after a hook moved it", () => {
+  const { repo } = approachRepo();
+  const verified = addEntry(repo, "D-02");
+  // A post-commit hook that makes a commit of its own: a release that re-read HEAD would tag that one.
+  mkdirSync(join(repo, "hooks"));
+  writeFileSync(join(repo, "hooks", "post-commit"), "#!/bin/sh\n[ -f hooked ] && exit 0\necho x > hooked && git add hooked && git commit -q -m hooked\n", { mode: 0o755 });
+  const verifiedNow = commitAll(repo, "the hook");
+  git(repo, "config", "core.hooksPath", "hooks");
+  const r = release(repo, "0.2.0");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const commit = git(repo, "rev-parse", "v0.2.0^{commit}");
+  assert.equal(git(repo, "rev-parse", `${commit}^`), verifiedNow);
+  assert.equal(git(repo, "diff", "--name-only", verifiedNow, commit), "releases.md");
+  assert.equal(git(repo, "rev-parse", "HEAD"), commit);
+  assert.equal(git(repo, "status", "--porcelain"), "");
+  assert.deepEqual(protocolReleaseProblems(repo).problems, []);
+  assert.notEqual(verified, verifiedNow);
+});
+
+test("[check.protocol-release.news-unreadable] a tag of the approach clone with no entry of its version at its commit is said, never read as no newer version", () => {
+  const { repo, first } = approachRepo();
+  const verified = addEntry(repo, "D-02");
+  writeFileSync(join(repo, "releases.md"), "# Releases\n");
+  const heading = commitAll(repo, "only the heading");
+  git(repo, "tag", "-a", "v0.2.0", heading, "-m", "v0.2.0");
+  writeFileSync(join(repo, "releases.md"), `# Releases\n\n## v0.2.0 · 2026-11-20\n\n- Verified: ${verified}\n`);
+  commitAll(repo, "the entry, later");
+  const news = releaseNews({ clone: repo, pinCommit: first, used: new Set() });
+  assert.equal(news.length, 2, news.join("\n"));
+  assert.match(news[0], /^the releases of the approach clone are not known in full: tag v0\.2\.0: its commit has no entry of 0\.2\.0 in releases\.md; it is not counted$/);
+  assert.equal(news[1], "no newer version among the releases of the approach clone that can be read");
+  assert.ok(!news.some((l) => /among the releases the approach clone knows/.test(l)));
+});
+
 test("[check.protocol-release.news] a project learns of newer releases from its approach clone, read by tag, and none of it fails the check", () => {
   const { repo, first } = approachRepo();
   const clone = join(temp("clone-parent-"), "early");

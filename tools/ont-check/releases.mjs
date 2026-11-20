@@ -91,6 +91,33 @@ export function previousVerified(repo, entries, version) {
   return start.ok ? start.out : null;
 }
 
+// What is wrong with a commit as the release commit of an entry (inv.release-tagged, D-114): its one
+// parent is the entry's verified commit, it changes only releases.md, and that file gains exactly this
+// entry, every entry before it kept as it was. A commit that only adds the heading, or adds the entry of
+// another version, is no release commit.
+export function releaseCommitProblems(repo, commit, e, rel = RELEASES_FILE) {
+  const parents = git(repo, "rev-list", "--parents", "-n", "1", commit).out.split(" ").slice(1);
+  if (parents.length !== 1 || parents[0] !== e.verified)
+    return [`the parent of the release commit ${commit.slice(0, 7)} is ${parents.map((p) => p.slice(0, 7)).join(" and ") || "none"}, not the verified commit ${e.verified.slice(0, 7)}`];
+  const changed = git(repo, "diff", "--name-only", e.verified, commit).out.split("\n").filter(Boolean);
+  if (changed.length !== 1 || changed[0] !== rel) return [`the release commit ${commit.slice(0, 7)} changes ${changed.join(", ") || "nothing"}, not only ${rel}`];
+  const at = (c) => {
+    const r = git(repo, "show", `${c}:${rel}`);
+    return r.ok ? parseReleasesFile(r.out) : { entries: [], malformed: [] };
+  };
+  const [before, after] = [at(e.verified), at(commit)];
+  const same = (a, b) => a.version === b.version && a.date === b.date && a.verified === b.verified;
+  const added = after.entries.filter((x) => !before.entries.some((y) => same(x, y)));
+  const lost = before.entries.filter((x) => !after.entries.some((y) => same(x, y)));
+  const wrong = [
+    after.malformed.length && `the release commit ${commit.slice(0, 7)} has entries that cannot be read: ${after.malformed.join("; ")}`,
+    lost.length && `the release commit ${commit.slice(0, 7)} changes or removes the entries of ${lost.map((x) => `v${x.version}`).join(", ")}`,
+    !(added.length === 1 && same(added[0], e)) &&
+      `the release commit ${commit.slice(0, 7)} adds ${added.map((x) => `the entry of v${x.version} verified on ${x.verified.slice(0, 7)}`).join(", ") || "no entry"}, not exactly the entry of v${e.version} verified on ${e.verified.slice(0, 7)}`,
+  ].filter(Boolean);
+  return wrong;
+}
+
 // What is wrong with the releases of the protocol in a repository (inv.release-tagged).
 export function protocolReleaseProblems(repo, rel = RELEASES_FILE) {
   const path = join(repo, rel);
@@ -107,12 +134,7 @@ export function protocolReleaseProblems(repo, rel = RELEASES_FILE) {
     }
     if (git(repo, "cat-file", "-t", tag).out !== "tag") problems.push(`v${e.version}: the tag is not annotated`);
     const commit = git(repo, "rev-parse", `${tag}^{commit}`).out;
-    const parent = git(repo, "rev-parse", "-q", "--verify", `${commit}^`).out;
-    if (parent !== e.verified) problems.push(`v${e.version}: the parent of the tagged commit is ${parent.slice(0, 7) || "none"}, not the verified commit ${e.verified.slice(0, 7)}`);
-    else {
-      const changed = git(repo, "diff", "--name-only", e.verified, commit).out.split("\n").filter(Boolean);
-      if (changed.length !== 1 || changed[0] !== rel) problems.push(`v${e.version}: the release commit changes ${changed.join(", ") || "nothing"}, not only ${rel}`);
-    }
+    problems.push(...releaseCommitProblems(repo, commit, e, rel).map((p) => `v${e.version}: ${p}`));
   }
   for (const t of releaseTags(repo))
     if (t.tag !== START_TAG && !entries.some((e) => `v${e.version}` === t.tag)) problems.push(`tag ${t.tag} has no entry in ${rel}`);
@@ -127,22 +149,39 @@ export function releaseNews({ clone, pinCommit, used = new Set(), decisionsRel =
   if (!pinCommit || !git(clone, "cat-file", "-e", `${pinCommit}^{commit}`).ok)
     return [`the comparison is not possible: the commit of the pin ${pinCommit ? pinCommit.slice(0, 12) : "(none)"} is not in the approach clone`];
   const entries = [];
+  // A tag whose commit is no release commit of its own entry is said, never skipped (D-114): the clone's
+  // releases are then not known in full.
+  const unread = [];
   for (const t of releaseTags(clone)) {
-    if (t.tag === START_TAG || !t.version) continue;
+    if (t.tag === START_TAG) continue;
+    if (!t.version) {
+      unread.push(`tag ${t.tag} is not v and three numbers of Semantic Versioning`);
+      continue;
+    }
+    const commit = git(clone, "rev-parse", "-q", "--verify", `refs/tags/${t.tag}^{commit}`).out;
     const text = git(clone, "show", `refs/tags/${t.tag}:${releasesRel}`);
     const e = text.ok ? parseReleasesFile(text.out).entries.find((x) => x.version === t.version) : null;
-    if (e) entries.push(e);
+    const wrong = !e ? [`its commit has no entry of ${t.version} in ${releasesRel}`] : releaseCommitProblems(clone, commit, e, releasesRel);
+    if (wrong.length) unread.push(`tag ${t.tag}: ${wrong.join("; ")}`);
+    else entries.push(e);
   }
+  const incomplete = unread.map((u) => `the releases of the approach clone are not known in full: ${u}; it is not counted`);
   const newer = entries.filter((e) => !isAncestor(clone, e.verified, pinCommit)).sort((a, b) => compareVersions(a.version, b.version));
-  if (!newer.length) return ["no newer version among the releases the approach clone knows (to learn of new ones: git fetch --tags in the clone)"];
-  return newer.map((e) => {
+  if (!newer.length)
+    return [
+      ...incomplete,
+      incomplete.length
+        ? "no newer version among the releases of the approach clone that can be read"
+        : "no newer version among the releases the approach clone knows (to learn of new ones: git fetch --tags in the clone)",
+    ];
+  return [...incomplete, ...newer.map((e) => {
     const changes = changesBetween(clone, previousVerified(clone, entries, e.version), e.verified, decisionsRel);
     const rules = changes.filter((c) => c.accepted && c.concepts.some((x) => used.has(x)));
     return (
       `version ${e.version} was released (${e.date}); changes: ${changes.map((c) => c.id).join(", ") || "none"}` +
       `; of them, change this project's rules: ${rules.map((c) => `${c.id} (${c.concepts.filter((x) => used.has(x)).join(", ")})`).join(", ") || "none"}`
     );
-  });
+  })];
 }
 
 // The checks a release of a product runs: the project's check and each test suite of the configuration
