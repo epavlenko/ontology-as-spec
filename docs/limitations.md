@@ -35,6 +35,11 @@ A mockup shows a state: overdue, reserved, suspended. It cannot show a loan beco
 
 The check confirms that the files named in the table exist and which of them name the concept in an `ont:` comment, not that they implement it. For the classes that tests must cover, a tagged test is required as well. For the other classes, a row is a claim that a reviewer confirms.
 
+<!-- ont: field.task-statement.budget@86d641, derived.task-budget@43edc0 -->
+### A task's reserve is read with two decimal digits
+
+A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at most two digits after the point, so the cap of a task's budget is exact. The configuration is JSON, and its parser rounds a long fraction to a number before the tool reads it, so a value that rounds to two digits passes the check. A record of done made before the rule with a reserve of three digits, or an `Overspend:` line in the earlier text, is refused and written again. Each needs a configuration or a record edited by hand (D-150).
+
 <!-- ont: inv.accepted-never-edited@a7c76a, rule.guard-from-acceptance@beced5 -->
 ### The decision guard compares text with one earlier commit
 

@@ -64,7 +64,7 @@ node tools/ont-check/gen-tree.mjs --config ont.config.json --out /tmp/tree.html 
 
 The page is written when someone wants to see the ontology, or by the hook below, and is not kept in the repository. A labels file, a JSON object, may replace terms by ID, the labels of the kinds it groups rows by, by class, headings of tables without an entity, which are the only headings it shows, and the page's own words, for a reader of another language; the entity keeps its own term beside its label. An ID, a kind or a heading that the tree does not show is refused, so a typo or a retired ID does not pass unnoticed. The page's own words are a fixed list and are always accepted, even where a page does not need one, such as "many" for an ontology with no `refs`, so that one file serves every ontology.
 
-<!-- ont: rule.tree-refreshed-after-merge@e85f18, field.ontology-tree.place@1bd646, field.ontology-tree.built-from@67c77a, derived.tree-stale@c62f66 -->
+<!-- ont: rule.tree-refreshed-after-merge@e85f18, field.ontology-tree.place@1bd646, field.ontology-tree.built-from@fb1fae, derived.tree-stale@638039 -->
 ## Keeping the tree current
 
 A clone that keeps a tree for people names its place in its own Git configuration, never in `ont.config.json`, so that the path of one machine does not reach the repository:
