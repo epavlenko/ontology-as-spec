@@ -125,7 +125,8 @@ A test starts its title with the check's ID: `test("[check.loan.renew-while-held
 - Write the code from the rows and checks of the concepts it implements. If it would do something the ontology does not say, add the row or the check first, or ask the owner.
 - Code that implements a concept names it next to the code: `// ont: inv.no-renew-when-held`, in any comment syntax. The check fails on a name that does not resolve.
 - When a concept is built, add its row to "Implementation status" with the files. What a partial implementation leaves out is named in the note of its row.
-- With the oracle on, add a test that compares the code with the oracle on random sequences of the implemented actions, as `example/app/oracle.test.mjs` does; only a known divergence may differ.
+- With the oracle on, add a test that compares the code with the oracle on random sequences of the implemented actions, as `example/app/oracle.test.mjs` does; only a known divergence may differ. The check fails while no test runs the oracle.
+- Write an adapter (`adapter` in the configuration, like `example/app/adapter.mjs`) so that each check's trace runs on the code, by `checkTest("[check.id] …")` in a file of `systemTests` (`example/traces/traces.test.mjs`), and run `--mutate`: it lists the changes of the forms no trace fails on, cases the catalogue may not hold, and fails on a test that passes where its trace fails.
 - When the code disagrees with the ontology, add a line under "Known divergences" naming the IDs. Do not silently change either side: a divergence becomes a ticket, or a new decision if the target changed.
 
 <!-- ont: derived.gap@14d3ee, derived.next-slice@187668 -->

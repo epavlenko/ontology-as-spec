@@ -63,10 +63,22 @@ check.loan.renew-while-held
 
 Days pass one by one: a step on a later day processes every day in between, so a hook on a day is never skipped. `ont-check.mjs --run` runs every trace and prints each check with ok, fail or skip and its reason; the run fails when a trace does not hold, when a check has neither a trace nor a reason, and when a trace names no check.
 
-<!-- ont: rule.code-compared-with-oracle@39c0ea -->
+<!-- ont: rule.code-compared-with-oracle@39c0ea, inv.code-compared@fb0f39 -->
 ## Code compared with the oracle
 
 A project with an oracle runs its code and the oracle on the same random sequences of implemented actions and days, and compares after every step what both can observe: accepted or refused, the open records and what is available. A difference fails the test, unless it matches a known divergence of the ontology with its condition; a matched divergence ends its sequence, since the states then differ. The test also fails when it compares nothing, and it keeps a failing sequence with its seed so that it can be run again. The example's `example/app/oracle.test.mjs` is such a test. This is model-based testing of a state machine, as in [QuickCheck](https://dl.acm.org/doi/10.1145/351240.351266) (Claessen and Hughes, 2000) and its [testing of command sequences](https://research.chalmers.se/publication/232550) (Hughes, 2016); refusals by preconditions descend from [Design by Contract](https://se.inf.ethz.ch/~meyer/publications/computer/contract.pdf) (Meyer, 1992).
+
+With the oracle on and an action built, the check fails unless a test of the project's suites runs the oracle (D-103). What that test compares is the reviewer's to read: a test that runs the oracle and compares nothing would pass a reading of names.
+
+<!-- ont: concept.code-adapter@1e5b96, rule.trace-runs-on-code@fa4aba, inv.trace-run-on-code@12378d -->
+## A check's trace on the code
+
+A comparison on random sequences finds where the code and the oracle part; a trace says, for one check, that they agree on its case. A project's adapter (`adapter` in the configuration) calls each implemented action in the code, reads a refusal of the code as the row that refused it, and shows the code's state as records of the ontology. A trace then runs on the code as `--run` runs it on the oracle, by a test of the project, `checkTest("[check.id] …")` of the tool's `code-traces.mjs`; the check fails on a traced check whose concepts are all built and whose trace takes only actions the adapter runs, when no test runs it on the code (D-101). On the code a trace may differ only where a known divergence names one of the check's concepts. The adapter translates and hides nothing; what the code does not keep is left empty. The derived values an assertion reads are computed by the forms from the code's records, so a trace on the code holds what the code keeps and how it refuses, not its own computation of a derived value; the comparison reads the code's own views for that.
+
+<!-- ont: derived.surviving-mutation@25b6cb, rule.test-fails-on-mutant@432c9a, inv.no-empty-test@f071ae -->
+## Changes of the forms
+
+`ont-check --mutate` changes one line of a form at a time, a number by one, a comparison turned, and and or swapped, a not dropped, true and false swapped, and runs every trace on the oracle with it (D-102). A change that no trace fails on survives and is listed: either the catalogue does not hold that case, as when no check tells a member at the limit from one above it, or the change alters nothing that can be observed, which only a reader can tell. A test of a check written against a system, listed under `systemTests`, then runs on the oracle with each change its check's trace fails on; a test that passes there is empty, and the check fails. This is mutation testing, as [Stryker](https://stryker-mutator.io/docs/mutation-testing-elements/mutant-states-and-metrics/) applies it to code, applied to the forms of the ontology; the code is not changed.
 
 <!-- ont: -->
 ## How it fails

@@ -829,6 +829,33 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: leaving the records to the reviewer (the same work every round, and a missed record is found only later).
 - Concepts: `action.record-verdicts`, `ent.manual-run`, `rule.run-recorded`.
 
+### D-101 · A check's trace runs on the code through the project's adapter
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 965, "965 a": three steps in order, a check's trace runs on the code too, not only on the oracle, and a test tagged with the check takes its trace, so that the tag stops being a promise; a mutation check, where the tool breaks a form of the oracle or a rule and the trace and the test must both fail, or the test is empty; and the comparison with the oracle required in a project that turns the oracle on (translated from Russian). The goal was approved by his answer of the same day to question 987, "987 a".
+- Decision: a project that turns the oracle on may name an adapter (`adapter` in the configuration, `concept.code-adapter`): a module that calls each implemented action in the code, reads a refusal of the code as the row that refused it, and shows the code's state as records of the ontology. A trace then runs on the code as on the oracle. A test of the project's suites runs it, `checkTest("[check.id] …")` of the tool's `code-traces.mjs`, and `inv.trace-run-on-code` fails on a traced check whose concepts are all implemented and whose trace takes only actions the adapter runs, when no test runs it. On the code a trace may differ from the oracle only where a known divergence names one of the check's concepts. The derived values an assertion reads are computed by the forms from the code's records, so a trace on the code holds the code's records and refusals, not its own computation of a derived value; the comparison with the oracle (D-103) still reads the code's own views.
+- Why: the check read the names code gives its concepts, not what it does, and a tag claimed that a test implements its check without showing it (docs/limitations.md). The first run of the example's traces on its code found three refusals the code words otherwise than its forms, which no test had shown.
+- Rejected: an adapter that translates the code's words or states into the forms' (it would hide what the code does); running a trace that takes an action the code does not implement (it says nothing of the code; it is listed instead).
+- Concepts: `concept.code-adapter`, `rule.trace-runs-on-code`, `inv.trace-run-on-code`.
+
+### D-102 · Changes of the forms find traces that hold nothing and tests that are empty
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 965, "965 a": three steps in order, a check's trace runs on the code too, not only on the oracle, and a test tagged with the check takes its trace, so that the tag stops being a promise; a mutation check, where the tool breaks a form of the oracle or a rule and the trace and the test must both fail, or the test is empty; and the comparison with the oracle required in a project that turns the oracle on (translated from Russian). The goal was approved by his answer of the same day to question 987, "987 a".
+- Decision: `ont-check --mutate` changes one line of a formal form at a time, a number by one, a comparison turned, and and or swapped, a not dropped, true and false swapped, and runs every trace on the oracle with it. A change no trace fails on is a surviving mutation (`derived.surviving-mutation`), listed as information: it is a case the catalogue does not hold, or a change that alters nothing, and the reviewer tells them apart. Every test of a check written against a system (`systemTests` in the configuration) runs on the oracle with each change its check's trace fails on; a test that passes there is empty, and the check fails (`rule.test-fails-on-mutant`, `inv.no-empty-test`). The code itself is not changed.
+- Why: a tag says a test implements its check; a test that does not fail when the behavior it checks is broken implements nothing. The forms are the behavior the ontology states, so breaking them is breaking the behavior the check holds.
+- Rejected: failing on a surviving mutation (some changes alter nothing that can be observed, and only a reader can tell; Stryker counts such equivalent mutants apart, https://stryker-mutator.io/docs/mutation-testing-elements/equivalent-mutants/); changing the code (beyond the owner's answer, and the code is the project's).
+- Concepts: `derived.surviving-mutation`, `rule.test-fails-on-mutant`, `inv.no-empty-test`.
+
+### D-103 · With the oracle on, a test compares the code with it
+
+- Date: 2026-11-20 · Status: accepted
+- Source: the owner's answer of 2026-11-20 to question 965, "965 a": three steps in order, a check's trace runs on the code too, not only on the oracle, and a test tagged with the check takes its trace, so that the tag stops being a promise; a mutation check, where the tool breaks a form of the oracle or a rule and the trace and the test must both fail, or the test is empty; and the comparison with the oracle required in a project that turns the oracle on (translated from Russian). The goal was approved by his answer of the same day to question 987, "987 a".
+- Decision: when the configuration turns the oracle on and an action is implemented, the check fails unless a test of the project's suites runs the oracle (`inv.code-compared`). That the test compares the same random sequences, fails on a difference no known divergence allows, fails when it compares nothing and keeps a failing sequence stays the reviewer's check, `check.formal-form.code-compared`.
+- Why: the comparison was a rule a reviewer looked for; a project could turn the oracle on and never compare its code with it.
+- Rejected: reading the test's content in the tool (a test that runs the oracle and compares nothing would pass a reading of names; the reviewer reads what it compares).
+- Concepts: `inv.code-compared`, `rule.code-compared-with-oracle`.
+
 ## Tentative
 
 ## Open questions

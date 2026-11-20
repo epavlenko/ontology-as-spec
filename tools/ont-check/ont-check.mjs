@@ -48,6 +48,8 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { parseRounds, renderRounds } from "./review-rounds.mjs";
+import { emptyTests, mutate, registry } from "./code-traces.mjs";
+import { pathToFileURL } from "node:url";
 import { checkForms, checkTraces, readForms, readTraces, runTrace } from "./oracle.mjs";
 
 const groupBy = (xs, key) =>
@@ -1379,6 +1381,52 @@ if (cfg.oracle) {
     }
     console.log(`RUN ${passed} passed · ${failed.length} failed · ${t.skipped.size} not traced`);
     report("traces that do not hold on the oracle", failed);
+  }
+  // D-103: with the oracle on and an action built, a test of the project's suites runs the oracle; what it
+  // compares is the reviewer's check.
+  // ont: inv.code-compared
+  const suiteFiles = cfg.testSuites.flatMap((s) => listFiles(s.dir, s.match));
+  const suiteText = suiteFiles.map(read).join("\n");
+  report(
+    "implemented actions, and no test of the suites runs the oracle to compare the code with it (rule.code-compared-with-oracle)",
+    [...implemented].some((x) => x.startsWith("action.")) && !/\bnew Oracle\(/.test(suiteText) ? ["no test runs `new Oracle(`"] : [],
+  );
+  // D-101: every traced check whose concepts are built and whose trace takes only actions the adapter runs
+  // is run on the code by a test, checkTest("[check.id] …").
+  // ont: inv.trace-run-on-code, rule.trace-runs-on-code
+  if (cfg.adapter) {
+    const adapter = await import(pathToFileURL(cfg.adapter).href);
+    const runs = new Set(Object.keys(adapter.actions ?? {}));
+    const actionsOf = (tr) => [...tr.given, ...tr.when, ...tr.then].flatMap((s) => s.text.match(/\baction\.[a-z0-9-]+/g) ?? []);
+    const built = checks.filter((c) => tracesRead.traces.has(c.id) && fullyImplemented(c));
+    // The tests that run traces on the code are those of systemTests, apart from the suites, whose tags
+    // say what a test implements.
+    const systemText = cfg.systemTests.filter((f) => existsSync(f)).map(read).join("\n");
+    const named = new Set([...systemText.matchAll(/checkTest\(\s*["'`]\[(check\.[a-z0-9.-]+)\]/g)].map((m) => m[1]));
+    report(
+      "traced checks of implemented concepts that no test runs on the code (checkTest)",
+      built.filter((c) => actionsOf(tracesRead.traces.get(c.id)).every((a) => runs.has(a)) && !named.has(c.id)).map((c) => c.id),
+    );
+    report(
+      "traced checks of implemented concepts whose trace takes an action the adapter does not run",
+      built.filter((c) => !actionsOf(tracesRead.traces.get(c.id)).every((a) => runs.has(a))).map((c) => `${c.id}: ${[...new Set(actionsOf(tracesRead.traces.get(c.id)).filter((a) => !runs.has(a)))].join(", ")}`),
+      false,
+    );
+  }
+  // D-102: --mutate changes one line of a form at a time; a change no trace fails on survives, and a test of
+  // a check that passes on a change its check's trace fails on is empty.
+  // ont: derived.surviving-mutation, inv.no-empty-test, rule.test-fails-on-mutant
+  if (flag("--mutate") > 0) {
+    const results = mutate({ md, rows, sample: tracesRead.sample, traces: tracesRead.traces });
+    const survivors = results.filter((m) => !m.killers.length);
+    console.log(`MUTATE ${results.length} changes of the forms · ${results.length - survivors.length} failed by a trace · ${survivors.length} survive`);
+    report("changes of the forms that no trace fails on (a case the catalogue does not hold, or a change that alters nothing)", survivors.map((m) => `line ${m.line}: ${m.from} → ${m.to}`), false);
+    const reg = registry();
+    reg.open = true;
+    for (const f of cfg.systemTests) await import(pathToFileURL(f).href);
+    reg.open = false;
+    const empty = emptyTests({ results, tests: reg.tests, rows, sample: tracesRead.sample });
+    report("tests of checks that pass on a change of the forms their check's trace fails on (empty tests)", empty.map((e) => `${e.name}: ${e.missed.slice(0, 3).join("; ")}${e.missed.length > 3 ? ` and ${e.missed.length - 3} more` : ""}`));
   }
 } else if (flag("--run") > 0) {
   console.log('ERROR · --run needs "oracle": true in the configuration');

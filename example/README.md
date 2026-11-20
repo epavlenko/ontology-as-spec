@@ -35,6 +35,8 @@ node tools/ont-check/gen-reference.mjs --config example/ont.config.json  # defin
 node tools/ont-check/ont-check.mjs --config example/ont.config.json      # prints ONT_OK
 node tools/ont-check/ont-check.mjs --config example/ont.config.json --gap   # what is left to build
 node tools/ont-check/ont-check.mjs --config example/ont.config.json --run   # every trace of the catalogue, run on the oracle
+node --test example/traces/traces.test.mjs                                # the traces of built checks, run on the code through app/adapter.mjs
+node tools/ont-check/ont-check.mjs --config example/ont.config.json --mutate   # changes of the forms no trace fails on, and empty tests
 node --test 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'          # unit and end-to-end tests
 ```
 

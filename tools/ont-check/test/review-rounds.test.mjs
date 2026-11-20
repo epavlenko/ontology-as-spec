@@ -206,7 +206,7 @@ test("[check.manual-run.record-verdicts] --review --record writes the records in
     git("commit", "-q", "-m", "change");
     const cli = (...a) => spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), "--review", "HEAD~1", ...a], { encoding: "utf8" });
     const out = cli().stdout;
-    const ids = [...out.slice(out.indexOf("REVIEW HEAD")).matchAll(/^ {2}(check\.\S+)/gm)].map((m) => m[1]);
+    const ids = [...out.slice(out.indexOf("REVIEW HEAD")).matchAll(/^ {2}(check\.\S+) \[/gm)].map((m) => m[1]);
     assert.ok(ids.length > 0);
     mkdirSync(join(dir, "verify/runs"), { recursive: true });
     const before = readdirSync(join(dir, "verify/runs")).length;

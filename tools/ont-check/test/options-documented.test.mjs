@@ -102,6 +102,8 @@ test("[check.tool-copy.options-documented] a configuration with every key of the
       mockup: ["m.html"],
       notYetShown: ["view"],
       oracle: true,
+      adapter: "app/adapter.mjs",
+      systemTests: ["traces/traces.test.mjs"],
       headings: { implementation: null, retired: "## R", otherWords: "## O", divergences: "### D", history: "## H" },
       decisions: { file: "d.md", entry: "^### (D-\\d+)", ref: "D-\\d+", accepted: "a", supersedes: "s", source: "s", returnWhen: "r", processLayer: "p", extends: "e", overrides: "o" },
       code: [{ dir: "src", match: "\\.js$" }],

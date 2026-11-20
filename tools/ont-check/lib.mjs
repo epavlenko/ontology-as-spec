@@ -52,7 +52,7 @@ export const renderApproach = (ONT, retired, checks = []) =>
 // object whose keys are the project's own.
 // ont: inv.tool-options-documented
 export const CONFIG_KEYS = [
-  "classes", "scoped", "ontology", "root", "agentInstructions", "glossaryOut", "mockup", "notYetShown", "oracle",
+  "classes", "scoped", "ontology", "root", "agentInstructions", "glossaryOut", "mockup", "notYetShown", "oracle", "adapter", "systemTests",
   "headings.implementation", "headings.retired", "headings.otherWords", "headings.divergences", "headings.history",
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
@@ -236,6 +236,9 @@ export function loadConfig(configPath, text) {
     notYetShown: raw.notYetShown ?? [],
     // The oracle (D-93): formal forms in behavior blocks of the ontology, traces in the catalogue.
     oracle: Boolean(raw.oracle),
+    // The code adapter and the files of tests written against a system (D-101, D-102).
+    adapter: at(raw.adapter),
+    systemTests: (raw.systemTests ?? []).map(at),
   };
 }
 

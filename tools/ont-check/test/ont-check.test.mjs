@@ -166,6 +166,9 @@ test("accepts the older single tests key as one unnamed suite", () => {
       if (line) p("checks.md", line[0], "");
       const trace = catalogue.match(new RegExp(`^${id.replace(/\./g, "\\.")}\n(?: {2}.*\n)+`, "m"));
       if (trace) p("checks.md", trace[0], "");
+      // A check gone from the catalogue is no longer run on the code either.
+      const onCode = `checkTest("[${id}] its trace on the code");\n`;
+      if (readFileSync(join(EXAMPLE, "traces/traces.test.mjs"), "utf8").includes(onCode)) p("traces/traces.test.mjs", onCode, "");
     }
   });
   assert.equal(r.code, 0, r.out);

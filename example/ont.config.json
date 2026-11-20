@@ -86,6 +86,8 @@
     "dir": "issues"
   },
   "oracle": true,
+  "adapter": "app/adapter.mjs",
+  "systemTests": ["traces/traces.test.mjs"],
   "notYetShown": [
     "view",
     "action",

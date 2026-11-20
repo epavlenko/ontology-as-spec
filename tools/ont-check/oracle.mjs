@@ -637,8 +637,10 @@ function step(o, s, outcomes) {
 }
 
 // Runs a trace: given, when (with its outcomes), then. Returns { ok, error }.
-export function runTrace(rows, formsRead, sample, t) {
-  const o = new Oracle(rows, formsRead, sample);
+// The trace runs on the oracle, or on any system that takes the same steps: put, advance, act, eval and
+// its notifications, such as the code through a project's adapter (D-101).
+export function runTrace(rows, formsRead, sample, t, system = null) {
+  const o = system ?? new Oracle(rows, formsRead, sample);
   try {
     for (const s of t.given) {
       const before = [];

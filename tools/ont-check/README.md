@@ -12,6 +12,7 @@ node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --decisio
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --review main   # also: the manual checks a change since main touches, the project's and the approach's, for a reviewer (D-77)
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --review main --record verdicts.md   # also: writes the records of the reviewer's table of verdicts into manualRuns (D-100)
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --rounds   # also: what follows the last round of each task's review, and the payoff of each step after ten applications (D-99)
+node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --mutate   # also: changes one line of a form at a time; lists the changes no trace fails on, and fails on a test of systemTests that passes on a change its check's trace fails on (D-102)
 node tools/ont-check/ont-check.mjs    --config path/to/ont.config.json --run   # also: runs every trace of the catalogue on the oracle, the ontology's formal forms (D-93); needs "oracle": true
 node tools/ont-check/format-ontology.mjs --config path/to/ont.config.json   # kind order, Kind cells and aligned definition tables
 node tools/ont-check/gen-contracts.mjs --config path/to/ont.config.json   # field and relation types → JSON Schema
@@ -41,6 +42,7 @@ Without `--config`, every script looks for `ont.config.json` in the current dire
 | `gen-tree.mjs` | writes the whole ontology, and the external ones, as a tree of its tables for people, with an optional labels file for another language |
 | `html-entities.json` | the named character references of the HTML standard, from [entities.json](https://html.spec.whatwg.org/entities.json), for reading the text of a mockup |
 | `expr.mjs` | the parser and evaluator of the form language the oracle runs |
+| `code-traces.mjs` | runs a trace on the code through the project's adapter, registers the tests of checks that run on a system, and makes the changes of the forms for `--mutate` (D-101, D-102) |
 | `oracle.mjs` | the oracle: reads the formal forms and the traces, checks the forms and runs the traces (D-93) |
 | `review.mjs` | `--review`: the checks to review for a change, from what it touches (D-77) |
 | `manual-runs.mjs` | reads the records of manual runs, finds each check's current run (D-78) and writes the records of a review's table (D-100) |
@@ -105,6 +107,8 @@ Paths are relative to the config file.
 | `external`                                                     | other ontologies whose IDs may appear as examples, each `{ "ontology", "checks" }`: their IDs and checks are known but not this ontology's                                                                                                                                                                                                                                   | no       |
 | `notYetShown`                                                  | classes reported (as information) when a concept has no mockup element yet                                                                                                                                                                                                                                                                                                   | no       |
 | `oracle` | when `true`, the definition rows' formal forms, in behavior blocks of the ontology, are checked, every check of the catalogue needs a trace or a reason it has none, and `--run` runs the traces on the oracle ([part 10](../../docs/parts/oracle.md), D-93) | no |
+| `adapter` | with the oracle on: the project's module that runs its code under a trace, exporting `actions`, `init`, `put`, `refusal` and `project`; every traced check of built concepts whose trace takes only actions it runs must be run on the code by a test of `systemTests` (D-101) | no |
+| `systemTests` | the test files whose `checkTest("[check.id] …")` tests run a check on a system: on the code under node:test, on the oracle with each change of the forms under `--mutate` (D-101, D-102) | no |
 
 Every optional part can be left out. The checks that depend on it are then skipped.
 
