@@ -10,7 +10,7 @@ Checks-listed: 52
 Checks-given: 52
 Checks-carried: 0
 Findings:
-- absolute paths let through · important · change · fixable
-- a path inside the repository refused · nit · change · fixable
-- the skill asks English of every project · important · change · fixable
-- a translation changes a technical meaning · nit · change · fixable
+- absolute paths let through · important · change · fixable · check.manual-run.english-in-repo
+- a path inside the repository refused · nit · change · fixable · check.manual-run.english-in-repo
+- the skill asks English of every project · important · change · fixable · check.manual-run.english-in-repo
+- a translation changes a technical meaning · nit · change · fixable · check.manual-run.english-in-repo
