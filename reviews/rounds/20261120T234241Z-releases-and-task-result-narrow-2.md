@@ -11,12 +11,12 @@ Checks-given: 33
 Checks-carried: 0
 Findings:
 - budget stop at the end of a step · important · change · fixable · check.task-statement.reserve-of-statement
-- budget stop at the end of a step · important · change · fixable · check.task-statement.overspend-computed
-- budget stop at the end of a step · nit · change · fixable · check.task-statement.budget-one-action
+- budget stop at the end of a step · important · change · fixable · check.task-statement.reserve-of-statement
+- budget stop at the end of a step · nit · change · fixable · check.task-statement.reserve-of-statement
 
 Acceptance:
 - budget stop at the end of a step · important · change · fixable · check.task-statement.reserve-of-statement
-- budget stop at the end of a step · important · change · fixable · check.task-statement.overspend-computed
+- budget stop at the end of a step · important · change · fixable · check.task-statement.reserve-of-statement
 
 ## Verdicts
 
