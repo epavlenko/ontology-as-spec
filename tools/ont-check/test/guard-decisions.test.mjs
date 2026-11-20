@@ -69,7 +69,7 @@ for (const [name, label, edit] of refused)
   });
 
 // A local replacement makes Git read the base commit as another one, here one that holds the edit: the
-// guard reads the base by its own SHA all the same, and refuses the edit (D-136).
+// guard reads the base by its own SHA all the same, and refuses the edit (D-137).
 test("[check.decision.accepted-edited] refuses an edit that a local replacement of the base would hide", () => {
   const dir = mkdtempSync(join(tmpdir(), "guard-"));
   const git = (...args) => {
