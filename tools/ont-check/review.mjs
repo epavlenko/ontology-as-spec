@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 import { parseAnchors } from "./docs.mjs";
-import { codeNames, parseChecks, parseGlossary } from "./lib.mjs";
+import { codeNames, gitEnv, parseChecks, parseGlossary } from "./lib.mjs";
 
 // Sections of the approach's catalogue whose manual checks concern each kind of artifact.
 export const KIND_SECTIONS = {
@@ -30,7 +30,7 @@ const SCREEN_CHECKS = ["check.check.view-states-judged", "check.check.screens-ou
 const SCREEN_FILE = /\.(?:png|jpe?g|gif|webp|svg)$/i;
 
 const git = (cwd, ...args) => {
-  const r = spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8", maxBuffer: 1 << 26 });
+  const r = spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 26 });
   return r.status === 0 ? r.stdout : null;
 };
 const lines = (s) => (s ?? "").split("\n").filter(Boolean);

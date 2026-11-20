@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadConfig } from "./lib.mjs";
-import { parseRounds } from "./review-rounds.mjs";
+import { TASK_NAME, parseRounds } from "./review-rounds.mjs";
 import { approvedHash, gitEnv, readStatement, runAtCommit } from "./tasks.mjs";
 
 const argv = process.argv.slice(2);
@@ -20,6 +20,8 @@ const refuse = (why) => {
 };
 const task = argv[0];
 if (!task || task.startsWith("--")) refuse("give the task first: done.mjs <task> --statement FILE");
+// The task names the record's file, so it is only what TASK_NAME allows (D-115): never a path.
+if (!TASK_NAME.test(task)) refuse(`the task ${JSON.stringify(task)} is not lower-case letters, digits and hyphens`);
 const cfg = loadConfig(value("--config") ?? "ont.config.json");
 if (!cfg.reviewRounds || !cfg.taskRecords) refuse("the configuration names no reviewRounds or no taskRecords");
 const file = value("--statement");

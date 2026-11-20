@@ -15,7 +15,7 @@ import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REF_TYPE, parseShows } from "./contracts.mjs";
-import { loadConfig, parseGlossary } from "./lib.mjs";
+import { gitEnv, loadConfig, parseGlossary } from "./lib.mjs";
 
 // The words of the page besides the ontology's own. A labels file may replace any of them, the term
 // of any concept by its ID, the label of a kind by its class, and the heading of a table without an
@@ -155,7 +155,7 @@ export function loadLabels(text, known) {
 
 // Git, run in a directory, without the variables a hook may have set for another repository. Returns
 // the output, or null when git fails, as it does outside a repository or for a path HEAD lacks.
-const GIT_ENV = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_(DIR|WORK_TREE|INDEX_FILE|PREFIX)$/.test(k)));
+const GIT_ENV = gitEnv();
 const git = (cwd, args, encoding = "utf8") => {
   try {
     const out = execFileSync("git", args, { cwd, encoding, env: GIT_ENV, stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 });

@@ -413,7 +413,7 @@
       "type": "object",
       "properties": {
         "task": {
-          "description": "The task the round belongs to, named the same in every round and step of it.",
+          "description": "The task the round belongs to, named the same in every round and step of it, in lower-case letters, digits and hyphens.",
           "x-ont": "field.review-round.task",
           "type": "string"
         },
@@ -602,7 +602,7 @@
       "type": "object",
       "properties": {
         "task": {
-          "description": "The task, named as in its rounds of review.",
+          "description": "The task, named as in its rounds of review; it names the file of the record, so it is lower-case letters, digits and hyphens.",
           "x-ont": "field.task-result.task",
           "type": "string"
         },

@@ -1,10 +1,45 @@
 // Shared parsing for the check and the generators. One parser for all of them: if a generator and
 // the check read the ontology differently, a broken document passes unnoticed.
+import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const read = (path) => readFileSync(path, "utf8");
+
+// The variables Git reads as local to one repository, which it sets for a hook and which would point a
+// git command in another clone, worktree or directory at the hook's repository, its index, its objects
+// or its configuration: the list `git rev-parse --local-env-vars` gives
+// (https://git-scm.com/docs/git-rev-parse#Documentation/git-rev-parse.txt---local-env-vars), and the
+// pairs GIT_CONFIG_KEY_<n> and GIT_CONFIG_VALUE_<n> that GIT_CONFIG_COUNT counts.
+export const GIT_LOCAL_VARS = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CONFIG",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_CONFIG_COUNT",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_GRAFT_FILE",
+  "GIT_INDEX_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_PREFIX",
+  "GIT_SHALLOW_FILE",
+  "GIT_COMMON_DIR",
+];
+let localVars = null;
+const gitLocalVars = () => {
+  if (!localVars) {
+    const r = spawnSync("git", ["rev-parse", "--local-env-vars"], { encoding: "utf8", env: { PATH: process.env.PATH ?? "" } });
+    localVars = new Set([...GIT_LOCAL_VARS, ...(r.status === 0 ? r.stdout.split("\n").filter(Boolean) : [])]);
+  }
+  return localVars;
+};
+// The environment of a git command in a repository given by its directory, without those variables.
+export const gitEnv = (env = process.env) =>
+  Object.fromEntries(Object.entries(env).filter(([k]) => !gitLocalVars().has(k) && !/^GIT_CONFIG_(KEY|VALUE)_\d+$/.test(k)));
 
 // An entry is accepted when one of its lines matches this pattern. A log in another language sets
 // decisions.accepted in the config.

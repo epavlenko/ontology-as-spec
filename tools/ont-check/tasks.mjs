@@ -7,8 +7,8 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { listFiles, read } from "./lib.mjs";
-import { BUDGET_QUESTION, FULL_ROUNDS, SHA256, blockLines, byTime, isClean, nextRound, parseContribution, realTime } from "./review-rounds.mjs";
+import { gitEnv, listFiles, read } from "./lib.mjs";
+import { BUDGET_QUESTION, FULL_ROUNDS, SHA256, TASK_NAME, blockLines, byTime, isClean, nextRound, parseContribution, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
@@ -46,6 +46,7 @@ export function parseTaskRecords(dir) {
       const counts = ["Tokens-new", "Tokens-cached", "Tokens-out"].map((k) => [k, field(k)]);
       const wrong = [
         !task && "no task",
+        task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
         !contribution && `contribution ${field("Contribution") ?? "(none)"} is not "provider · ID"`,
         !realTime(start) && `start ${start ?? "(none)"} is not a UTC time to the second`,
         !realTime(end) && `end ${end ?? "(none)"} is not a UTC time to the second`,
@@ -65,6 +66,7 @@ export function parseTaskRecords(dir) {
       const [commit, hash, time] = [field("Commit"), field("Statement-hash"), field("Time")];
       const wrong = [
         !task && "no task",
+        task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
         !/^[0-9a-f]{40}$/.test(commit ?? "") && `commit ${commit ?? "(none)"} is not a full commit`,
         !SHA256.test(hash ?? "") && `statement hash ${hash ?? "(none)"} is not a SHA-256`,
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
@@ -227,9 +229,9 @@ export const cleanEnv = () => {
   return env;
 };
 
-// The environment of a git command: without the variables a Git hook sets, which would point git at the
-// hook's repository and its index instead of the directory given with -C.
-export const gitEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_(DIR|WORK_TREE|INDEX_FILE|PREFIX|COMMON_DIR|OBJECT_DIRECTORY)$/.test(k)));
+// The environment of a git command in another directory: without the variables local to the hook's
+// repository (lib.mjs).
+export { gitEnv };
 
 // Runs each command in a temporary worktree at the commit, in the directory that matches dir there, and
 // gives each result; the worktree is removed after (D-107).

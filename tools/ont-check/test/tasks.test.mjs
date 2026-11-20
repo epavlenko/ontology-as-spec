@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { nextRound, parseRounds } from "../review-rounds.mjs";
-import { acceptanceProblems, overlaps, parseTaskRecords, readStatement, sha256, taskBudget, taskState } from "../tasks.mjs";
+import { acceptanceProblems, gitEnv, overlaps, parseTaskRecords, readStatement, sha256, taskBudget, taskState } from "../tasks.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
 const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
@@ -374,5 +374,67 @@ test("[check.task-result.done-recorded] done.mjs records done only under an appr
   } finally {
     rmSync(repo, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+// A repository with an approved statement for a task, the statement outside it (done.mjs).
+function doneRepo(task) {
+  const repo = mkdtempSync(join(tmpdir(), "done-repo-"));
+  const outside = mkdtempSync(join(tmpdir(), "done-statement-"));
+  git(repo, "init", "-q", "-b", "main");
+  mkdirSync(join(repo, "rounds"));
+  mkdirSync(join(repo, "tasks"));
+  writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ classes: { ent: "Entity" }, ontology: "ontology.md", reviewRounds: { dir: "rounds" }, taskRecords: { dir: "tasks" } }));
+  writeFileSync(join(repo, ".gitignore"), "rounds/\ntasks/\n");
+  git(repo, "add", ".");
+  git(repo, "commit", "-q", "-m", "first");
+  const statement = join(outside, "s.md");
+  writeFileSync(statement, "# A statement\n\nDone-when: true\n");
+  writeFileSync(join(repo, "rounds", "1.md"), roundText({ task, step: "statement-review", number: 1, ceiling: 2, time: T(9), hash: readStatement(statement).hash }));
+  const done = (name, env = process.env) => spawnSync("node", [join(TOOLS, "done.mjs"), name, "--statement", statement, "--config", join(repo, "ont.config.json")], { encoding: "utf8", env });
+  const clean = () => [repo, outside].forEach((d) => rmSync(d, { recursive: true, force: true }));
+  return { repo, outside, done, clean };
+}
+
+test("[check.task-result.task-name] done.mjs refuses a task that is not lower-case letters, digits and hyphens, and the records refuse one", () => {
+  const { repo, outside, done, clean } = doneRepo("Big Task");
+  try {
+    for (const name of ["Big Task", "../escape", "a/b"]) {
+      const r = done(name);
+      assert.equal(r.status, 1, r.stdout);
+      assert.match(r.stdout, /no record of done written: the task .* is not lower-case letters, digits and hyphens/);
+    }
+    assert.deepEqual(readdirSync(join(repo, "tasks")), []);
+    assert.deepEqual(readdirSync(outside), ["s.md"]);
+    // A round or a record of done that names such a task is malformed.
+    assert.match(parseRounds(join(repo, "rounds")).malformed.join("\n"), /task Big Task is not lower-case letters, digits and hyphens/);
+    writeFileSync(join(repo, "tasks", "d.md"), doneText({ task: "../x", time: T(10) }));
+    assert.match(parseTaskRecords(join(repo, "tasks")).malformed.join("\n"), /task \.\.\/x is not lower-case letters, digits and hyphens/);
+  } finally {
+    clean();
+  }
+});
+
+test("[check.task-result.git-env-of-hook] the variables Git sets for a hook of another repository do not reach a git command in this one", () => {
+  // Every variable Git names as local to a repository is dropped; the others stay.
+  const local = spawnSync("git", ["rev-parse", "--local-env-vars"], { encoding: "utf8" }).stdout.split("\n").filter(Boolean);
+  const given = Object.fromEntries([...local, "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"].map((k) => [k, "x"]));
+  const kept = gitEnv({ ...given, GIT_AUTHOR_NAME: "t", PATH: "/bin" });
+  assert.deepEqual(Object.keys(kept).sort(), ["GIT_AUTHOR_NAME", "PATH"]);
+  // done.mjs run from a hook of another repository whose configuration makes a repository bare.
+  const { repo, done, clean } = doneRepo("t");
+  const other = mkdtempSync(join(tmpdir(), "other-repo-"));
+  try {
+    git(other, "init", "-q");
+    const hook = { GIT_DIR: join(other, ".git"), GIT_INDEX_FILE: join(other, ".git", "index"), GIT_ALTERNATE_OBJECT_DIRECTORIES: join(other, ".git", "objects") };
+    for (const extra of [{ GIT_CONFIG_PARAMETERS: "'core.bare'='true'" }, { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "core.bare", GIT_CONFIG_VALUE_0: "true" }]) {
+      const r = done("t", { ...process.env, ...hook, ...extra });
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.match(r.stdout, /^DONE t: 1 commands passed on [0-9a-f]{7}/);
+    }
+    assert.equal(readdirSync(join(repo, "tasks")).length >= 1, true);
+  } finally {
+    clean();
+    rmSync(other, { recursive: true, force: true });
   }
 });

@@ -33,6 +33,8 @@ export const parseContribution = (v) => {
   return provider && id && !rest.length ? { provider, id, key: `${provider} · ${id}` } : null;
 };
 export const SHA256 = /^[0-9a-f]{64}$/;
+// A task's name: lower-case letters, digits and hyphens, since it names files of records (D-115).
+export const TASK_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // The lines of a block: after a line "Name:" alone, the lines "- …" up to the first other line.
 export const blockLines = (text, name) => {
   const lines = text.split("\n");
@@ -67,6 +69,7 @@ export function parseRounds(dir) {
     const wrong = [
       repeated.length && `${repeated.join(", ")} given more than once`,
       !fields.task && "no task",
+      fields.task && !TASK_NAME.test(fields.task) && `task ${fields.task} is not lower-case letters, digits and hyphens`,
       !STEPS.includes(fields.step) && `step ${fields.step ?? "(none)"} is not one of ${STEPS.join(", ")}`,
       fields.narrow && !["true", "false"].includes(fields.narrow) && `narrow ${fields.narrow} is not true or false`,
       !realTime(fields.time) && `time ${fields.time ?? "(none)"} is not a UTC time to the second`,

@@ -959,6 +959,15 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: the shape checked by the file's name alone (the case above); skipping a tag that cannot be read (a project would believe it is up to date); `git commit` with the hooks skipped (a hook after the commit still runs and may move HEAD).
 - Concepts: `inv.release-tagged`, `action.release-protocol`, `derived.newer-releases`.
 
+### D-115 · A task is named by lower-case letters, digits and hyphens
+
+- Date: 2026-11-20 · Status: accepted
+- Source: D-107, from the owner's answer of 2026-11-20 to question 997, "997 - a", quoted in D-106; the reviewer's finding of round 1 of the review of the result of task releases-and-task, "git context and paths", is the reviewer's, not the owner's words. The form of the name is the thread's technical decision.
+- Decision: adds to D-99 and D-107. A task is named by lower-case letters and digits, in words joined by single hyphens, in its rounds of review, its records of done and of spend (`field.review-round.task`, `field.task-result.task`). `done.mjs` refuses any other name before it reads anything, since the name makes the file of the record, and the check reads a record with another name as malformed.
+- Why: `done.mjs` built the path of its record from the task as given, so a name with a slash or `..` could put a file outside the directory of records, and a name with spaces made files the other tools name differently.
+- Rejected: escaping the name in the file's name (two names would make one file); a check on the path alone (a record named one way and read another would still pass).
+- Concepts: `field.review-round.task`, `field.task-result.task`, `action.record-done`.
+
 ## Tentative
 
 ## Open questions
