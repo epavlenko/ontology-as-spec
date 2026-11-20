@@ -23,7 +23,7 @@ const patch = (dir, file, from, to) => {
 const review = ({ before, after } = {}) => {
   const dir = mkdtempSync(join(tmpdir(), "ont-review-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     before?.(dir);
     const git = (...args) => spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", env: ENV });
     git("init", "-q");

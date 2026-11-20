@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadConfig } from "./lib.mjs";
 import { parseRounds } from "./review-rounds.mjs";
-import { approvedHash, readStatement, runAtCommit } from "./tasks.mjs";
+import { approvedHash, gitEnv, readStatement, runAtCommit } from "./tasks.mjs";
 
 const argv = process.argv.slice(2);
 const value = (flag) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
@@ -34,7 +34,7 @@ if (approved !== statement.hash)
       ? `the approval in force is for version ${approved.slice(0, 12)}, the file is ${statement.hash.slice(0, 12)}`
       : "no approval is in force for the statement: its last round of review is not clean or names no version",
   );
-const git = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8" });
+const git = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() });
 const top = git("rev-parse", "--show-toplevel").stdout.trim();
 const commit = git("rev-parse", "--verify", `${value("--commit") ?? "HEAD"}^{commit}`).stdout.trim();
 if (!commit) refuse(`no commit ${value("--commit") ?? "HEAD"}`);

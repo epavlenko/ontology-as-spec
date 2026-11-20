@@ -32,7 +32,7 @@ import {
   releaseTags,
   runReleaseChecks,
 } from "./releases.mjs";
-import { cleanEnv, runAtCommit, sha256 } from "./tasks.mjs";
+import { cleanEnv, gitEnv, runAtCommit, sha256 } from "./tasks.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -157,7 +157,7 @@ function product() {
   if (releases.some((r) => r.version === version)) refuse(`release ${version} has a record already`);
   const commit = git(cfg.base, "rev-parse", "--verify", `${value("--commit") ?? "HEAD"}^{commit}`).out;
   if (!commit) refuse(`no commit ${value("--commit") ?? "HEAD"}`);
-  const pin = spawnSync("git", ["-C", top, "show", `${commit}:${pinRel}`], { maxBuffer: 1 << 28 });
+  const pin = spawnSync("git", ["-C", top, "show", `${commit}:${pinRel}`], { env: gitEnv(), maxBuffer: 1 << 28 });
   if (pin.status !== 0) refuse(`the pin ${pinRel} is not at commit ${commit.slice(0, 7)}`);
   const res = run(commit);
   if (res.error) refuse(res.error);

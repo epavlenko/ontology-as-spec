@@ -8,7 +8,7 @@ import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { listFiles, read } from "./lib.mjs";
 import { blockLines, realTime } from "./review-rounds.mjs";
-import { cleanEnv, runAtCommit, sha256 } from "./tasks.mjs";
+import { cleanEnv, gitEnv, runAtCommit, sha256 } from "./tasks.mjs";
 
 // Semantic Versioning 2.0.0, three numbers (https://semver.org/spec/v2.0.0.html).
 export const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -22,10 +22,10 @@ export const START_VERSION = "0.1.0";
 export const RELEASES_FILE = "releases.md";
 
 export const git = (repo, ...args) => {
-  const r = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8", maxBuffer: 1 << 28 });
+  const r = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 28 });
   return { ok: r.status === 0, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim() };
 };
-const isAncestor = (repo, a, b) => spawnSync("git", ["-C", repo, "merge-base", "--is-ancestor", a, b]).status === 0;
+const isAncestor = (repo, a, b) => spawnSync("git", ["-C", repo, "merge-base", "--is-ancestor", a, b], { env: gitEnv() }).status === 0;
 
 // The entries of releases.md: "## v0.2.0 · 2026-11-21" and, under it, "- Verified: <commit>".
 export function parseReleasesFile(text) {
@@ -200,7 +200,7 @@ export function productReleaseProblems({ top, cfgRel, pinRel, releases, deployme
       out.push(`${r.file}: commit ${r.commit.slice(0, 7)} is not in the project's history`);
       continue;
     }
-    const pin = spawnSync("git", ["-C", top, "show", `${r.commit}:${pinRel}`], { maxBuffer: 1 << 28 });
+    const pin = spawnSync("git", ["-C", top, "show", `${r.commit}:${pinRel}`], { env: gitEnv(), maxBuffer: 1 << 28 });
     if (pin.status !== 0) out.push(`${r.file}: the pin ${pinRel} is not at commit ${r.commit.slice(0, 7)}`);
     else if (sha256(pin.stdout) !== r.pin) out.push(`${r.file}: the pin's hash is not the hash of ${pinRel} at commit ${r.commit.slice(0, 7)}`);
     const config = git(top, "show", `${r.commit}:${cfgRel}`);

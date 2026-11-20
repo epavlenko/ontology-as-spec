@@ -13,7 +13,7 @@ const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
 const run = (edit, ...args) => {
   const dir = mkdtempSync(join(tmpdir(), "ont-check-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const patch = (file, from, to) => {
       const path = join(dir, file);
       const text = readFileSync(path, "utf8");
@@ -128,7 +128,7 @@ test("[check.concept.shows-unknown] a ref on a row that is no field or relation 
 test("[check.concept.shows-unknown] the contract generator refuses a view that shows no entity of the glossary", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-check-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const onto = join(dir, "ontology.md");
     writeFileSync(onto, readFileSync(onto, "utf8").replace("| shows `ent.member`, `ent.loan`, `ent.hold` |", "| shows `ent.member`, `ent.shelf` |"));
     const r = spawnSync("node", [join(TOOLS, "gen-contracts.mjs"), "--config", join(dir, "ont.config.json")], { encoding: "utf8" });
@@ -366,7 +366,7 @@ test("[check.implementation-row.grouped] concepts realised in the same files may
 test("[check.concept.formatted] format-ontology.mjs writes the kind order and the Kind cells", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-format-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const cfg = join(dir, "ont.config.json");
     const node = (script) => spawnSync("node", [join(TOOLS, script), "--config", cfg], { encoding: "utf8" });
     const onto = join(dir, "ontology.md");
@@ -798,7 +798,7 @@ test("[check.decision.departure-malformed] checks every Extends and Overrides li
 test("[check.agent-rules.approach-ids-stale] the approach IDs next to the tool match the approach's ontology", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-approach-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const cfg = join(dir, "ont.config.json");
     writeFileSync(cfg, readFileSync(cfg, "utf8").replace('"root":', '"approachIds": { "out": "approach-ids.json" },\n  "root":'));
     writeFileSync(join(dir, "approach-ids.json"), "{}\n");
@@ -849,7 +849,7 @@ test("[check.decision.deferrals-listed] lists the deferrals in force with their 
 test("[check.doc-section.reread-after-change] a changed definition marks the sections to reread, and stamping clears it", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-docs-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const cfg = join(dir, "ont.config.json");
     const node = (script, ...args) =>
       spawnSync("node", [join(TOOLS, script), "--config", cfg, ...args], { encoding: "utf8" });
@@ -949,7 +949,7 @@ test("[check.doc-section.undeclared] reads sections as CommonMark does: other he
 test("[check.doc-section.declared-empty] accepts a section with an empty anchor, which stamping leaves empty", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-docs-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const cfg = join(dir, "ont.config.json");
     const node = (script) => spawnSync("node", [join(TOOLS, script), "--config", cfg], { encoding: "utf8" });
     const page = join(dir, "help", "borrowing.md");
@@ -1162,7 +1162,7 @@ test("[check.doc-set.named-pages] a set of named pages reads a README and names 
 const tree = (edit, labels) => {
   const dir = mkdtempSync(join(tmpdir(), "ont-tree-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const patch = (file, from, to) => {
       const path = join(dir, file);
       const text = readFileSync(path, "utf8");

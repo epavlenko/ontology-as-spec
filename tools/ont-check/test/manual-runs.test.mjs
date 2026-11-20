@@ -40,7 +40,7 @@ const record = (dir, name, fields) => {
 const run = (edit) => {
   const dir = mkdtempSync(join(tmpdir(), "ont-runs-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     edit?.(dir);
     const r = spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json")], { encoding: "utf8" });
     return { code: r.status, out: r.stdout + r.stderr };

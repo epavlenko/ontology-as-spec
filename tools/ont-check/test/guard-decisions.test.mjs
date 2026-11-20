@@ -19,7 +19,7 @@ const run = (edit, prepare = () => {}) => {
     assert.equal(r.status, 0, r.stderr);
   };
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     prepare(dir);
     git("init", "-q");
     git("add", ".");
@@ -73,7 +73,7 @@ for (const [name, label, edit] of refused)
 test("[check.decision.guard-off] says GUARD_OFF before the first commit", () => {
   const dir = mkdtempSync(join(tmpdir(), "guard-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     assert.equal(spawnSync("git", ["init", "-q"], { cwd: dir }).status, 0);
     const guard = (...extra) => {
       const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json"), ...extra], { cwd: dir, encoding: "utf8" });
@@ -148,7 +148,7 @@ test("[check.decision.unsourced-acceptance] asks a source only after the first o
 test("[check.decision.unsourced-acceptance] checks the sources of a log that is not in the base", () => {
   const dir = mkdtempSync(join(tmpdir(), "guard-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const log = join(dir, "decisions.md");
     const text = readFileSync(log, "utf8");
     rmSync(log);
@@ -174,7 +174,7 @@ test("[check.decision.unsourced-acceptance] checks the sources of a log that is 
 test("[check.decision.meaning-changed] fails on a definition changed with no decision entry or history line naming it", () => {
   const dir = mkdtempSync(join(tmpdir(), "guard-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     for (const args of [["init", "-q"], ["add", "."], ["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base"]])
       assert.equal(spawnSync("git", args, { cwd: dir }).status, 0);
     const onto = join(dir, "ontology.md");
@@ -209,7 +209,7 @@ test("[check.decision.meaning-changed] compares a renamed ontology with its old 
   const repo = (files) => {
     const dir = mkdtempSync(join(tmpdir(), "guard-"));
     dirs.push(dir);
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     for (const args of [["init", "-q"], ["add", ...files], ["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base"]])
       assert.equal(spawnSync("git", args, { cwd: dir }).status, 0, args.join(" "));
     return dir;

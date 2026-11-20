@@ -222,16 +222,20 @@ export function taskState({ rounds, spend, task, defaults, statement }) {
 // The environment of a command run on a commit: without the variable a running test runner sets, which
 // would make a test runner started by the command report to it instead of failing.
 export const cleanEnv = () => {
-  const env = { ...process.env };
+  const env = gitEnv();
   delete env.NODE_TEST_CONTEXT;
   return env;
 };
+
+// The environment of a git command: without the variables a Git hook sets, which would point git at the
+// hook's repository and its index instead of the directory given with -C.
+export const gitEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_(DIR|WORK_TREE|INDEX_FILE|PREFIX|COMMON_DIR|OBJECT_DIRECTORY)$/.test(k)));
 
 // Runs each command in a temporary worktree at the commit, in the directory that matches dir there, and
 // gives each result; the worktree is removed after (D-107).
 export function runAtCommit({ top, commit, dir = "", commands }) {
   const tmp = mkdtempSync(join(tmpdir(), "ont-at-commit-"));
-  const add = spawnSync("git", ["-C", top, "worktree", "add", "--detach", "--quiet", tmp, commit], { encoding: "utf8" });
+  const add = spawnSync("git", ["-C", top, "worktree", "add", "--detach", "--quiet", tmp, commit], { encoding: "utf8", env: gitEnv() });
   if (add.status !== 0) {
     rmSync(tmp, { recursive: true, force: true });
     return { error: `cannot make a worktree at ${commit}: ${add.stderr.trim()}` };
@@ -245,7 +249,7 @@ export function runAtCommit({ top, commit, dir = "", commands }) {
       }),
     };
   } finally {
-    spawnSync("git", ["-C", top, "worktree", "remove", "--force", tmp]);
+    spawnSync("git", ["-C", top, "worktree", "remove", "--force", tmp], { env: gitEnv() });
     rmSync(tmp, { recursive: true, force: true });
   }
 }

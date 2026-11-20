@@ -48,7 +48,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { parseRounds, renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, overlaps, parseTaskRecords, readStatement, taskState } from "./tasks.mjs";
+import { acceptanceProblems, gitEnv, overlaps, parseTaskRecords, readStatement, taskState } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1364,7 +1364,7 @@ if (cfg.reviewRounds) {
 // that are newer than the pin, as information. With releases in the configuration, every record of a
 // release is intact and every deployment names a release; --releases prints them and what runs now.
 // ont: inv.release-tagged, derived.newer-releases, field.tool-copy.approach-clone, inv.product-release-intact, inv.deployment-of-release, derived.running-now
-const gitOut = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8" }).stdout?.trim() ?? "";
+const gitOut = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
 if (cfg.protocolReleases) {
   const top = gitOut("rev-parse", "--show-toplevel");
   report("releases of the protocol that do not hold", top ? protocolReleaseProblems(top, relative(top, cfg.protocolReleases.file).split("\\").join("/")).problems : ["not in a Git repository"]);
@@ -1383,7 +1383,11 @@ if (cfg.releases) {
   const { releases, deployments, malformed } = parseProductRecords(cfg.releases.dir);
   report("records of releases that cannot be read", malformed);
   const rel = (p) => relative(top, p).split("\\").join("/");
-  report("records of releases and deployments that do not hold", productReleaseProblems({ top, cfgRel: rel(cfg.file), pinRel: rel(cfg.releases.pin), releases, deployments }));
+  // Integrity rests on the project's history: a copy of the files outside it cannot be checked.
+  report(
+    "records of releases and deployments that do not hold",
+    !releases.length && !deployments.length ? [] : top ? productReleaseProblems({ top, cfgRel: rel(cfg.file), pinRel: rel(cfg.releases.pin), releases, deployments }) : ["the records cannot be checked outside the project's Git repository"],
+  );
   if (flag("--releases") > 0) {
     for (const r of releases) console.log(`RELEASE ${r.version} · ${r.commit.slice(0, 7)} · ${r.date} · ${r.checks.map((c) => `${c.check} ${c.result}`).join(", ")}`);
     for (const [env, d] of runningNow(deployments)) console.log(`RUNNING ${env}: ${d.release}, since ${d.time}`);

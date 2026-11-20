@@ -251,7 +251,7 @@ test("[check.task-result.acceptance-not-clean] a verdict of acceptance that find
 // The check on a copy of the example, with the records of rounds and of a task in its configuration.
 function checkWith(sc, extra = {}, args = []) {
   const cfgDir = mkdtempSync(join(tmpdir(), "task-cfg-"));
-  cpSync(EXAMPLE, cfgDir, { recursive: true });
+  cpSync(EXAMPLE, cfgDir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
   const cfgPath = join(cfgDir, "ont.config.json");
   const cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
   writeFileSync(cfgPath, JSON.stringify({ ...cfg, reviewRounds: { dir: join(sc.dir, "rounds") }, taskRecords: { dir: join(sc.dir, "tasks") }, ...extra }));
