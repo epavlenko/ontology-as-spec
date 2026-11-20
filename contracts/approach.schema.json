@@ -766,10 +766,20 @@
     },
     "ontology-tree": {
       "title": "Ontology tree",
-      "description": "A page for people that shows the whole ontology as a tree: each entity with the rows of its table by kind, and a table without an entity under its heading. Written by a generator when someone wants to see the ontology, not kept in the repository.",
+      "description": "A page for people that shows the whole ontology as a tree: each entity with the rows of its table by kind, and a table without an entity under its heading. Written by a generator when someone wants to see the ontology, and by the protocol's hook after a merge into main in a clone that names its place; never kept in the repository.",
       "x-ont": "ent.ontology-tree",
       "type": "object",
       "properties": {
+        "place": {
+          "description": "Where a clone keeps its tree: a path in the clone's own Git configuration, ont.treeOut, never in ont.config.json, so that no path of one machine reaches the repository. Without it, no tree is refreshed and none is reported stale.",
+          "x-ont": "field.ontology-tree.place",
+          "type": "string"
+        },
+        "builtFrom": {
+          "description": "What the page was written from, in its footer: the commit of HEAD, marked +working-tree when a file the generator read is not that commit's file at the same path inside the repository, or no-commit outside Git; the path of the configuration from the root of the repository, except outside Git; and the date.",
+          "x-ont": "field.ontology-tree.built-from",
+          "type": "string"
+        },
         "concepts": {
           "description": "The definition rows the tree shows.",
           "x-ont": "edge.ontology-tree.concepts",
@@ -781,6 +791,7 @@
         }
       },
       "required": [
+        "builtFrom",
         "concepts"
       ]
     },

@@ -36,6 +36,7 @@
     "derived.surviving-mutation",
     "derived.target",
     "derived.to-reread",
+    "derived.tree-stale",
     "derived.waiting-for-owner",
     "edge.agent-rules.sources",
     "edge.check.concepts",
@@ -128,6 +129,8 @@
     "field.manual-run.time",
     "field.manual-run.verdict",
     "field.map-row.shows",
+    "field.ontology-tree.built-from",
+    "field.ontology-tree.place",
     "field.other-word.word",
     "field.review-round.by",
     "field.review-round.ceiling",
@@ -296,6 +299,7 @@
     "rule.ticket-closed-on-done",
     "rule.ticket-without-behavior",
     "rule.trace-runs-on-code",
+    "rule.tree-refreshed-after-merge",
     "rule.tree-structure-only",
     "rule.types-not-instances",
     "rule.unconfirmed-tentative",
@@ -1038,7 +1042,7 @@
       ],
       "given": "a change of the tree or of the page that explains it",
       "when": "a reviewer reads it",
-      "then": "the rows under an entity are shown and described as the rows of its table, never as kinds or parts of it, and the page shows nothing beyond the structure"
+      "then": "the rows under an entity are shown and described as the rows of its table, never as kinds or parts of it, and the page shows nothing beyond the structure but its footer, which says what it was built from: the commit, the configuration and the date"
     },
     {
       "id": "check.profile.requires-checkable",

@@ -51,18 +51,41 @@ Which sets of documentation a team keeps, for whom and where, is process, like t
 
 Help that is part of the product is different. A help screen in the app, or a chat bot's answer to "how does it work", is something a user can open or ask for. Those are concepts of the product, rows in the ontology like any other view or action, and their content is anchored and checked like any page. The test is simple: if a user can open it or ask for it, it is product; if it is a file for the team, it is process.
 
-<!-- ont: ent.ontology-tree@159bb0, edge.ontology-tree.concepts@220135, rule.tree-structure-only@061100, inv.tree-complete@d8cc81 -->
+<!-- ont: ent.ontology-tree@c39074, edge.ontology-tree.concepts@220135, rule.tree-structure-only@bb4d44, inv.tree-complete@d8cc81 -->
 ## The ontology as a tree
 
 To read the whole ontology at once, `gen-tree.mjs` writes it as one page: the configured ontology and the external ones, each table a branch in its order, named by its entity, or by its heading when it has no entity, as the screens of the example. Under each entity are the rows of its table, grouped by kind in the order the configuration lists the classes, with their counts; a class it does not list, as an external ontology may have, comes after them under its own name. A row shows its term; its ID and definition appear on hover. A field or relation that refers to an entity shows that entity, and "many" when it refers to several; a view shows the entities it shows. Rules and invariants are marked, and an entity with no other rows says so.
 
-The page shows nothing else: no notes, no links drawn as a graph, no history. Every definition row is in it exactly once, and the generator refuses to write a tree that would drop one, so what is missing from the tree is missing from the ontology. A reference or a view that names an entity the glossary does not define stops the generator with the row, as it fails the check, so the tree never draws a bare ID or drops a link. It is not a hierarchy of classes, as an ontology editor such as [Protégé](https://protegeproject.github.io/protege/views/class-hierarchy/) draws one: the rows under an entity are its table, not kinds of it.
+The page shows nothing else: no notes, no links drawn as a graph, no history. Its footer says what it was built from, and that is not part of the tree. Every definition row is in it exactly once, and the generator refuses to write a tree that would drop one, so what is missing from the tree is missing from the ontology. A reference or a view that names an entity the glossary does not define stops the generator with the row, as it fails the check, so the tree never draws a bare ID or drops a link. It is not a hierarchy of classes, as an ontology editor such as [Protégé](https://protegeproject.github.io/protege/views/class-hierarchy/) draws one: the rows under an entity are its table, not kinds of it.
 
 ```bash
 node tools/ont-check/gen-tree.mjs --config ont.config.json --out /tmp/tree.html --labels labels.json
 ```
 
-The page is written when someone wants to see the ontology and is not kept in the repository. A labels file, a JSON object, may replace terms by ID, the labels of the kinds it groups rows by, by class, headings of tables without an entity, which are the only headings it shows, and the page's own words, for a reader of another language; the entity keeps its own term beside its label. An ID, a kind or a heading that the tree does not show is refused, so a typo or a retired ID does not pass unnoticed. The page's own words are a fixed list and are always accepted, even where a page does not need one, such as "many" for an ontology with no `refs`, so that one file serves every ontology.
+The page is written when someone wants to see the ontology, or by the hook below, and is not kept in the repository. A labels file, a JSON object, may replace terms by ID, the labels of the kinds it groups rows by, by class, headings of tables without an entity, which are the only headings it shows, and the page's own words, for a reader of another language; the entity keeps its own term beside its label. An ID, a kind or a heading that the tree does not show is refused, so a typo or a retired ID does not pass unnoticed. The page's own words are a fixed list and are always accepted, even where a page does not need one, such as "many" for an ontology with no `refs`, so that one file serves every ontology.
+
+<!-- ont: rule.tree-refreshed-after-merge@291b66, field.ontology-tree.place@25a560, field.ontology-tree.built-from@1ea74e, derived.tree-stale@edfb3c -->
+## Keeping the tree current
+
+A clone that keeps a tree for people names its place in its own Git configuration, never in `ont.config.json`, so that the path of one machine does not reach the repository:
+
+```bash
+git config core.hooksPath .githooks                                # once per clone, with the other hooks
+git config --local ont.treeOut ~/pages/ontology-tree.html          # where this clone keeps its tree
+```
+
+After that, every merge into main in that clone rewrites the page: the `post-merge` hook builds the tree from the `ont.config.json` at the root of the repository. It writes only when each file it reads, the configuration and the ontologies, is the same as in the commit; if one is changed and not committed, it names the file and leaves the page as it was, since the page would show something main does not have. On another branch, without a place, or after `git merge --squash`, which leaves main where it was, it writes nothing; the squash merge says so. If the generator fails, the hook prints the error and the merge stands. The hook writes the page in the ontology's own words, without a labels file. A project with a copy of the tool uses the same hook, with the path of its copy in place of `tools/ont-check`.
+
+The footer of the page says what it was built from: the commit, the configuration's path from the root of the repository and the date. A page written with `--out` from files that differ from the commit is marked `+working-tree` after the commit, and one written outside Git is marked no-commit. A symbolic link is never taken as the commit's file, even when the link itself is unchanged and only its target moved.
+
+A clone that serves the page follows main after a merge on the host with `git pull --ff-only`, which ends in a merge and runs the hook. A pull that rebases, or a merge ended after a conflict with `git merge --continue`, ends in a commit instead, and Git does not run `post-merge`. For those, and after a squash merge is committed, the same refresh is run by hand on main:
+
+```bash
+node tools/ont-check/gen-tree.mjs --refresh   # what the hook does: main, the place, the root configuration
+node tools/ont-check/gen-tree.mjs --stale     # says why the page at the place does not show main, or nothing
+```
+
+The stale report names a page that is missing, carries no mark, was built from a working tree or outside Git, from another configuration, such as the example's, or from a commit that is not the branch main; it compares with `refs/heads/main`, since a tag named main would be taken for the short name. It says nothing when the page is current or no place is set, and it never fails: a stale page is a page to rewrite, not a broken repository.
 
 <!-- ont: rule.anchor-every-section@57e45b, inv.section-declared@1b1726, rule.reread-then-stamp@3d0dd6, rule.readers-words@3dbebd -->
 ## Reference
