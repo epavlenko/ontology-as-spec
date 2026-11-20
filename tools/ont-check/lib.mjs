@@ -46,12 +46,58 @@ export const renderApproach = (ONT, retired, checks = []) =>
     2,
   )}\n`;
 
+// Every key of the configuration the loader reads, and nothing else (D-96): the loader reads the
+// configuration only through guardConfig, which refuses a key not listed here, and a test checks that
+// the tool's README describes each one. A list's items are written "docSets[].files"; "classes" is an
+// object whose keys are the project's own.
+// ont: inv.tool-options-documented
+export const CONFIG_KEYS = [
+  "classes", "scoped", "ontology", "root", "agentInstructions", "glossaryOut", "mockup", "notYetShown", "oracle",
+  "headings.implementation", "headings.retired", "headings.otherWords", "headings.divergences", "headings.history",
+  "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
+  "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
+  "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
+  "manualRuns.dir", "manualRuns.require", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
+  "tests.dir", "tests.match", "tests.cover", "tests.checks",
+  "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
+  "checks.file", "checks.require", "checks.axes[].name", "checks.axes[].values", "checks.axes[].each", "checks.cannotOccur",
+  "tickets.dir", "tickets.match",
+  "docSets[].name", "docSets[].dir", "docSets[].match", "docSets[].files", "docSets[].cover", "docSets[].checks", "docSets[].scope",
+  "references[].out", "references[].title", "references[].intro", "references[].classes", "references[].implementedOnly",
+  "references[].ids", "references[].kinds", "references[].types", "references[].checks",
+  "external[].ontology", "external[].checks",
+];
+// A key and every key above it: "checks.axes[].name" lets the loader read checks, checks.axes and the
+// name of each of its items.
+const KEY_PATHS = new Set(
+  CONFIG_KEYS.flatMap((k) => k.split(".").map((_, i, a) => a.slice(0, i + 1).join("."))).flatMap((k) => [k, k.replace(/\[\]$/, "")]),
+);
+const FREE_KEYS = new Set(["classes"]);
+// The configuration as the loader may read it: an object or a list of it refuses a key that CONFIG_KEYS
+// does not list; values are returned as they are.
+export function guardConfig(value, path = "") {
+  if (value === null || typeof value !== "object" || FREE_KEYS.has(path)) return value;
+  return new Proxy(value, {
+    get(target, prop, receiver) {
+      if (typeof prop === "symbol") return Reflect.get(target, prop, receiver);
+      if (Array.isArray(target)) {
+        if (!/^\d+$/.test(prop)) return Reflect.get(target, prop, receiver);
+        return guardConfig(target[prop], `${path}[]`);
+      }
+      const key = path ? `${path}.${prop}` : prop;
+      if (!KEY_PATHS.has(key)) throw new Error(`configuration key ${key} is read by the loader but not listed in CONFIG_KEYS (D-96)`);
+      return guardConfig(target[prop], key);
+    },
+  });
+}
+
 // Loads ont.config.json and resolves every path against the config file's directory. text, when given,
 // is the configuration to use instead of the file's content, such as its staged version.
 export function loadConfig(configPath, text) {
   const file = resolve(configPath);
   const base = dirname(file);
-  const raw = JSON.parse(text ?? read(file));
+  const raw = guardConfig(JSON.parse(text ?? read(file)));
   const at = (p) => (p ? resolve(base, p) : null);
   // Headings in another language are set in the config. Known divergences are found by the start of
   // their heading line, so "### Known divergences between code and ontology" matches the default.
