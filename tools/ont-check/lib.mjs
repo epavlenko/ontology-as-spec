@@ -5,6 +5,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const read = (path) => readFileSync(path, "utf8");
+// The environment of every command of Git the tool runs: local replacements off, so that a commit is
+// the content its SHA names, never another commit's that a refs/replace of one clone puts there (D-137).
+export const gitEnv = (env = process.env) => ({ ...env, GIT_NO_REPLACE_OBJECTS: "1" });
 
 // An entry is accepted when one of its lines matches this pattern. A log in another language sets
 // decisions.accepted in the config.

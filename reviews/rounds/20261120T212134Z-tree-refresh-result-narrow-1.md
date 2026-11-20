@@ -1,0 +1,15 @@
+Task: tree-refresh
+Step: result-review
+Narrow: true
+Number: 1
+Time: 2026-11-20T21:21:34Z
+Commits: d6665f6..82ff6a1
+By: gpt-6.2-sol (OpenAI, Codex)
+Checks-listed: 60
+Checks-given: 60
+Checks-carried: 0
+Findings:
+- tests miss cases of the statement · nit · change · fixable · check.ontology-tree.replaced-commit
+- freshness mark incomplete · important · change · fixable · check.ontology-tree.mark-exact
+- documentation promises more than the hook · nit · change · fixable · check.ontology-tree.generator-missing
+- approved follow-up missing · nit · change · fixable · check.decision.compared-with-acceptance

@@ -42,6 +42,7 @@ import {
   tagIds,
   docSetFiles,
   isFile,
+  gitEnv,
 } from "./lib.mjs";
 import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
@@ -1303,18 +1304,18 @@ if (flag("--review") > 0) {
     const listed = new Map([...r.project, ...r.approach].map((c) => [c.id, c]));
     const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
     const { runs } = parseRuns(cfg.manualRuns.dir, known);
-    const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--short", "HEAD"], { encoding: "utf8" }).stdout.trim();
-    const dirty = spawnSync("git", ["-C", cfg.base, "status", "--porcelain", "--", ".", `:!${relative(cfg.base, cfg.manualRuns.dir)}`], { encoding: "utf8" }).stdout.trim();
+    const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--short", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout.trim();
+    const dirty = spawnSync("git", ["-C", cfg.base, "status", "--porcelain", "--", ".", `:!${relative(cfg.base, cfg.manualRuns.dir)}`], { encoding: "utf8", env: gitEnv() }).stdout.trim();
     // The files read for a carried verdict that changed since its record's commit, committed or not. A
     // file with no snapshot in that commit, untracked, ignored or absent, cannot be compared, so it counts
     // as changed.
     const changedSince = (since, files) => {
-      const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8" }).stdout.trim();
+      const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout.trim();
       const noSnapshot = files.filter((f) => {
         const path = relative(top, resolve(cfg.base, f)).split("\\").join("/");
-        return spawnSync("git", ["-C", top, "cat-file", "-e", `${since}:${path}`]).status !== 0;
+        return spawnSync("git", ["-C", top, "cat-file", "-e", `${since}:${path}`], { env: gitEnv() }).status !== 0;
       });
-      const diff = spawnSync("git", ["-C", cfg.base, "diff", "--name-only", since, "--", ...files], { encoding: "utf8" });
+      const diff = spawnSync("git", ["-C", cfg.base, "diff", "--name-only", since, "--", ...files], { encoding: "utf8", env: gitEnv() });
       if (diff.status !== 0) return files;
       return [...new Set([...noSnapshot, ...diff.stdout.split("\n").filter(Boolean)])];
     };

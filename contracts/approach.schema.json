@@ -766,10 +766,20 @@
     },
     "ontology-tree": {
       "title": "Ontology tree",
-      "description": "A page for people that shows the whole ontology as a tree: each entity with the rows of its table by kind, and a table without an entity under its heading. Written by a generator when someone wants to see the ontology, not kept in the repository.",
+      "description": "A page for people that shows the whole ontology as a tree: each entity with the rows of its table by kind, and a table without an entity under its heading. Written by a generator when someone wants to see the ontology, and by the protocol's hook after a merge into main in a clone that names its place; never kept in the repository.",
       "x-ont": "ent.ontology-tree",
       "type": "object",
       "properties": {
+        "place": {
+          "description": "Where a clone keeps its tree: a path in the clone's own Git configuration, ont.treeOut, never in ont.config.json, so that no path of one machine reaches the repository. Without it, no tree is refreshed and none is reported stale. The place is the file of its name in its directory as the file system resolves that directory, links and .. on the way followed; a place whose directory does not exist is refused. That file is refused with the reason, and nothing is written, when it lies inside a working tree of the repository, any of them, or its Git directory, so that a wrong setting never overwrites a file of the repository; when it is a symbolic link; when it is not a regular file; or when it has more than one link, which may be a file of the repository under another name. The page is written to a new file in that directory and renamed over the place, never into the file that is there, so that a link elsewhere to the old file keeps its bytes. The stale report reads the same file.",
+          "x-ont": "field.ontology-tree.place",
+          "type": "string"
+        },
+        "builtFrom": {
+          "description": "What the page was written from, in its mark: one footer in the one form the generator writes, its text saying in the generator's own words what its attributes say, the last element of the page, directly before the </body></html> that ends it with nothing but white space between, with the SHA-256 of the page's bytes before it and of the footer's commit, configuration and date, so that the mark is of the page the generator wrote with that footer, whose footer a person sees; with the commit of HEAD, read once; the path of the configuration from the root of the repository, except outside Git; and the date and time in UTC, to the second, such as 2026-11-20T09:30:00Z. An input's path is the one the configuration gives, never normalised; a .. part on it, or a part of it, the file included, that is a symbolic link or is missing, makes it not the commit's file. The refresh builds the page from the files of that commit, and only when the working tree holds the same at those paths, so its mark is that commit. A page written on demand reads each file of the working tree once, a regular file only, and is marked +working-tree when the bytes read are not the commit's file at the same path inside the repository, or when its path is not the commit's file when the file is read or after; outside Git it is marked no-commit.",
+          "x-ont": "field.ontology-tree.built-from",
+          "type": "string"
+        },
         "concepts": {
           "description": "The definition rows the tree shows.",
           "x-ont": "edge.ontology-tree.concepts",
@@ -781,6 +791,7 @@
         }
       },
       "required": [
+        "builtFrom",
         "concepts"
       ]
     },

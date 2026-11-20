@@ -14,7 +14,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, dirname, relative, resolve, sep } from "node:path";
-import { backtickIds, DEFAULT_ACCEPTED, DEFAULT_SOURCE, loadConfig, parseGlossary, read, section } from "./lib.mjs";
+import { backtickIds, DEFAULT_ACCEPTED, DEFAULT_SOURCE, gitEnv, loadConfig, parseGlossary, read, section } from "./lib.mjs";
 
 const argv = process.argv.slice(2);
 const values = (flag) => argv.flatMap((a, i) => (argv[i - 1] === flag ? [a] : []));
@@ -26,7 +26,7 @@ const DEFAULT_ENTRY = "^### (D-\\d+) · .+$";
 const configs = values("--config");
 const files = values("--file");
 if (!configs.length && !files.length) configs.push("ont.config.json");
-const git = (cwd, ...args) => spawnSync("git", args, { cwd, encoding: "utf8" });
+const git = (cwd, ...args) => spawnSync("git", args, { cwd, encoding: "utf8", env: gitEnv() });
 // With --staged, the configuration is the staged one too, so that the guard checks what the commit holds.
 const stagedText = (path) => {
   const r = git(dirname(resolve(path)), "show", `:./${basename(path)}`);

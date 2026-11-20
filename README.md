@@ -116,5 +116,5 @@ Copyright © 2026 Jevgenijs Pavlenko.
 
 - The text in `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `decisions.md`, `ontology.md`, `checks.md` and `docs/` is licensed under [Creative Commons Attribution 4.0 International](LICENSE-CC-BY-4.0) (CC BY 4.0). You may copy, adapt and use it for any purpose, including commercially, as long as you credit the authors and link the source.
 - The tool in `tools/`, the templates in `templates/` and the example in `example/` are licensed under the [MIT License](LICENSE). Copy them into your own repositories freely; keep the copyright notice with the tool.
-- Everything else, the configuration (`ont.config.json`, `package.json`), the generated contract in `contracts/`, the hook in `.githooks/` and the CI in `.github/`, is licensed under the [MIT License](LICENSE) too.
+- Everything else, the configuration (`ont.config.json`, `package.json`), the generated contract in `contracts/`, the hooks in `.githooks/` and the CI in `.github/`, is licensed under the [MIT License](LICENSE) too.
 - A contribution is licensed under the license of the file it changes, with no contributor license agreement ([CONTRIBUTING.md](CONTRIBUTING.md#license-of-contributions)).

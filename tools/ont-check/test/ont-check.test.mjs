@@ -1158,7 +1158,7 @@ test("[check.doc-set.named-pages] a set of named pages reads a README and names 
   assert.match(r.out, /pages docs pages named in the configuration that do not exist \(1\):\n  gone\.md/);
 });
 
-// The tree of the ontology (D-90): written from a copy of the example, read back as text.
+// The tree of the ontology (D-105): written from a copy of the example, read back as text.
 const tree = (edit, labels) => {
   const dir = mkdtempSync(join(tmpdir(), "ont-tree-"));
   try {
