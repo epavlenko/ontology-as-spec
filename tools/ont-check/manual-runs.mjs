@@ -24,18 +24,23 @@ export const runStamp = (c, ONT, rows, checkById, notes) =>
     .slice(0, 8);
 
 // What a record may hold, since it sits in the repository (rule.records-english-in-repo, D-151): no path
-// outside the repository, absolute or leaving it by "..", in every project; and, where the configuration
-// sets records.latinOnly, as this repository does for its rule of English only (D-03), no letter of a
-// script other than Latin. A URL is allowed. Each problem names its line, from 1.
+// outside the repository, in every project; and, where the configuration sets records.latinOnly, as this
+// repository does for its rule of English only (D-03), no letter of a script other than Latin. Each
+// problem names its line, from 1, and the token that breaks the rule.
+//
+// By construction rather than by a pattern of what a path looks like: the line is cut into tokens, the
+// target of a Markdown link whole, the rest at white space and at the marks of Markdown and quotes, an
+// HTML end tag such as </svg> dropped first. A token is then one of: a URL of the web, http or https,
+// which is allowed; a URL of any other scheme, file: or another, which names something on one machine
+// and is outside; an absolute path, /x, ~/x, C:\x, C:/x or \\server; or a relative path, which must not
+// leave the repository by "..". A token without a slash or a backslash is a word, a commit range such
+// as main..HEAD included.
 // ont: rule.records-english-in-repo
-// A URL of the web is allowed; a file: URL names a local file and is a path outside the repository.
-const URL_RE = /\bhttps?:\/\/[^\s<>()`"'|]+/gi;
 const NOT_LATIN = /[^\P{L}\p{Script=Latin}]/u;
-// An end tag such as </svg> is no path; a link in angle brackets, (</x>), is.
-// An absolute path: POSIX /x, ~/x, a Windows drive C:\ or C:/, a UNC \\server, or any URL with a scheme
-// other than http(s), such as file:///x, after a space, a bracket, a quote or the parenthesis of a
-// Markdown link.
-const ABSOLUTE = /(?:^|[\s(\[`"'=,;|]|\(<|\]\()(\/[^\s/)>\]`"',;|]|~\/|[A-Za-z]:[\\/]|\\\\[^\s\\]|[a-z][a-z0-9+.-]*:\/\/)/i;
+const WEB = /^https?:\/\//i;
+const SCHEME = /^[a-z][a-z0-9+.-]*:(\/\/|[^\s]*\/)/i;
+// A slash alone, as in "A / B", is a word; an absolute path names something after it.
+const ABSOLUTE_PATH = /^(\/[^\s/]|~\/|[A-Za-z]:[\\/]|\\\\)/;
 const leaves = (token) => {
   let depth = 0;
   for (const part of token.split(/[\\/]/)) {
@@ -45,17 +50,31 @@ const leaves = (token) => {
   }
   return false;
 };
+export const recordTokens = (line) => {
+  const targets = [];
+  const rest = line
+    .replace(/<\/[A-Za-z][A-Za-z0-9-]*>/g, " ")
+    .replace(/\]\(([^)]*)\)/g, (_, t) => {
+      targets.push(t.trim().replace(/^<|>$/g, ""));
+      return " ";
+    });
+  return [...targets, ...rest.split(/[\s*<>()\[\]`"',;|]+/)].map((t) => t.replace(/^_+|_+$/g, "").replace(/[.:!?]+$/, "")).filter(Boolean);
+};
 export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
   const problems = [];
   text.split("\n").forEach((line, i) => {
-    const plain = line.replace(URL_RE, " ");
     const at = `line ${i + from}`;
-    const letter = latinOnly && plain.match(NOT_LATIN);
-    if (letter) problems.push(`${at}: the letter ${letter[0]} is not English text`);
-    const abs = plain.match(ABSOLUTE);
-    if (abs) problems.push(`${at}: ${plain.slice(abs.index).trim().split(/[\s)>\]`"',;|]/)[0]} is a path outside the repository`);
-    const up = plain.split(/[\s()<>\[\]`"',;|]+/).find((t) => /[\\/]/.test(t) && /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(t) && leaves(t.replace(/:\d+(?:-\d+)?$/, "")));
-    if (up) problems.push(`${at}: ${up} leaves the repository`);
+    const tokens = recordTokens(line);
+    if (latinOnly) {
+      const plain = tokens.filter((t) => !WEB.test(t)).join(" ");
+      const letter = plain.match(NOT_LATIN) ?? line.replace(/https?:\/\/\S+/gi, " ").match(NOT_LATIN);
+      if (letter) problems.push(`${at}: the letter ${letter[0]} is not English text`);
+    }
+    for (const t of tokens) {
+      if (WEB.test(t)) continue;
+      if (SCHEME.test(t) || ABSOLUTE_PATH.test(t)) problems.push(`${at}: ${t} is a path outside the repository`);
+      else if (/[\\/]/.test(t) && leaves(t.replace(/:\d+(?:-\d+)?$/, ""))) problems.push(`${at}: ${t} leaves the repository`);
+    }
   });
   return problems;
 }
@@ -117,7 +136,8 @@ export const currentRun = (runs, id, stamp) =>
 // ont: action.record-verdicts
 const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
 export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], source = "the table", latinOnly = false }) {
-  const by = text.match(/^By:\s*(.+?)\s*$/m)?.[1];
+  // The reviewer is named on the By: line itself; a value on the next line is no value (D-151).
+  const by = text.match(/^By:[ \t]*(\S.*?)[ \t]*$/m)?.[1];
   const lines = text.split("\n");
   const rows = lines
     .map((l) => l.match(/^\|\s*`?(check\.[a-z0-9.-]+)`?\s*\|\s*([a-z-]+)\s*\|\s*(.*?)\s*\|\s*$/))
