@@ -45,6 +45,7 @@
     "derived.surviving-mutation",
     "derived.target",
     "derived.task-budget",
+    "derived.task-next",
     "derived.to-reread",
     "derived.tree-stale",
     "derived.waiting-for-owner",

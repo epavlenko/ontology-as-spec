@@ -106,7 +106,8 @@
     "dir": "reviews/runs"
   },
   "reviewRounds": {
-    "dir": "reviews/rounds"
+    "dir": "reviews/rounds",
+    "gatesFrom": "2026-11-21T09:35:15Z"
   },
   "taskRecords": {
     "dir": "reviews/tasks"
