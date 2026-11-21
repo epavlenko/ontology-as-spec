@@ -8,7 +8,7 @@ IDs: `rule.guard-from-acceptance`, a target the ontology does not implement yet.
 
 Checks: `check.decision.compared-with-acceptance`.
 
-Why now: not now. The guard compares an accepted entry with `HEAD`, or with the base CI gives it, so an edit committed with the hook skipped becomes the text it then protects, and CI misses the edit of an entry accepted after its base. Which commit should be the point of comparison, the first that accepted the entry, and from which commit on, so that edits merged before the change do not fail the check, is asked by the tentative entry D-131 in [decisions.md](../decisions.md), with its options and the agent's recommendation, and in the open question "The guard's point of comparison" in [docs/limitations.md](../docs/limitations.md). `rule.guard-from-acceptance` states the recommended answer as a target; take this up once the owner answers D-131, and rewrite the target first if the answer is another option.
+Why now: the owner answered D-131, "1008 a" of 2026-11-20, which accepts it as it stands. The guard compares an accepted entry with `HEAD`, or with the base CI gives it, so an edit committed with the hook skipped becomes the text it then protects, and CI misses the edit of an entry accepted after its base. Which commit should be the point of comparison, the first that accepted the entry, and from which commit on, so that edits merged before the change do not fail the check, is decided by D-131 in [decisions.md](../decisions.md), and was the open question "The guard's point of comparison" in [docs/limitations.md](../docs/limitations.md). `rule.guard-from-acceptance` states it as a target, ready to take.
 
 ## Out of scope
 
@@ -17,7 +17,7 @@ Why now: not now. The guard compares an accepted entry with `HEAD`, or with the 
 
 ## Depends on
 
-The owner's answer to the tentative entry D-131, "The guard compares an accepted entry with the text of the first commit that accepted it, from the commit that brings the rule in". Until then `npm run gap` lists `rule.guard-from-acceptance` as a target taken by this ticket, and its line on tentative entries names D-131 as waiting for the owner.
+Nothing: D-131 is accepted.
 
 ## Done when
 

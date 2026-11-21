@@ -91,10 +91,10 @@ Verdict: ready to merge | fix first | cannot tell (with what is missing)
 
 `ready to merge` only when no check fails and no finding of this change remains. A check that already failed on the base and that the change does not touch is an earlier problem: report it, and do not let it block. A `not run` check does not block on its own, but say who has to run it before the merge. A verdict given in an earlier round of the same change still counts while the stamp `--review` prints for its check is the stamp it was given at and the commits since change none of the files you read for it. Give a new verdict to the checks whose stamp or files changed, and always read the new diff for errors and security.
 
-<!-- ont: ent.manual-run@893f59, rule.run-recorded@2b45ff, action.record-verdicts@d809af -->
+<!-- ont: ent.manual-run@893f59, rule.run-recorded@2b45ff, action.record-verdicts@d809af, rule.records-english-in-repo@6e97a3 -->
 ## 4. Record each verdict
 
-If the configuration has `manualRuns`, put your table of verdicts in a file outside the change, with a line `By: <your model and provider>` above it, and let the tool write the records from it (D-100):
+If the configuration has `manualRuns`, put your table of verdicts in a file outside the change, with a line `By: <your model and provider>` above it, and let the tool write the records from it (D-100). Write the table with paths inside the repository only, such as `tools/ont-check/lib.mjs:12`, whatever the rest of your answer is: its rows are recorded in the repository, and the tool refuses a table with an absolute path or a path that leaves the repository by `..`. Where the configuration sets `records.latinOnly`, as a project whose records are in English does, write it in English: the tool then refuses a letter of another script too. Name what you keep outside in words, such as "the reviewer's log, kept outside the repository"; a URL of the web, http or https, is allowed, while a URL of another scheme, such as `file:`, `mailto:` or a link into a local app, with or without `//`, is refused; so is any path with `..` in it, so name a file from the repository's root, such as `docs/README.md`, never `docs/../docs/README.md`. Put the `By:` value on the `By:` line itself (`rule.records-english-in-repo`, D-151).
 
 ```bash
 node tools/ont-check/ont-check.mjs --config ont.config.json --review main --record /tmp/verdicts.md
@@ -109,7 +109,7 @@ Commit: <the commit you reviewed; for changes not yet committed, it is followed 
 Stamp: <the stamp --review printed for the check>
 Verdict: pass | fail | not-run | not-applicable
 By: <your model and provider>
-Evidence: <where the evidence is, outside the repository, if the check kept any>
+Evidence: <where the evidence is, outside the repository, if the check kept any: a URL, or named in words>
 ```
 
 Evidence such as screenshots or data stays outside the repository; the record only links to it.

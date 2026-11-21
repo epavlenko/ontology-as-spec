@@ -352,6 +352,7 @@
     "rule.question-as-tentative",
     "rule.readers-words",
     "rule.ready-after-clean-round",
+    "rule.records-english-in-repo",
     "rule.reread-then-stamp",
     "rule.reviewed-before-merge",
     "rule.round-ceilings",

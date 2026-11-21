@@ -113,5 +113,8 @@
   },
   "protocolReleases": {
     "file": "releases.md"
+  },
+  "records": {
+    "latinOnly": true
   }
 }

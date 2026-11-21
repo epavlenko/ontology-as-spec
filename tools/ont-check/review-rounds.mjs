@@ -1,9 +1,10 @@
 // Records of review rounds (D-97, D-99): one file per round of review of a task, in the directory the
 // configuration names under reviewRounds, with what the round cost and found. From them the tool says
 // what follows the last round of each step, and, once a step has ten applications, what it paid off.
-// ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.ceiling, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.overspend, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.round-ceilings, rule.rounds-converge, rule.ready-after-clean-round, inv.review-rounds-well-formed
+// ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.ceiling, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.overspend, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.round-ceilings, rule.rounds-converge, rule.ready-after-clean-round, inv.review-rounds-well-formed, rule.records-english-in-repo
 import { basename } from "node:path";
 import { listFiles, read } from "./lib.mjs";
+import { outsideRecord } from "./manual-runs.mjs";
 
 export const STEPS = ["statement-review", "result-review"];
 const FIELDS = ["Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "By", "Contribution", "Statement-hash", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Overspend"];
@@ -49,7 +50,7 @@ export const blockLines = (text, name) => {
 };
 
 // Every record of the directory, with what is wrong with it.
-export function parseRounds(dir) {
+export function parseRounds(dir, opts = {}) {
   const rounds = [];
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
@@ -86,6 +87,7 @@ export function parseRounds(dir) {
       fields.number === undefined && "no number",
       ...findings.flatMap((x, i) => x.wrong.map((w) => `finding ${i + 1}: ${w}`)),
       ...(acceptance?.findings ?? []).flatMap((x, i) => x.wrong.map((w) => `acceptance finding ${i + 1}: ${w}`)),
+      ...outsideRecord(text, 1, opts),
     ].filter(Boolean);
     const name = basename(f);
     if (wrong.length) {
