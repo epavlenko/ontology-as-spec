@@ -207,12 +207,14 @@ test("[check.manual-run.english-in-repo] refuses a record with a path outside th
 
   // Every form of an absolute path, and a file: URL, is outside the repository; a web URL, a path that
   // stays inside by .., a commit range and an end tag are not (D-151).
-  for (const bad of ["see file:///home/x/a.md", "see <file:///home/x/a.md>", "see **/home/x/a.md**", "see \\\\srv\\share\\x", "see C:/Users/x", "see C:\\Users\\x", "see [log](/var/log/x)", "see ~/notes", "t3-thread://v1/abc", "a/b/../../../c"])
+  for (const bad of ["see file:///home/x/a.md", "see <file:///home/x/a.md>", "see **/home/x/a.md**", "see \\\\srv\\share\\x", "see C:/Users/x", "see C:\\Users\\x", "see [log](/var/log/x)", "see ~/notes", "t3-thread://v1/abc", "a/b/../../../c", "path=/home/x/a", "see docs/../..", "mailto:a@b.c"])
     assert.equal(outsideRecord(bad, 1, {}).length, 1, bad);
   // Each path is named in the refusal, two on one line as two.
   assert.deepEqual(outsideRecord("[l](/var/log/x) and [m](/etc/y)", 1, {}), ["line 1: /var/log/x is a path outside the repository", "line 1: /etc/y is a path outside the repository"]);
-  for (const good of ["https://example.org/x", "`docs/../README.md`", "[a](docs/a b/../c.md)", "[r](docs/sub dir/../../README.md)", "main..HEAD", "</svg> and <br/>", "Ontology-as-spec / Executable ontology", "a_b/c.md"])
+  for (const good of ["https://example.org/x", "`docs/../README.md`", "[a](docs/a b/../c.md)", "[r](docs/sub dir/../../README.md)", "main..HEAD", "</svg> and <br/>", "Ontology-as-spec / Executable ontology", "a_b/c.md", "[d](docs/a (v2)/x.md)", "https://ex.org/a,b/c", "https://example.org/x."])
     assert.deepEqual(outsideRecord(good, 1, {}), [], good);
+  // A link with parentheses in its target is one path, and is named whole when refused.
+  assert.deepEqual(outsideRecord("[d](/var/a (v2)/x.md)", 1, {}), ["line 1: /var/a (v2)/x.md is a path outside the repository"]);
   // The reviewer is named on the By: line itself: a name on the next line is no name, and the table is
   // refused before any record is written (D-151).
   const next = recordVerdicts({ text: ["By:", "a model", "", "| Check | Verdict | Evidence |", "| --- | --- | --- |", `| ${CHECK} | pass | fine |`].join("\n"), listed: new Map([[CHECK, { id: CHECK }]]), runs: [], stamp: () => "s", commit: "c", now: new Date(), source: "verdicts.md" });

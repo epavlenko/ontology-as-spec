@@ -38,7 +38,9 @@ export const runStamp = (c, ONT, rows, checkById, notes) =>
 // ont: rule.records-english-in-repo
 const NOT_LATIN = /[^\P{L}\p{Script=Latin}]/u;
 const WEB = /^https?:\/\//i;
-const SCHEME = /^[a-z][a-z0-9+.-]*:(\/\/|[^\s]*\/)/i;
+// Any scheme but http and https: file:///x, a link into a local app such as app://x, or mailto:, which
+// names a person's address.
+const SCHEME = /^(?:[a-z][a-z0-9+.-]*:\/\/|[a-z][a-z0-9+.-]*:\/|mailto:)/i;
 // A slash alone, as in "A / B", is a word; an absolute path names something after it.
 const ABSOLUTE_PATH = /^(\/[^\s/]|~\/|[A-Za-z]:[\\/]|\\\\)/;
 const leaves = (token) => {
@@ -50,15 +52,39 @@ const leaves = (token) => {
   }
   return false;
 };
-export const recordTokens = (line) => {
+// The target of a Markdown link, ](…), whole, with its parentheses balanced, so that a name with
+// parentheses in it stays one path.
+const linkTargets = (line) => {
   const targets = [];
-  const rest = line
-    .replace(/<\/[A-Za-z][A-Za-z0-9-]*>/g, " ")
-    .replace(/\]\(([^)]*)\)/g, (_, t) => {
-      targets.push(t.trim().replace(/^<|>$/g, ""));
-      return " ";
-    });
-  return [...targets, ...rest.split(/[\s*<>()\[\]`"',;|]+/)].map((t) => t.replace(/^_+|_+$/g, "").replace(/[.:!?]+$/, "")).filter(Boolean);
+  let rest = "";
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === "]" && line[i + 1] === "(") {
+      let depth = 1;
+      let j = i + 2;
+      for (; j < line.length && depth > 0; j++) {
+        if (line[j] === "(") depth++;
+        else if (line[j] === ")") depth--;
+      }
+      targets.push(line.slice(i + 2, j - 1).trim().replace(/^<|>$/g, ""));
+      rest += " ";
+      i = j - 1;
+    } else rest += line[i];
+  }
+  return { targets, rest };
+};
+// A token's own end: the marks of a sentence after it, but not the dots of a "..", which is a path's.
+const trimToken = (t) => {
+  const u = t.replace(/^_+|_+$/g, "");
+  return /(?:^|[\\/])\.\.$/.test(u) ? u : u.replace(/[.:!?]+$/, "");
+};
+export const recordTokens = (line) => {
+  const urls = [];
+  const noUrls = line.replace(/\bhttps?:\/\/[^\s<>`"'|]*[^\s<>`"'|.,;:!?)\]]/gi, (u) => {
+    urls.push(u);
+    return " ";
+  });
+  const { targets, rest } = linkTargets(noUrls.replace(/<\/[A-Za-z][A-Za-z0-9-]*>/g, " "));
+  return [...urls, ...targets, ...rest.split(/[\s*<>()\[\]`"',;|=]+/).map(trimToken)].filter(Boolean);
 };
 export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
   const problems = [];
