@@ -45,7 +45,7 @@ A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at
 
 A finding `not fixable` is a question to the owner, and only his record of approval of a new version answers it; a clean round of review cannot. When the author edits a statement for any other reason, a clean round of its review approves the new version. The tool compares versions by their hash only: it does not see whether a version approved by a round still holds every item the owner decided, with its source, nor whether an edit changed one of them, which would need his approval. The reviewer of the new version judges that, against the owner's words (D-152).
 
-<!-- ont: rule.rounds-converge@8fd85a, derived.next-round@25cb4c -->
+<!-- ont: rule.rounds-converge@8fd85a, derived.next-round@c3332c -->
 ### The tool does not see whether the design changed after stagnation
 
 When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and a full round follows. The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both, and a repeated class in it is stagnation again (D-152).
@@ -60,7 +60,7 @@ The tool checks that a finding filed as `limitation` or `later` names `docs/limi
 
 `--task` prints a line `REPORT` with the marks of half the limit and the limit that the spend has passed, each run it is given. It keeps no record of which marks were reported: the executor sends the owner one report with every mark not yet reported, and the tool does not see that it was sent, nor stops when it was not (D-152).
 
-<!-- ont: derived.task-next@1822f8, derived.task-budget@43edc0 -->
+<!-- ont: derived.task-next@829734, derived.task-budget@43edc0 -->
 ### `--rounds` may judge the budget by other limits than `--task`
 
 The next action of a task is one function for `--task`, `--rounds`, `done.mjs` and the check. Its budget question is measured by the limits `derived.task-budget` gives: `--task` reads them from the statement's file, while `--rounds` and the check, which read no statement, take them from the latest record of done of the approved version, and before there is one, from the configuration. In that interval the two may differ on the budget question alone: `--rounds` may advise the next round under the configuration's limit where `--task` stops under the statement's, or the other way round. `--task` is the one run before each step and each round, so its answer decides (D-147, D-152).
