@@ -45,10 +45,10 @@ A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at
 
 A finding `not fixable` is a question to the owner, and only his record of approval of a new version answers it; a clean round of review cannot. When the author edits a statement for any other reason, a clean round of its review approves the new version. The tool compares versions by their hash only: it does not see whether a version approved by a round still holds every item the owner decided, with its source, nor whether an edit changed one of them, which would need his approval. The reviewer of the new version judges that, against the owner's words (D-152).
 
-<!-- ont: rule.rounds-converge@56f5ad, derived.next-round@9e91d6 -->
+<!-- ont: rule.rounds-converge@771d2a, derived.next-round@9e91d6 -->
 ### The tool does not see whether the design changed after stagnation
 
-When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and then what `derived.next-round` names follows (D-153). The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both (D-152).
+When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and then what `derived.next-round` names follows, except after the one round that follows a confirmed condition, where the owner is asked instead and nothing is redesigned before his approval (D-153). The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both (D-152).
 
 <!-- ont: rule.findings-filed@a0eba5 -->
 ### A filed finding is trusted to belong where it is filed
