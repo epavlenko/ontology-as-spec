@@ -52,6 +52,17 @@ export const BUDGET_LINES = [["newInput", "Budget-new-input"], ["output", "Budge
 export const BUDGET_ALL = [...BUDGET_LINES, ["reserve", RESERVE_LINE]];
 export const budgetLines = (budget) => BUDGET_ALL.map(([k, name]) => `${name}: ${budget?.[k] ?? "none"}`);
 
+// Every record a task's next action reads, as the check, --task, --rounds and done.mjs all read them, by
+// this one function (D-152): the records of rounds by readRoundRecords, the records of done, of spend and
+// of approval, and both through resolveRecords, so that a commit a record names and the repository lacks
+// counts the same for each. records.done holds only the records of done whose commit resolves.
+export function readTaskInputs(cfg) {
+  const { rounds: parsedRounds, malformed, top } = readRoundRecords(cfg);
+  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
+  const resolved = resolveRecords(top, { done: parsed.done, rounds: parsedRounds, approvals: parsed.approvals });
+  return { rounds: resolved.rounds, malformed, top, resolved, records: { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] } };
+}
+
 // Records of done, of spend and of the owner's approval, with what is wrong with each.
 export function parseTaskRecords(dir) {
   const spend = [];
@@ -229,6 +240,25 @@ export function approvedHash(rounds, task, before = null, approvals = []) {
   return last?.hash ?? null;
 }
 
+// The current version window of a task (D-152), the one place every branch of its next action reads the
+// version from: the version under the approval in force, and the time from which it is in force, the
+// first of the events at the end of the history that approve that same version, a clean round of the
+// statement or a record of the owner's approval. Rounds of the result before that time read another
+// version's work, or an earlier approval of it that a round with findings withdrew, and the branches do
+// not read them; the latest record of done of the version after that time is the window's done. null when
+// no approval is in force.
+export function versionWindow({ rounds, approvals = [], done = [], task }) {
+  const events = approvalEvents(rounds, task, approvals);
+  const hash = events.at(-1)?.hash ?? null;
+  if (!hash) return null;
+  let i = events.length - 1;
+  while (i > 0 && events[i - 1].hash === hash) i--;
+  const from = events[i].time;
+  const doneOf = done.filter((d) => d.task === task && d.statementHash === hash && d.time > from).sort((a, b) => a.time.localeCompare(b.time)).at(-1) ?? null;
+  const results = ofTask(rounds, task, "result-review").filter((r) => r.time > from);
+  return { hash, from, done: doneOf, results };
+}
+
 // The commit a round reviewed: the commit of its line Commits:, or the last of its range.
 export const reviewedCommit = (r) => {
   const c = (r.commits ?? "").split("..").at(-1).trim();
@@ -383,11 +413,15 @@ export function overspendProblems(end, b) {
 // read by the branches of derived.next-round, so a question it answered is lifted.
 export function stepNext({ rounds, done = [], approvals = [], task, step, statement = null, gatesFrom = null }) {
   const of = ofTask(rounds, task, step);
-  const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
+  // The owner's last approval closes gates and starts the comparison of the statement's rounds; the
+  // review of the result starts at its version window, which that approval may have opened (D-152).
+  const ownerSince = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
+  const window = step === "result-review" ? versionWindow({ rounds, approvals, task }) : null;
+  const since = window ? [ownerSince, window.from].filter(Boolean).sort().at(-1) : ownerSince;
   // An open gate holds the whole task, both steps, until the owner's newer approval (D-152).
   const gate = openGates({ rounds, approvals, task, gatesFrom });
   const held = (r) => !acceptanceWhy(r, rounds, done, null, { approvals });
-  const go = () => nextRound(of, { since, held, gate, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  const go = () => nextRound(of, { since, gateSince: ownerSince, held, gate, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
   if (gate.length) return go();
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);
@@ -426,7 +460,9 @@ export const TASK_BRANCHES = ["unreadable record", "done", "budget question", "o
 export const NO_FILE = "give --statement <file> to compare the version it names with the file";
 // needFile: the caller, --task or done.mjs, compares the version with a statement's file; --rounds and the
 // check do not. gatesFrom: the configuration's reviewRounds.gatesFrom.
-export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null }) {
+// forWork: done.mjs, which asks for new work on the result, so the branch done does not stand for it: a
+// new record of done after the task is done meets the budget and every other branch (D-152).
+export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false }) {
   const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement });
   const unreadable = (statement?.wrong ?? []).length > 0;
   const events = approvalEvents(rounds, task, approvals);
@@ -442,14 +478,17 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const result = approvedNow ? step("result-review") : !byVersion ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;
   const gates = openGates({ rounds, approvals, task, gatesFrom });
   const nextFull = Math.max(0, ...st.filter((r) => !r.narrow).map((r) => r.number)) + 1;
-  // A clean last round of the result that read another version than the one approved now: its
-  // acceptance ends nothing of this version, for --task with its file and --rounds without alike (D-152).
-  const end = rr.at(-1);
-  const endOld = Boolean(approvedNow && end && isClean(end) && end.statementHash && end.statementHash !== approvedNow);
+  const nextResult = Math.max(0, ...rr.filter((r) => !r.narrow).map((r) => r.number)) + 1;
+  // The current version window, which every branch below reads for the version: its rounds of the result
+  // and its record of done (D-152).
+  const window = versionWindow({ rounds, approvals, done, task });
   const branch = {
     "unreadable record": () => malformed.length && blockedSay(malformed),
     "open gate": () => gates.length && `${GATE} (${gates.join(", ")})`,
-    done: () => fileOk && !endOld && result?.next === "clean" && rr.length && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean"),
+    done: () =>
+      !forWork &&
+      (window ? window.results.length && (!needFile || statement?.hash === window.hash) : rr.length) &&
+      result?.next === "clean" && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean"),
     "budget question": () =>
       unreadable
         ? "a line of the statement's budget cannot be read: a question to the owner, with no next round"
@@ -462,8 +501,11 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
     changed: () => byVersion && statement && last && approvedNow !== statement.hash && `the statement changed after its approval: next is full round ${nextFull} of the new version`,
     step: () => {
       if (!result) return NO_APPROVAL;
-      if (endOld) return `the approval in force is of version ${approvedNow.slice(0, 12)}, and the last round of the result, ${end.file}, read version ${end.statementHash.slice(0, 12)}: the executor works under the approved version, then records done with done.mjs`;
-      if (result.next === "first round" && !rr.length && st.length) return result.say ?? "the executor works, then records done with done.mjs";
+      // No round of the result has read the version in force yet: the work under it, then its first round.
+      if (window && !window.results.length)
+        return window.done
+          ? `the record of done ${window.done.file} of version ${window.hash.slice(0, 12)} has no round of review yet: full round ${nextResult} of the review of the result`
+          : `the executor works under version ${window.hash.slice(0, 12)}, then records done with done.mjs`;
       if (result.next === "first round" && !result.say) return "the executor works, then records done with done.mjs";
       return result.say;
     },

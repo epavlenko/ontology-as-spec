@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { nextRound, parseRounds } from "../review-rounds.mjs";
-import { TASK_BRANCHES, acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readRoundRecords, readStatement, reserveOf, sha256, stepNext, taskBudget, taskNext, taskState } from "../tasks.mjs";
+import { TASK_BRANCHES, acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readRoundRecords, readStatement, readTaskInputs, reserveOf, sha256, stepNext, taskBudget, taskNext, taskState } from "../tasks.mjs";
 import { loadConfig } from "../lib.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
@@ -115,7 +115,7 @@ test("[check.task-statement.later-version-findings] a full round of version B wi
 test("[check.task-statement.approved] a clean round of the version in the file lets work start", () => {
   const out = state(scenario({ rounds: [approvedA] }), { statement: fileOf(A) });
   assert.match(out, /statement: approved, version [0-9a-f]{12}\n/);
-  assert.match(out, /NEXT t: the executor works, then records done/);
+  assert.match(out, /NEXT t: the executor works under version [0-9a-f]{12}, then records done/);
   // Without the file the version cannot be compared, and no work is allowed.
   assert.match(state(scenario({ rounds: [approvedA] })), /work is not allowed[\s\S]*NEXT t: give --statement <file>/);
 });
@@ -509,7 +509,7 @@ test("[check.task-statement.question-alone] a finding not fixable makes the ques
   const sc = scenario({ rounds, approvals: [{ hash: B, time: T(13) }] });
   const after = state(sc, { statement: fileOf(B) });
   assert.match(after, /statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}\n/);
-  assert.match(after, /NEXT t: the owner approved a later version: work goes on under it, then full round 2/);
+  assert.match(after, /NEXT t: the executor works under version [0-9a-f]{12}, then records done with done\.mjs/);
   assert.doesNotMatch(after, /question/);
   rmSync(sc.dir, { recursive: true, force: true });
 });
@@ -774,6 +774,21 @@ test("[check.task-statement.task-next-documented] the ontology and the guide lis
   }
 });
 
+// The NEXT line of --task and of --rounds for task t in a repository of done.mjs, read by the functions
+// the check and done.mjs read the records with.
+const inputsOf = (repo) => {
+  const cfg = loadConfig(join(repo, "ont.config.json"));
+  return { cfg, ...readTaskInputs(cfg) };
+};
+const askTask = (repo, file) => {
+  const { cfg, rounds, records, malformed } = inputsOf(repo);
+  return taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: "t", defaults: cfg.budget, statement: file ? readStatement(file) : null, malformed }).lines.at(-1);
+};
+const askRounds = (repo) => {
+  const { cfg, rounds, records } = inputsOf(repo);
+  return `NEXT t: ${taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: "t", defaults: cfg.budget }).say}`;
+};
+
 test("[check.task-statement.done-of-version] after version A is accepted and a clean round approves version B, the task is not done: --task, --rounds and done.mjs all give work under B", () => {
   const rounds = [approvedA, finalRound(), { step: "statement-review", number: 2, time: T(13), hash: B }];
   const sc = scenario({ rounds, done: [{ time: T(11) }] });
@@ -781,7 +796,7 @@ test("[check.task-statement.done-of-version] after version A is accepted and a c
   const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "b.md"), "--rounds"]);
   const next = r.stdout.split("\n").filter((l) => l.startsWith("NEXT t:"));
   assert.equal(next.length, 2, r.stdout);
-  for (const l of next) assert.match(l, /^NEXT t: the approval in force is of version [0-9a-f]{12}, and the last round of the result, r1\.md, read version [0-9a-f]{12}: the executor works under the approved version/);
+  for (const l of next) assert.match(l, /^NEXT t: the executor works under version [0-9a-f]{12}, then records done with done\.mjs$/);
   assert.equal(next[0], next[1]);
   assert.doesNotMatch(r.stdout, /NEXT t: done|the task is done/);
   // Before B's approval, A's acceptance ends the task.
@@ -799,6 +814,39 @@ test("[check.task-statement.done-of-version] after version A is accepted and a c
     writeFileSync(join(repo, "rounds", "3.md"), roundText({ task: "t", step: "statement-review", number: 2, time: T(23, 30), hash: readStatement(b).hash }));
     const forB = spawnSync("node", [join(TOOLS, "done.mjs"), "t", "--statement", b, "--config", join(repo, "ont.config.json")], { encoding: "utf8" });
     assert.equal(forB.status, 0, forB.stdout);
+    // After the fresh record of done of B, the next action is the first round of the review of its
+    // result, with the next free number, in --task and --rounds alike; a statement-less --task asks
+    // for the file rather than calling the task done.
+    const both = [askTask(repo, b), askRounds(repo)];
+    for (const l of both) assert.match(l, /^NEXT t: the record of done \S+ of version [0-9a-f]{12} has no round of review yet: full round 2 of the review of the result$/);
+    assert.equal(askTask(repo, null), "NEXT t: give --statement <file> to compare the version it names with the file");
+  } finally {
+    clean();
+  }
+});
+
+test("[check.task-statement.budget-one-action] done.mjs refuses a record of done at the budget's cap, while work goes on and after the task is done alike", () => {
+  const { repo, outside, done, clean } = doneRepo("t");
+  try {
+    const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+    writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, budget: { newInput: 1000, output: 1000 } }));
+    // Work goes on, the spend exactly at the cap: refused, with the question of the budget.
+    writeFileSync(join(repo, "tasks", "s.md"), spendText({ start: T(9, 30), end: T(9, 40), tokens: [1000, 0, 0] }));
+    const atCap = done("t");
+    assert.equal(atCap.status, 1, atCap.stdout);
+    assert.match(atCap.stdout, /no record of done written: the task's next action is not work on the result: the budget is exhausted: a question to the owner/);
+    // Within the budget, done is recorded; the task is then reviewed and done, and the spend reaches the
+    // cap: a fresh record of done is new work, and is refused too.
+    writeFileSync(join(repo, "tasks", "s.md"), spendText({ start: T(9, 30), end: T(9, 40), tokens: [10, 0, 0] }));
+    assert.equal(done("t").status, 0);
+    const rec = parseTaskRecords(join(repo, "tasks")).done[0];
+    const later = new Date(Date.parse(rec.time) + 60000).toISOString().replace(".000Z", "Z");
+    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "result-review", number: 1, time: later, hash: rec.statementHash, acceptance: "clean", commits: rec.commit.slice(0, 7) }));
+    assert.match(askTask(repo, join(outside, "s.md")), /NEXT t: done: the last round and its acceptance are clean/);
+    writeFileSync(join(repo, "tasks", "s.md"), spendText({ start: T(9, 30), end: T(9, 40), tokens: [1000, 0, 0] }));
+    const fresh = done("t");
+    assert.equal(fresh.status, 1, fresh.stdout);
+    assert.match(fresh.stdout, /the budget is exhausted: a question to the owner/);
   } finally {
     clean();
   }
@@ -979,7 +1027,7 @@ test("[check.owner-approval.after-findings] after rounds with findings the owner
   assert.deepEqual(sc.records.malformed, []);
   const out = state(sc, { statement: fileOf(A) });
   assert.match(out, /statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}\n/);
-  assert.match(out, /NEXT t: the executor works, then records done with done\.mjs/);
+  assert.match(out, /NEXT t: the executor works under version [0-9a-f]{12}, then records done with done\.mjs/);
   // The approval holds for its version only.
   assert.match(state(sc, { statement: fileOf(B) }), /NEXT t: the statement changed after its approval/);
   // An acceptance under the owner's approval holds; the check refuses none.
@@ -1200,7 +1248,7 @@ test("[check.task-statement.limits-of-approval] after version A is approved and 
   // until a record of done of B carries them (D-147), so its NEXT line is the question of the budget.
   const taskPart = r.stdout.slice(r.stdout.indexOf("TASK t ·"));
   assert.doesNotMatch(taskPart, /ERROR|not the statement's|exhausted|question/);
-  assert.match(taskPart, /NEXT t: the executor works, then records done/);
+  assert.match(taskPart, /NEXT t: the executor works under version [0-9a-f]{12}, then records done/);
   assert.match(r.stdout, /ONT_OK/);
   // Without the file, as to the check and --rounds, A's record of done gives no limits for B: the project's.
   const st = taskBudget({ rounds: sc.rounds, spend: [], done: sc.records.done, approvals: sc.records.approvals, task: "t", defaults: limits(100, 100), statement: null });

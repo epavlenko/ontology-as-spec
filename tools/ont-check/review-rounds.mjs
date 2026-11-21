@@ -260,14 +260,16 @@ export const BRANCHES = ["open gate", "no round", "no acceptance", "acceptance r
 // gate is the files of the rounds of the task's other step that hold an open gate.
 // gatesFrom: a round before it carries the meaning `not fixable` had before D-152, a question at that
 // round only, when it is the last.
-export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gate = [], gatesFrom = null } = {}) {
+// gateSince: the owner's last approval, from which a finding not fixable is a gate; since by default.
+export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], gatesFrom = null } = {}) {
   const every = byTime(stepRounds);
   const nextOf = (narrow) => Math.max(0, ...every.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
   const all = since === null ? every : every.filter((r) => r.time > since);
   const last = all.at(-1);
   const clean = last && isClean(last);
-  const gates = [...new Set([...gate, ...notFixableIn(all.filter((r) => gatesFrom === null || r.time >= gatesFrom)), ...(last ? notFixableIn([last]) : [])])];
+  const gated = gateSince === null ? every : every.filter((r) => r.time > gateSince);
+  const gates = [...new Set([...gate, ...notFixableIn(gated.filter((r) => gatesFrom === null || r.time >= gatesFrom)), ...(last ? notFixableIn([last]) : [])])];
   const why = clean && last.step === "result-review" && last.acceptance ? refused(last) : null;
   const branch = {
     "open gate": () => gates.length && { next: "question", gates, say: `${GATE} (${gates.join(", ")})` },

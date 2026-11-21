@@ -48,7 +48,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { byTime, renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, gitEnv, overlaps, overspendProblems, parseTaskRecords, readRoundRecords, readStatement, resolveRecords, taskBudget, taskNext, taskState } from "./tasks.mjs";
+import { acceptanceProblems, gitEnv, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, taskBudget, taskNext, taskState } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1346,12 +1346,11 @@ if (flag("--statement") > 0 && !(flag("--task") > 0)) fail("--statement needs --
 // every task (D-152).
 // ont: derived.next-round, derived.step-payoff, inv.review-rounds-well-formed, rule.findings-filed
 if (cfg.reviewRounds) {
-  const { rounds: parsedRounds, malformed, top: projectTop } = readRoundRecords(cfg);
+  const { rounds, malformed, resolved, records } = readTaskInputs(cfg);
   report("review round records that cannot be read", malformed);
   // Records of done and of spend (D-107, D-108): a contribution recorded twice over one interval, and a
   // verdict of acceptance with no record of done behind it, are errors.
   // ont: inv.contributions-apart, inv.acceptance-after-done
-  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
   // Every commit a record names resolves in the project's repository where the record's meaning rests on
   // it (D-145): a record of done whose commit does not cannot be read, so it binds no acceptance in the
   // check, --task or --rounds; the round that gives the acceptance of the latest record of done is an
@@ -1359,9 +1358,6 @@ if (cfg.reviewRounds) {
   // the rounds resolveRecords gives, which carry their missing commits, so the round that would end a
   // task is refused for one in the check, --task and --rounds alike (D-148).
   // ont: inv.named-commits-resolve
-  const resolved = resolveRecords(projectTop, { done: parsed.done, rounds: parsedRounds, approvals: parsed.approvals });
-  const { rounds } = resolved;
-  const records = { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] };
   report("task records that cannot be read", records.malformed);
   report("rounds that give the acceptance of a task whose commits are not in the repository", resolved.problems);
   report("rounds of review whose commits this clone does not have (no acceptance of the latest record of done rests on them)", resolved.notes, false, 10);
