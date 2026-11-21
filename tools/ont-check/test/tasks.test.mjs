@@ -465,7 +465,7 @@ test("[check.task-spend.overlap-across-tasks] records of one session that overla
 });
 
 test("[check.task-statement.budget-one-action] after a round of the result with the budget spent, --task names one next action, the stop", () => {
-  const sc = scenario({ rounds: [{ ...approvedA, tokens: [600, 0, 10] }, { step: "result-review", number: 1, time: T(12), found: 1, tokens: [600, 0, 10] }] });
+  const sc = scenario({ rounds: [{ ...approvedA, tokens: [600, 0, 10] }, { step: "result-review", number: 1, time: T(12), hash: A, found: 1, tokens: [600, 0, 10] }] });
   const out = state(sc, { statement: fileOf(A), defaults: limits(1000, 1000) });
   assert.match(out, /statement: approved, version [0-9a-f]{12}\n/);
   assert.match(out, /NEXT t: (.*: )?the budget is exhausted: a question to the owner/);
@@ -788,6 +788,42 @@ const askRounds = (repo) => {
   const { cfg, rounds, records } = inputsOf(repo);
   return `NEXT t: ${taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: "t", defaults: cfg.budget }).say}`;
 };
+
+test("[check.task-statement.done-of-version] a round of version A that ends after B is approved and recorded done is not B's: --task and --rounds name B's first full round with the next free number", () => {
+  const rounds = [
+    approvedA,
+    { step: "result-review", number: 1, time: T(10), hash: A, found: 1 },
+    { step: "statement-review", number: 2, time: T(12), hash: B },
+    // A's delayed round, ending after B's approval and after B's record of done.
+    { step: "result-review", number: 2, time: T(14), hash: A, found: 1, prefix: "late" },
+  ];
+  const sc = scenario({ rounds, done: [{ time: T(11) }, { time: T(13), hash: B }] });
+  writeFileSync(join(sc.dir, "b.md"), B_TEXT);
+  const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "b.md"), "--rounds"]);
+  const next = r.stdout.split("\n").filter((l) => l.startsWith("NEXT t:"));
+  assert.equal(next.length, 2, r.stdout);
+  for (const l of next) assert.match(l, /^NEXT t: the record of done d1\.md of version [0-9a-f]{12} has no round of review yet: full round 3 of the review of the result$/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.done-of-version] a record of done made before the approval of its version was withdrawn and given again is not reused", () => {
+  const rounds = [
+    approvedA,
+    // A round of the statement with findings withdraws A's approval, and a clean one gives it again.
+    { step: "statement-review", number: 2, time: T(11), hash: A, found: 1 },
+    { step: "statement-review", number: 3, time: T(12), hash: A },
+    // An acceptance given after the second approval, of the record of done made before the withdrawal.
+    finalRound({ time: T(13) }),
+  ];
+  const sc = scenario({ rounds, done: [{ time: T(10) }] });
+  const n = taskNext({ rounds: sc.rounds, done: sc.records.done, approvals: [], task: "t", statement: fileOf(A), needFile: true });
+  assert.notEqual(n.branch, "done");
+  assert.match(acceptanceProblems(sc.rounds, sc.records.done).join("\n"), /r3\.md: acceptance of t refused: the record of done d0\.md was made before the approval in force when the acceptance was given/);
+  // The window of A has no record of done of its own: the executor records done again under it.
+  const w = taskNext({ rounds: sc.rounds.filter((x) => x.step === "statement-review"), done: sc.records.done, task: "t", statement: fileOf(A), needFile: true });
+  assert.match(w.say, /^the executor works under version [0-9a-f]{12}, then records done with done\.mjs$/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
 
 test("[check.task-statement.done-of-version] after version A is accepted and a clean round approves version B, the task is not done: --task, --rounds and done.mjs all give work under B", () => {
   const rounds = [approvedA, finalRound(), { step: "statement-review", number: 2, time: T(13), hash: B }];

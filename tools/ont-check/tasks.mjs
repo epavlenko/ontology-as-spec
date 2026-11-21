@@ -246,17 +246,21 @@ export function approvedHash(rounds, task, before = null, approvals = []) {
 // statement or a record of the owner's approval. Rounds of the result before that time read another
 // version's work, or an earlier approval of it that a round with findings withdrew, and the branches do
 // not read them; the latest record of done of the version after that time is the window's done. null when
-// no approval is in force.
-export function versionWindow({ rounds, approvals = [], done = [], task }) {
-  const events = approvalEvents(rounds, task, approvals);
+// no approval is in force. A record belongs to the window by its own Statement-hash and its time both
+// (inWindow): time alone never gives a record to a version, so a late round of an earlier version, or a
+// record of done made before the version's approval was withdrawn and given again, is not the window's.
+// With before, the window as it stood at that time, from the events before it.
+export const inWindow = (rec, w) => Boolean(w) && rec.statementHash === w.hash && rec.time > w.from;
+export function versionWindow({ rounds, approvals = [], done = [], task, before = null }) {
+  const events = approvalEvents(rounds, task, approvals).filter((e) => before === null || e.time < before);
   const hash = events.at(-1)?.hash ?? null;
   if (!hash) return null;
   let i = events.length - 1;
   while (i > 0 && events[i - 1].hash === hash) i--;
-  const from = events[i].time;
-  const doneOf = done.filter((d) => d.task === task && d.statementHash === hash && d.time > from).sort((a, b) => a.time.localeCompare(b.time)).at(-1) ?? null;
-  const results = ofTask(rounds, task, "result-review").filter((r) => r.time > from);
-  return { hash, from, done: doneOf, results };
+  const w = { hash, from: events[i].time };
+  const doneOf = done.filter((d) => d.task === task && inWindow(d, w)).sort((a, b) => a.time.localeCompare(b.time)).at(-1) ?? null;
+  const results = ofTask(rounds, task, "result-review").filter((r) => inWindow(r, w));
+  return { ...w, done: doneOf, results };
 }
 
 // The commit a round reviewed: the commit of its line Commits:, or the last of its range.
@@ -284,6 +288,9 @@ export function acceptanceWhy(r, rounds, done, statement = null, { approvals = [
   if (r.statementHash !== before.statementHash) return `it names another version of the statement than the record of done ${before.file}`;
   if (approvedHash(rounds, r.task, before.time, approvals) !== before.statementHash) return `the record of done ${before.file} was made with no approval in force for its version of the statement`;
   if (approvedHash(rounds, r.task, r.time, approvals) !== before.statementHash) return "no approval is in force for that version of the statement";
+  // The record of done and the acceptance are of one window of that version: a record made before its
+  // approval was withdrawn and given again is not this window's (D-152).
+  if (!inWindow(before, versionWindow({ rounds, approvals, task: r.task, before: r.time }))) return `the record of done ${before.file} was made before the approval in force when the acceptance was given, which a later round withdrew and gave again`;
   if (!reviewed) return "the round names no commit it reviewed (Commits:)";
   if (!before.commit.startsWith(reviewed)) return `the record of done ${before.file} is of commit ${before.commit.slice(0, 7)}, not of the commit the round reviewed, ${reviewed.slice(0, 7)}`;
   if (statement?.hash && statement.hash !== before.statementHash) return `the statement's file is version ${statement.hash.slice(0, 12)}, not the version ${before.statementHash.slice(0, 12)} the record of done names`;
@@ -412,16 +419,19 @@ export function overspendProblems(end, b) {
 // The owner's last record of approval for the task ends both steps (D-152): the rounds before it are not
 // read by the branches of derived.next-round, so a question it answered is lifted.
 export function stepNext({ rounds, done = [], approvals = [], task, step, statement = null, gatesFrom = null }) {
-  const of = ofTask(rounds, task, step);
+  const all = ofTask(rounds, task, step);
   // The owner's last approval closes gates and starts the comparison of the statement's rounds; the
   // review of the result starts at its version window, which that approval may have opened (D-152).
   const ownerSince = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
   const window = step === "result-review" ? versionWindow({ rounds, approvals, task }) : null;
   const since = window ? [ownerSince, window.from].filter(Boolean).sort().at(-1) : ownerSince;
+  // The rounds of the review of the result are the window's, by version and time; the numbers go on over
+  // every round of the step (D-152).
+  const of = window ? window.results : all;
   // An open gate holds the whole task, both steps, until the owner's newer approval (D-152).
   const gate = openGates({ rounds, approvals, task, gatesFrom });
   const held = (r) => !acceptanceWhy(r, rounds, done, null, { approvals });
-  const go = () => nextRound(of, { since, gateSince: ownerSince, held, gate, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
   if (gate.length) return go();
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);

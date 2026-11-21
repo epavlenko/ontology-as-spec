@@ -261,9 +261,10 @@ export const BRANCHES = ["open gate", "no round", "no acceptance", "acceptance r
 // gatesFrom: a round before it carries the meaning `not fixable` had before D-152, a question at that
 // round only, when it is the last.
 // gateSince: the owner's last approval, from which a finding not fixable is a gate; since by default.
-export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], gatesFrom = null } = {}) {
+// numbered: every round of the step, over which a next round takes the next free number of its kind.
+export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], gatesFrom = null, numbered = stepRounds } = {}) {
   const every = byTime(stepRounds);
-  const nextOf = (narrow) => Math.max(0, ...every.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
+  const nextOf = (narrow) => Math.max(0, ...numbered.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
   const all = since === null ? every : every.filter((r) => r.time > since);
   const last = all.at(-1);
