@@ -9,4 +9,4 @@ Checks-listed: 52
 Checks-given: 52
 Checks-carried: 0
 Findings:
-- absolute paths let through · important · change · fixable
+- absolute paths let through · important · change · fixable · check.manual-run.english-in-repo
