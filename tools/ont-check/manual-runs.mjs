@@ -37,12 +37,18 @@ export const runStamp = (c, ONT, rows, checkById, notes) =>
 // as main..HEAD included.
 // ont: rule.records-english-in-repo
 const NOT_LATIN = /[^\P{L}\p{Script=Latin}]/u;
-const WEB = /^https?:\/\//i;
-// Any scheme but http and https: file:///x, a link into a local app such as app://x, or mailto:, which
-// names a person's address.
-const SCHEME = /^(?:[a-z][a-z0-9+.-]*:\/\/|[a-z][a-z0-9+.-]*:\/|mailto:)/i;
-// A slash alone, as in "A / B", is a word; an absolute path names something after it.
-const ABSOLUTE_PATH = /^(\/[^\s/]|~\/|[A-Za-z]:[\\/]|\\\\)/;
+// Strict, and simple on purpose: rather than read Markdown, the line loses its URLs of the web and its
+// HTML end tags, and then anything that starts a path where a word starts is refused. A false refusal,
+// such as a path with a space in a directory's name and a "..", is the cost, and is recorded in
+// docs/limitations.md; a path let through would be the worse error (D-151).
+const WEB_URL = /\bhttps?:\/\/[^\s<>`"'|,;()\[\]]+/gi;
+const END_TAG = /<\/[A-Za-z][A-Za-z0-9-]*>/g;
+// Where a word starts: the start of the line or a mark that is not part of a word or a relative path.
+const START = "(?:^|[^A-Za-z0-9._~-])";
+// An absolute path: /x, ~/x, C:\x, C:/x or \\server.
+const ABSOLUTE = new RegExp(`${START}(\\/[^\\s/]|~\\/|[A-Za-z]:[\\\\/]|\\\\\\\\[^\\s\\\\])`, "g");
+// A scheme other than http and https, with anything after it: file:x, file:///x, mailto:x, app://x.
+const OTHER_SCHEME = new RegExp(`${START}((?!https?:)[a-z][a-z0-9+.-]*:(?:\\/|[^\\s:]*[\\/@]))`, "gi");
 const leaves = (token) => {
   let depth = 0;
   for (const part of token.split(/[\\/]/)) {
@@ -52,54 +58,34 @@ const leaves = (token) => {
   }
   return false;
 };
-// The target of a Markdown link, ](…), whole, with its parentheses balanced, so that a name with
-// parentheses in it stays one path.
-const linkTargets = (line) => {
-  const targets = [];
-  let rest = "";
-  for (let i = 0; i < line.length; i++) {
-    if (line[i] === "]" && line[i + 1] === "(") {
-      let depth = 1;
-      let j = i + 2;
-      for (; j < line.length && depth > 0; j++) {
-        if (line[j] === "(") depth++;
-        else if (line[j] === ")") depth--;
-      }
-      targets.push(line.slice(i + 2, j - 1).trim().replace(/^<|>$/g, ""));
-      rest += " ";
-      i = j - 1;
-    } else rest += line[i];
-  }
-  return { targets, rest };
-};
-// A token's own end: the marks of a sentence after it, but not the dots of a "..", which is a path's.
-const trimToken = (t) => {
-  const u = t.replace(/^_+|_+$/g, "");
-  return /(?:^|[\\/])\.\.$/.test(u) ? u : u.replace(/[.:!?]+$/, "");
-};
-export const recordTokens = (line) => {
-  const urls = [];
-  const noUrls = line.replace(/\bhttps?:\/\/[^\s<>`"'|]*[^\s<>`"'|.,;:!?)\]]/gi, (u) => {
-    urls.push(u);
-    return " ";
-  });
-  const { targets, rest } = linkTargets(noUrls.replace(/<\/[A-Za-z][A-Za-z0-9-]*>/g, " "));
-  return [...urls, ...targets, ...rest.split(/[\s*<>()\[\]`"',;|=]+/).map(trimToken)].filter(Boolean);
-};
+// The word a match starts, to name it in the refusal.
+const wordAt = (line, i) => line.slice(i).match(/^[^\s<>`"'|,;()\[\]*]+/)?.[0] ?? line.slice(i, i + 20);
 export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
   const problems = [];
   text.split("\n").forEach((line, i) => {
     const at = `line ${i + from}`;
-    const tokens = recordTokens(line);
+    const plain = line.replace(WEB_URL, " ").replace(END_TAG, " ");
     if (latinOnly) {
-      const plain = tokens.filter((t) => !WEB.test(t)).join(" ");
-      const letter = plain.match(NOT_LATIN) ?? line.replace(/https?:\/\/\S+/gi, " ").match(NOT_LATIN);
+      const letter = plain.match(NOT_LATIN);
       if (letter) problems.push(`${at}: the letter ${letter[0]} is not English text`);
     }
-    for (const t of tokens) {
-      if (WEB.test(t)) continue;
-      if (SCHEME.test(t) || ABSOLUTE_PATH.test(t)) problems.push(`${at}: ${t} is a path outside the repository`);
-      else if (/[\\/]/.test(t) && leaves(t.replace(/:\d+(?:-\d+)?$/, ""))) problems.push(`${at}: ${t} leaves the repository`);
+    // Each word is named once: a path inside a URL of another scheme is that URL's.
+    const named = new Set();
+    const covered = [];
+    for (const re of [OTHER_SCHEME, ABSOLUTE]) {
+      for (const m of plain.matchAll(re)) {
+        const start = m.index + m[0].length - m[1].length;
+        if (covered.some(([a, b]) => start >= a && start < b)) continue;
+        const w = wordAt(plain, start).replace(/[.:!?]+$/, "");
+        covered.push([start, start + w.length]);
+        if (!named.has(w)) problems.push(`${at}: ${w} is a path outside the repository`), named.add(w);
+      }
+    }
+    // A relative path that leaves the repository by "..": each word of the line, its marks of a sentence
+    // taken off but not the dots of a final "..".
+    for (const raw of plain.split(/[\s<>`"'|,;()\[\]*=]+/)) {
+      const t = /(?:^|[\\/])\.\.[:!?.]*$/.test(raw) ? raw.replace(/[:!?]+$/, "") : raw.replace(/[.:!?]+$/, "");
+      if (/[\\/]/.test(t) && !named.has(t) && leaves(t.replace(/:\d+(?:-\d+)?$/, ""))) problems.push(`${at}: ${t} leaves the repository`);
     }
   });
   return problems;
