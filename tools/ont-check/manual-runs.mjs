@@ -51,6 +51,9 @@ const END_TAG = /<\/[A-Za-z][A-Za-z0-9-]*>/g;
 const LOCAL_PREFIX = /(\/(?:home|Users|root|tmp|var|etc|mnt|opt)\/|~\/|[A-Za-z]:[\\/]|\\\\[^\s\\]|(?<![\p{L}\p{N}])(?:file|mailto):)/giu;
 // A URL of another scheme has a slash or an @ anywhere after its colon, as app:x/y or app:x@y.
 const ABSOLUTE = /(?<![\p{L}\p{N}.~-])(\/[^\s/]|(?!https?:)[a-z][a-z0-9+.-]*:[^\s:]*[\/@])/giu;
+// The target of a Markdown link with a scheme other than http and https, such as (about:config), names
+// a place on a machine whatever follows its colon.
+const LINK_SCHEME = /\]\(\s*<?((?!https?:)[a-z][a-z0-9+.-]*:)/giu;
 const UP = /(?:^|[^.])(\.\.[\\/]|[\\/]\.\.(?![^\s\\/.]))/gu;
 const wordAt = (line, i) => line.slice(i).match(/^[^\s<>`"'|,;()\[\]*]+/)?.[0] ?? line.slice(i, i + 20);
 export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
@@ -72,6 +75,7 @@ export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
     };
     for (const m of plain.matchAll(LOCAL_PREFIX)) name(m.index, "is a path outside the repository");
     for (const m of plain.matchAll(ABSOLUTE)) name(m.index, "is a path outside the repository");
+    for (const m of line.matchAll(LINK_SCHEME)) name(m.index + m[0].length - m[1].length, "is a link outside the repository");
     for (const m of plain.matchAll(UP)) name(m.index + m[0].length - m[1].length, "leaves the repository, or may: write the path from the repository's root, without ..");
   });
   return problems;
