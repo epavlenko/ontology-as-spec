@@ -37,33 +37,20 @@ export const runStamp = (c, ONT, rows, checkById, notes) =>
 // as main..HEAD included.
 // ont: rule.records-english-in-repo
 const NOT_LATIN = /[^\P{L}\p{Script=Latin}]/u;
-// Strict, and simple on purpose: rather than read Markdown, the line loses its URLs of the web and its
-// HTML end tags, and then anything that starts a path where a word starts is refused. A false refusal,
-// such as a path with a space in a directory's name and a "..", is the cost, and is recorded in
-// docs/limitations.md; a path let through would be the worse error (D-151).
+// Strict, and simple on purpose (D-151): the check does not read Markdown or find where words end beyond
+// one rule. A line loses its web URLs and its HTML end tags; then it is refused for
+// - a prefix that names something on a machine, anywhere: /home/, /Users/, /root/, /tmp/, /var/, /etc/,
+//   /mnt/, /opt/, ~/, C:\ or C:/ (any drive), \\server, file:, mailto:;
+// - an absolute path or a URL of another scheme where no letter or digit stands before it, so that a
+//   mark, a quote, an emoji or an underscore before a slash starts a path;
+// - any ".." next to a slash: a path in a record is written as the repository's own, normalised.
+// A false refusal, such as docs/../x for docs/x, or a path after a combining mark, is the cost, and is
+// recorded in docs/limitations.md; a path let through would be the worse error.
 const WEB_URL = /\bhttps?:\/\/[^\s<>`"'|,;()\[\]]+/gi;
 const END_TAG = /<\/[A-Za-z][A-Za-z0-9-]*>/g;
-// Where a word starts: the start of the line or a mark that is not part of a word or a relative path.
-// A letter or a digit of any script, a dot, a tilde or a hyphen continues a word; an underscore, the
-// mark of Markdown emphasis, does not.
-const START = "(?:^|[^\\p{L}\\p{M}\\p{N}.~-])";
-// An absolute path: /x, ~/x, C:\x, C:/x or \\server.
-const ABSOLUTE = new RegExp(`${START}(\\/[^\\s/]|~\\/|[A-Za-z]:[\\\\/]|\\\\\\\\[^\\s\\\\])`, "gu");
-// A scheme other than http and https, with anything after it: file:x, file:///x, mailto:x, app://x.
-// file: and mailto: name something local or a person whatever follows; another scheme with a slash after
-// it is a link into a local app.
-const OTHER_SCHEME = new RegExp(`${START}((?:file|mailto):\\S|(?!https?:)[a-z][a-z0-9+.-]*:(?:\\/|[^\\s:]*[\\/@]))`, "giu");
-const leaves = (token) => {
-  let depth = 0;
-  for (const part of token.split(/[\\/]/)) {
-    // A part of dots only, "..", or ".." run into an ellipsis "...", goes up.
-    if (/^\.{2,}$/.test(part)) depth--;
-    else if (part && part !== ".") depth++;
-    if (depth < 0) return true;
-  }
-  return false;
-};
-// The word a match starts, to name it in the refusal.
+const LOCAL_PREFIX = /(\/(?:home|Users|root|tmp|var|etc|mnt|opt)\/|~\/|[A-Za-z]:[\\/]|\\\\[^\s\\]|\b(?:file|mailto):)/giu;
+const ABSOLUTE = /(?<![\p{L}\p{N}.~-])(\/[^\s/]|(?!https?:)[a-z][a-z0-9+.-]*:\/)/giu;
+const UP = /(?:^|[^.])(\.\.[\\/]|[\\/]\.\.(?![^\s\\/.]))/gu;
 const wordAt = (line, i) => line.slice(i).match(/^[^\s<>`"'|,;()\[\]*]+/)?.[0] ?? line.slice(i, i + 20);
 export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
   const problems = [];
@@ -74,26 +61,17 @@ export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
       const letter = plain.match(NOT_LATIN);
       if (letter) problems.push(`${at}: the letter ${letter[0]} is not English text`);
     }
-    // Each word is named once: a path inside a URL of another scheme is that URL's.
     const named = new Set();
-    const covered = [];
-    for (const re of [OTHER_SCHEME, ABSOLUTE]) {
-      for (const m of plain.matchAll(re)) {
-        const start = m.index + m[0].length - m[1].length;
-        if (covered.some(([a, b]) => start >= a && start < b)) continue;
-        const w = wordAt(plain, start).replace(/[.:!?]+$/, "");
-        covered.push([start, start + w.length]);
-        if (!named.has(w)) problems.push(`${at}: ${w} is a path outside the repository`), named.add(w);
-      }
-    }
-    // A relative path that leaves the repository by "..": each run of the characters of a path, letters
-    // and digits of any script, marks, "._~-", slashes and backslashes, so that whatever follows a path,
-    // a quote, a dash, an ellipsis or a full stop, ends it; a ":12" after it is its line.
-    for (const m of plain.matchAll(/[\p{L}\p{M}\p{N}._~\-\/\\]+/gu)) {
-      // Underscores at its ends are Markdown emphasis, not the path's.
-      const t = m[0].replace(/^_+|_+$/g, "").replace(/:\d+(?:-\d+)?$/, "");
-      if (/[\\/]/.test(t) && /\.\./.test(t) && !named.has(t) && leaves(t)) problems.push(`${at}: ${t} leaves the repository`);
-    }
+    const name = (start, what) => {
+      // The word the match is in, from its start, to name it in the refusal.
+      let s0 = start;
+      while (s0 > 0 && !/[\s<>`"'|,;()\[\]*]/.test(plain[s0 - 1])) s0--;
+      const w = wordAt(plain, s0).replace(/[.:!?]+$/, "");
+      if (!named.has(w)) problems.push(`${at}: ${w} ${what}`), named.add(w);
+    };
+    for (const m of plain.matchAll(LOCAL_PREFIX)) name(m.index, "is a path outside the repository");
+    for (const m of plain.matchAll(ABSOLUTE)) name(m.index, "is a path outside the repository");
+    for (const m of plain.matchAll(UP)) name(m.index + m[0].length - m[1].length, "leaves the repository, or may: write the path from the repository's root, without ..");
   });
   return problems;
 }

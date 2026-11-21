@@ -188,7 +188,7 @@ test("[check.manual-run.english-in-repo] refuses a record with a path outside th
     names.cyrillic = at(dir, "2026-11-05T09:00:00Z", `the screen shows ${CYRILLIC}`, "aaaa");
     names.home = at(dir, "2026-11-05T09:01:00Z", "see /home/x/notes.md:4", "bbbb");
     names.up = at(dir, "2026-11-05T09:02:00Z", "see ../outside/log.md", "cccc");
-    names.clean = at(dir, "2026-11-05T09:03:00Z", "https://example.org/runs/2026-11-05 and `docs/../README.md`, the reviewer's log, kept outside the repository", "dddd");
+    names.clean = at(dir, "2026-11-05T09:03:00Z", "https://example.org/runs/2026-11-05 and `docs/README.md`, the reviewer's log, kept outside the repository", "dddd");
   });
   assert.equal(r.code, 1, r.out);
   // The Evidence line is the record's ninth: a heading, a blank line, then Check, Commit, By, Time, Stamp, Verdict.
@@ -207,11 +207,11 @@ test("[check.manual-run.english-in-repo] refuses a record with a path outside th
 
   // Every form of an absolute path, and a file: URL, is outside the repository; a web URL, a path that
   // stays inside by .., a commit range and an end tag are not (D-151).
-  for (const bad of ["see file:///home/x/a.md", "see <file:///home/x/a.md>", "see **/home/x/a.md**", "see \\\\srv\\share\\x", "see C:/Users/x", "see C:\\Users\\x", "see [log](/var/log/x)", "see ~/notes", "t3-thread://v1/abc", "a/b/../../../c", "path=/home/x/a", "see docs/../..", "see docs/../..:", "mailto:a@b.c", "[ci](https://ci/x),[log](/home/l)", "`a](b` then /home/x", "file:reports/run.log", "see _/home/x_", "see _../out_", "see docs/../...", "file:run.log", "a,/home/x", "see «docs/../..»", "see docs/../..…", "see docs/../..—x", "https://ci/x,/home/l"])
+  for (const bad of ["see file:///home/x/a.md", "see <file:///home/x/a.md>", "see **/home/x/a.md**", "see \\\\srv\\share\\x", "see C:/Users/x", "see C:\\Users\\x", "see [log](/var/log/x)", "see ~/notes", "t3-thread://v1/abc", "a/b/../../../c", "path=/home/x/a", "see docs/../..", "see docs/../..:", "mailto:a@b.c", "[ci](https://ci/x),[log](/home/l)", "`a](b` then /home/x", "file:reports/run.log", "see _/home/x_", "see _../out_", "see docs/../...", "file:run.log", "a,/home/x", "see «docs/../..»", "see docs/../..…", "see docs/../..—x", "https://ci/x,/home/l", "`docs/../README.md`", "see ⚠️/home/x", "see _docs/../.._.", "see /srv/data/x"])
     assert.equal(outsideRecord(bad, 1, {}).length, 1, bad);
   // Each path is named in the refusal, two on one line as two.
   assert.deepEqual(outsideRecord("[l](/var/log/x) and [m](/etc/y)", 1, {}), ["line 1: /var/log/x is a path outside the repository", "line 1: /etc/y is a path outside the repository"]);
-  for (const good of ["https://example.org/x", "`docs/../README.md`", "[a](docs/a b/../c.md)", "main..HEAD", "</svg> and <br/>", "Ontology-as-spec / Executable ontology", "a_b/c.md", "https://ex.org/a,b/c", "https://example.org/x.", "tools/ont-check/lib.mjs:12", "D-151: a rule", "verdict: pass", "see café/x.md", "see cafe\u0301/x.md", "see a_b/../c.md", "wait... then"])
+  for (const good of ["https://example.org/x", "main..HEAD", "</svg> and <br/>", "Ontology-as-spec / Executable ontology", "a_b/c.md", "https://ex.org/a,b/c", "https://example.org/x.", "tools/ont-check/lib.mjs:12", "D-151: a rule", "verdict: pass", "see café/x.md", "wait... then", "see @scope/pkg/x.md", "see v1+2/x.md", "1/2 of the checks", "A / B"])
     assert.deepEqual(outsideRecord(good, 1, {}), [], good);
   // Strict on purpose: a path whose directory holds parentheses is refused, as is one with a space in a
   // directory and a "..", rather than read Markdown (D-151, docs/limitations.md).
@@ -245,6 +245,6 @@ test("[check.manual-run.english-in-repo] refuses a record with a path outside th
   assert.equal(held.records.length, 1);
 
   // What is no path outside: a URL, a path inside, a range of commits, an end tag, a bare "..", a slash between words.
-  for (const ok of ["https://github.com/a/b", "`docs/../README.md:3`", "main..HEAD", "`<svg/></svg>`", "a `..` part", "pass/fail", "C# and F#"]) assert.deepEqual(outsideRecord(ok), [], ok);
+  for (const ok of ["https://github.com/a/b", "main..HEAD", "`<svg/></svg>`", "a `..` part", "pass/fail", "C# and F#"]) assert.deepEqual(outsideRecord(ok), [], ok);
   for (const bad of ["~/notes.md", "C:\\Users\\x", "(</srv/a b.md>)", "`../../x`", "docs/../../x"]) assert.equal(outsideRecord(bad).length, 1, bad);
 });
