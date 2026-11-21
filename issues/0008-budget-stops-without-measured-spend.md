@@ -1,6 +1,6 @@
 # #8 The budget's stops and limits where the tool measures no spend
 
-Faults of the tool around the budget that the review of task round-rules found. They were first written as weaknesses in [docs/limitations.md](../docs/limitations.md); the owner had them moved here, since that page holds only what the approach does not do by choice (his answer "1021 б" of 2026-11-21), and merged the task with them ("1018 б").
+Faults of the tool around the budget that the review of task round-rules found. They were first written as weaknesses in [docs/limitations.md](../docs/limitations.md); the owner had them moved here, since that page holds only what the approach does not do by choice (his answer "1021 b" of 2026-11-21), and merged the task with them ("1018 b").
 
 ## Slice
 

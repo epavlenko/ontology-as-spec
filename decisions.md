@@ -1380,11 +1380,9 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: reading Markdown links and tokens to find paths (each round of review found a way past it); Latin letters only in every project (the language is a project's rule; the approach's own decisions hold ontologies in Russian, as of the keys of sections); a rule in `skills/change-review/SKILL.md` alone (an agent asked otherwise follows the request, as the reviewers of task tree-refresh did); allowing every path under the home directory of the clone (it still names a local machine and its folders).
 - Concepts: `rule.records-english-in-repo`, `ent.manual-run`, `ent.review-round`, `action.record-verdicts`.
 
-## Tentative
-
 ### D-152 · Rounds of review go on while they converge, with no ceiling; the budget is the one hard stop
 
-- Date: 2026-11-21 · Status: tentative
+- Date: 2026-11-21 · Status: accepted
 - Supersedes: D-97, D-106, D-107
 - Source: the owner's answer of 2026-11-21 to question 1011, "How to set goals so that threads do not run into rounds and budget, yet cannot loop", "1011 - a", to the wording the registry of questions gave option a that day: "a new rule for goals: (1) rounds without a ceiling, while each finds fewer important findings; (2) if a finding of one class repeats a second time, the thread itself changes the design of the solution rather than patching it; (3) unlikely cases go into the limitations, not into new rounds; (4) findings outside the statement go into a list for later, not into this goal; (5) the only hard stop is the budget: the estimate × 2 and a reserve × 1.5; at 50% and 100% of the budget the thread sends a report but does not stop; (6) you are asked only at the gates and when the budget is exhausted" (translated from Russian). The opinion of the agent of the thread that coordinates the processes (21.11), that points 2 to 4 also belong in the protocol and that the thread of the approach decides how to lay them out in IDs, is the agent's, not the owner's words. The layout in IDs, the stagnation's comparison, the values of a finding line, the line `REPORT`, the block on a record that cannot be read and the reading of runs of a retired check are the thread's technical decisions, in the statement of task round-rules, version 10, approved by a clean narrow round 4 of its review. Of D-97, D-106 and D-107, what they decided under the owner's answers to questions 969, 997, 1001 and 1003, quoted there, holds as restated below.
 - Decision: a step of review has no ceiling of rounds, and the approach no numbers of rounds (`rule.rounds-converge`). `rule.round-ceilings`, `field.task-statement.ceilings` and `field.review-round.ceiling` are retired, replaced by `rule.rounds-converge`, and so is the manual check `check.review-round.ceilings-set`. The line `Ceiling:` of an older record is read and decides nothing. There are no six full rounds and three narrow ones, and no question "the task set no ceiling", "the rounds do not converge" or "the statement changed after six full rounds".
@@ -1406,10 +1404,13 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: keeping a ceiling of six full rounds as a second hard stop (option b); keeping the rules as they were (option c); a line `Redesign:` that the tool checks (the tool cannot tell a changed design from a patch); counting nits or filed findings with the important ones (two rounds of nits would stop a converging step).
 - Concepts: `rule.rounds-converge`, `derived.next-round`, `derived.statement-state`, `rule.findings-filed`, `derived.budget-report`, `inv.review-rounds-well-formed`, `field.review-round.findings`, `inv.manual-runs-well-formed`, `ent.task-statement`, `ent.owner-approval`, `ent.task-result`, `rule.whole-class`, `rule.ready-after-clean-round`.
 
+## Tentative
+
 ## Open questions
 
 ## History
 
+- 2026-11-21: D-152 accepted by the owner ("1018 b": merge without a clean round, the findings of round 16 filed as tickets, "1021 b").
 - 2026-11-21: D-150 accepted by the thread after the clean narrow round 7 of the review of the result of task releases-and-task, under the owner's answer to question 1007.
 - 2026-11-21: D-149 accepted by the thread after the clean narrow round 7 of the review of the result of task releases-and-task, under the owner's answer to question 1007.
 - 2026-11-21: D-148 accepted by the thread after the clean narrow round 7 of the review of the result of task releases-and-task, under the owner's answer to question 1007.

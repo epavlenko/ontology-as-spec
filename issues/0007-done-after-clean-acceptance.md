@@ -1,6 +1,6 @@
 # #7 A record of done made again after a clean acceptance reopens the step
 
-A fault of the tool that round 16 of the review of task round-rules found and the owner chose to merge with, in his answers "1018 б" and "1021 б" of 2026-11-21.
+A fault of the tool that round 16 of the review of task round-rules found and the owner chose to merge with, in his answers "1018 b" and "1021 b" of 2026-11-21.
 
 ## Slice
 
