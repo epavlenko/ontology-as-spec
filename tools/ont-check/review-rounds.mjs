@@ -344,26 +344,21 @@ export function stepPayoff(rounds) {
   return out;
 }
 
-// The rounds of each step of each task, as lines of state, and each task's one next action on a line
-// NEXT of its own, which nextOf(task) gives: the check passes tasks.mjs taskNext, the function --task and
-// done.mjs ask too, so they never disagree (D-152). Without nextOf, as in a test, the next round of the
-// task's last step. malformed is the list of records of rounds that cannot be read.
-// readOf(task), where given, is the rounds of the review of the result its task view reads (D-152): the
-// last of them is named, not a late round of another version.
-export function renderRounds(rounds, { nextOf = null, malformed = [], readOf = null } = {}) {
+// --rounds keeps no logic of its own (D-152): for each task, every task any record names (tasks), the
+// counts of its rounds by step, then the lines stateOf(task) gives, which the check takes from tasks.mjs
+// taskState, the function --task prints, given no file: its lines of state and its one NEXT line, so the
+// two cannot differ but by the file. A record that cannot be read blocks every task there too; with no
+// task, the blocking line stands alone.
+export function renderRounds(rounds, { tasks = [...new Set(rounds.map((r) => r.task))].sort(), stateOf = () => [], malformed = [] } = {}) {
   const lines = [];
-  const tasks = [...new Set(rounds.map((r) => r.task))].sort();
   for (const t of tasks) {
     for (const step of STEPS) {
       const of = rounds.filter((r) => r.task === t && r.step === step);
       if (!of.length) continue;
       const full = of.filter((r) => !r.narrow).length;
-      const last = (step === "result-review" && readOf ? byTime(readOf(t)) : byTime(of)).at(-1);
-      lines.push(`ROUNDS ${t} · ${step}: ${full} full, ${of.length - full} narrow · ${last ? `last ${last.file}, ${isClean(last) ? "clean" : "with findings of the change"}` : "none of the version approved now"}`);
+      lines.push(`ROUNDS ${t} · ${step}: ${full} full, ${of.length - full} narrow`);
     }
-    const own = rounds.filter((r) => r.task === t);
-    const n = malformed.length ? { say: blockedSay(malformed) } : nextOf ? nextOf(t) : nextRound(own.filter((r) => r.step === byTime(own).at(-1).step));
-    lines.push(`NEXT ${t}: ${n.say ?? "the first round"}`);
+    lines.push(...stateOf(t));
   }
   if (malformed.length && !tasks.length) lines.push(`NEXT: ${blockedSay(malformed)}`);
   for (const p of stepPayoff(rounds))

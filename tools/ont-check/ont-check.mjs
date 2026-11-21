@@ -47,8 +47,8 @@ import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contrac
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
-import { byTime, renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, gitEnv, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, taskBudget, taskNext, taskState, taskView } from "./tasks.mjs";
+import { renderRounds } from "./review-rounds.mjs";
+import { acceptanceProblems, gitEnv, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1383,7 +1383,8 @@ if (cfg.reviewRounds) {
   // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
   // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
   if (flag("--rounds") > 0) {
-    console.log(renderRounds(rounds, { malformed, nextOf, readOf: (t) => viewOf(t).results }));
+    const stateOf = (t) => taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null, malformed, gatesFrom, needFile: false }).lines;
+    console.log(renderRounds(rounds, { tasks: taskIds({ rounds, spend: records.spend, done: records.done, approvals: records.approvals }), stateOf, malformed }));
   }
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
   // budget (D-152, D-108), with the marks of the budget it has passed.

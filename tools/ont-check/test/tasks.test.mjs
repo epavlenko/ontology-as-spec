@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { nextRound, parseRounds } from "../review-rounds.mjs";
-import { TASK_BRANCHES, acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readRoundRecords, readStatement, readTaskInputs, reserveOf, resolveRecords, sha256, stepNext, taskBudget, taskNext, taskState } from "../tasks.mjs";
+import { TASK_BRANCHES, acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readRoundRecords, readStatement, readTaskInputs, reserveOf, resolveRecords, sha256, stepNext, taskBudget, taskIds, taskNext, taskState } from "../tasks.mjs";
 import { loadConfig } from "../lib.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
@@ -275,7 +275,12 @@ test("[check.task-result.clean-needs-acceptance] a round of the result clean on 
   assert.match(within.stdout, /NEXT t: the last round is clean on merging and gives no verdict of acceptance yet/);
   const past = checkWith(sc, { budget: { newInput: 1000, output: 1000 } }, ["--rounds"]);
   assert.match(past.stdout, /NEXT t: (.*: )?the budget is exhausted: a question to the owner/);
-  assert.match(past.stdout, /ROUNDS t · statement-review: 1 full, 0 narrow · last r0\.md, clean/);
+  assert.match(past.stdout, /ROUNDS t · statement-review: 1 full, 0 narrow\n/);
+  // The state of the result in --rounds is --task's, never clean while its acceptance is absent.
+  for (const out of [within.stdout, past.stdout]) {
+    assert.match(out, /TASK t · result: the last round of its review, r1\.md, is clean on merging, with no verdict of acceptance\n/);
+    assert.doesNotMatch(out, /result-review.*clean|step ended clean|NEXT t: done/);
+  }
   assert.equal(past.stdout.split("\n").filter((l) => l.startsWith("NEXT t:")).length, 1);
   // With a clean verdict of acceptance the step ends clean, past the budget too.
   const accepted = scenario({ rounds: [{ ...approvedA, tokens: [600, 0, 10] }, finalRound({ tokens: [600, 0, 10] })], done: [{ time: T(11) }] });
@@ -491,6 +496,10 @@ test("[check.task-statement.budget-executor-no-round] the executor's spend past 
   assert.match(r.stdout, /NEXT t: (.*: )?the budget is exhausted: a question to the owner/);
   assert.match(r.stdout, /TASK t · result: work is not allowed/);
   assert.match(r.stdout, /BUDGET t: new input 2000 of 1000 × 1 = 1000, output 10 of 1000 × 1 = 1000; known for 1 of 1 contributions; .*overspend: new input 2000 of 1000/);
+  // --rounds, from the same records, names the same question: the task is named by its spend alone.
+  const rounds = checkWith(sc, { budget: { newInput: 1000, output: 1000 } }, ["--rounds"]).stdout;
+  assert.doesNotMatch(rounds, /ROUNDS: no records/);
+  assert.equal([...rounds.matchAll(/^NEXT t: (.*)$/gm)][0]?.[1], [...r.stdout.matchAll(/^NEXT t: (.*)$/gm)][0][1], rounds);
   rmSync(sc.dir, { recursive: true, force: true });
 });
 
@@ -662,19 +671,31 @@ const HISTORIES = {
   },
 };
 
-test("[check.review-round.entry-points-agree] --task and --rounds give one next action of the review of the result for every history", () => {
-  for (const [name, h] of Object.entries(HISTORIES)) {
-    const sc = scenario({ rounds: h.rounds, done: h.done ?? [], approvals: h.approvals ?? [] });
+test("[check.review-round.entry-points-agree] --task and --rounds give one next action for every task any record names, in every history", () => {
+  const more = {
+    ...HISTORIES,
+    // Round 10 of round-rules: a task with no round, its spend at the cap, and a round of the result clean
+    // on merging with no verdict of acceptance; with a second task of spend only, below the cap.
+    "the budget at the cap, no round": { rounds: [], spend: [{ start: T(10), end: T(11), tokens: [1000, 0, 10] }, { task: "u", contribution: "b · 1", start: T(10), end: T(11), tokens: [10, 0, 1] }], file: A_TEXT, budget: { newInput: 1000, output: 1000 }, next: /the budget is exhausted: a question to the owner/ },
+    "no acceptance yet": { rounds: [approvedA, finalRound({ acceptance: undefined })], done: [{ time: T(11) }], file: A_TEXT, next: /gives no verdict of acceptance yet/ },
+    "an approval of another task only": { rounds: [approvedA, { step: "result-review", number: 1, time: T(10), hash: A, found: 1 }], approvals: [{ task: "u", time: T(9) }], file: A_TEXT, next: /narrow round 1, on the fixes/ },
+  };
+  for (const [name, h] of Object.entries(more)) {
+    const sc = scenario({ rounds: h.rounds, spend: h.spend ?? [], done: h.done ?? [], approvals: h.approvals ?? [] });
     writeFileSync(join(sc.dir, "statement.md"), h.file);
-    const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "statement.md"), "--rounds"]);
-    // --rounds prints its NEXT line first, --task after the task's lines.
-    const next = [...r.stdout.matchAll(/^NEXT t: (.*)$/gm)].map((m) => m[1]);
-    assert.equal(next.length, 2, `${name}:\n${r.stdout}`);
-    assert.match(next[1], h.next, `${name}, --task:\n${r.stdout}`);
-    assert.equal(next[0], next[1], `${name}: --task and --rounds disagree`);
+    const tasks = taskIds({ rounds: sc.rounds, ...sc.records });
+    const rounds = checkWith(sc, h.budget ? { budget: h.budget } : {}, ["--rounds"]).stdout;
+    for (const t of tasks) {
+      const r = checkWith(sc, h.budget ? { budget: h.budget } : {}, ["--task", t, "--statement", join(sc.dir, "statement.md")]).stdout;
+      const of = (out) => [...out.matchAll(new RegExp(`^NEXT ${t}: (.*)$`, "gm"))].map((m) => m[1]);
+      assert.equal(of(rounds).length, 1, `${name}, --rounds, ${t}:\n${rounds}`);
+      assert.equal(of(r).length, 1, `${name}, --task, ${t}:\n${r}`);
+      if (t === "t") assert.match(of(r)[0], h.next, `${name}, --task:\n${r}`);
+      assert.equal(of(rounds)[0], of(r)[0], `${name}, ${t}: --task and --rounds disagree`);
+    }
     // The same from the function all ask, given the file and given none.
     const one = (statement, needFile) => taskNext({ rounds: sc.rounds, done: sc.records.done, approvals: sc.records.approvals, task: "t", statement, needFile }).say;
-    assert.equal(one(readStatement(join(sc.dir, "statement.md")), true), one(null, false), name);
+    if (!h.spend) assert.equal(one(readStatement(join(sc.dir, "statement.md")), true), one(null, false), name);
     rmSync(sc.dir, { recursive: true, force: true });
   }
 });
@@ -1374,7 +1395,7 @@ test("[check.task-statement.limits-of-approval] after version A is approved and 
   assert.match(r.stdout, /BUDGET t: new input 100 of 4000000 × 1 = 4000000, output 10 of 1500000 × 1 = 1500000/);
   // --task, given B's file, reads B's limits; --rounds, given no file, knows only the configuration's
   // until a record of done of B carries them (D-147), so its NEXT line is the question of the budget.
-  const taskPart = r.stdout.slice(r.stdout.indexOf("TASK t ·"));
+  const taskPart = r.stdout.slice(r.stdout.lastIndexOf("TASK t · statement"));
   assert.doesNotMatch(taskPart, /ERROR|not the statement's|exhausted|question/);
   assert.match(taskPart, /NEXT t: the executor works under version [0-9a-f]{12}, then records done/);
   assert.match(r.stdout, /ONT_OK/);

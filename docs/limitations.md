@@ -60,7 +60,7 @@ The tool checks that a finding filed as `limitation` or `later` names `docs/limi
 
 `--task` prints a line `REPORT` with the marks of half the limit and the limit that the spend has passed, each run it is given. It keeps no record of which marks were reported: the executor sends the owner one report with every mark not yet reported, and the tool does not see that it was sent, nor stops when it was not (D-152).
 
-<!-- ont: derived.task-next@829734, derived.task-budget@43edc0 -->
+<!-- ont: derived.task-next@a645c7, derived.task-budget@43edc0 -->
 ### `--rounds` may judge the budget by other limits than `--task`
 
 The next action of a task is one function for `--task`, `--rounds`, `done.mjs` and the check. Its budget question is measured by the limits `derived.task-budget` gives: `--task` reads them from the statement's file, while `--rounds` and the check, which read no statement, take them from the latest record of done of the approved version, and before there is one, from the configuration. In that interval the two may differ on the budget question alone: `--rounds` may advise the next round under the configuration's limit where `--task` stops under the statement's, or the other way round. `--task` is the one run before each step and each round, so its answer decides (D-147, D-152).

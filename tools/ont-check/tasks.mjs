@@ -500,6 +500,8 @@ export const openGates = ({ rounds, approvals = [], task, gatesFrom = null }) =>
     ofTask(rounds, task).filter((r) => gatesFrom === null || r.time >= gatesFrom),
     approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null,
   );
+// Every task any record names: a round, a record of spend, of done or of the owner's approval (D-152).
+export const taskIds = ({ rounds = [], spend = [], done = [], approvals = [] }) => [...new Set([...rounds, ...spend, ...done, ...approvals].map((r) => r.task).filter(Boolean))].sort();
 export const NO_APPROVAL = "work is not allowed: no approval in force for the statement";
 
 // The one next action of a whole task (derived.task-next, D-152): the first that holds of these
@@ -522,7 +524,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const rr = ofTask(rounds, task, "result-review");
   // A task recorded before D-106, whose statement was never reviewed by version, has no statement
   // branches: its rounds read as they did.
-  const byVersion = approvals.some((a) => a.task === task) || st.some((r) => r.statementHash) || (needFile && !rounds.some((r) => r.task === task));
+  const byVersion = approvals.some((a) => a.task === task) || st.some((r) => r.statementHash) || !rounds.some((r) => r.task === task);
   const step = (name) => stepNext({ rounds, done, approvals, task, step: name, statement, gatesFrom });
   const fileOk = !statement || statement.hash === approvedNow;
   const result = approvedNow ? step("result-review") : !byVersion ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;
@@ -569,9 +571,10 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
 
 // What a task is, its statement, its result, its record of done and its budget, as lines of state, and
 // its one next action on a line of its own, NEXT; and the errors of its records that only --task can
-// see (derived.statement-state, rule.budget-before-next, derived.task-next).
-export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null }) {
-  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile: true, gatesFrom });
+// see (derived.statement-state, rule.budget-before-next, derived.task-next). --rounds prints the same
+// lines, given no file and needFile false (D-152).
+export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true }) {
+  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom });
   const b = next.budget;
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
   const { view } = next;
