@@ -75,6 +75,11 @@ A line of the statement's budget the tool cannot read, such as `Budget-reserve: 
 
 A record of a run or of a round may name no path outside the repository, and the check finds one without reading Markdown. After a line's web URLs and HTML end tags are dropped, it refuses a prefix that names something on a machine anywhere in the line (`/home/`, `/Users/`, `/tmp/`, `~/`, a drive such as `C:/`, `\\server`, `file:`, `mailto:`), an absolute path or a URL of another scheme where no letter or digit stands before it, and any `..` next to a slash. So a path inside the repository written with `..`, such as `docs/../README.md`, or one after a combining mark, is refused too, and is written from the repository's root instead. A web URL is taken up to a comma or a bracket, so one with a comma in it is cut there (D-151).
 
+<!-- ont: rule.rounds-converge -->
+### A finding `not fixable` of an earlier task opens a gate today
+
+D-152 narrows `not fixable` to a finding that needs a change to what the owner decided, and the tool reads every record by that meaning, with no cut-off date. A task that wrote `not fixable` in its old sense, "not fixable within the task", and ended without a newer approval record of the owner, now shows a question to the owner in `--rounds` though it is done; in this repository that is the task releases-and-task. Its records are history and are not rewritten; nothing fails (D-152).
+
 <!-- ont: inv.accepted-never-edited@a7c76a, rule.guard-from-acceptance@beced5 -->
 ### The decision guard compares text with one earlier commit
 
