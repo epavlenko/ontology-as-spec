@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { nextRound, parseRounds } from "../review-rounds.mjs";
-import { acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readStatement, reserveOf, sha256, taskBudget, taskState } from "../tasks.mjs";
+import { acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readStatement, reserveOf, sha256, stepNext, taskBudget, taskState } from "../tasks.mjs";
 import { loadConfig } from "../lib.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
@@ -542,43 +542,78 @@ test("[check.task-statement.budget-report] REPORT names half from exactly half a
   assert.equal(line(unreadable), null);
 });
 
-test("[check.review-round.malformed-blocks] a record of rounds that cannot be read blocks every task in --task, --rounds and done.mjs", () => {
-  // A later round of the statement with findings, in a letter outside the Latin script: dropped by the
-  // reader, it would leave the approval of the round before in force.
-  const sc = scenario({ rounds: [approvedA] });
-  const cyrillic = roundText({ step: "statement-review", number: 2, time: T(10), hash: A, found: 1 }).replace("class 0", "класс 0");
-  writeFileSync(join(sc.dir, "rounds", "r1.md"), cyrillic);
-  writeFileSync(join(sc.dir, "statement.md"), A_TEXT);
+test("[check.review-round.malformed-blocks] a record of rounds that cannot be read, by its language, with no task or of another task, blocks every task in --task, --rounds and done.mjs", () => {
+  // Each a later round of the statement with findings that the reader drops: read, it would withdraw
+  // the approval of the round before; dropped, it must leave none in force.
+  const kinds = {
+    language: (hash) => roundText({ step: "statement-review", number: 2, time: T(10), hash, found: 1 }).replace("class 0", "класс 0"),
+    "no task": (hash) => roundText({ step: "statement-review", number: 2, time: T(10), hash, found: 1 }).replace("Task: t\n", ""),
+    "another task": (hash) => roundText({ task: "u", step: "final", number: 1, time: T(10), hash, found: 1 }),
+  };
   const latin = { records: { latinOnly: true } };
-  for (const args of [["--task", "t", "--statement", join(sc.dir, "statement.md")], ["--rounds"]]) {
-    const r = checkWith(sc, latin, args);
-    assert.equal(r.status, 1, r.stdout);
-    const lines = r.stdout.split("\n").filter((l) => /^(TASK|ROUNDS|BUDGET|REPORT)/.test(l));
-    assert.ok(lines.length > 0, r.stdout);
-    for (const l of lines) assert.match(l, /correct the records of rounds that cannot be read first: the one next action \(r1\.md\)/);
-    assert.doesNotMatch(r.stdout, /work may|approved/);
+  for (const [kind, text] of Object.entries(kinds)) {
+    const sc = scenario({ rounds: [approvedA] });
+    writeFileSync(join(sc.dir, "rounds", "r1.md"), text(A));
+    writeFileSync(join(sc.dir, "statement.md"), A_TEXT);
+    for (const args of [["--task", "t", "--statement", join(sc.dir, "statement.md")], ["--rounds"]]) {
+      const r = checkWith(sc, latin, args);
+      assert.equal(r.status, 1, `${kind} ${args[0]}: ${r.stdout}`);
+      const lines = r.stdout.split("\n").filter((l) => /^(TASK|ROUNDS|BUDGET|REPORT)/.test(l));
+      assert.ok(lines.length > 0, `${kind} ${args[0]}: ${r.stdout}`);
+      for (const l of lines) assert.match(l, /correct the records of rounds that cannot be read first: the one next action \(r1\.md\)/, `${kind} ${args[0]}`);
+      assert.doesNotMatch(r.stdout, /work may|approved/, `${kind} ${args[0]}`);
+    }
+    rmSync(sc.dir, { recursive: true, force: true });
+    // done.mjs refuses, by the same reader with the configuration's records.latinOnly.
+    const { repo, done, clean } = doneRepo("t");
+    try {
+      assert.equal(done("t").status, 0, kind);
+      const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+      writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, records: { latinOnly: true } }));
+      writeFileSync(join(repo, "rounds", "2.md"), text(sha256("x")).replace("Task: t\n", kind === "no task" ? "" : "Task: t\n"));
+      const r = done("t");
+      assert.equal(r.status, 1, `${kind}: ${r.stdout}`);
+      assert.match(r.stdout, /no record of done written: correct the records of rounds that cannot be read first/, kind);
+    } finally {
+      clean();
+    }
   }
-  // A record with no task blocks every task too.
-  writeFileSync(join(sc.dir, "rounds", "r1.md"), roundText({ step: "statement-review", number: 2, time: T(10), hash: A, found: 1 }).replace("Task: t\n", ""));
-  const noTask = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "statement.md")]);
-  assert.match(noTask.stdout, /TASK t · next: correct the records of rounds that cannot be read first/);
-  assert.doesNotMatch(noTask.stdout, /work may/);
-  rmSync(sc.dir, { recursive: true, force: true });
-  // done.mjs refuses, by the same reader with the configuration's records.latinOnly.
-  const { repo, done, clean } = doneRepo("t");
-  try {
-    assert.equal(done("t").status, 0);
-    const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
-    writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, records: { latinOnly: true } }));
-    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "statement-review", number: 2, time: T(10), hash: sha256("x"), found: 1 }).replace("class 0", "класс 0"));
-    const r = done("t");
-    assert.equal(r.status, 1, r.stdout);
-    assert.match(r.stdout, /no record of done written: correct the records of rounds that cannot be read first/);
-    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "statement-review", number: 2, time: T(10), hash: sha256("x") }).replace("Task: t\n", ""));
-    assert.match(done("t").stdout, /no record of done written: correct the records of rounds that cannot be read first/);
-  } finally {
-    clean();
-  }
+});
+
+test("[check.task-statement.later-version-findings] after a later round of the statement withdraws the owner's approval, --rounds, as --task, lets no work on the result go on", () => {
+  const rounds = [
+    { step: "statement-review", number: 1, time: T(9), hash: A, found: 2 },
+    { step: "result-review", number: 1, time: T(12), hash: A, found: 1 },
+    { step: "statement-review", number: 2, time: T(13), hash: B, found: 1, prefix: "other" },
+  ];
+  const sc = scenario({ rounds, approvals: [{ hash: A, time: T(10) }] });
+  writeFileSync(join(sc.dir, "statement.md"), A_TEXT);
+  const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "statement.md"), "--rounds"]);
+  assert.match(r.stdout, /TASK t · result: work is not allowed: no approval in force for the statement/);
+  assert.match(r.stdout, /ROUNDS t · result-review: 1 full, 0 narrow · next: work is not allowed: no approval in force for the statement/);
+  assert.doesNotMatch(r.stdout, /ROUNDS t · result-review[^\n]*(narrow round|full round|work goes on)/);
+  // While the owner's approval is in force, both give the next round of the result.
+  const before = scenario({ rounds: rounds.slice(0, 2), approvals: [{ hash: A, time: T(10) }] });
+  assert.match(checkWith(before, {}, ["--rounds"]).stdout, /ROUNDS t · result-review: 1 full, 0 narrow · next: narrow round 1/);
+  [sc, before].forEach((x) => rmSync(x.dir, { recursive: true, force: true }));
+});
+
+test("[check.review-round.stagnation-reset] only a round of the result whose acceptance held resets the comparison: one with no acceptance or a refused one does not", () => {
+  const r1 = { step: "result-review", number: 1, time: T(10), hash: A, found: 1 };
+  const r3 = { step: "result-review", number: 3, time: T(13), hash: A, found: 1 };
+  const next = (middle, done) => {
+    const sc = scenario({ rounds: [approvedA, r1, middle, r3], done });
+    const n = stepNext({ rounds: sc.rounds, done: sc.records.done, approvals: [], task: "t", step: "result-review" });
+    rmSync(sc.dir, { recursive: true, force: true });
+    return n.next;
+  };
+  // The clean acceptance held for the record of done before it: the step ended, and class 0 again is the
+  // first finding after it.
+  assert.equal(next(finalRound({ number: 2 }), [{ time: T(11) }]), "narrow");
+  // No record of done: the acceptance is refused, nothing ended, class 0 repeats.
+  assert.equal(next(finalRound({ number: 2 }), []), "redesign");
+  // Clean on merging with no acceptance: nothing ended either.
+  assert.equal(next(finalRound({ number: 2, acceptance: undefined }), [{ time: T(11) }]), "redesign");
 });
 
 // done.mjs in a repository of its own, the statement outside it.

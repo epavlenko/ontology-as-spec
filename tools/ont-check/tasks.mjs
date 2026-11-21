@@ -387,9 +387,18 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, exhaus
     const last = approvalEvents(rounds, task, approvals).at(-1);
     if (last?.kind === "approval") return { next: "clean", say: `the owner approved version ${last.hash.slice(0, 12)} (${last.file})` };
   }
+  // Work on the result goes on only under an approval in force, as --task says (rule.work-under-approval):
+  // a later round of the statement with findings withdraws even the owner's approval. A task whose
+  // statement was never reviewed by version, recorded before D-106, reads as it did.
+  const byVersion = approvals.some((a) => a.task === task) || rounds.some((r) => r.task === task && r.step === "statement-review" && r.statementHash);
+  if (step === "result-review" && of.length && byVersion && !approvedHash(rounds, task, null, approvals)) return { next: "no-approval", say: NO_APPROVAL };
   const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
-  return nextRound(of, { exhausted, since, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  // An earlier round of the result ended its step when its clean verdict of acceptance held for the record
+  // of done before it, whatever came after (D-152).
+  const ended = (r) => isClean(r) && (r.step !== "result-review" || (Boolean(r.acceptance) && !acceptanceWhy(r, rounds, done, statement, { approvals })));
+  return nextRound(of, { exhausted, since, ended, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
 }
+export const NO_APPROVAL = "work is not allowed: no approval in force for the statement";
 
 // What a task needs next, its statement, its result and its budget, as lines; and the errors of its
 // records that only --task can see (derived.statement-state, rule.budget-before-next). With the budget
@@ -429,7 +438,7 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
   const finished = n?.next === "clean";
   const asked = n?.next === "question";
   let resultLine;
-  if (!approved) resultLine = "work is not allowed: no approval in force for the statement";
+  if (!approved) resultLine = NO_APPROVAL;
   else if (!end) resultLine = exhausted ? STOP : "the executor works, then records done with done.mjs";
   else if (finished) {
     resultLine = b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean";

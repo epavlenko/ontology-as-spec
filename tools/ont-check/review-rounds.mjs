@@ -2,7 +2,8 @@
 // configuration names under reviewRounds, with what the round cost and found. From them the tool says
 // what follows the last round of each step, and, once a step has ten applications, what it paid off.
 // ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.overspend, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.rounds-converge, rule.findings-filed, rule.ready-after-clean-round, inv.review-rounds-well-formed, rule.records-english-in-repo
-import { basename, isAbsolute, join, normalize, sep } from "node:path";
+import { realpathSync } from "node:fs";
+import { basename, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { isFile, listFiles, read } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
 
@@ -45,6 +46,16 @@ const filedWrong = (x, root) => {
   if (isAbsolute(rel) || rel.split(sep).includes("..")) return `${x.file} is not a path of the repository`;
   const path = join(root, rel);
   if (!isFile(path)) return `${x.file} is not a file of the repository`;
+  // The file read is the one the path resolves to, every symbolic link followed, and it is inside the
+  // repository: a link that leads out of it holds nothing of the repository's.
+  let real;
+  try {
+    const inside = relative(realpathSync(root), realpathSync(path));
+    real = !inside.startsWith("..") && !isAbsolute(inside);
+  } catch {
+    real = false;
+  }
+  if (!real) return `${x.file} resolves to a file outside the repository`;
   if (!read(path).includes(x.cls)) return `${x.file} does not hold the class "${x.cls}"`;
   return null;
 };
@@ -180,7 +191,10 @@ export const NO_ACCEPTANCE = "the last round is clean on merging and gives no ve
 export const NOT_FIXABLE = "a question to the owner: a finding cannot be fixed without changing what the owner decided";
 // refused(round) says why a clean verdict of acceptance does not hold, or null (inv.acceptance-after-done):
 // such a round does not end its step either (D-123). tasks.mjs stepNext gives it, for --task and --rounds.
-export function nextRound(stepRounds, { exhausted = false, refused = () => null, since = null } = {}) {
+// ended(round) says whether an earlier round ended its step, which resets the comparison of rounds: a
+// clean round of the statement, or a clean round of the result whose verdict of acceptance held; by
+// default, one that refused does not hold for.
+export function nextRound(stepRounds, { exhausted = false, refused = () => null, since = null, ended = null } = {}) {
   const every = byTime(stepRounds);
   const nextOf = (narrow) => Math.max(0, ...every.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
@@ -201,9 +215,11 @@ export function nextRound(stepRounds, { exhausted = false, refused = () => null,
   if (exhausted) return { next: "budget", say: BUDGET_QUESTION };
   // A finding not fixable without changing what the owner decided goes to him, ahead of stagnation.
   if (!allFixable(last)) return { next: "question", say: NOT_FIXABLE };
-  // Stagnation: only the rounds after the last clean one are compared; the first round with findings
-  // after it, or after the owner's approval, is not stagnation.
-  const window = all.slice(all.findLastIndex((r) => isClean(r)) + 1);
+  // Stagnation: only the rounds after the last end of the step are compared, a round that ended it or the
+  // owner's approval; the first round with findings after it is not stagnation. A round of the result
+  // clean on merging whose acceptance is absent or refused ended nothing, so it resets nothing (D-152).
+  const ends = ended ?? ((r) => isClean(r) && (r.step !== "result-review" || (r.acceptance && !refused(r))));
+  const window = all.slice(all.findLastIndex((r) => r !== last && ends(r)) + 1);
   const now = important(last);
   const earlier = window.slice(0, -1);
   if (now.size && earlier.length) {

@@ -1,7 +1,7 @@
 // Rounds of review (D-99, D-152) and the records of a review from the reviewer's table (D-100).
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -125,6 +125,17 @@ test("[check.review-round.stagnation-reset] after a clean round, or after the ow
   assert.deepEqual([none.next, none.number], ["first round", 2]);
 });
 
+test("[check.review-round.stagnation-reset] a round of the result clean on merging resets the comparison only when its acceptance holds", () => {
+  const middle = (acceptance) => ({ ...named(2, []), ...(acceptance ? { acceptance: { findings: [] } } : {}) });
+  const rounds = (m) => [named(1, ["a"]), m, named(3, ["a"])];
+  // No acceptance: nothing ended, class a repeats.
+  assert.equal(nextRound(rounds(middle(false))).next, "redesign");
+  // An acceptance refused: nothing ended either.
+  assert.equal(nextRound(rounds(middle(true)), { refused: (r) => (r.number === 2 ? "no record of done" : null) }).next, "redesign");
+  // An acceptance that holds ended the step: class a is the first finding after it.
+  assert.equal(nextRound(rounds(middle(true))).next, "narrow");
+});
+
 test("[check.review-round.branch-order] the budget comes before not fixable and stagnation, not fixable before stagnation, and findings only in the acceptance are findings", () => {
   const stagnating = seq(["a", "b"], ["c", "d"]);
   assert.equal(nextRound(stagnating, { exhausted: true }).next, "budget");
@@ -188,6 +199,20 @@ test("[check.review-round.filed] a filed finding names a file of the repository 
     has("no-class.md", 'finding 1, line 7: docs/limitations.md does not hold the class "absent class"');
     has("not-issues.md", "not a file under issues/");
     has("acceptance.md", "acceptance finding 1, line 9: limitation in a verdict of acceptance");
+    // A symbolic link of the repository that leads out of it holds nothing of the repository's.
+    const outside = mkdtempSync(join(tmpdir(), "rounds-outside-"));
+    try {
+      writeFileSync(join(outside, "x.md"), "linked thing\n");
+      symlinkSync(join(outside, "x.md"), join(root, "issues", "0003-link.md"));
+      symlinkSync(join(root, "issues", "0001-outside.md"), join(root, "issues", "0004-inside.md"));
+      rec("link-out.md", 6, ["- linked thing · important · change · later · issues/0003-link.md"]);
+      rec("link-in.md", 7, ["- outside thing · nit · change · later · issues/0004-inside.md"]);
+      const again = parseRounds(join(root, "rounds"), { root });
+      assert.ok(again.malformed.some((m) => m.startsWith("link-out.md:") && m.includes("issues/0003-link.md resolves to a file outside the repository")), again.malformed.join("\n"));
+      assert.ok(again.rounds.some((r) => r.file === "link-in.md"), again.malformed.join("\n"));
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
     // A round whose only findings are filed is clean; without the root of a repository a filed finding
     // cannot be looked up.
     assert.equal(nextRound([{ ...rounds[0], step: "statement-review" }]).next, "clean");
