@@ -45,7 +45,7 @@ A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at
 
 A finding `not fixable` is a question to the owner, and only his record of approval of a new version answers it; a clean round of review cannot. When the author edits a statement for any other reason, a clean round of its review approves the new version. The tool compares versions by their hash only: it does not see whether a version approved by a round still holds every item the owner decided, with its source, nor whether an edit changed one of them, which would need his approval. The reviewer of the new version judges that, against the owner's words (D-152).
 
-<!-- ont: rule.rounds-converge@8fd85a, derived.next-round@24ac24 -->
+<!-- ont: rule.rounds-converge@8fd85a, derived.next-round@25cb4c -->
 ### The tool does not see whether the design changed after stagnation
 
 When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and a full round follows. The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both, and a repeated class in it is stagnation again (D-152).
@@ -60,7 +60,7 @@ The tool checks that a finding filed as `limitation` or `later` names `docs/limi
 
 `--task` prints a line `REPORT` with the marks of half the limit and the limit that the spend has passed, each run it is given. It keeps no record of which marks were reported: the executor sends the owner one report with every mark not yet reported, and the tool does not see that it was sent, nor stops when it was not (D-152).
 
-<!-- ont: derived.task-next@d6f979, derived.task-budget@43edc0 -->
+<!-- ont: derived.task-next@d1386a, derived.task-budget@43edc0 -->
 ### `--rounds` may judge the budget by other limits than `--task`
 
 The next action of a task is one function for `--task`, `--rounds`, `done.mjs` and the check. Its budget question is measured by the limits `derived.task-budget` gives: `--task` reads them from the statement's file, while `--rounds` and the check, which read no statement, take them from the latest record of done of the approved version, and before there is one, from the configuration. In that interval the two may differ on the budget question alone: `--rounds` may advise the next round under the configuration's limit where `--task` stops under the statement's, or the other way round. `--task` is the one run before each step and each round, so its answer decides (D-147, D-152).
@@ -68,7 +68,7 @@ The next action of a task is one function for `--task`, `--rounds`, `done.mjs` a
 <!-- ont: inv.contributions-apart@ed4033, derived.budget-report@63246a -->
 ### Records of spend that overlap stop a task with no spend measured
 
-Two records of one contribution whose intervals overlap are an unlikely case, kept as a question to the owner rather than a new round of rules: while they stand, the spend is not summed, the next action is the question, and no line `REPORT` is printed, since no threshold was measured (D-118, D-124, D-152). The question may come although the real spend is far from the limit; correcting the records lifts it.
+Two records of one contribution whose intervals overlap are an unlikely case, kept as a question to the owner rather than a new round of rules: while they stand, the spend is not summed, the next action is the question, and no line `REPORT` is printed, since no threshold was measured (D-118, D-124, D-152). The question may come although the real spend is far from the limit; correcting the records lifts it. One case is not a question: when the last round of the result and its acceptance are clean, the task is done past the budget (D-108), and `NEXT` says done while the check reports the overlapping records as an error; the records are still corrected, and the overspend is computed only then.
 
 <!-- ont: field.task-statement.budget@86d641, derived.budget-report@63246a -->
 ### A budget line the tool cannot read stops a task with no spend measured
