@@ -15,7 +15,8 @@ const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
 // Version A of a statement: its one command of done is the one the records of done here ran.
 const A_TEXT = "version A\nDone-when: npm test\n";
 const A = sha256(A_TEXT);
-const B = sha256("version B");
+// Version B of a statement, a file with its command of done as A has.
+const B = sha256("version B\nDone-when: npm test\n");
 // A time after every record done.mjs writes now, which it stamps with the clock: a later approval of
 // another version at a fixture's time would make those records late (D-152).
 const FUTURE = (h) => `2099-01-01T${String(h).padStart(2, "0")}:00:00Z`;
@@ -191,7 +192,7 @@ test("[check.task-statement.budget-limits] the stop follows the limits, the rese
   assert.match(reserved, /new input 900 of 500 × 2 = 1000/);
   assert.match(reserved, /NEXT t: the executor works/);
   // The statement's own limit replaces the configuration's.
-  assert.match(state(sc, { statement: { hash: A, budget: { newInput: 800, output: null } }, defaults: limits(1000, 1000) }), /new input 900 of 800[\s\S]*; exhausted|exhausted/);
+  assert.match(state(sc, { statement: { hash: A, doneWhen: ["npm test"], budget: { newInput: 800, output: null } }, defaults: limits(1000, 1000) }), /new input 900 of 800[\s\S]*; exhausted|exhausted/);
   // Output alone past its limit, new input within.
   const b = taskBudget({ rounds: sc.rounds, spend: sc.records.spend, task: "t", defaults: limits(1000, 150) });
   assert.equal(b.exhausted, true);
@@ -631,7 +632,7 @@ test("[check.task-statement.later-version-findings] after a later round of the s
 
 // Step histories, each read by --task, with the file of the version in force, and by --rounds: both
 // give the next action of the review of the result by the one function stepNext, so they agree.
-const B_TEXT = "version B";
+const B_TEXT = "version B\nDone-when: npm test\n";
 const HISTORIES = {
   "a first finding": { rounds: [approvedA, { step: "result-review", number: 1, time: T(10), hash: A, found: 1 }], file: A_TEXT, next: /narrow round 1, on the fixes/ },
   "a repeated class": { rounds: [approvedA, { step: "result-review", number: 1, time: T(10), hash: A, found: 1 }, { step: "result-review", number: 2, time: T(11), hash: A, found: 1 }], file: A_TEXT, next: /the rounds stagnate \(repeated: class 0\)/ },
@@ -1577,7 +1578,7 @@ test("[check.task-statement.gates-from] a task whose records all predate gatesFr
 test("[check.task-statement.gates-from] before gatesFrom, an approval withdrawn by a later round of the statement with findings allows no work: --task and --rounds give the statement's next round, never a round of the result", () => {
   const rounds = [approvedA, { step: "result-review", number: 1, time: T(9, 30), hash: A, found: 1 }, { step: "statement-review", number: 2, time: T(10), hash: B, found: 1 }];
   const sc = scenario({ rounds });
-  writeFileSync(join(sc.dir, "b.md"), "version B");
+  writeFileSync(join(sc.dir, "b.md"), B_TEXT);
   const gated = { reviewRounds: { dir: join(sc.dir, "rounds"), gatesFrom: T(11) } };
   const outs = [["--task", "t", "--statement", join(sc.dir, "b.md")], ["--rounds"]].map((args) => checkWith(sc, gated, args).stdout);
   for (const out of outs) {
@@ -1585,7 +1586,7 @@ test("[check.task-statement.gates-from] before gatesFrom, an approval withdrawn 
     assert.match(out, /TASK t · statement: the last round of its review, r2\.md, found findings of the change/, out);
   }
   // The one next action is the statement's, by the branch under review, the same in both.
-  const next = taskNext({ rounds: sc.rounds, task: "t", statement: { ...fileOf(B), hash: sha256("version B") }, needFile: true, gatesFrom: T(11) });
+  const next = taskNext({ rounds: sc.rounds, task: "t", statement: fileOf(B), needFile: true, gatesFrom: T(11) });
   assert.equal(next.branch, "under review");
   assert.equal(next.say, stepNext({ rounds: sc.rounds, task: "t", step: "statement-review", gatesFrom: T(11) }).say);
   for (const out of outs) assert.deepEqual(nextLines({ stdout: out }), [`NEXT t: ${next.say}`]);
@@ -1634,6 +1635,26 @@ test("[check.task-statement.budget-one-action] with no approval in force, done.m
       assert.equal(v.task.length, 1, kind);
       assert.match(v.task[0], want, kind);
       assert.deepEqual(v.rounds, v.task, kind);
+      assert.equal(v.done.status, 1, v.done.stdout);
+      assert.equal(v.done.stdout.trim(), `ERROR · no record of done written: the task's next action is not work on the result: ${v.task[0].slice("NEXT t: ".length)}`, kind);
+    } finally {
+      clean();
+    }
+  }
+});
+
+test("[check.task-statement.budget-one-action] an approved statement whose budget line cannot be read, or that has no command of done, makes done.mjs refuse with the action --task gives: the question to the owner", () => {
+  for (const [kind, text, want] of [
+    ["unreadable budget", "# A statement\n\nDone-when: true\nBudget-new-input: 100\nBudget-reserve: 1,5\n", /^NEXT t: a line of the statement's budget cannot be read: a question to the owner, with no next round \(Budget-reserve: 1,5 is not/],
+    ["no Done-when", "# A statement\n", /^NEXT t: the approved statement has no line Done-when: with a command of done: a question to the owner, with no next round$/],
+  ]) {
+    const { repo, outside, done, clean } = doneRepo("t");
+    try {
+      writeFileSync(join(outside, "s.md"), text);
+      writeFileSync(join(repo, "rounds", "1.md"), roundText({ task: "t", step: "statement-review", number: 1, time: T(9), hash: readStatement(join(outside, "s.md")).hash }));
+      const v = threeViews(repo, outside, done);
+      assert.equal(v.task.length, 1, kind);
+      assert.match(v.task[0], want, kind);
       assert.equal(v.done.status, 1, v.done.stdout);
       assert.equal(v.done.stdout.trim(), `ERROR · no record of done written: the task's next action is not work on the result: ${v.task[0].slice("NEXT t: ".length)}`, kind);
     } finally {

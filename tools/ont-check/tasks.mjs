@@ -529,6 +529,9 @@ export const NO_FILE = "give --statement <file> to compare the version it names 
 export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false }) {
   const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement });
   const unreadable = (statement?.wrong ?? []).length > 0;
+  // The approved version of the file gives no command of done: no result can be recorded or accepted
+  // under it, a question to the owner, as an unreadable line of its budget is (D-152).
+  const noDone = Boolean(statement) && !(statement.doneWhen ?? []).length && statement.hash === approvedHash(rounds, task, null, approvals);
   const events = approvalEvents(rounds, task, approvals);
   const last = events.at(-1);
   const approvedNow = approvedHash(rounds, task, null, approvals);
@@ -555,8 +558,10 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
       result?.next === "clean" && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean"),
     "budget question": () =>
       unreadable
-        ? "a line of the statement's budget cannot be read: a question to the owner, with no next round"
-        : b?.conflict?.length
+        ? `a line of the statement's budget cannot be read: a question to the owner, with no next round (${statement.wrong.join("; ")})`
+        : noDone
+          ? "the approved statement has no line Done-when: with a command of done: a question to the owner, with no next round"
+          : b?.conflict?.length
           ? `the spend cannot be summed while records of one contribution overlap: ${BUDGET_QUESTION}, until the records are corrected`
           : b?.exhausted && BUDGET_QUESTION,
     "no review": () => versioned && !last && "it needs a review of the statement",

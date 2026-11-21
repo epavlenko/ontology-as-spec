@@ -27,10 +27,6 @@ if (!cfg.reviewRounds || !cfg.taskRecords) refuse("the configuration names no re
 const file = value("--statement");
 if (!file) refuse("give the statement with --statement FILE");
 const statement = readStatement(file);
-if (!statement.doneWhen.length) refuse("the statement has no line Done-when: with a command of done");
-// A record of done carries the statement's budget; a line of it the tool cannot read is refused, never
-// written as none (D-150).
-if (statement.wrong?.length) refuse(`the statement's ${statement.wrong.join("; ")}`);
 // The records of rounds are read as the check reads them; one that cannot be read blocks every task, so
 // that an approval it would have withdrawn is never taken for one in force (D-152).
 // Every record is read as the check reads it, by readTaskInputs, the commits records name resolved too.
@@ -44,6 +40,10 @@ const { approvals } = records;
 const next = taskNext({ rounds, spend: records.spend, done: records.done, approvals, task, defaults: cfg.budget, statement, malformed, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, forWork: true });
 if (next.branch === "unreadable record") refuse(`${next.say}: ${malformed.join("; ")}`);
 if (next.branch !== "step") refuse(`the task's next action is not work on the result: ${next.say}`);
+// Safety nets after the action, which refuses both first: a statement with no command of done, and a
+// line of its budget the tool cannot read, which a record of done never writes as none (D-150).
+if (!statement.doneWhen.length) refuse("the statement has no line Done-when: with a command of done");
+if (statement.wrong?.length) refuse(`the statement's ${statement.wrong.join("; ")}`);
 // A safety net after the action: done is recorded only under an approval in force for the file's version.
 const approved = approvedHash(rounds, task, null, approvals);
 if (approved !== statement.hash)
