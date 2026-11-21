@@ -521,6 +521,8 @@ export const NO_APPROVAL = "work is not allowed: no approval in force for the st
 // numbers. --task, --rounds, done.mjs and the check all ask it; every other line of --task and --rounds
 // says a state only.
 export const TASK_BRANCHES = ["unreadable record", "done", "budget question", "open gate", "no review", "under review", "no version", "changed", "step"];
+// The kind of the action of each branch but the step, whose kind its result gives (taskNext).
+export const TASK_KINDS = { "unreadable record": "correct", done: "done", "budget question": "question", "open gate": "question", "no review": "review", "under review": "review", "no version": "correct", changed: "review" };
 export const NO_FILE = "give --statement <file> to compare the version it names with the file";
 // needFile: the caller, --task or done.mjs, compares the version with a statement's file; --rounds and the
 // check do not. gatesFrom: the configuration's reviewRounds.gatesFrom.
@@ -579,9 +581,15 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
       return result.say;
     },
   };
+  // The kind of the action, set where it is decided (D-152): work, on which alone done.mjs records done;
+  // review, a round of the statement's review or its approval first; question, the owner is asked; correct,
+  // the records or the file given; done. Within the step, a question derived.next-round asks, as a legacy
+  // finding not fixable in the last round does, is a question too.
+  const kind = (name) =>
+    name === "step" ? (!result || result.next === "no-approval" ? "review" : result.next === "question" ? "question" : "work") : TASK_KINDS[name];
   for (const name of TASK_BRANCHES) {
     const say = branch[name]();
-    if (say) return { branch: name, say, budget: b, approved: Boolean(approvedNow) && fileOk && Boolean(statement || !needFile), result, unreadable, view };
+    if (say) return { branch: name, kind: kind(name), say, budget: b, approved: Boolean(approvedNow) && fileOk && Boolean(statement || !needFile), result, unreadable, view };
   }
 }
 

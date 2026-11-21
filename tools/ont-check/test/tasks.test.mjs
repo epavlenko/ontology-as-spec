@@ -1662,3 +1662,20 @@ test("[check.task-statement.budget-one-action] an approved statement whose budge
     }
   }
 });
+
+test("[check.task-statement.budget-one-action] under an approval in force, a legacy last round of the result with a finding not fixable is the owner's question: done.mjs refuses with it, as --task and --rounds give it", () => {
+  const { repo, outside, done, clean } = doneRepo("t");
+  try {
+    const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+    writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, reviewRounds: { dir: "rounds", gatesFrom: T(11) } }));
+    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "result-review", number: 1, time: T(10), hash: readStatement(join(outside, "s.md")).hash, found: 1, fix: "not fixable" }));
+    const v = threeViews(repo, outside, done);
+    assert.equal(v.task.length, 1, v.task.join("\n"));
+    assert.match(v.task[0], /^NEXT t: a question to the owner: a finding cannot be fixed/);
+    assert.deepEqual(v.rounds, v.task);
+    assert.equal(v.done.status, 1, v.done.stdout);
+    assert.equal(v.done.stdout.trim(), `ERROR · no record of done written: the task's next action is not work on the result: ${v.task[0].slice("NEXT t: ".length)}`);
+  } finally {
+    clean();
+  }
+});

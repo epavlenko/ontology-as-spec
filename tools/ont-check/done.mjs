@@ -38,8 +38,9 @@ const { approvals } = records;
 // unreadable record, a spent budget, an open gate, a statement under review or changed. Done is recorded
 // only when it is a step of the work on the result; a task done already does not stand for new work.
 const next = taskNext({ rounds, spend: records.spend, done: records.done, approvals, task, defaults: cfg.budget, statement, malformed, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, forWork: true });
-if (next.branch === "unreadable record") refuse(`${next.say}: ${malformed.join("; ")}`);
-if (next.branch !== "step") refuse(`the task's next action is not work on the result: ${next.say}`);
+// Done is recorded only on an action of kind work, never by the name of a branch (D-152).
+if (next.kind === "correct" && malformed.length) refuse(`${next.say}: ${malformed.join("; ")}`);
+if (next.kind !== "work") refuse(`the task's next action is not work on the result: ${next.say}`);
 // Safety nets after the action, which refuses both first: a statement with no command of done, and a
 // line of its budget the tool cannot read, which a record of done never writes as none (D-150).
 if (!statement.doneWhen.length) refuse("the statement has no line Done-when: with a command of done");
