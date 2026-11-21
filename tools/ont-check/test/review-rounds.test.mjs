@@ -290,11 +290,12 @@ test("[check.review-round.malformed] names each record of rounds that cannot be 
     cpSync(EXAMPLE, cfgDir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const cfgPath = join(cfgDir, "ont.config.json");
     const cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
-    writeFileSync(cfgPath, JSON.stringify({ ...cfg, reviewRounds: { dir } }));
+    // Rounds before gatesFrom, as these, need no line Statement-hash: (D-152).
+    writeFileSync(cfgPath, JSON.stringify({ ...cfg, reviewRounds: { dir, gatesFrom: "2099-01-01T00:00:00Z" } }));
     const r = spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", cfgPath], { encoding: "utf8" });
     rmSync(cfgDir, { recursive: true, force: true });
     assert.equal(r.status, 1, r.stdout);
-    assert.match(r.stdout, /review round records that cannot be read \(6\)/);
+    assert.match(r.stdout, /records that cannot be read, of rounds by their grammar and late records of another version \(6\)/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

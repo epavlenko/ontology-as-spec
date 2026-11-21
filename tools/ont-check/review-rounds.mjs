@@ -169,6 +169,10 @@ export function parseRounds(dir, opts = {}) {
       // A blank line Statement-hash: names no version: a round so written would drop out of the review
       // of its version unseen (D-152).
       rec.pairs.some(([k, v]) => k === "statement-hash" && v.trim() === "") && "statement hash is blank: name the version of the statement the round read",
+      // A round of the result at or after opts.hashFrom, the configuration's reviewRounds.gatesFrom ("" for
+      // every round without the key), names its version, by the record alone, so that no approval before
+      // or after it and no other task hides the omission; an older round reads as it did (D-152).
+      opts.hashFrom !== undefined && fields.step === "result-review" && !rec.pairs.some(([k]) => k === "statement-hash") && realTime(fields.time) && fields.time >= opts.hashFrom && "no line Statement-hash: on a round of the review of the result at or after reviewRounds.gatesFrom: name the version of the statement it read",
       acceptance && fields.step !== "result-review" && "an acceptance on a review that is not of the result",
       acceptance && !(acceptance.value === "clean" || (acceptance.value === "" && acceptance.findings.length)) && "an acceptance that is neither clean nor a list of findings",
       !fields.by && "no author",
@@ -306,10 +310,11 @@ export function nextRound(stepRounds, { refused = () => null, held = () => true,
   }
 }
 
-// A record of the directory of rounds that cannot be read, of any task or of none, blocks every task:
+// A record of the directory of rounds that cannot be read, of any task or of none, or a late record of
+// another version (tasks.mjs lateRecords), blocks every task:
 // its correction is the one next action, for --task, --rounds and done.mjs alike (D-152), so that a
 // record the reader drops leaves no older approval in force.
-export const BLOCKED = "correct the records of rounds that cannot be read first: the one next action";
+export const BLOCKED = "correct the records that cannot be read first: the one next action";
 export const blockedSay = (malformed) => `${BLOCKED} (${malformed.map((m) => m.split(":")[0]).join(", ")})`;
 
 // For each step with ten applications or more, one step of one task with its rounds taken together:

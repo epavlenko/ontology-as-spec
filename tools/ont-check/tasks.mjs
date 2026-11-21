@@ -14,10 +14,12 @@ export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
 // The records of rounds of a project, as the check, --task, --rounds and done.mjs all read them: by one
 // function, with the configuration's records.latinOnly and the root of the repository, in which a filed
-// finding's file is looked up (D-152). top is that root, or "" outside a Git repository.
+// finding's file is looked up (D-152), and reviewRounds.gatesFrom, from which a round of the review of the
+// result gives its Statement-hash: (every round without the key). top is that root, or "" outside a Git
+// repository.
 export function readRoundRecords(cfg) {
   const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
-  return { ...parseRounds(cfg.reviewRounds.dir, { latinOnly: cfg.records.latinOnly, root: top || null }), top };
+  return { ...parseRounds(cfg.reviewRounds.dir, { latinOnly: cfg.records.latinOnly, root: top || null, hashFrom: cfg.reviewRounds.gatesFrom ?? "" }), top };
 }
 
 // The lines of a statement the tool reads; the rest of it is for people and the reviewer.
@@ -56,11 +58,28 @@ export const budgetLines = (budget) => BUDGET_ALL.map(([k, name]) => `${name}: $
 // this one function (D-152): the records of rounds by readRoundRecords, the records of done, of spend and
 // of approval, and both through resolveRecords, so that a commit a record names and the repository lacks
 // counts the same for each. records.done holds only the records of done whose commit resolves.
+// A late record (lateRecords) is given to no reader: it is in malformed, which blocks every task.
 export function readTaskInputs(cfg) {
-  const { rounds: parsedRounds, malformed, top } = readRoundRecords(cfg);
+  const { rounds: parsedRounds, malformed: unreadable, top } = readRoundRecords(cfg);
   const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
-  const resolved = resolveRecords(top, { done: parsed.done, rounds: parsedRounds, approvals: parsed.approvals });
+  const late = lateRecords({ rounds: parsedRounds, done: parsed.done, approvals: parsed.approvals });
+  const kept = (x) => !late.some((l) => l.record === x);
+  const malformed = [...unreadable, ...late.map((l) => l.text)];
+  const resolved = resolveRecords(top, { done: parsed.done.filter(kept), rounds: parsedRounds.filter(kept), approvals: parsed.approvals });
   return { rounds: resolved.rounds, malformed, top, resolved, records: { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] } };
+}
+
+// The late records of every task (D-152): a round of the review of the result, with its verdict of
+// acceptance, or a record of done, that names another version of the statement than the one last
+// approved when it ended, or none, and ends after that version's approval. No reader handles one: it is
+// a record that cannot be read, which blocks every task until the executor moves or removes it.
+export function lateRecords({ rounds, done = [], approvals = [] }) {
+  const v = (h) => (h ? `version ${h.slice(0, 12)}` : "no version");
+  return [...rounds.filter((r) => r.step === "result-review"), ...done].flatMap((record) => {
+    const w = taskView({ rounds, approvals, task: record.task, before: record.time }).window;
+    if (!w || record.statementHash === w.hash || record.time <= w.from) return [];
+    return [{ record, text: `${record.file}: a late record: it names ${v(record.statementHash)}, after version ${w.hash.slice(0, 12)} was approved at ${w.from}; move it out of the records or remove it` }];
+  });
 }
 
 // Records of done, of spend and of the owner's approval, with what is wrong with each.
@@ -241,18 +260,17 @@ export function approvedHash(rounds, task, before = null, approvals = []) {
 }
 
 // The task view (D-152): the one place every reader of a task takes its records of the result from, the
-// branches of its next action, its open gates, the acceptance, the round that ends it and the commits it
+// branches of its next action, the acceptance, the round that ends it and the commits it
 // is held to, the lines of --task, the overspend the check compares, and done.mjs through taskNext; none
 // reads the task's rounds of the result or records of done whole. Its current version is the version of
-// the approval in force, or, while a later round withdraws it, the version last approved, so that a gate
-// of its rounds stays open; its window starts at the first of the events at the end of the history that
+// the approval in force, or, while a later round withdraws it, the version last approved; its window starts at the first of the events at the end of the history that
 // approve that version, a clean round of the statement or a record of the owner's approval. A record is
 // the view's by its own Statement-hash and its time both (inWindow), never by time alone: every other
 // round of the result and record of done of the task is in others, of another version or of an earlier
 // window, which --task lists as not read and which count only for the numbers of rounds and the budget.
-// A round of the result after the start of the window that names no version is in malformed: it cannot
-// be read, the first branch of the next action, rather than drop out of the review unseen. With no
-// version ever approved, as for a task recorded before D-106, every record is read and window is null.
+// A record of another version after the start is late (lateRecords) and never reaches here, so the
+// others are records of earlier windows. With no version ever approved, as for a task recorded before
+// D-106, every record is read and window is null.
 // With before, the view as it stood at that time, from the records before it.
 export const inWindow = (rec, w) => Boolean(w) && rec.statementHash === w.hash && rec.time > w.from;
 export function taskView({ rounds, done = [], approvals = [], task, before = null }) {
@@ -261,7 +279,7 @@ export function taskView({ rounds, done = [], approvals = [], task, before = nul
   const results = ofTask(rounds, task, "result-review").filter(at);
   const records = done.filter((d) => d.task === task && at(d)).sort((a, b) => a.time.localeCompare(b.time));
   const j = events.findLastIndex((e) => e.hash);
-  if (j < 0) return { window: null, results, done: records, others: [], malformed: [] };
+  if (j < 0) return { window: null, results, done: records, others: [] };
   const hash = events[j].hash;
   let i = j;
   while (i > 0 && events[i - 1].hash === hash) i--;
@@ -272,7 +290,6 @@ export function taskView({ rounds, done = [], approvals = [], task, before = nul
     results: results.filter(own),
     done: records.filter(own),
     others: [...results, ...records].filter((x) => !own(x) && x.statementHash).sort((a, b) => a.time.localeCompare(b.time)),
-    malformed: results.filter((r) => !r.statementHash && r.time > window.from).map((r) => `${r.file}: a round of the review of the result after version ${hash.slice(0, 12)} was approved names no version on its line Statement-hash:`),
   };
 }
 
@@ -476,10 +493,11 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
 // A round whose time is before gatesFrom, the configuration's reviewRounds.gatesFrom, was written when
 // `not fixable` meant not fixable within the task: it opens no gate, and is a question at that round only,
 // when it is the last of its step (D-152). Without the key every round carries the meaning of D-152.
-// The rounds of the result are those of the task view, so a late round of another version opens none.
+// The rounds are every round of the task, whatever version each names, never a window's: a reviewer's
+// clean round that approves another version closes nothing.
 export const openGates = ({ rounds, approvals = [], task, gatesFrom = null }) =>
   notFixableIn(
-    byTime([...ofTask(rounds, task, "statement-review"), ...taskView({ rounds, approvals, task }).results]).filter((r) => gatesFrom === null || r.time >= gatesFrom),
+    ofTask(rounds, task).filter((r) => gatesFrom === null || r.time >= gatesFrom),
     approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null,
   );
 export const NO_APPROVAL = "work is not allowed: no approval in force for the statement";
@@ -515,9 +533,8 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   // and its record of done (D-152).
   const view = taskView({ rounds, done, approvals, task });
   const window = view.window;
-  const unread = [...malformed, ...view.malformed];
   const branch = {
-    "unreadable record": () => unread.length && blockedSay(unread),
+    "unreadable record": () => malformed.length && blockedSay(malformed),
     "open gate": () => gates.length && `${GATE} (${gates.join(", ")})`,
     done: () =>
       !forWork &&
@@ -558,7 +575,7 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
   const b = next.budget;
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
   const { view } = next;
-  if (next.branch === "unreadable record") return { lines: [`NEXT ${task}: ${next.say}`], errors: view.malformed, approved: false, budget: b, next };
+  if (next.branch === "unreadable record") return { lines: [`NEXT ${task}: ${next.say}`], errors: [], approved: false, budget: b, next };
   const errors = [];
   const last = approvalEvents(rounds, task, approvals).at(-1);
   const approvedNow = approvedHash(rounds, task, null, approvals);
@@ -605,7 +622,7 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
           (end && end.time > latest.time ? `; reviewed after it in ${end.file}` : "; no round of the review of the result has followed it yet"),
       ),
     );
-  if (view.others.length) lines.push(say("not read", `${view.others.map((x) => `${x.file}, of version ${v(x.statementHash)}`).join("; ")}: of another version or an earlier approval than version ${v(view.window.hash)}`));
+  if (view.others.length) lines.push(say("not read", `${view.others.map((x) => `${x.file}, of version ${v(x.statementHash)}`).join("; ")}: of an earlier approval than version ${v(view.window.hash)}`));
   if (b?.conflict.length) lines.push(`BUDGET ${task}: the spend cannot be summed, ${b.conflict.length} pair${b.conflict.length > 1 ? "s" : ""} of records of one contribution overlap: ${b.conflict.join("; ")}`);
   else if (b) {
     const limit = (k) => (b.limits[k] === null ? `${LABEL[k]} ${num(b.used[k])}, no limit` : `${LABEL[k]} ${num(b.used[k])} of ${num(b.limits[k])} × ${num(b.reserve)} = ${num(b.cap[k])}`);

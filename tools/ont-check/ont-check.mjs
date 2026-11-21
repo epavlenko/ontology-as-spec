@@ -1347,7 +1347,7 @@ if (flag("--statement") > 0 && !(flag("--task") > 0)) fail("--statement needs --
 // ont: derived.next-round, derived.step-payoff, inv.review-rounds-well-formed, rule.findings-filed
 if (cfg.reviewRounds) {
   const { rounds, malformed, resolved, records } = readTaskInputs(cfg);
-  report("review round records that cannot be read", malformed);
+  report("records that cannot be read, of rounds by their grammar and late records of another version", malformed);
   // Records of done and of spend (D-107, D-108): a contribution recorded twice over one interval, and a
   // verdict of acceptance with no record of done behind it, are errors.
   // ont: inv.contributions-apart, inv.acceptance-after-done
@@ -1368,11 +1368,9 @@ if (cfg.reviewRounds) {
   // statement's own limits, compares the whole line.
   // ont: field.review-round.overspend, rule.budget-before-next
   const gatesFrom = cfg.reviewRounds.gatesFrom;
-  // Every task's records of the result are read through its task view (D-152): a round of the result
-  // after the approval of the version it would be read for that names no version cannot be read.
+  // Every task's records of the result are read through its task view (D-152).
   const tasksOf = [...new Set(rounds.map((r) => r.task))];
   const viewOf = (t) => taskView({ rounds, done: records.done, approvals: records.approvals, task: t });
-  report("rounds of the review of a result that name no version of the statement", tasksOf.flatMap((t) => viewOf(t).malformed));
   const nextOf = (t) => taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, gatesFrom });
   const ended = tasksOf.filter((t) => nextOf(t).branch === "done");
   report(
