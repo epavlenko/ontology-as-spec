@@ -83,28 +83,58 @@ const blockAt = (text, name) => {
   return out;
 };
 
-// The head of a record: its lines up to its first Markdown heading.
-const headOf = (text) => {
+// The grammar of a record of a round (D-152), written once as a table. A record is its head, then,
+// after a line that is a Markdown heading of the form "## " (two hashes and a space), the reviewer's
+// notes, which the tool does not read but holds to rule.records-english-in-repo. The head is, in order:
+// fields, each known field at most once; at most one block "Findings:"; at most one verdict of
+// acceptance, "Acceptance: clean" or a block "Acceptance:". A block is its name alone on a line and the
+// finding lines directly under it, "- …"; a blank line closes it. Each kind of line is allowed only in
+// the states its row names, and moves to the state its row gives; any other line of the head, any field
+// or block given twice, and any line starting with # that is not such a heading, is an error with its
+// number. The states: fields, findings (the block open), found (closed), acceptance (open), accepted.
+export const HEADING = /^## /;
+const FIELD_LINE = new RegExp(`^(${FIELDS.join("|")}):\\s*(.*?)\\s*$`);
+export const GRAMMAR = [
+  { kind: "blank", test: (l) => !l.trim(), in: ["fields", "findings", "found", "acceptance", "accepted"], to: { findings: "found", acceptance: "accepted" } },
+  { kind: "field", test: (l) => FIELD_LINE.test(l), in: ["fields"] },
+  { kind: "findings", test: (l) => /^Findings:\s*$/.test(l), in: ["fields"], to: "findings" },
+  { kind: "acceptance", test: (l) => /^Acceptance:\s*$/.test(l), in: ["fields", "findings", "found"], to: "acceptance" },
+  { kind: "accepted clean", test: (l) => /^Acceptance:[ \t]*clean\s*$/.test(l), in: ["fields", "findings", "found"], to: "accepted" },
+  { kind: "finding", test: (l) => /^- \S/.test(l), in: ["findings", "acceptance"] },
+];
+// Reads a record by the grammar: its fields as [key, value] pairs, its findings and the lines of its
+// acceptance, each with its line number, whether it has a verdict of acceptance and its value, and the
+// errors, each naming its line.
+export function readRecord(text) {
   const lines = text.split("\n");
-  const at = lines.findIndex((l) => /^#/.test(l));
-  return (at < 0 ? lines : lines.slice(0, at)).join("\n");
-};
-const BLOCKS = /^(Findings|Acceptance):\s*$/;
-// The numbers of the lines of a head that the reader would otherwise pass over: a line that is not a
-// field, a block's name or "Acceptance: clean", nor a finding line "- …" directly inside a block, nor
-// blank. An indented or misshaped finding is such a line, and makes the record unreadable (D-152).
-const strayLines = (head) => {
-  const field = new RegExp(`^(${FIELDS.join("|")}):`);
-  let inBlock = false;
-  const out = [];
-  head.split("\n").forEach((l, i) => {
-    if (!l.trim()) return;
-    if (BLOCKS.test(l)) inBlock = true;
-    else if (/^Acceptance:/.test(l) || field.test(l)) inBlock = false;
-    else if (!(inBlock && /^- \S/.test(l))) out.push(i + 1);
+  const end = lines.findIndex((l) => HEADING.test(l));
+  const head = end < 0 ? lines : lines.slice(0, end);
+  let state = "fields";
+  const pairs = [];
+  const findings = [];
+  const accepted = [];
+  let acceptance = null;
+  const errors = [];
+  const seen = new Set();
+  head.forEach((l, i) => {
+    const n = i + 1;
+    const row = GRAMMAR.find((r) => r.test(l));
+    if (!row) return errors.push(`line ${n}: ${/^#/.test(l) ? 'a line starting with # that is not a heading "## "' : 'not a field, a block\'s name or a finding line "- …" in a block'}`);
+    const what = row.kind === "field" ? l.match(FIELD_LINE)[1] : row.kind === "accepted clean" ? "acceptance" : row.kind;
+    if (row.kind !== "blank" && row.kind !== "finding") {
+      if (seen.has(what)) return errors.push(`line ${n}: ${what} given more than once`);
+      seen.add(what);
+    }
+    if (!row.in.includes(state)) return errors.push(`line ${n}: ${row.kind === "finding" ? "a finding line outside a block" : `${row.kind} out of order: fields, then Findings:, then Acceptance:`}`);
+    if (row.kind === "field") pairs.push([what.toLowerCase(), l.match(FIELD_LINE)[2]]);
+    if (row.kind === "finding") (state === "findings" ? findings : accepted).push({ line: l, n });
+    if (row.kind === "acceptance") acceptance = "";
+    if (row.kind === "accepted clean") acceptance = "clean";
+    const to = typeof row.to === "string" ? row.to : row.to?.[state];
+    if (to) state = to;
   });
-  return out;
-};
+  return { pairs, findings, accepted, acceptance, errors };
+}
 
 // Every record of the directory, with what is wrong with it. opts.latinOnly is the configuration's
 // records.latinOnly; opts.root, the root of the repository, in which a filed finding's file is looked up.
@@ -115,26 +145,17 @@ export function parseRounds(dir, opts = {}) {
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
     const text = read(f);
-    // The record is its head, up to its first Markdown heading; what follows is the reviewer's notes,
-    // which the tool does not read but holds to rule.records-english-in-repo. The head is read strictly:
-    // each line is a field, a block's name, a finding line inside the block, or blank (D-152).
-    const head = headOf(text);
-    const pairs = head
-      .split("\n")
-      .map((l) => l.match(new RegExp(`^(${FIELDS.join("|")}):\\s*(.*?)\\s*$`)))
-      .filter(Boolean)
-      .map((m) => [m[1].toLowerCase(), m[2]]);
-    const fields = Object.fromEntries(pairs.filter(([, v]) => v !== ""));
-    const repeated = [...new Set(pairs.map(([k]) => k).filter((k, i, a) => a.indexOf(k) !== i))];
-    const findingsAt = (blockAt(head, "Findings") ?? []).map((b) => ({ ...parseFinding(b.line), n: b.n }));
+    // The record read by its grammar, the one reader of a round (D-152).
+    const rec = readRecord(text);
+    const fields = Object.fromEntries(rec.pairs.filter(([, v]) => v !== ""));
+    const findingsAt = rec.findings.map((b) => ({ ...parseFinding(b.line), n: b.n }));
     const findings = findingsAt.map(({ n, ...x }) => x);
     // The verdict of acceptance (D-107, D-152): "Acceptance: clean", or "Acceptance:" and its finding lines.
-    const acceptLine = head.match(/^Acceptance:[ \t]*(.*?)\s*$/m);
-    const acceptAt = (blockAt(head, "Acceptance") ?? []).map((b) => ({ ...parseFinding(b.line), n: b.n }));
-    const acceptance = !acceptLine ? null : { value: acceptLine[1], findings: acceptAt.map(({ n, ...x }) => x) };
+    const acceptAt = rec.accepted.map((b) => ({ ...parseFinding(b.line), n: b.n }));
+    const acceptance = rec.acceptance === null ? null : { value: rec.acceptance, findings: acceptAt.map(({ n, ...x }) => x) };
     const contribution = fields.contribution === undefined ? null : parseContribution(fields.contribution);
     const wrong = [
-      repeated.length && `${repeated.join(", ")} given more than once`,
+      ...rec.errors,
       !fields.task && "no task",
       fields.task && !TASK_NAME.test(fields.task) && `task ${fields.task} is not lower-case letters, digits and hyphens`,
       !STEPS.includes(fields.step) && `step ${fields.step ?? "(none)"} is not one of ${STEPS.join(", ")}`,
@@ -156,7 +177,6 @@ export function parseRounds(dir, opts = {}) {
       ...acceptAt.flatMap((x, i) => x.wrong.map((w) => `acceptance finding ${i + 1}, line ${x.n}: ${w}`)),
       // An item of the approved statement that is not met is not put off (rule.findings-filed).
       ...acceptAt.filter((x) => x.filed).map((x) => `acceptance finding ${acceptAt.indexOf(x) + 1}, line ${x.n}: ${x.filed} in a verdict of acceptance, where an item of the approved statement not met is not put off`),
-      ...strayLines(head).map((n) => `line ${n}: not a field, a block's name or a finding line of the form "- class · weight · change or before · fix · test or file" in a block`),
       ...outsideRecord(text, 1, opts),
     ].filter(Boolean);
     const name = basename(f);
@@ -201,7 +221,6 @@ export const byTime = (rounds) => [...rounds].sort((a, b) => (a.time ?? "").loca
 const found = (r) => [...r.findings, ...(r.acceptance?.findings ?? [])];
 const ofChange = (r) => found(r).filter((x) => x.ofChange && !x.filed);
 export const isClean = (r) => !ofChange(r).length;
-const allFixable = (r) => ofChange(r).every((x) => x.fixable);
 const allTested = (r) => ofChange(r).every((x) => x.fixable && x.test);
 // The important classes of a round, which alone are compared (D-152): two findings of one class count
 // once, and a nit, a finding not fixable and a filed one count never.
@@ -216,7 +235,6 @@ export const BUDGET_QUESTION = "the budget is exhausted: a question to the owner
 // (D-119); without one, what follows is the round that gives it, or the question when the budget is
 // exhausted.
 export const NO_ACCEPTANCE = "the last round is clean on merging and gives no verdict of acceptance yet: a round that gives it follows, after done.mjs records done";
-export const NOT_FIXABLE = "a question to the owner: a finding cannot be fixed without changing what the owner decided";
 // Whether a round ended its step, the one definition of it (D-152): a clean round of the statement, or a
 // clean round of the result whose verdict of acceptance held. held(round) judges an acceptance by the
 // records as they were when it was given, against the version of the statement that round read, never
@@ -224,49 +242,62 @@ export const NOT_FIXABLE = "a question to the owner: a finding cannot be fixed w
 // check ask for the state of a step.
 export const endsStep = (r, held = () => true) => isClean(r) && (r.step !== "result-review" || (Boolean(r.acceptance) && held(r)));
 
+// The rounds of a step that hold an open gate: a finding of the change `not fixable`, not filed, in a round
+// after the owner's last record of approval for the task, whose time is since (D-152). Only a newer
+// approval of the owner closes it; tasks.mjs openGates gives them over both steps of a task.
+export const notFixableIn = (rounds, since = null) => rounds.filter((r) => (since === null || r.time > since) && ofChange(r).some((x) => !x.fixable)).map((r) => r.file);
+export const GATE = "a question to the owner: a finding cannot be fixed without changing what the owner decided, and only his approval of a version answers it";
+
+// The branches of derived.next-round, in their order (D-152): the first whose condition holds gives the
+// next action. ontology.md and docs/parts/agent-rules.md list them by these names in this order, which a
+// test compares. While the budget with its reserve is exhausted, each branch before "clean" gives the
+// question of the budget instead.
+export const BRANCHES = ["open gate", "no round", "no acceptance", "acceptance refused", "clean", "budget exhausted", "stagnation", "next round"];
+
 // refused(round) says why the clean verdict of acceptance of the last round does not end the task now, or
 // null (inv.acceptance-after-done): such a round does not end its step either (D-123). held(round) says
 // whether an earlier round's acceptance held, for endsStep, which alone resets the comparison of rounds.
-export function nextRound(stepRounds, { exhausted = false, refused = () => null, held = () => true, since = null } = {}) {
+// gate is the files of the rounds of the task's other step that hold an open gate.
+export function nextRound(stepRounds, { exhausted = false, refused = () => null, held = () => true, since = null, gate = [] } = {}) {
   const every = byTime(stepRounds);
   const nextOf = (narrow) => Math.max(0, ...every.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
   const all = since === null ? every : every.filter((r) => r.time > since);
   const last = all.at(-1);
-  if (!last) {
-    if (exhausted) return { next: "budget", say: BUDGET_QUESTION };
-    return every.length ? { next: "first round", number: nextFull, say: `the owner approved a later version: work goes on under it, then full round ${nextFull}` } : { next: "first round" };
-  }
-  const clean = isClean(last);
-  if (clean && last.step === "result-review" && !last.acceptance) return exhausted ? { next: "budget", say: BUDGET_QUESTION } : { next: "acceptance", say: NO_ACCEPTANCE };
-  const why = clean && last.step === "result-review" ? refused(last) : null;
-  if (why)
-    return exhausted
-      ? { next: "budget", say: `the verdict of acceptance of ${last.file} is refused: ${why}; ${BUDGET_QUESTION}` }
-      : { next: "refused", say: `the verdict of acceptance of ${last.file} is refused: ${why}; the result needs a verdict of acceptance that holds` };
-  if (clean) return { next: "clean", say: "the step ended clean" };
-  if (exhausted) return { next: "budget", say: BUDGET_QUESTION };
-  // A finding not fixable without changing what the owner decided goes to him, ahead of stagnation.
-  if (!allFixable(last)) return { next: "question", say: NOT_FIXABLE };
-  // Stagnation: only the rounds after the last end of the step are compared, a round that ended it or the
-  // owner's approval; the first round with findings after it is not stagnation. A round of the result
-  // clean on merging whose acceptance is absent or refused ended nothing, so it resets nothing (D-152).
-  const window = all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1);
-  const now = important(last);
-  const earlier = window.slice(0, -1);
-  if (now.size && earlier.length) {
-    const repeated = [...now].filter((c) => earlier.some((r) => important(r).has(c)));
-    const fewer = now.size < important(earlier.at(-1)).size;
-    if (repeated.length || !fewer)
+  const clean = last && isClean(last);
+  const gates = [...new Set([...gate, ...notFixableIn(all)])];
+  const why = clean && last.step === "result-review" && last.acceptance ? refused(last) : null;
+  const budget = (say) => (exhausted ? { next: "budget", say: say ? `${say}; ${BUDGET_QUESTION}` : BUDGET_QUESTION } : null);
+  const branch = {
+    "open gate": () => gates.length && (budget() ?? { next: "question", gates, say: `${GATE} (${gates.join(", ")})` }),
+    "no round": () => !last && (budget() ?? (every.length ? { next: "first round", number: nextFull, say: `the owner approved a later version: work goes on under it, then full round ${nextFull}` } : { next: "first round" })),
+    "no acceptance": () => clean && last.step === "result-review" && !last.acceptance && (budget() ?? { next: "acceptance", say: NO_ACCEPTANCE }),
+    "acceptance refused": () => why && (budget(`the verdict of acceptance of ${last.file} is refused: ${why}`) ?? { next: "refused", say: `the verdict of acceptance of ${last.file} is refused: ${why}; the result needs a verdict of acceptance that holds` }),
+    clean: () => clean && { next: "clean", say: "the step ended clean" },
+    "budget exhausted": () => budget(),
+    // Only the rounds after the last end of the step are compared, a round that ended it or the owner's
+    // approval; the first round with findings after it is not stagnation.
+    stagnation: () => {
+      const window = all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1);
+      const now = important(last);
+      const earlier = window.slice(0, -1);
+      if (!now.size || !earlier.length) return null;
+      const repeated = [...now].filter((c) => earlier.some((r) => important(r).has(c)));
+      if (!repeated.length && now.size < important(earlier.at(-1)).size) return null;
       return {
         next: "redesign",
         number: nextFull,
         classes: repeated,
         say: `the rounds stagnate (${repeated.length ? `repeated: ${repeated.join(", ")}` : `${now.size} important classes, no fewer than the round before`}): change the design of the solution, do not patch it; then full round ${nextFull}`,
       };
+    },
+    "next round": () =>
+      allTested(last) ? { next: "narrow", number: nextNarrow, say: `narrow round ${nextNarrow}, on the fixes of the last round` } : { next: "full", number: nextFull, say: `full round ${nextFull}: a finding of the last round has no test that holds its fix` },
+  };
+  for (const name of BRANCHES) {
+    const out = branch[name]();
+    if (out) return { ...out, branch: name };
   }
-  if (allTested(last)) return { next: "narrow", number: nextNarrow, say: `narrow round ${nextNarrow}, on the fixes of the last round` };
-  return { next: "full", number: nextFull, say: `full round ${nextFull}: a finding of the last round has no test that holds its fix` };
 }
 
 // A record of the directory of rounds that cannot be read, of any task or of none, blocks every task:

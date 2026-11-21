@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { recordVerdicts } from "../manual-runs.mjs";
-import { nextRound, parseRounds, renderRounds } from "../review-rounds.mjs";
+import { BRANCHES, GRAMMAR, nextRound, parseRounds, readRecord, renderRounds } from "../review-rounds.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
 const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
@@ -161,6 +161,43 @@ test("[check.review-round.branch-order] the budget comes before not fixable and 
   assert.equal(nextRound(refusedRound, { exhausted: true }).next, "clean");
 });
 
+test("[check.review-round.branch-order-documented] the ontology and the guide list the branches of the next round by the names and in the order the code takes them", () => {
+  const ontology = readFileSync(fileURLToPath(new URL("../../../ontology.md", import.meta.url)), "utf8").split("\n").find((l) => l.includes("`derived.next-round`") && l.startsWith("| Derived"));
+  const guide = readFileSync(fileURLToPath(new URL("../../../docs/parts/agent-rules.md", import.meta.url)), "utf8").split("\n").find((l) => l.startsWith("What follows a round, by its records"));
+  for (const [name, text] of [["ontology.md", ontology], ["agent-rules.md", guide]]) {
+    assert.ok(text, name);
+    const at = BRANCHES.map((b, i) => text.indexOf(`(${i + 1}) ${b}:`));
+    assert.ok(at.every((x) => x >= 0), `${name}: ${BRANCHES.filter((b, i) => at[i] < 0).join(", ")} missing`);
+    assert.deepEqual([...at].sort((a, b) => a - b), at, `${name}: out of order`);
+    assert.equal(text.indexOf(`(${BRANCHES.length + 1})`), -1, `${name}: a branch the code does not take`);
+  }
+  // The code takes them in that order: each history gives the branch of its name.
+  assert.equal(nextRound([named(1, ["a:not"])]).branch, "open gate");
+  assert.equal(nextRound([]).branch, "no round");
+  assert.equal(nextRound([named(1, [])]).branch, "no acceptance");
+  assert.equal(nextRound([named(1, [], { acceptance: [] })], { refused: () => "x" }).branch, "acceptance refused");
+  assert.equal(nextRound([named(1, [], { acceptance: [] })]).branch, "clean");
+  assert.equal(nextRound([named(1, ["a"])], { exhausted: true }).branch, "budget exhausted");
+  assert.equal(nextRound(seq(["a"], ["a"])).branch, "stagnation");
+  assert.equal(nextRound([named(1, ["a"])]).branch, "next round");
+  // With the budget exhausted, the first four give the question of the budget.
+  for (const h of [[named(1, ["a:not"])], [], [named(1, [])]]) assert.equal(nextRound(h, { exhausted: true }).next, "budget");
+  assert.equal(nextRound([named(1, [], { acceptance: [] })], { refused: () => "x", exhausted: true }).next, "budget");
+});
+
+test("[check.review-round.not-fixable] a gate opened by a finding not fixable holds over later rounds, a clean acceptance too, until the owner's approval", () => {
+  const t = (h) => `2026-11-20T${String(h).padStart(2, "0")}:00:00Z`;
+  const rounds = [named(1, ["a:not"], { time: t(1) }), named(2, [], { time: t(2), acceptance: [] })];
+  const n = nextRound(rounds);
+  assert.equal(n.next, "question");
+  assert.match(n.say, /only his approval of a version answers it/);
+  assert.notEqual(n.next, "clean");
+  // The owner's approval after it closes the gate; the clean round after the approval ends the step.
+  assert.equal(nextRound(rounds, { since: t(1) }).next, "clean");
+  // A gate of the other step holds this one too.
+  assert.equal(nextRound([named(1, ["a"], { time: t(3) })], { gate: ["s.md"] }).next, "question");
+});
+
 test("[check.review-round.narrow-needs-test] a narrow round with fewer important classes, one finding without a test, is followed by a full round", () => {
   const rounds = [named(1, ["a", "b"]), named(1, ["c:untested"], { narrow: true })];
   const n = nextRound(rounds);
@@ -271,28 +308,76 @@ test("[check.review-round.malformed] names each record of rounds that cannot be 
   }
 });
 
-test("[check.review-round.strict-head] the head of a record is read strictly: an indented or misshaped finding, an unknown line or a finding outside a block makes it unreadable, and notes after a heading are free", () => {
-  const dir = mkdtempSync(join(tmpdir(), "rounds-strict-"));
+// A valid record of a round, its head and its notes, for the mutations of the grammar.
+const VALID = [
+  "Task: t",
+  "Step: result-review",
+  "Number: 1",
+  "Time: 2026-11-20T10:00:00Z",
+  "By: a model",
+  "Statement-hash: " + "a".repeat(64),
+  "Commits: abc1234",
+  "Findings:",
+  "- a · important · change · fixable · t.mjs",
+  "- b · nit · change · fixable",
+  "",
+  "Acceptance:",
+  "- c · important · change · fixable",
+  "",
+  "## Notes",
+  "",
+  "Anything here, - even this",
+  "  - and an indented line, Task: x, # and a hash",
+];
+const HEAD = VALID.indexOf("## Notes");
+
+// Every mutation of the head of the valid record that the grammar refuses: a line inserted at each place
+// that is never allowed there, each field or block given twice, each line indented, the blocks swapped.
+function mutations() {
+  const out = [];
+  const at = (i, line, why) => out.push({ why: `${why} at ${i + 1}`, lines: [...VALID.slice(0, i), line, ...VALID.slice(i)] });
+  const never = ["# a heading of one hash", "#no space", "### a heading of three", "Verdict: fix first", "task: t", " Task: t", "  - a · important · change · fixable", "\t- a · important · change · fixable", "Findings: none", "Acceptance: not clean", "-no space", "* a · important · change · fixable", "Findings:", "Acceptance: clean", "Acceptance:"];
+  for (let i = 0; i <= HEAD; i++) for (const l of never) at(i, l, JSON.stringify(l));
+  // A finding line where no block is open: among the fields, and after each blank line.
+  for (let i = 0; i <= HEAD; i++) if (i < 8 || VALID[i - 1] === "") at(i, "- d · important · change · fixable", "a finding outside a block");
+  // A field after the blocks.
+  for (let i = 8; i <= HEAD; i++) at(i, "Runs: x.md", "a field after the fields");
+  // Each line of the head given twice, but a finding or a blank line, which may repeat.
+  VALID.slice(0, HEAD).forEach((l, i) => l && !l.startsWith("- ") && out.push({ why: `line ${i + 1} twice`, lines: [...VALID.slice(0, i + 1), l, ...VALID.slice(i + 1)] }));
+  // Each line of the head indented.
+  VALID.slice(0, HEAD).forEach((l, i) => l && out.push({ why: `line ${i + 1} indented`, lines: VALID.map((x, j) => (j === i ? `  ${x}` : x)) }));
+  // The blocks swapped.
+  out.push({ why: "acceptance before findings", lines: [...VALID.slice(0, 7), ...VALID.slice(11, 14), ...VALID.slice(7, 11), ...VALID.slice(HEAD)] });
+  return out;
+}
+
+test("[check.review-round.strict-head] the grammar of a record reads the valid record and refuses every mutation of its head, naming the line", () => {
+  const ok = readRecord(VALID.join("\n"));
+  assert.deepEqual(ok.errors, []);
+  assert.deepEqual([ok.findings.length, ok.accepted.length, ok.acceptance], [2, 1, ""]);
+  const all = mutations();
+  assert.ok(all.length > 250, `${all.length} mutations`);
+  for (const m of all) {
+    const r = readRecord(m.lines.join("\n"));
+    assert.ok(r.errors.length && r.errors.every((e) => /^line \d+: /.test(e)), `${m.why}: ${JSON.stringify(r.errors)}`);
+  }
+  // Through parseRounds the same records are unreadable, and the valid one reads.
+  const dir = mkdtempSync(join(tmpdir(), "rounds-grammar-"));
   try {
-    const head = ["Task: t", "Step: statement-review", "Number: 1", "Time: 2026-11-20T10:00:00Z", "By: a model"];
-    const w = (name, lines) => writeFileSync(join(dir, name), [...head, ...lines, ""].join("\n"));
-    w("indented.md", ["Findings:", "  - a · important · change · fixable"]);
-    w("unknown.md", ["Verdict: fix first", "Findings:", "- a · important · change · fixable"]);
-    w("outside.md", ["- a · important · change · fixable"]);
-    w("prose.md", ["The reviewer found nothing."]);
-    w("notes.md", ["Findings:", "- a · important · change · fixable", "", "## Notes", "", "Any text here, - even this", "  - and an indented line, Task: x"]);
+    writeFileSync(join(dir, "valid.md"), VALID.join("\n"));
+    all.slice(0, 40).forEach((m, i) => writeFileSync(join(dir, `m${String(i).padStart(3, "0")}.md`), m.lines.join("\n").replace("Number: 1", `Number: ${i + 2}`)));
     const { rounds, malformed } = parseRounds(dir);
-    const has = (file, line) => assert.ok(malformed.some((m) => m.startsWith(`${file}:`) && m.includes(`line ${line}: not a field`)), `${file} line ${line}\n${malformed.join("\n")}`);
-    has("indented.md", 7);
-    has("unknown.md", 6);
-    has("outside.md", 6);
-    has("prose.md", 6);
-    // The notes are not read: the record reads, with its one finding and its own task.
-    assert.deepEqual(rounds.map((r) => [r.file, r.task, r.findings.length]), [["notes.md", "t", 1]]);
-    assert.equal(nextRound(rounds).next, "full");
+    assert.deepEqual(rounds.map((r) => r.file), ["valid.md"]);
+    assert.equal(malformed.length, 40);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("[check.review-round.strict-head] each kind of line of the grammar is a row of its table, and a record of the repository reads", () => {
+  assert.deepEqual(GRAMMAR.map((r) => r.kind), ["blank", "field", "findings", "acceptance", "accepted clean", "finding"]);
+  const { malformed } = parseRounds(fileURLToPath(new URL("../../../reviews/rounds/", import.meta.url)), { latinOnly: true, root: fileURLToPath(new URL("../../../", import.meta.url)) });
+  assert.deepEqual(malformed, []);
 });
 
 test("[check.review-round.payoff-after-ten] a step's payoff is printed after ten applications, its rounds taken together", () => {

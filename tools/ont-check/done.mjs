@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadConfig } from "./lib.mjs";
 import { TASK_NAME, blockedSay } from "./review-rounds.mjs";
-import { approvedHash, budgetLines, gitEnv, parseTaskRecords, readRoundRecords, readStatement, runAtCommit } from "./tasks.mjs";
+import { approvedHash, budgetLines, gitEnv, openGates, parseTaskRecords, readRoundRecords, readStatement, runAtCommit } from "./tasks.mjs";
 
 const argv = process.argv.slice(2);
 const value = (flag) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
@@ -37,6 +37,10 @@ const { rounds, malformed } = readRoundRecords(cfg);
 if (malformed.length) refuse(`${blockedSay(malformed)}: ${malformed.join("; ")}`);
 // The owner's approvals count as the check counts them (D-121).
 const { approvals } = parseTaskRecords(cfg.taskRecords.dir);
+// An open gate, a finding not fixable after the owner's last approval, holds the task until he answers
+// with a newer approval (D-152).
+const gates = openGates({ rounds, approvals, task });
+if (gates.length) refuse(`a finding not fixable waits for the owner's approval of a version (${gates.join(", ")})`);
 const approved = approvedHash(rounds, task, null, approvals);
 if (approved !== statement.hash)
   refuse(

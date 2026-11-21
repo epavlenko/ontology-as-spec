@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
-import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, isClean, nextRound, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
+import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, isClean, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
@@ -383,6 +383,12 @@ export function overspendProblems(end, b) {
 // read by the branches of derived.next-round, so a question it answered is lifted.
 export function stepNext({ rounds, done = [], approvals = [], task, step, exhausted = false, statement = null }) {
   const of = ofTask(rounds, task, step);
+  const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
+  // An open gate holds the whole task, both steps, until the owner's newer approval (D-152).
+  const gate = openGates({ rounds, approvals, task });
+  const held = (r) => !acceptanceWhy(r, rounds, done, null, { approvals });
+  const go = () => nextRound(of, { exhausted, since, held, gate, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  if (gate.length) return go();
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);
     if (last?.kind === "approval") return { next: "clean", say: `the owner approved version ${last.hash.slice(0, 12)} (${last.file})` };
@@ -392,14 +398,21 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, exhaus
   // statement was never reviewed by version, recorded before D-106, reads as it did.
   const byVersion = approvals.some((a) => a.task === task) || rounds.some((r) => r.task === task && r.step === "statement-review" && r.statementHash);
   if (step === "result-review" && of.length && byVersion && !approvedHash(rounds, task, null, approvals)) return { next: "no-approval", say: NO_APPROVAL };
-  const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
   // An earlier round's acceptance held when it held by the records as they were when it was given, for
   // the version the round read: no statement is given to it, so --task, with a file of a later version,
   // and --rounds, with none, find the same end of the step (D-152). Only the last round, which would end
   // the task now, is held to the file --task is given (D-123).
-  const held = (r) => !acceptanceWhy(r, rounds, done, null, { approvals });
-  return nextRound(of, { exhausted, since, held, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  return go();
 }
+
+// The open gates of a task (D-152): the rounds of either step, after the owner's last record of approval
+// for the task, with a finding `not fixable`. While one is open, the next action of --task and --rounds is
+// the question to the owner and done.mjs refuses; only a newer approval of the owner closes it.
+export const openGates = ({ rounds, approvals = [], task }) =>
+  notFixableIn(
+    ofTask(rounds, task),
+    approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null,
+  );
 export const NO_APPROVAL = "work is not allowed: no approval in force for the statement";
 
 // What a task needs next, its statement, its result and its budget, as lines; and the errors of its
@@ -436,25 +449,20 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
   } else approved = true;
   const rr = ofTask(rounds, task, "result-review");
   const end = rr.at(-1);
-  const n = approved && end ? stepNext({ rounds, done, approvals, task, step: "result-review", exhausted, statement }) : null;
+  // The next action is given once, by stepNext, and named on one line only: the line of the step it
+  // belongs to; the other line says the state alone (D-152).
+  const n = approved ? stepNext({ rounds, done, approvals, task, step: "result-review", exhausted, statement }) : null;
   const finished = n?.next === "clean";
-  const asked = n?.next === "question";
   let resultLine;
   if (!approved) resultLine = NO_APPROVAL;
-  else if (!end) resultLine = exhausted ? STOP : "the executor works, then records done with done.mjs";
+  else if (!end && n.next === "first round") resultLine = "the executor works, then records done with done.mjs";
+  else if (!end && n.next === "budget") resultLine = STOP;
   else if (finished) {
     resultLine = b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean";
     errors.push(...overspendProblems(end, b));
   } else resultLine = n.say;
   const by = last?.kind === "approval" ? ` by the owner (${last.file})` : "";
-  if (approved)
-    statementLine = finished
-      ? `approved${by}, version ${hash.slice(0, 12)}: the task is done`
-      : exhausted
-        ? `approved${by}, version ${hash.slice(0, 12)}, but ${STOP}; work may not ${end ? "go on" : "start"}`
-        : asked
-          ? `approved${by}, version ${hash.slice(0, 12)}; the question to the owner on the result is the one next action`
-          : `approved${by}, version ${hash.slice(0, 12)}: work may ${end ? "go on" : "start"} under it`;
+  if (approved) statementLine = `approved${by}, version ${hash.slice(0, 12)}${finished ? ": the task is done" : ""}`;
   // A step's next action named by the rounds says the budget is spent; when the cause is a line the tool
   // cannot read, it says that instead (D-150).
   const why = (t) => (unreadable && typeof t === "string" ? t.replaceAll(BUDGET_QUESTION, STOP) : t);

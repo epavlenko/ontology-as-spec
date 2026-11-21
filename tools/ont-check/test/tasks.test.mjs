@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { nextRound, parseRounds } from "../review-rounds.mjs";
-import { acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readStatement, reserveOf, sha256, stepNext, taskBudget, taskState } from "../tasks.mjs";
+import { acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readRoundRecords, readStatement, reserveOf, sha256, stepNext, taskBudget, taskState } from "../tasks.mjs";
 import { loadConfig } from "../lib.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
@@ -114,7 +114,7 @@ test("[check.task-statement.later-version-findings] a full round of version B wi
 
 test("[check.task-statement.approved] a clean round of the version in the file lets work start", () => {
   const out = state(scenario({ rounds: [approvedA] }), { statement: fileOf(A) });
-  assert.match(out, /statement: approved, version [0-9a-f]{12}: work may start under it/);
+  assert.match(out, /statement: approved, version [0-9a-f]{12}\n/);
   assert.match(out, /result: the executor works, then records done/);
   // Without the file the version cannot be compared, and no work is allowed.
   assert.match(state(scenario({ rounds: [approvedA] })), /give --statement <file>[\s\S]*work is not allowed/);
@@ -228,7 +228,7 @@ test("[check.task-statement.budget-final-over] a clean final round past the budg
 test("[check.task-statement.budget-statement-over] a clean review of the statement past the budget blocks the start of work", () => {
   const sc = scenario({ rounds: [{ ...approvedA, tokens: [1200, 0, 10] }] });
   const out = state(sc, { statement: fileOf(A), defaults: limits(1000, 1000) });
-  assert.match(out, /statement: approved, version [0-9a-f]{12}, but the budget is exhausted: a question to the owner; work may not start/);
+  assert.match(out, /statement: approved, version [0-9a-f]{12}\n/);
   assert.match(out, /result: the budget is exhausted: a question to the owner/);
 });
 
@@ -462,12 +462,12 @@ test("[check.task-spend.overlap-across-tasks] records of one session that overla
 test("[check.task-statement.budget-one-action] after a round of the result with the budget spent, --task names one next action, the stop", () => {
   const sc = scenario({ rounds: [{ ...approvedA, tokens: [600, 0, 10] }, { step: "result-review", number: 1, time: T(12), found: 1, tokens: [600, 0, 10] }] });
   const out = state(sc, { statement: fileOf(A), defaults: limits(1000, 1000) });
-  assert.match(out, /statement: approved, version [0-9a-f]{12}, but the budget is exhausted: a question to the owner; work may not go on/);
+  assert.match(out, /statement: approved, version [0-9a-f]{12}\n/);
   assert.match(out, /result: the budget is exhausted: a question to the owner/);
   assert.doesNotMatch(out, /work may (start|go on) under it|round 2/);
   // Within the budget, the same rounds let work go on, and the next is round 2.
   const within = state(sc, { statement: fileOf(A), defaults: limits(10000, 10000) });
-  assert.match(within, /statement: approved, version [0-9a-f]{12}: work may go on under it/);
+  assert.match(within, /statement: approved, version [0-9a-f]{12}\n/);
   assert.match(within, /result: narrow round 1, on the fixes of the last round/);
   rmSync(sc.dir, { recursive: true, force: true });
 });
@@ -496,14 +496,14 @@ test("[check.task-statement.budget-final-over] through the check, --task fails w
 test("[check.task-statement.question-alone] a finding not fixable makes the question the one next action, and the owner's approval of a new version lifts it", () => {
   const rounds = [approvedA, { step: "result-review", number: 1, time: T(12), hash: A, found: 1, fix: "not fixable" }];
   const out = state(scenario({ rounds }), { statement: fileOf(A) });
-  assert.match(out, /statement: approved, version [0-9a-f]{12}; the question to the owner on the result is the one next action/);
+  assert.match(out, /statement: approved, version [0-9a-f]{12}\n/);
   assert.match(out, /result: a question to the owner: a finding cannot be fixed without changing what the owner decided/);
   assert.doesNotMatch(out, /work may|narrow round|full round|records done/);
   // The owner answers with version B, approved: the question is lifted, and the next round of the
   // result takes the next free number.
   const sc = scenario({ rounds, approvals: [{ hash: B, time: T(13) }] });
   const after = state(sc, { statement: fileOf(B) });
-  assert.match(after, /statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}: work may go on under it/);
+  assert.match(after, /statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}\n/);
   assert.match(after, /result: the owner approved a later version: work goes on under it, then full round 2/);
   assert.doesNotMatch(after, /question/);
   rmSync(sc.dir, { recursive: true, force: true });
@@ -521,7 +521,7 @@ test("[check.task-statement.budget-report] REPORT names half from exactly half a
   // One contribution that passes both marks gives both, and work goes on.
   const both = report([1500, 0, 0]);
   assert.match(line(both), /new input 1500 of 1000: half, limit/);
-  assert.match(both, /work may start under it/);
+  assert.match(both, /result: the executor works/);
   // Past the reserve, with a round with findings: the question, and the marks beside it.
   const past = report([2500, 0, 0], [approvedA, { step: "result-review", number: 1, time: T(12), hash: A, found: 1 }]);
   assert.match(past, /result: the budget is exhausted: a question to the owner/);
@@ -629,6 +629,12 @@ const HISTORIES = {
     file: B_TEXT,
     next: /narrow round 1, on the fixes/,
   },
+  "a gate, then a clean acceptance": {
+    rounds: [approvedA, { step: "result-review", number: 1, time: T(10), hash: A, found: 1, fix: "not fixable" }, finalRound({ number: 2 })],
+    done: [{ time: T(11) }],
+    file: A_TEXT,
+    next: /a question to the owner: a finding cannot be fixed/,
+  },
   "approval withdrawn": {
     rounds: [{ step: "statement-review", number: 1, time: T(9), hash: A, found: 2 }, { step: "result-review", number: 1, time: T(12), hash: A, found: 1 }, { step: "statement-review", number: 2, time: T(13), hash: B, found: 1, prefix: "other" }],
     approvals: [{ hash: A, time: T(10) }],
@@ -650,6 +656,49 @@ test("[check.review-round.entry-points-agree] --task and --rounds give one next 
     const one = (statement) => stepNext({ rounds: sc.rounds, done: sc.records.done, approvals: sc.records.approvals, task: "t", step: "result-review", statement }).say;
     assert.equal(one(readStatement(join(sc.dir, "statement.md"))), one(null), name);
     rmSync(sc.dir, { recursive: true, force: true });
+  }
+});
+
+test("[check.task-statement.question-alone] a gate opened by a finding not fixable holds over a later clean acceptance, in --task, --rounds and done.mjs, until the owner's approval", () => {
+  const rounds = [approvedA, { step: "result-review", number: 1, time: T(10), hash: A, found: 1, fix: "not fixable" }, finalRound({ number: 2 })];
+  const sc = scenario({ rounds, done: [{ time: T(11) }] });
+  writeFileSync(join(sc.dir, "statement.md"), A_TEXT);
+  const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "statement.md"), "--rounds"]);
+  assert.match(r.stdout, /TASK t · result: a question to the owner: a finding cannot be fixed[^\n]*\(r1\.md\)/);
+  assert.match(r.stdout, /ROUNDS t · result-review: [^\n]*next: a question to the owner: a finding cannot be fixed/);
+  assert.match(r.stdout, /ROUNDS t · statement-review: [^\n]*next: a question to the owner: a finding cannot be fixed/);
+  assert.doesNotMatch(r.stdout, /result: done|the task is done|step ended clean/);
+  // The owner's approval after the gate closes it: the clean acceptance after it ends the task.
+  const answered = scenario({ rounds: [...rounds.slice(0, 2), finalRound({ number: 2, time: T(13) })], done: [{ time: T(12, 30) }], approvals: [{ hash: A, time: T(12) }] });
+  assert.match(state(answered, { statement: fileOf(A) }), /result: done/);
+  [sc, answered].forEach((x) => rmSync(x.dir, { recursive: true, force: true }));
+  // done.mjs refuses while the gate is open, and records done after the owner's approval.
+  const { repo, done, clean } = doneRepo("t");
+  try {
+    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "result-review", number: 1, time: T(10), found: 1, fix: "not fixable" }));
+    const refused = done("t");
+    assert.equal(refused.status, 1, refused.stdout);
+    assert.match(refused.stdout, /no record of done written: a finding not fixable waits for the owner's approval of a version \(2\.md\)/);
+    const hash = readRoundRecords({ base: repo, reviewRounds: { dir: join(repo, "rounds") }, records: { latinOnly: false } }).rounds.find((x) => x.step === "statement-review").statementHash;
+    writeFileSync(join(repo, "tasks", "a.md"), approvalText({ hash, time: T(11) }));
+    assert.equal(done("t").status, 0);
+  } finally {
+    clean();
+  }
+});
+
+test("[check.task-statement.budget-one-action] with an approval in force and the budget exhausted, --task names the question on one line only", () => {
+  const histories = [
+    [{ ...approvedA, tokens: [1200, 0, 10] }],
+    [{ ...approvedA, tokens: [600, 0, 10] }, { step: "result-review", number: 1, time: T(12), hash: A, found: 1, tokens: [600, 0, 10] }],
+    [{ ...approvedA, tokens: [600, 0, 10] }, { step: "result-review", number: 1, time: T(12), hash: A, found: 1, fix: "not fixable", tokens: [600, 0, 10] }],
+  ];
+  for (const rounds of histories) {
+    const out = state(scenario({ rounds }), { statement: fileOf(A), defaults: limits(1000, 1000) });
+    const task = out.split("\n").filter((l) => l.startsWith("TASK"));
+    assert.equal(task.filter((l) => /question to the owner|the executor works|round \d|work may/.test(l)).length, 1, out);
+    assert.match(out, /statement: approved, version [0-9a-f]{12}\n/);
+    assert.match(out, /result: [^\n]*the budget is exhausted: a question to the owner/);
   }
 });
 
@@ -808,7 +857,7 @@ test("[check.owner-approval.after-findings] after rounds with findings the owner
   const sc = scenario({ rounds: [withFindings], approvals: [{ time: T(10) }] });
   assert.deepEqual(sc.records.malformed, []);
   const out = state(sc, { statement: fileOf(A) });
-  assert.match(out, /statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}: work may start under it/);
+  assert.match(out, /statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}\n/);
   assert.match(out, /result: the executor works, then records done with done\.mjs/);
   // The approval holds for its version only.
   assert.match(state(sc, { statement: fileOf(B) }), /statement: the statement changed after its approval/);
@@ -1024,7 +1073,7 @@ test("[check.task-statement.limits-of-approval] after version A is approved and 
   writeFileSync(join(sc.dir, "b.md"), bText);
   const r = checkWith(sc, { budget: { newInput: 100, output: 100 } }, ["--task", "t", "--statement", join(sc.dir, "b.md"), "--rounds"]);
   assert.equal(r.status, 0, r.stdout);
-  assert.match(r.stdout, /TASK t · statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}: work may start under it/);
+  assert.match(r.stdout, /TASK t · statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}\n/);
   assert.match(r.stdout, /BUDGET t: new input 100 of 4000000 × 1 = 4000000, output 10 of 1500000 × 1 = 1500000/);
   assert.doesNotMatch(r.stdout, /ERROR|not the statement's|exhausted|question/);
   assert.match(r.stdout, /ONT_OK/);
