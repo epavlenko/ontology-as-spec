@@ -35,6 +35,11 @@ A mockup shows a state: overdue, reserved, suspended. It cannot show a loan beco
 
 The check confirms that the files named in the table exist and which of them name the concept in an `ont:` comment, not that they implement it. For the classes that tests must cover, a tagged test is required as well. For the other classes, a row is a claim that a reviewer confirms.
 
+<!-- ont: rule.records-english-in-repo@6e97a3 -->
+### Records refuse a path strictly
+
+A record of a run or of a round may name no path outside the repository, and the check finds one without reading Markdown: after a line's web URLs and HTML end tags are dropped, an absolute path, a URL of a scheme other than http and https, or a relative path that leaves the repository by `..` is refused where it starts a word. A path inside the repository whose directory has a space and a `..`, or parentheses before a slash, is refused too, and is written another way. A web URL is taken up to a comma or a bracket, so one with a comma in it is cut there (D-151).
+
 <!-- ont: inv.accepted-never-edited@a7c76a, rule.guard-from-acceptance@beced5 -->
 ### The decision guard compares text with one earlier commit
 
