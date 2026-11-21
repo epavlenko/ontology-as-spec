@@ -16,8 +16,9 @@ const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 export const realTime = (t) => TIME.test(t ?? "") && !Number.isNaN(Date.parse(t)) && new Date(t).toISOString().replace(".000Z", "Z") === t;
 
 // The values of the fourth field of a finding line (rule.findings-filed, D-152): fixable within the task,
-// not fixable without changing what the owner decided, or filed, an unlikely case as a limitation and a
-// finding outside the statement for later, each with the file it is filed in as its last field.
+// not fixable without changing what the owner decided, or filed: a rare history as a limitation when the
+// approach does not do it by choice, and for later, a ticket, when it is a fault of the tool or outside the
+// statement (D-153), each with the file it is filed in as its last field.
 export const FIXES = ["fixable", "not fixable", "limitation", "later"];
 export const LIMITATIONS_FILE = "docs/limitations.md";
 export const LATER_DIR = "issues/";

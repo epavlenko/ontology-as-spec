@@ -45,22 +45,22 @@ A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at
 
 A finding `not fixable` is a question to the owner, and only his record of approval of a new version answers it; a clean round of review cannot. When the author edits a statement for any other reason, a clean round of its review approves the new version. The tool compares versions by their hash only: it does not see whether a version approved by a round still holds every item the owner decided, with its source, nor whether an edit changed one of them, which would need his approval. The reviewer of the new version judges that, against the owner's words (D-152).
 
-<!-- ont: rule.rounds-converge@4efb36, derived.next-round@431678 -->
+<!-- ont: rule.rounds-converge@56f5ad, derived.next-round@9e91d6 -->
 ### The tool does not see whether the design changed after stagnation
 
-When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and then the round `derived.next-round` names follows: a full round, or, when the stagnating round is the one that confirmed the goal's condition, the one narrow round after it (D-153). The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both, and a repeated class in it is stagnation again (D-152).
+When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and then what `derived.next-round` names follows (D-153). The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both (D-152).
 
-<!-- ont: rule.findings-filed@c0ec2e -->
+<!-- ont: rule.findings-filed@a0eba5 -->
 ### A filed finding is trusted to belong where it is filed
 
 The tool checks that a finding filed as `limitation` or `later` names `docs/limitations.md` or a file under `issues/` that holds its class word for word, and refuses it in a verdict of acceptance. It does not see whether the finding is a rare history, whether the step of usual work the notes name is real, whether the finding is outside the approved statement, or whether the text there says what the finding means. The executor decides that (`rule.executor-triage`); the reviewer of the next round, if there is one, may name a wrong filing as a finding (D-153).
 
-<!-- ont: field.review-round.condition@b7e15c, derived.next-round@431678 -->
+<!-- ont: field.review-round.condition@b7e15c, derived.next-round@9e91d6 -->
 ### A full round after a confirmed condition counts as the one round
 
 Once a reviewer of the result has confirmed the goal's condition, the one round allowed after it should be narrow. The tool counts whatever round is recorded next, narrow or full, as that one round: a full round written in its place ends the step when it is clean and is the owner's question when it is not, and it opens no second round (D-153).
 
-<!-- ont: rule.executor-triage@6569c2, rule.findings-filed@c0ec2e -->
+<!-- ont: rule.executor-triage@6569c2, rule.findings-filed@a0eba5 -->
 ### A finding filed in the round that ends the step is seen by no reviewer
 
 The executor files a rare history in the commit of the round's record. When that round is the one that ends the step, the confirmed condition or the one round after it, no later reviewer reads the filing: by the owner's answer "1020 b", the executor decides and the merge follows, so whether such a filing is right rests on the executor alone (D-153).
@@ -70,7 +70,7 @@ The executor files a rare history in the commit of the round's record. When that
 
 A round of the result whose verdict of acceptance names a commit that is not the one the record of done is of is refused by the check. A later round that corrects it ends the step, but the refused verdict of the earlier record is still reported by the check until that record is moved or removed (D-153).
 
-<!-- ont: rule.findings-filed@c0ec2e -->
+<!-- ont: rule.findings-filed@a0eba5 -->
 ### A filing is looked up in the working tree, not in the commit of the record
 
 The tool looks up the file a filed finding names, and the class it holds, in the working tree of the repository, not in the commit of the round's record. A filing written but not yet committed, or removed after the commit, is read as the working tree has it (D-153).
