@@ -38,7 +38,7 @@ The check confirms that the files named in the table exist and which of them nam
 <!-- ont: rule.records-english-in-repo@6e97a3 -->
 ### Records refuse a path strictly
 
-A record of a run or of a round may name no path outside the repository, and the check finds one without reading Markdown: after a line's web URLs and HTML end tags are dropped, an absolute path, a URL of a scheme other than http and https, or a relative path that leaves the repository by `..` is refused where it starts a word. A path inside the repository whose directory has a space and a `..`, or parentheses before a slash, is refused too, and is written another way. A web URL is taken up to a comma or a bracket, so one with a comma in it is cut there (D-151).
+A record of a run or of a round may name no path outside the repository, and the check finds one without reading Markdown: after a line's web URLs and HTML end tags are dropped, an absolute path, a URL of a scheme other than http and https, or a relative path that leaves the repository by `..` is refused where it starts a word. A path inside the repository whose directory has a space and a `..`, parentheses before a slash, or an underscore at the end of a name before a slash, is refused too, and is written another way: an underscore ends a word, so that a path in emphasis by underscores is caught. A web URL is taken up to a comma or a bracket, so one with a comma in it is cut there (D-151).
 
 <!-- ont: inv.accepted-never-edited@a7c76a, rule.guard-from-acceptance@beced5 -->
 ### The decision guard compares text with one earlier commit
