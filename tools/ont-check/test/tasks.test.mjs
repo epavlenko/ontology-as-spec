@@ -1747,6 +1747,8 @@ test("[check.review-round.condition-branch] --task, --rounds, the check and done
     else assert.match(r.doneOut, h.next, name);
     // The check finds the end of the step too: with no overspend there it reports nothing of the task.
     assert.doesNotMatch(r.out, /Overspend: is not the tool's/, name);
+    // A refused verdict of acceptance in the history is reported by the check as well, not only by the next action.
+    if (name.includes("acceptance refused")) assert.match(r.out, /verdicts of acceptance refused/, name);
   }
 });
 

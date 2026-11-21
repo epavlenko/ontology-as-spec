@@ -25,4 +25,4 @@ npm run gap -- issues/0010-condition-window-by-hash.md   # SLICE_DONE
 npm test
 ```
 
-`SLICE_DONE` means a test of `check.review-round.condition-gate` holds: after the history A, B, A, the first confirming round of the new window of A is its own C, and no owner gate opens.
+Its check already passes today, so `SLICE_DONE` proves nothing on its own; the slice is done only with a new test of the behaviour: a test of `check.review-round.condition-gate` that holds: after the history A, B, A, the first confirming round of the new window of A is its own C, and no owner gate opens.
