@@ -40,12 +40,12 @@ The check confirms that the files named in the table exist and which of them nam
 
 A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at most two digits after the point, so the cap of a task's budget is exact. The configuration is JSON, and its parser rounds a long fraction to a number before the tool reads it, so a value that rounds to two digits passes the check. A record of done that `done.mjs` itself wrote before the rule, with a reserve of three digits such as `1.125`, is refused by the check even beside a later, correct one. If the approved statement still gives that reserve, correct the statement and have the corrected version approved first; then remove the old record, record done again, and give again in a new round the acceptance given for it. An `Overspend:` line in the earlier text is refused and written again. Each arises from a configuration edited by hand or a record the earlier tool wrote (D-150).
 
-<!-- ont: derived.approval@7ae7ed, derived.statement-state@e76bdf -->
+<!-- ont: derived.approval@7ae7ed, derived.statement-state@749d42 -->
 ### A later version of a statement is trusted to keep the owner's items
 
 A finding `not fixable` is a question to the owner, and only his record of approval of a new version answers it; a clean round of review cannot. When the author edits a statement for any other reason, a clean round of its review approves the new version. The tool compares versions by their hash only: it does not see whether a version approved by a round still holds every item the owner decided, with its source, nor whether an edit changed one of them, which would need his approval. The reviewer of the new version judges that, against the owner's words (D-152).
 
-<!-- ont: rule.rounds-converge@8fd85a, derived.next-round@340941 -->
+<!-- ont: rule.rounds-converge@8fd85a, derived.next-round@970a45 -->
 ### The tool does not see whether the design changed after stagnation
 
 When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and a full round follows. The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both, and a repeated class in it is stagnation again (D-152).
@@ -74,11 +74,6 @@ A line of the statement's budget the tool cannot read, such as `Budget-reserve: 
 ### Records refuse a path strictly
 
 A record of a run or of a round may name no path outside the repository, and the check finds one without reading Markdown. After a line's web URLs and HTML end tags are dropped, it refuses a prefix that names something on a machine anywhere in the line (`/home/`, `/Users/`, `/tmp/`, `~/`, a drive such as `C:/`, `\\server`, `file:`, `mailto:`), an absolute path or a URL of another scheme where no letter or digit stands before it, and any `..` next to a slash. So a path inside the repository written with `..`, such as `docs/../README.md`, or one after a combining mark, is refused too, and is written from the repository's root instead. A web URL is taken up to a comma or a bracket, so one with a comma in it is cut there (D-151).
-
-<!-- ont: rule.rounds-converge -->
-### A finding `not fixable` of an earlier task opens a gate today
-
-D-152 narrows `not fixable` to a finding that needs a change to what the owner decided, and the tool reads every record by that meaning, with no cut-off date. A task that wrote `not fixable` in its old sense, "not fixable within the task", and ended without a newer approval record of the owner, now shows a question to the owner in `--rounds` though it is done; in this repository that is the task releases-and-task. Its records are history and are not rewritten; nothing fails (D-152).
 
 <!-- ont: inv.accepted-never-edited@a7c76a, rule.guard-from-acceptance@beced5 -->
 ### The decision guard compares text with one earlier commit
