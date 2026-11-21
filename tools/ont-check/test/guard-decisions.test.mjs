@@ -19,7 +19,7 @@ const run = (edit, prepare = () => {}) => {
     assert.equal(r.status, 0, r.stderr);
   };
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     prepare(dir);
     git("init", "-q");
     git("add", ".");
@@ -115,7 +115,7 @@ test("[check.decision.accepted-edited] refuses an edit that a local replacement 
 test("[check.decision.guard-off] says GUARD_OFF before the first commit", () => {
   const dir = mkdtempSync(join(tmpdir(), "guard-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     assert.equal(spawnSync("git", ["init", "-q"], { cwd: dir }).status, 0);
     const guard = (...extra) => {
       const r = spawnSync("node", [GUARD, "--config", join(dir, "ont.config.json"), ...extra], { cwd: dir, encoding: "utf8" });
@@ -190,7 +190,7 @@ test("[check.decision.unsourced-acceptance] asks a source only after the first o
 test("[check.decision.unsourced-acceptance] checks the sources of a log that is not in the base", () => {
   const dir = mkdtempSync(join(tmpdir(), "guard-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const log = join(dir, "decisions.md");
     const text = readFileSync(log, "utf8");
     rmSync(log);
@@ -216,7 +216,7 @@ test("[check.decision.unsourced-acceptance] checks the sources of a log that is 
 test("[check.decision.meaning-changed] fails on a definition changed with no decision entry or history line naming it", () => {
   const dir = mkdtempSync(join(tmpdir(), "guard-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     for (const args of [["init", "-q"], ["add", "."], ["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base"]])
       assert.equal(spawnSync("git", args, { cwd: dir }).status, 0);
     const onto = join(dir, "ontology.md");
@@ -251,7 +251,7 @@ test("[check.decision.meaning-changed] compares a renamed ontology with its old 
   const repo = (files) => {
     const dir = mkdtempSync(join(tmpdir(), "guard-"));
     dirs.push(dir);
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     for (const args of [["init", "-q"], ["add", ...files], ["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base"]])
       assert.equal(spawnSync("git", args, { cwd: dir }).status, 0, args.join(" "));
     return dir;
@@ -328,6 +328,46 @@ test("reads the accepted status from decisions.accepted", () => {
   for (const r of run(edit, localized("^- Date:.*Статус:\\s*принято"))) {
     assert.equal(r.code, 1, r.out);
     assert.ok(r.out.includes("accepted entries edited"), r.out);
+  }
+});
+
+// In a pre-commit hook of a linked worktree Git sets GIT_DIR and GIT_INDEX_FILE: a log in a subdirectory
+// is still read from its own path, and the index of the commit being made is the one compared.
+test("[check.decision.guard-in-hook] in a hook of a linked worktree the guard reads each log by its own path and the index of the commit", () => {
+  const dir = mkdtempSync(join(tmpdir(), "guard-hook-"));
+  const env = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.org", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.org" };
+  const git = (cwd, ...args) => spawnSync("git", args, { cwd, encoding: "utf8", env });
+  const entry = (n) => `### D-0${n} · Entry ${n}\n\n- Date: 2026-11-20 · Status: accepted\n- Decision: rule ${n}.\n\n`;
+  try {
+    const repo = join(dir, "repo");
+    mkdirSync(join(repo, "sub"), { recursive: true });
+    writeFileSync(join(repo, "decisions.md"), `# Decisions\n\n${entry(1)}${entry(2)}${entry(3)}## Tentative\n`);
+    writeFileSync(join(repo, "sub", "decisions.md"), `# Decisions\n\n${entry(1)}## Tentative\n`);
+    mkdirSync(join(repo, "hooks"));
+    const out = join(dir, "out.txt");
+    writeFileSync(join(repo, "hooks", "pre-commit"), `#!/bin/sh\nnode "${GUARD}" --staged --file decisions.md --file sub/decisions.md > "${out}" 2>&1 || exit 1\n`, { mode: 0o755 });
+    assert.equal(git(repo, "init", "-q", "-b", "main").status, 0);
+    git(repo, "add", ".");
+    assert.equal(git(repo, "commit", "-q", "--no-verify", "-m", "base").status, 0);
+    const wt = join(dir, "wt");
+    assert.equal(git(repo, "worktree", "add", "-q", "-b", "work", wt).status, 0);
+    git(wt, "config", "core.hooksPath", "hooks");
+    // An allowed change: the guard counts the entries of each log, not the root's three for both.
+    writeFileSync(join(wt, "note.txt"), "x");
+    git(wt, "add", "note.txt");
+    const ok = git(wt, "commit", "-q", "-m", "a note");
+    assert.equal(ok.status, 0, readFileSync(out, "utf8"));
+    const said = readFileSync(out, "utf8");
+    assert.match(said, /^decisions\.md: 3 accepted entries in HEAD$/m);
+    assert.match(said, /^sub\/decisions\.md: 1 accepted entries in HEAD$/m);
+    // An edit of the accepted entry of sub/decisions.md, committed by path, so with a temporary index.
+    const sub = join(wt, "sub", "decisions.md");
+    writeFileSync(sub, readFileSync(sub, "utf8").replace("rule 1.", "rule one."));
+    const refused = git(wt, "commit", "-q", "-m", "an edit", "--", "sub/decisions.md");
+    assert.notEqual(refused.status, 0, readFileSync(out, "utf8"));
+    assert.match(readFileSync(out, "utf8"), /ERROR · sub\/decisions\.md: accepted entries edited since HEAD \(1\):\n  D-01/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 

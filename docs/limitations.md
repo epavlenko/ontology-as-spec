@@ -35,6 +35,11 @@ A mockup shows a state: overdue, reserved, suspended. It cannot show a loan beco
 
 The check confirms that the files named in the table exist and which of them name the concept in an `ont:` comment, not that they implement it. For the classes that tests must cover, a tagged test is required as well. For the other classes, a row is a claim that a reviewer confirms.
 
+<!-- ont: field.task-statement.budget@86d641, derived.task-budget@43edc0 -->
+### A task's reserve is read with two decimal digits
+
+A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at most two digits after the point, so the cap of a task's budget is exact. The configuration is JSON, and its parser rounds a long fraction to a number before the tool reads it, so a value that rounds to two digits passes the check. A record of done that `done.mjs` itself wrote before the rule, with a reserve of three digits such as `1.125`, is refused by the check even beside a later, correct one. If the approved statement still gives that reserve, correct the statement and have the corrected version approved first; then remove the old record, record done again, and give again in a new round the acceptance given for it. An `Overspend:` line in the earlier text is refused and written again. Each arises from a configuration edited by hand or a record the earlier tool wrote (D-150).
+
 <!-- ont: rule.records-english-in-repo@6e97a3 -->
 ### Records refuse a path strictly
 
@@ -93,7 +98,8 @@ The forms restate the rows in a small language of records, actions, refusals and
 - **How much behavior belongs in the ontology.** Too little, and agents guess. Too much, and the ontology becomes the verbose spec that Böckeler criticizes. Formal forms (D-93) put behavior under the tables, folded, so the tables stay the overview; whether people still read the ontology when every row has a form is not known yet.
 - **Two languages.** The target model can be written in the team's language while code and user documentation use another. The approach handles this as two vocabularies with recorded divergences. Does it hold up with a larger team?
 - **The guard's point of comparison.** Should the guard compare an accepted entry with the text of the first commit that accepted it, rather than with `HEAD`, and from which commit on, so that edits merged before the change do not fail the check? The owner answered it with D-131 ("1008 a", 2026-11-20): the first commit that accepted the entry, from the commit that brings the rule in; the target `rule.guard-from-acceptance` waits to be built. Meanwhile the hook refuses the restore of an entry edited with `--no-verify` as an edit. Once, for the restore of D-105 on branch protocol/tree-refresh, the owner chose to commit that restore with `--no-verify` and say so in its message (the owner's answer "1006 a" of 2026-11-20); that was one choice for one restore, not a rule. The question is held by [ticket 6](../issues/0006-guard-point-of-comparison.md).
-- **Versioning.** Should the ontology be versioned against releases, or is the decision log enough history?
+
+Versions are no longer an open question: a release of the approach is an entry of `releases.md` and its tag, a release of a product records the commit and the pin its checks passed on, and both are described in the lifecycle, [Releases of the approach](lifecycle.md#releases-of-the-approach) and [Releases of the product](lifecycle.md#releases-of-the-product) (D-109, D-111).
 
 <!-- ont: -->
 ## Deferred

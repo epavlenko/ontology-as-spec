@@ -30,9 +30,13 @@ const stampIn = (dir, id) => {
   return runStamp(byId.get(id), ONT, rows, byId, notes);
 };
 
+// Each copy is a repository with one commit, which its records name: the commit of a run resolves
+// (inv.named-commits-resolve, D-143).
+const GIT_ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.org", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.org" };
+const gitIn = (dir, ...a) => spawnSync("git", ["-C", dir, ...a], { encoding: "utf8", env: GIT_ENV }).stdout.trim();
 const record = (dir, name, fields) => {
   mkdirSync(join(dir, "verify/runs"), { recursive: true });
-  const text = Object.entries({ Check: CHECK, Commit: "abc1234", By: "gpt-6.1-sol, OpenAI", ...fields })
+  const text = Object.entries({ Check: CHECK, Commit: gitIn(dir, "rev-parse", "--short", "HEAD"), By: "gpt-6.1-sol, OpenAI", ...fields })
     .map(([k, v]) => `${k}: ${v}`)
     .join("\n");
   writeFileSync(join(dir, "verify/runs", name), `# Manual run\n\n${text}\n`);
@@ -41,7 +45,9 @@ const record = (dir, name, fields) => {
 const run = (edit) => {
   const dir = mkdtempSync(join(tmpdir(), "ont-runs-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
+    gitIn(dir, "init", "-q", "-b", "main");
+    gitIn(dir, "commit", "-q", "--allow-empty", "-m", "the copy");
     edit?.(dir);
     const r = spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json")], { encoding: "utf8" });
     return { code: r.status, out: r.stdout + r.stderr };
@@ -167,6 +173,15 @@ test("[check.manual-run.ambiguous] fails on two records of one check with the sa
   });
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /ERROR · manual run records that two files claim .*\(1\):\n {2}20261105T090000Z-check\.loan\.overdue-in-real-time-a1b2\.md and 20261105T090000Z-check\.loan\.overdue-in-real-time-e5f6\.md/);
+});
+
+// Round 4 of the review of the result of task releases-and-task (D-143), and round 5 (D-145): what a
+// manual run proves does not rest on its commit, so one the clone does not have is information.
+test("[check.task-result.missing-commit-information] a manual run of a commit the repository does not have is information, and the check passes", () => {
+  const r = run((dir) => record(dir, `20261105T090000Z-${CHECK}-a1b2.md`, { Time: "2026-11-05T09:00:00Z", Stamp: stampIn(dir, CHECK), Verdict: "pass", Commit: "1111111" }));
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /info · manual run records whose commit this clone does not have \(what a run proves does not rest on it\) \(1\):\n  20261105T090000Z-check\.loan\.overdue-in-real-time-a1b2\.md: names a commit this clone does not have, 1111111/);
+  assert.doesNotMatch(r.out, /ERROR/);
 });
 
 // A Cyrillic word, written with escapes so that this file stays English (D-03).

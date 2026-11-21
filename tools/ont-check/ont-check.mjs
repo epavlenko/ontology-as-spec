@@ -42,13 +42,15 @@ import {
   tagIds,
   docSetFiles,
   isFile,
-  gitEnv,
 } from "./lib.mjs";
 import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
-import { parseRounds, renderRounds } from "./review-rounds.mjs";
+import { byTime, parseRounds, renderRounds } from "./review-rounds.mjs";
+import { acceptanceProblems, gitEnv, overlaps, overspendProblems, parseTaskRecords, readStatement, resolveRecords, stepNext, taskBudget, taskState } from "./tasks.mjs";
+import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
+import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
 import { pathToFileURL } from "node:url";
 import { checkForms, checkTraces, readForms, readTraces, runTrace } from "./oracle.mjs";
@@ -62,6 +64,15 @@ const { classes } = cfg;
 const ids = (text) => backtickIds(text, classes);
 const diff = (a, b) => [...a].filter((x) => !b.has(x)).sort();
 const errors = [];
+// An error of a flag or of the configuration it needs: printed, and counted, so that the run never ends
+// with ONT_OK and exit 0 after it (D-129). Every ERROR of this file goes through fail or report; with a
+// code, the run stops there.
+// ont: inv.error-fails-run
+const fail = (message, code = null) => {
+  console.log(`ERROR · ${message}`);
+  if (code !== null) process.exit(code);
+  errors.push(message);
+};
 const report = (label, items, fatal = true, limit = Infinity) => {
   if (!items.length) return;
   const shown = items.length > limit ? [...items.slice(0, limit), `… ${items.length - limit} more`] : items;
@@ -1121,8 +1132,7 @@ if (flag("--gap") > 0) {
   const ticket = next && !next.startsWith("--") ? tickets.find((t) => t.file === resolve(next)) : null;
   gapTicket = ticket;
   if (next && !next.startsWith("--") && !ticket) {
-    console.log(`ERROR · --gap: ${next} is not a ticket the config knows`);
-    errors.push("--gap");
+    fail(`--gap: ${next} is not a ticket the config knows`);
   }
   const inScope = (x) => !ticket || ticket.own.has(x);
   const checkInScope = (c) => !ticket || ticket.checks.includes(c.id) || c.concepts.some((x) => ticket.own.has(x));
@@ -1259,6 +1269,10 @@ if (cfg.manualRuns) {
   const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
   const { runs, malformed, ambiguous } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
   report("manual run records that cannot be read", malformed);
+  // ont: inv.named-commits-resolve
+  const runsTop = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
+  // A manual run proves what it proves without its commit (D-145): one this clone lacks is information.
+  report("manual run records whose commit this clone does not have (what a run proves does not rest on it)", resolveRecords(runsTop, { runs }).notes, false, 10);
   report("manual run records that two files claim (same check, time and author)", ambiguous);
   const due = checks.filter((c) => c.proof === "manual" && c.concepts.some((x) => implemented.has(x)));
   const current = new Map(due.map((c) => [c.id, currentRun(runs, c.id, stampFor(c))]));
@@ -1280,13 +1294,11 @@ if (cfg.manualRuns) {
 if (flag("--review") > 0) {
   const base = process.argv[flag("--review") + 1];
   if (!base || base.startsWith("--")) {
-    console.log("ERROR · --review needs a base: a branch, a tag or a commit");
-    process.exit(2);
+    fail("--review needs a base: a branch, a tag or a commit", 2);
   }
   const r = reviewChange({ cfg, base, checks, approachChecks: approach?.manualChecks, implRows, ids });
   if (r.error) {
-    console.log(`ERROR · ${r.error}`);
-    process.exit(2);
+    fail(r.error, 2);
   }
   console.log(renderReview(r, base, cfg.base, stampFor));
   // --record <table>: the records of the review, written from the reviewer's table (D-100).
@@ -1294,12 +1306,10 @@ if (flag("--review") > 0) {
   if (flag("--record") > 0) {
     const table = process.argv[flag("--record") + 1];
     if (!cfg.manualRuns) {
-      console.log("ERROR · --record needs manualRuns in the configuration: the directory of the records");
-      process.exit(2);
+      fail("--record needs manualRuns in the configuration: the directory of the records", 2);
     }
     if (!table || table.startsWith("--") || !existsSync(table)) {
-      console.log("ERROR · --record needs the reviewer's table of verdicts, a file");
-      process.exit(2);
+      fail("--record needs the reviewer's table of verdicts, a file", 2);
     }
     const listed = new Map([...r.project, ...r.approach].map((c) => [c.id, c]));
     const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
@@ -1321,20 +1331,107 @@ if (flag("--review") > 0) {
     };
     const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, source: table, latinOnly: cfg.records.latinOnly });
     if (res.problems.length) {
-      console.log(`ERROR · the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`);
-      process.exit(1);
+      fail(`the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`, 1);
     }
     for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text);
     console.log(`RECORDED ${res.records.length} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
   }
 }
+// Flags that only another flag gives a meaning to (D-129).
+if (flag("--record") > 0 && !(flag("--review") > 0)) fail("--record needs --review <base>: the change whose verdicts it records");
+if (flag("--statement") > 0 && !(flag("--task") > 0)) fail("--statement needs --task <task>: the task whose statement it is");
 // --rounds: what follows the last round of each task's review, and the payoff of each step (D-97, D-99).
 // ont: derived.next-round, derived.step-payoff, inv.review-rounds-well-formed
 if (cfg.reviewRounds) {
-  const { rounds, malformed } = parseRounds(cfg.reviewRounds.dir, { latinOnly: cfg.records.latinOnly });
+  const { rounds: parsedRounds, malformed } = parseRounds(cfg.reviewRounds.dir, { latinOnly: cfg.records.latinOnly });
   report("review round records that cannot be read", malformed);
-  if (flag("--rounds") > 0) console.log(renderRounds(rounds));
-} else if (flag("--rounds") > 0) console.log("ERROR · --rounds needs reviewRounds in the configuration");
+  // Records of done and of spend (D-107, D-108): a contribution recorded twice over one interval, and a
+  // verdict of acceptance with no record of done behind it, are errors.
+  // ont: inv.contributions-apart, inv.acceptance-after-done
+  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
+  // Every commit a record names resolves in the project's repository where the record's meaning rests on
+  // it (D-145): a record of done whose commit does not cannot be read, so it binds no acceptance in the
+  // check, --task or --rounds; the round that gives the acceptance of the latest record of done is an
+  // error; any other round that names a commit this clone lacks is information. Every use below takes
+  // the rounds resolveRecords gives, which carry their missing commits, so the round that would end a
+  // task is refused for one in the check, --task and --rounds alike (D-148).
+  // ont: inv.named-commits-resolve
+  const projectTop = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
+  const resolved = resolveRecords(projectTop, { done: parsed.done, rounds: parsedRounds, approvals: parsed.approvals });
+  const { rounds } = resolved;
+  const records = { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] };
+  report("task records that cannot be read", records.malformed);
+  report("rounds that give the acceptance of a task whose commits are not in the repository", resolved.problems);
+  report("rounds of review whose commits this clone does not have (no acceptance of the latest record of done rests on them)", resolved.notes, false, 10);
+  report("contributions recorded twice over intervals that overlap", overlaps(rounds, records.spend));
+  report("verdicts of acceptance refused", acceptanceProblems(rounds, records.done, records.approvals));
+  // The round that ends a task names its overspend as the tool computes it: required past the
+  // configuration's limits, and every spend it names the one the tool sums (D-128); --task, with the
+  // statement's own limits, compares the whole line.
+  // ont: field.review-round.overspend, rule.budget-before-next
+  const ended = [...new Set(rounds.map((r) => r.task))].filter((t) => stepNext({ rounds, done: records.done, approvals: records.approvals, task: t, step: "result-review" }).next === "clean");
+  report(
+    "records of acceptance whose line Overspend: is not the tool's",
+    ended.flatMap((t) => {
+      const end = byTime(rounds.filter((r) => r.task === t && r.step === "result-review")).at(-1);
+      return overspendProblems(end, taskBudget({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null }));
+    }),
+  );
+  // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
+  // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
+  if (flag("--rounds") > 0) {
+    const exhaustedOf = (t) => Boolean(taskBudget({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null })?.exhausted);
+    console.log(renderRounds(rounds, { exhaustedOf, nextOf: (t, step) => stepNext({ rounds, done: records.done, approvals: records.approvals, task: t, step, exhausted: exhaustedOf(t) }) }));
+  }
+  // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
+  // budget (D-106, D-108).
+  // ont: derived.statement-state, derived.task-budget, rule.budget-before-next
+  if (flag("--task") > 0) {
+    const task = process.argv[flag("--task") + 1];
+    const file = flag("--statement") > 0 ? process.argv[flag("--statement") + 1] : null;
+    if (!task || task.startsWith("--") || (flag("--statement") > 0 && (!file || !existsSync(file)))) {
+      fail("--task needs a task, and --statement an existing file", 2);
+    }
+    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement: file ? readStatement(file) : null });
+    console.log(st.lines.join("\n"));
+    report("task records that do not say what --task found", st.errors);
+  }
+} else if (flag("--rounds") > 0 || flag("--task") > 0) fail("--rounds and --task need reviewRounds in the configuration");
+
+// Releases (D-109, D-110, D-111). In the approach's repository, every entry of releases.md has its tag
+// and every tag its entry. In a project with a copy of the tool, the releases its approach clone knows
+// that are newer than the pin, as information. With releases in the configuration, every record of a
+// release is intact and every deployment names a release; --releases prints them and what runs now.
+// ont: inv.release-tagged, derived.newer-releases, field.tool-copy.approach-clone, inv.product-release-intact, inv.deployment-of-release, derived.running-now
+const gitOut = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
+if (cfg.protocolReleases) {
+  const top = gitOut("rev-parse", "--show-toplevel");
+  report("releases of the protocol that do not hold", top ? protocolReleaseProblems(top, relative(top, cfg.protocolReleases.file).split("\\").join("/")).problems : ["not in a Git repository"]);
+}
+// The pin is the one the configuration names under releases, or upstream.json in the copy's directory.
+const copyPin = [cfg.releases?.pin, join(dirname(fileURLToPath(import.meta.url)), "upstream.json")].find((f) => f && existsSync(f));
+const pin = copyPin ? (() => { try { return JSON.parse(read(copyPin)); } catch { return null; } })() : null;
+if (pin?.commit) {
+  const clone = gitOut("config", "--local", "ont.approachClone");
+  const usedText = [...cfg.agentInstructions, cfg.decisions?.file, cfg.ontology].filter((f) => f && existsSync(f)).map(read).join("\n");
+  const used = new Set(anyIds(usedText).filter(ofApproach));
+  report("releases of the approach", releaseNews({ clone: clone ? resolve(cfg.base, clone) : null, pinCommit: pin.commit, used }), false);
+}
+if (cfg.releases) {
+  const top = gitOut("rev-parse", "--show-toplevel");
+  const { releases, deployments, malformed } = parseProductRecords(cfg.releases.dir);
+  report("records of releases that cannot be read", malformed);
+  const rel = (p) => relative(top, p).split("\\").join("/");
+  // Integrity rests on the project's history: a copy of the files outside it cannot be checked.
+  report(
+    "records of releases and deployments that do not hold",
+    !releases.length && !deployments.length ? [] : top ? productReleaseProblems({ top, cfgRel: rel(cfg.file), releases, deployments }) : ["the records cannot be checked outside the project's Git repository"],
+  );
+  if (flag("--releases") > 0) {
+    for (const r of releases) console.log(`RELEASE ${r.version} · ${r.commit.slice(0, 7)} · ${r.date} · ${r.checks.map((c) => `${c.check} ${c.result}`).join(", ")}`);
+    for (const [env, d] of runningNow(deployments)) console.log(`RUNNING ${env}: ${d.release}, since ${d.time}`);
+  }
+} else if (flag("--releases") > 0) fail("--releases needs releases in the configuration");
 
 console.log(
   [
@@ -1438,9 +1535,9 @@ if (cfg.oracle) {
     const empty = emptyTests({ results, tests: registered.filter((t) => t.kind === "check" || t.kind === "custom"), rows, sample: tracesRead.sample });
     report("tests of checks that pass on a change of the forms their check's trace fails on (empty tests)", empty.map((e) => `${e.name}: ${e.missed.slice(0, 3).join("; ")}${e.missed.length > 3 ? ` and ${e.missed.length - 3} more` : ""}`));
   }
-} else if (flag("--run") > 0) {
-  console.log('ERROR · --run needs "oracle": true in the configuration');
-  errors.push("--run");
+} else {
+  if (flag("--run") > 0) fail('--run needs "oracle": true in the configuration');
+  if (flag("--mutate") > 0) fail('--mutate needs "oracle": true in the configuration');
 }
 
 if (errors.length) {

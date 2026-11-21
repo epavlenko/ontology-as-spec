@@ -34,6 +34,7 @@ Rules the check cannot enforce:
 - A ticket is a slice of the gap: IDs, checks, out of scope, dependencies, permissions. It does not describe behavior; behavior goes into the catalogue first (`rule.ticket-without-behavior`, `action.cut-slice`).
 - A tag on a test is a claim that the test implements the check. Do not tag a test that does not (`inv.test-does-what-check-says`).
 - A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings (`rule.findings-mislead`).
+- Before each step and each round of a task, run `--task <task> --statement <file>`: start work only under an approval in force for the statement's version, ask the owner when the budget is exhausted, and record done with `done.mjs` before the result is accepted (`rule.work-under-approval`, `rule.budget-before-next`, `rule.acceptance-against-approved`).
 - Every change ends with a commit of its own files, never another agent's (`rule.commit-finished-work`).
 - Before a change is merged, an agent of another provider that did not write it reviews it against the checks `--review` lists, with a verdict for each: pass, fail, not run with the reason, or not applicable with the reason (`rule.reviewed-before-merge`).
 - A rule here that comes from a rule of the approach or from a decision names it, by ID or entry; a rule that departs from the approach cites the process entry of the log that decided it (`rule.agent-rule-source`, `rule.departure-by-entry`).

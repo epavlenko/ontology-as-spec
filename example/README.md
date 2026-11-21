@@ -18,6 +18,7 @@ A library lends books, games and tools. Members borrow items, wait in a queue fo
 | [app/](./app/)                                         | the code: a small domain module, a command line front end, unit tests whose titles name the checks they implement, and a test that compares the code with the oracle on random sequences of actions |
 | [judged/](./judged/)                                   | a test that a model judges: the library refuses a checkout at the limit, and a judge in `JUDGE` reads the refusal next to its check; skipped without one |
 | [e2e/](./e2e/)                                         | end-to-end tests that run the command line front end as a user does, also named by check |
+| [releases/](./releases/)                               | one release of the example, 1.0.0: the commit its check and test suites passed on, the hash of the approach's IDs it was checked against, the check and the unit and end-to-end suites passed and the judged suite skipped, with no judge; the check finds it intact, and `release.mjs --verify 1.0.0 --config example/ont.config.json` runs them again |
 | [contracts/ontology.schema.json](./contracts/ontology.schema.json) | the contracts: JSON Schema generated from the types of fields and relations |
 | [ont.config.json](./ont.config.json)                   | the check's configuration for this example                 |
 

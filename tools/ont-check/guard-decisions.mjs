@@ -12,7 +12,7 @@
 // A definition changed since the base must be named by a new or changed decision entry or a new history line.
 // ont: inv.accepted-never-edited, field.decision.source, inv.sourced-since-first
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { basename, dirname, relative, resolve, sep } from "node:path";
 import { backtickIds, DEFAULT_ACCEPTED, DEFAULT_SOURCE, gitEnv, loadConfig, parseGlossary, read, section } from "./lib.mjs";
 
@@ -26,10 +26,35 @@ const DEFAULT_ENTRY = "^### (D-\\d+) · .+$";
 const configs = values("--config");
 const files = values("--file");
 if (!configs.length && !files.length) configs.push("ont.config.json");
-const git = (cwd, ...args) => spawnSync("git", args, { cwd, encoding: "utf8", env: gitEnv() });
+// Inside a hook Git sets GIT_DIR and GIT_INDEX_FILE, and a git command run in a subdirectory then takes
+// that directory for the top of the work tree: `git show :./decisions.md` in example/ would read the
+// root's log. So every file is read through the top of its own repository, found without the hook's
+// variables, by its path from that top. The hook's variables, and the index of the commit being made,
+// are kept only for the hook's own repository, with its work tree named (lib.mjs, gitEnv).
+const real = (p) => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
+};
+const hookGitDir = process.env.GIT_DIR ? real(resolve(process.env.GIT_DIR)) : null;
+const repoOf = (path) => {
+  let dir = dirname(resolve(path));
+  while (!existsSync(dir)) dir = dirname(dir);
+  const top = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, env: gitEnv(), encoding: "utf8" });
+  if (top.status !== 0) return { top: null, cwd: dir, workTree: null };
+  const root = top.stdout.trim();
+  const gitDir = spawnSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: root, env: gitEnv(), encoding: "utf8" }).stdout.trim();
+  return { top: root, cwd: root, workTree: hookGitDir && real(gitDir) === hookGitDir ? root : null };
+};
+const gitIn = (repo, ...args) => spawnSync("git", args, { cwd: repo.cwd, env: gitEnv(process.env, repo.workTree), encoding: "utf8" });
+const inTop = (repo, path) => relative(repo.top, resolve(path)).split(sep).join("/");
 // With --staged, the configuration is the staged one too, so that the guard checks what the commit holds.
 const stagedText = (path) => {
-  const r = git(dirname(resolve(path)), "show", `:./${basename(path)}`);
+  const repo = repoOf(path);
+  if (!repo.top) return undefined;
+  const r = gitIn(repo, "show", `:${inTop(repo, path)}`);
   return r.status === 0 ? r.stdout : undefined;
 };
 const targets = [
@@ -67,17 +92,17 @@ let violations = 0;
 let unsourcedCount = 0;
 let silentCount = 0;
 for (const { file, entry, accepted, sourceLine, ontology, history, classes, config } of targets) {
-  const cwd = dirname(file);
-  const path = `./${basename(file)}`;
+  const repo = repoOf(file);
+  const git = (...args) => gitIn(repo, ...args);
+  const path = repo.top ? inTop(repo, file) : basename(file);
   const name = relative(process.cwd(), file);
-  if (git(cwd, "rev-parse", "--verify", "--quiet", `${base}^{commit}`).status !== 0) {
+  if (!repo.top || git("rev-parse", "--verify", "--quiet", `${base}^{commit}`).status !== 0) {
     // Without a commit there is nothing to compare with. Failing here would be a failure without a
     // violation, so the guard says that it is off instead. A base that was named and is missing is an
     // error, as in CI with a wrong base.
     if (!named) {
-      const repo = git(cwd, "rev-parse", "--git-dir").status === 0;
       console.log(
-        `GUARD_OFF · ${name}: ${repo ? "no commit yet" : "not a git repository"}; accepted entries are not protected until the first commit`,
+        `GUARD_OFF · ${name}: ${repo.top ? "no commit yet" : "not a git repository"}; accepted entries are not protected until the first commit`,
       );
       off.push(name);
       continue;
@@ -86,10 +111,10 @@ for (const { file, entry, accepted, sourceLine, ontology, history, classes, conf
     errors.push(name);
     continue;
   }
-  const before = git(cwd, "show", `${base}:${path}`);
+  const before = git("show", `${base}:${path}`);
   // A log the base does not have yet protects nothing, but the entries it accepts still need sources.
   if (before.status !== 0) console.log(`info · ${name}: not in ${base}, no accepted entry to protect yet`);
-  const now = staged ? git(cwd, "show", `:${path}`).stdout : existsSync(file) ? read(file) : "";
+  const now = staged ? git("show", `:${path}`).stdout : existsSync(file) ? read(file) : "";
   const old = before.status !== 0 ? new Map() : entries(before.stdout, entry);
   const cur = entries(now, entry);
   const changed = [];
@@ -144,10 +169,11 @@ for (const { file, entry, accepted, sourceLine, ontology, history, classes, conf
   // ont: derived.meaning-changed
   if (ontology) {
     const label = relative(process.cwd(), ontology);
-    const top = git(dirname(ontology), "rev-parse", "--show-toplevel");
-    const root = top.status === 0 ? top.stdout.trim() : null;
+    const orepo = repoOf(ontology);
+    const root = orepo.top;
+    const og = (...args) => gitIn(orepo, ...args);
     const inRepo = (p) => relative(root, p).split(sep).join("/");
-    const show = (p) => git(root, "show", `${base}:${p}`);
+    const show = (p) => og("show", `${base}:${p}`);
     const prior = () => {
       const now = inRepo(ontology);
       const paths = [now];
@@ -158,7 +184,7 @@ for (const { file, entry, accepted, sourceLine, ontology, history, classes, conf
           if (then) paths.push(inRepo(resolve(dirname(config), then)));
         } catch {}
       // -z keeps paths as they are: without it, git quotes a path with characters outside ASCII.
-      const diff = git(root, "diff", "--name-status", "-z", "-M", ...(staged ? ["--cached"] : []), base).stdout.split("\0");
+      const diff = og("diff", "--name-status", "-z", "-M", ...(staged ? ["--cached"] : []), base).stdout.split("\0");
       for (let i = 0; i < diff.length - 1; i += /^[RC]/.test(diff[i]) ? 3 : 2)
         if (diff[i].startsWith("R") && diff[i + 2] === now) paths.push(diff[i + 1]);
       for (const p of paths) {
@@ -168,7 +194,7 @@ for (const { file, entry, accepted, sourceLine, ontology, history, classes, conf
       return null;
     };
     const was = root ? prior() : null;
-    const shown = root && staged ? git(root, "show", `:${inRepo(ontology)}`) : null;
+    const shown = root && staged ? og("show", `:${inRepo(ontology)}`) : null;
     const is = !root ? null : staged ? (shown.status === 0 ? shown.stdout : null) : existsSync(ontology) ? read(ontology) : null;
     const missing = !root ? "not in a git repository" : was === null ? `not in ${base}` : is === null ? (staged ? "not staged" : "not found") : null;
     if (missing) console.log(`info · ${label}: ${missing}, so no definition is compared`);

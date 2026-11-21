@@ -22,7 +22,7 @@ const check = (edit, ...args) => {
   const root = mkdtempSync(join(tmpdir(), "code-traces-"));
   const dir = join(root, "example");
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     symlinkSync(join(TOOLS, ".."), join(root, "tools"));
     edit?.(dir);
     const r = spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), ...args], { encoding: "utf8" });
@@ -149,7 +149,7 @@ test("[check.trace.runs-on-code] a registered test runs: a runner passed to skip
   const root = mkdtempSync(join(tmpdir(), "code-traces-skip-"));
   const dir = join(root, "example");
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     symlinkSync(join(TOOLS, ".."), join(root, "tools"));
     patch(dir, "traces/traces.test.mjs", "adapter });", "adapter, test: (await import(\"node:test\")).test.skip });");
     // A run of node:test of its own, not a subtest of this one.

@@ -12,7 +12,7 @@ This repository describes an approach to product development: product meaning ke
 - `ontology.md` and `checks.md` describe the approach with itself: its concepts, rules and checks. `ont.config.json` checks them; the tests in `tools/ont-check/test/` implement the checks.
 - `decisions.md` records decisions about this repository.
 
-<!-- ont: rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@779cd7, rule.unconfirmed-tentative@f4a9a4, rule.question-as-tentative@7c4575, rule.one-choice@c773d8, rule.commit-finished-work@8ad234, rule.strongest-step@4002fd, rule.findings-mislead@0229fa, rule.agent-rule-source@695801, rule.departure-by-entry@4fa94e -->
+<!-- ont: rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@779cd7, rule.unconfirmed-tentative@f4a9a4, rule.question-as-tentative@7c4575, rule.one-choice@c773d8, rule.commit-finished-work@8ad234, rule.strongest-step@4002fd, rule.findings-mislead@0229fa, rule.agent-rule-source@695801, rule.departure-by-entry@4fa94e, rule.work-under-approval@619f52, rule.budget-before-next@603840, rule.acceptance-against-approved@6987aa -->
 ## Rules
 
 - **English only** (D-03).
@@ -23,6 +23,7 @@ This repository describes an approach to product development: product meaning ke
 - **Unapproved is tentative.** A choice the owner has not explicitly approved is recorded as tentative; the owner's approval accepts it (`rule.unconfirmed-tentative`, D-34). A question with a recommendation is written as a tentative entry, and the owner's answer accepts it (`rule.question-as-tentative`, D-48).
 - **Sources.** From D-47 on, every accepted entry names its source on a `- Source:` line: the owner's answer or message that decided it (`inv.sourced-since-first`, `rule.source-precedence`, D-47). What is put off gets a `- Return when:` line (`rule.deferral-returns`, D-49).
 - **Accepted decisions are never edited**, here or in the example. Write a superseding entry; `npm run guard` refuses the edit (`inv.accepted-never-edited`). One entry answers one question; a later entry adds to it or supersedes it whole (`rule.one-choice`, D-26).
+- **A task under its statement and budget.** Before each step and each round of a task, run `node tools/ont-check/ont-check.mjs --config ont.config.json --task <task> --statement <file>`: work starts only under an approval in force, an exhausted budget is a question to the owner, and a result is accepted only after `done.mjs` recorded done (`rule.work-under-approval`, `rule.budget-before-next`, `rule.acceptance-against-approved`, D-106, D-107, D-108).
 - **Commit every change.** Every change ends with a commit of its own files, never another agent's (`rule.commit-finished-work`, D-54).
 - **Strongest step.** A correction is held by the check, a test or the structure of the code where one of them can hold it; a rule here only where none can (`rule.strongest-step`, D-67).
 - **Findings that matter.** A consistency review reports what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings (`rule.findings-mislead`, D-27).

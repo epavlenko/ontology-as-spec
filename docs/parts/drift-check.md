@@ -1,9 +1,9 @@
 # 5. Drift check
 
-<!-- ont: inv.references-defined@060f13, inv.concept-referenced@b457ed -->
+<!-- ont: inv.references-defined@060f13, inv.concept-referenced@b457ed, inv.error-fails-run@6df096 -->
 ## What it is
 
-One script that reads every artifact holding or referring to meaning and checks that the references are whole. It exits non-zero on drift and runs in two places: a pre-commit hook on the paths it covers, and CI. The generic version is [`tools/ont-check`](../../tools/ont-check/README.md).
+One script that reads every artifact holding or referring to meaning and checks that the references are whole. It exits non-zero on drift, and on every error it prints, of a flag or of the configuration a flag needs too, and then prints no ONT_OK (D-129); it runs in two places: a pre-commit hook on the paths it covers, and CI. The generic version is [`tools/ont-check`](../../tools/ont-check/README.md).
 
 A run on the example:
 

@@ -185,12 +185,11 @@ export function loadLabels(text, known) {
 }
 
 // Git, run in a directory, without the variables a hook may have set for another repository, and with
-// local replacements off, so that a commit is the content its SHA names (D-137). Returns the output, or
-// null when git fails, as it does outside a repository or for a path HEAD lacks.
-const HOOK_FREE = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_(DIR|WORK_TREE|INDEX_FILE|PREFIX)$/.test(k)));
+// local replacements off, so that a commit is the content its SHA names (lib.mjs, gitEnv; D-137).
+// Returns the output, or null when git fails, as it does outside a repository or for a path HEAD lacks.
 const git = (cwd, args, encoding = "utf8") => {
   try {
-    const out = execFileSync("git", args, { cwd, encoding, env: gitEnv(HOOK_FREE), stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 });
+    const out = execFileSync("git", args, { cwd, encoding, env: gitEnv(), stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 });
     return encoding === "utf8" ? out.replace(/\n$/, "") : out;
   } catch {
     return null;

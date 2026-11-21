@@ -58,7 +58,7 @@ if (mode === "verify") {
 } else if (mode === "update" && value("--dir")) {
   const clone = resolve(value("--from") ?? join(HERE, "..", ".."));
   const git = (...args) => {
-    const r = spawnSync("git", ["-C", clone, ...args], { maxBuffer: 1 << 26, env: gitEnv() });
+    const r = spawnSync("git", ["-C", clone, ...args], { env: gitEnv(), maxBuffer: 1 << 26 });
     if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr.toString().trim()}`);
     return r.stdout;
   };

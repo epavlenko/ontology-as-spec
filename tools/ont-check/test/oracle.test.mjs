@@ -17,7 +17,7 @@ const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
 const run = (edit, ...args) => {
   const dir = mkdtempSync(join(tmpdir(), "ont-oracle-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const patch = (file, from, to) => {
       const path = join(dir, file);
       const text = readFileSync(path, "utf8");

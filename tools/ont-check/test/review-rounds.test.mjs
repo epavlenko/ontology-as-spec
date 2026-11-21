@@ -79,7 +79,9 @@ test("[check.review-round.not-fixable] a finding not fixable within the task goe
 });
 
 test("[check.review-round.clean-ends] a round whose only finding was there before the change ends the step clean", () => {
-  assert.equal(nextRound([round(1, 2), round(2, 0, { before: 1 })]).next, "clean");
+  // A round of the result ends its step with its verdict of acceptance clean (D-119).
+  assert.equal(nextRound([round(1, 2), { ...round(2, 0, { before: 1 }), acceptance: { findings: [] } }]).next, "clean");
+  assert.equal(nextRound([round(1, 2), round(2, 0, { before: 1, step: "statement-review" })].map((r) => ({ ...r, step: "statement-review" }))).next, "clean");
 });
 
 const record = (fields, findings = []) =>
@@ -107,7 +109,7 @@ test("[check.review-round.malformed] names each record of rounds that cannot be 
     assert.equal(rounds.length, 2);
     // Through the check: the records fail it.
     const cfgDir = mkdtempSync(join(tmpdir(), "rounds-cfg-"));
-    cpSync(EXAMPLE, cfgDir, { recursive: true });
+    cpSync(EXAMPLE, cfgDir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const cfgPath = join(cfgDir, "ont.config.json");
     const cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
     writeFileSync(cfgPath, JSON.stringify({ ...cfg, reviewRounds: { dir } }));
@@ -195,7 +197,7 @@ test("[check.manual-run.record-refused] a table with a check not listed, twice, 
 test("[check.manual-run.record-verdicts] --review --record writes the records into the directory of manualRuns", () => {
   const dir = mkdtempSync(join(tmpdir(), "record-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const git = (...a) => spawnSync("git", ["-C", dir, ...a], { encoding: "utf8", env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" } });
     git("init", "-q");
     git("add", "-A");

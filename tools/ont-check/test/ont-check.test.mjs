@@ -13,7 +13,7 @@ const EXAMPLE = fileURLToPath(new URL("../../../example/", import.meta.url));
 const run = (edit, ...args) => {
   const dir = mkdtempSync(join(tmpdir(), "ont-check-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const patch = (file, from, to) => {
       const path = join(dir, file);
       const text = readFileSync(path, "utf8");
@@ -128,7 +128,7 @@ test("[check.concept.shows-unknown] a ref on a row that is no field or relation 
 test("[check.concept.shows-unknown] the contract generator refuses a view that shows no entity of the glossary", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-check-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const onto = join(dir, "ontology.md");
     writeFileSync(onto, readFileSync(onto, "utf8").replace("| shows `ent.member`, `ent.loan`, `ent.hold` |", "| shows `ent.member`, `ent.shelf` |"));
     const r = spawnSync("node", [join(TOOLS, "gen-contracts.mjs"), "--config", join(dir, "ont.config.json")], { encoding: "utf8" });
@@ -366,7 +366,7 @@ test("[check.implementation-row.grouped] concepts realised in the same files may
 test("[check.concept.formatted] format-ontology.mjs writes the kind order and the Kind cells", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-format-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const cfg = join(dir, "ont.config.json");
     const node = (script) => spawnSync("node", [join(TOOLS, script), "--config", cfg], { encoding: "utf8" });
     const onto = join(dir, "ontology.md");
@@ -798,7 +798,7 @@ test("[check.decision.departure-malformed] checks every Extends and Overrides li
 test("[check.agent-rules.approach-ids-stale] the approach IDs next to the tool match the approach's ontology", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-approach-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const cfg = join(dir, "ont.config.json");
     writeFileSync(cfg, readFileSync(cfg, "utf8").replace('"root":', '"approachIds": { "out": "approach-ids.json" },\n  "root":'));
     writeFileSync(join(dir, "approach-ids.json"), "{}\n");
@@ -849,7 +849,7 @@ test("[check.decision.deferrals-listed] lists the deferrals in force with their 
 test("[check.doc-section.reread-after-change] a changed definition marks the sections to reread, and stamping clears it", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-docs-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const cfg = join(dir, "ont.config.json");
     const node = (script, ...args) =>
       spawnSync("node", [join(TOOLS, script), "--config", cfg, ...args], { encoding: "utf8" });
@@ -949,7 +949,7 @@ test("[check.doc-section.undeclared] reads sections as CommonMark does: other he
 test("[check.doc-section.declared-empty] accepts a section with an empty anchor, which stamping leaves empty", () => {
   const dir = mkdtempSync(join(tmpdir(), "ont-docs-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const cfg = join(dir, "ont.config.json");
     const node = (script) => spawnSync("node", [join(TOOLS, script), "--config", cfg], { encoding: "utf8" });
     const page = join(dir, "help", "borrowing.md");
@@ -1162,7 +1162,7 @@ test("[check.doc-set.named-pages] a set of named pages reads a README and names 
 const tree = (edit, labels) => {
   const dir = mkdtempSync(join(tmpdir(), "ont-tree-"));
   try {
-    cpSync(EXAMPLE, dir, { recursive: true });
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
     const patch = (file, from, to) => {
       const path = join(dir, file);
       const text = readFileSync(path, "utf8");
@@ -1372,4 +1372,39 @@ test("[check.other-word.used] the text of a mockup's script is read as JavaScrip
   assert.ok(m, r.out);
   const lines = [...m[2].matchAll(/mockup\/index\.html:(\d+) /g)].map((x) => Number(x[1]) - 31);
   assert.deepEqual(lines, [2, 5, 7, 9, 9, 14, 15, 18, 19, 20]);
+});
+
+// Round 3 of the review of the result of task releases-and-task (D-129).
+test("[check.tool-copy.error-fails-run] every ERROR of a flag or of the configuration it needs fails the run, with no ONT_OK", () => {
+  const TEMPLATES = fileURLToPath(new URL("../../../templates/", import.meta.url));
+  const dir = mkdtempSync(join(tmpdir(), "ont-check-flags-"));
+  try {
+    cpSync(TEMPLATES, dir, { recursive: true });
+    const check = (...args) => spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), ...args], { encoding: "utf8" });
+    const plain = check();
+    assert.equal(plain.status, 0, plain.stdout);
+    writeFileSync(join(dir, "notes.md"), "no ticket\n");
+    const cases = [
+      [["--task", "t"], /ERROR · --rounds and --task need reviewRounds in the configuration/],
+      [["--rounds"], /ERROR · --rounds and --task need reviewRounds in the configuration/],
+      [["--releases"], /ERROR · --releases needs releases in the configuration/],
+      [["--run"], /ERROR · --run needs "oracle": true in the configuration/],
+      [["--mutate"], /ERROR · --mutate needs "oracle": true in the configuration/],
+      [["--record", "table.md"], /ERROR · --record needs --review <base>/],
+      [["--statement", "notes.md"], /ERROR · --statement needs --task <task>/],
+      [["--gap", join(dir, "notes.md")], /ERROR · --gap: .* is not a ticket the config knows/],
+    ];
+    for (const [args, message] of cases) {
+      const r = check(...args);
+      assert.match(r.stdout, message, args.join(" "));
+      assert.notEqual(r.status, 0, `${args.join(" ")}: ${r.stdout}`);
+      assert.doesNotMatch(r.stdout, /ONT_OK/, args.join(" "));
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  // Every ERROR of the check is printed by fail or by report, the two functions that count it.
+  const source = readFileSync(join(TOOLS, "ont-check.mjs"), "utf8");
+  const printed = source.split("\n").filter((l) => /console\.log\(.*ERROR/.test(l));
+  assert.deepEqual(printed.map((l) => l.trim()), ["console.log(`ERROR · ${message}`);", 'console.log(`${fatal ? "ERROR" : "info"} · ${label} (${items.length}):\\n  ${shown.join("\\n  ")}`);']);
 });

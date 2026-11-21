@@ -1,13 +1,65 @@
 // Shared parsing for the check and the generators. One parser for all of them: if a generator and
 // the check read the ontology differently, a broken document passes unnoticed.
+import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const read = (path) => readFileSync(path, "utf8");
-// The environment of every command of Git the tool runs: local replacements off, so that a commit is
-// the content its SHA names, never another commit's that a refs/replace of one clone puts there (D-137).
-export const gitEnv = (env = process.env) => ({ ...env, GIT_NO_REPLACE_OBJECTS: "1" });
+// The variables Git reads as local to one repository, which it sets for a hook and which would point a
+// git command in another clone, worktree or directory at the hook's repository, its index, its objects
+// or its configuration: the list `git rev-parse --local-env-vars` gives
+// (https://git-scm.com/docs/git-rev-parse#Documentation/git-rev-parse.txt---local-env-vars), and the
+// pairs GIT_CONFIG_KEY_<n> and GIT_CONFIG_VALUE_<n> that GIT_CONFIG_COUNT counts.
+export const GIT_LOCAL_VARS = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CONFIG",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_CONFIG_COUNT",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_GRAFT_FILE",
+  "GIT_INDEX_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_PREFIX",
+  "GIT_SHALLOW_FILE",
+  "GIT_COMMON_DIR",
+];
+let localVars = null;
+const gitLocalVars = () => {
+  if (!localVars) {
+    // The list above first, so that the query itself runs through gitEnv, with PATH alone, as every
+    // command of Git the tool runs does; Git's own list is added to it.
+    localVars = new Set(GIT_LOCAL_VARS);
+    const r = spawnSync("git", ["rev-parse", "--local-env-vars"], { encoding: "utf8", env: gitEnv({ PATH: process.env.PATH ?? "" }) });
+    if (r.status === 0) for (const v of r.stdout.split("\n").filter(Boolean)) localVars.add(v);
+  }
+  return localVars;
+};
+const withoutLocal = (env) =>
+  Object.fromEntries(Object.entries(env).filter(([k]) => !gitLocalVars().has(k) && !/^GIT_CONFIG_(KEY|VALUE)_\d+$/.test(k)));
+// The environment of every command of Git the tool runs: in a repository given by its directory,
+// without those variables; in the hook's own repository, given its work tree, with the hook's variables
+// kept and the work tree named. Both with local replacements off, so that a commit is the content its
+// SHA names, never another commit's that a refs/replace of one clone puts there (D-137).
+export const gitEnv = (env = process.env, workTree = null) => ({ ...(workTree ? { ...env, GIT_WORK_TREE: workTree } : withoutLocal(env)), GIT_NO_REPLACE_OBJECTS: "1" });
+
+// Whether a commit a record names is an object of the repository (inv.named-commits-resolve, D-145):
+// git cat-file -e <commit>^{commit}, with the environment that is safe in a hook. The one test every
+// record that names a commit is tested by; what a missing one does follows from the record (D-145).
+// ont: inv.named-commits-resolve
+export const commitResolves = (repo, commit) =>
+  Boolean(repo && commit && /^[0-9a-f]{4,40}$/.test(commit)) && spawnSync("git", ["-C", repo, "cat-file", "-e", `${commit}^{commit}`], { env: gitEnv() }).status === 0;
+// The problems of records whose commits do not resolve: each record with the commits it names.
+export const unresolvedCommits = (repo, records, commitsOf, what = "") =>
+  records.flatMap((r) =>
+    commitsOf(r)
+      .filter((c) => !commitResolves(repo, c))
+      .map((c) => `${r.file}: ${what ? `${what} ` : ""}commit ${c} is not in the repository${repo ? "" : " (the project is not in a Git repository)"}`),
+  );
 
 // An entry is accepted when one of its lines matches this pattern. A log in another language sets
 // decisions.accepted in the config.
@@ -60,7 +112,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "records.latinOnly", "reviewRounds.dir", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "records.latinOnly", "reviewRounds.dir", "taskRecords.dir", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
@@ -169,6 +221,27 @@ export function loadConfig(configPath, text) {
     manualRuns: raw.manualRuns && { dir: at(raw.manualRuns.dir), require: raw.manualRuns.require === true },
     // Records of the rounds of review, one file per round (D-99).
     reviewRounds: raw.reviewRounds && { dir: at(raw.reviewRounds.dir) },
+    // Records of a task's done and of the executor's spend, one file each (D-107, D-108).
+    taskRecords: raw.taskRecords && { dir: at(raw.taskRecords.dir) },
+    // The approach's own releases (D-109): the file of their entries, in the approach's repository only.
+    protocolReleases: raw.protocolReleases && { file: at(raw.protocolReleases.file ?? "releases.md") },
+    // A product's releases and deployments, one file each, and the pin of the protocol whose hash a
+    // release records (D-111).
+    releases: raw.releases && { dir: at(raw.releases.dir), pin: at(raw.releases.pin) },
+    // A task's default limits of new input and output tokens and their multiplier; the approach sets no
+    // number, and a limit left out is null (D-108).
+    budget: {
+      newInput: raw.budget?.newInput ?? null,
+      output: raw.budget?.output ?? null,
+      // A reserve of 1 or more with at most two decimal digits, as a statement's line is (D-150); any
+      // other value is refused at load, so that the cap stays exact.
+      reserve: (() => {
+        const r = raw.budget?.reserve ?? null;
+        if (r !== null && !(typeof r === "number" && r >= 1 && /^\d+(\.\d{1,2})?$/.test(String(r))))
+          throw new Error(`budget.reserve ${JSON.stringify(r)} is not a number of 1 or more with at most two digits after the point (D-150)`);
+        return r;
+      })(),
+    },
     // When owner is set, a file of the code directories that names no defined concept fails the check (D-75).
     codeNames: { require: raw.codeNames?.require === true, owner: raw.codeNames?.owner === true },
     // Set only in the approach's own repository: where gen-approach.mjs writes the approach's IDs.
@@ -193,7 +266,8 @@ export function loadConfig(configPath, text) {
     ].map(
       (t) => ({
         name: t.name ?? "",
-        dir: at(t.dir),
+        // "." and the empty path are the configuration's directory, as release.mjs reads them (D-146).
+        dir: resolve(base, t.dir || "."),
         match: new RegExp(t.match ?? "\\.test\\.[a-z]+$"),
         cover: t.cover ?? [],
         // Checks the suite must implement, such as the checks it runs with a judge (D-60).
