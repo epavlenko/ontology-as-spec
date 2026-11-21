@@ -148,7 +148,7 @@ Later parts, when the product has them: the mockup, the first implementation of 
 - **Never invent product meaning.** You propose; the owner decides. Record your proposal as a tentative entry with your recommendation.
 - **Change behavior in the ontology first**, its rows or its checks, then write the code and tests from it. What you would build that the ontology does not say goes into it first. Generated files (tooltips, contracts, reference pages) are regenerated, never edited by hand.
 - **Removing a concept is a decision**: write the entry and retire the ID; the check then finds every reference left.
-- **Work under an approved statement, within its budget.** Before each step and each round, run `ont-check --task <task> --statement <file>`: start only when it says work may start, stop and ask the owner when it says the budget is exhausted, and when done run `done.mjs` so that the result can be accepted (`rule.work-under-approval`, `rule.budget-before-next`, D-106, D-107, D-108).
+- **Work under an approved statement, within its budget.** Before each step and each round, run `ont-check --task <task> --statement <file>`: start only when it says work may start, stop and ask the owner when it says the budget is exhausted, and when done run `done.mjs` so that the result can be accepted (`rule.work-under-approval`, `rule.budget-before-next`, D-152, D-108).
 - **Report what misleads.** A consistency review lists what would mislead a reader or an agent, or would break a check, not style or the completeness of lists.
 
 <!-- ont: -->

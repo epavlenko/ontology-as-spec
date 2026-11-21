@@ -70,7 +70,7 @@ If the change adds or alters values that carry a source, such as the cases of a 
 <!-- ont: rule.findings-mislead@0229fa, rule.reviewed-before-merge@779cd7 -->
 ## 3. Report what matters
 
-Report what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings. Each finding names its file and line and the check or rule it breaks. When you find a problem, look for it across its whole class, not only where it showed, and say where else you looked (`rule.whole-class`). Give each finding a class of problem, named the same in later rounds, apart from its weight and from whether it is of this change, so that the author can tell whether the rounds converge (D-97, D-99).
+Report what would mislead a reader or an agent, or would break a check. Style, the completeness of lists and compliance that changes nothing are not findings. Each finding names its file and line and the check or rule it breaks. When you find a problem, look for it across its whole class, not only where it showed, and say where else you looked (`rule.whole-class`). Give each finding a class of problem, named the same in later rounds, apart from its weight and from whether it is of this change, so that the author can tell whether the rounds converge (D-99, D-152). A finding that cannot be fixed without changing what the owner decided, an item of the approved statement with its source or his answer, is `not fixable` and goes to the owner. An unlikely case is filed in `docs/limitations.md` as `limitation`, and a finding outside the approved statement in a ticket under `issues/` as `later`; the file must hold the finding's class word for word. When the author files a finding, judge in the same round, before a verdict that may end the step, whether it belongs there: an item of the approved statement is never filed, and in a verdict of acceptance a filed finding is an error (`rule.findings-filed`).
 
 Answer in this form:
 
@@ -114,7 +114,7 @@ Evidence: <where the evidence is, outside the repository, if the check kept any:
 
 Evidence such as screenshots or data stays outside the repository; the record only links to it.
 
-<!-- ont: ent.review-round@21a841, rule.round-recorded@649657, derived.next-round@7fe1d5 -->
+<!-- ont: ent.review-round@21a841, rule.round-recorded@649657, derived.next-round@91a815, rule.rounds-converge@8fd85a, rule.findings-filed@113365 -->
 ## 5. Record the round
 
 If the configuration has `reviewRounds`, the author writes a record of each round of review in that directory, one file per round, and `ont-check --rounds` says what follows it:
@@ -124,7 +124,6 @@ Task: <the task, named the same in every round>
 Step: statement-review | result-review
 Narrow: true | false
 Number: <the round's number in its step, full and narrow rounds counted apart>
-Ceiling: <the ceiling of the step, on its first round>
 Time: <UTC time to the second>
 Commits: <the commits reviewed>
 By: <the reviewer's model and provider>
@@ -135,11 +134,13 @@ Checks-listed: <n>
 Checks-given: <n>
 Checks-carried: <n>
 Findings:
-- <class> · important | nit · change | before · fixable | not fixable · <the test that holds the fix>
+- <class> · important | nit · change | before · fixable | not fixable | limitation | later · <the test that holds the fix, or the file it is filed in>
 ```
 
+There is no ceiling of rounds (D-152). The rounds go on while each finds fewer important classes than the one before. When an important class of the last round was an important finding of an earlier round of the step, or the last round found no fewer important classes than the one before, the rounds stagnate: `--rounds` and `--task` say so, the author changes the design of the solution rather than patching it, and the next round is full. Reviewing that round, say whether the design changed or the old one was patched again; the tool cannot tell. Nits, findings `not fixable` and filed findings are not compared, and the comparison starts again after a clean round or the owner's approval. A record of a round that cannot be read blocks every task until it is corrected.
+
 <!-- ont: edge.review-round.statement@914220, field.review-round.contribution@51b2a4, field.review-round.acceptance@ca2653, rule.acceptance-against-approved@6987aa, rule.budget-before-next@603840 -->
-A round also gives, when known, `Start:` and `Contribution: <provider> · <session or task ID>`, which go together, and on a review of a statement or of a result `Statement-hash: <SHA-256 of the statement's file>`, the version read. On a review of a result, after the executor's record of done, give the verdict of acceptance beside your verdict on merging: check the result against the approved version of the statement, each item of what to do and of done when and the owner's sources, and write `Acceptance: clean`, or `Acceptance:` and a finding line for each item the result does not meet (D-107). Such a round names on `Commits:` the commit the record of done is of, the last of a range; the check refuses the acceptance otherwise (D-117). The round is clean only when both are, and a round of the result that gives no verdict of acceptance does not end the step (D-119). Before each round the author runs `ont-check --task <task> --statement <file>`; when it says the budget is exhausted, the round waits for the owner (D-108).
+A round also gives, when known, `Start:` and `Contribution: <provider> · <session or task ID>`, which go together, and on a review of a statement or of a result `Statement-hash: <SHA-256 of the statement's file>`, the version read. On a review of a result, after the executor's record of done, give the verdict of acceptance beside your verdict on merging: check the result against the approved version of the statement, each item of what to do and of done when and the owner's sources, and write `Acceptance: clean`, or `Acceptance:` and a finding line for each item the result does not meet (D-152). Such a round names on `Commits:` the commit the record of done is of, the last of a range; the check refuses the acceptance otherwise (D-117). The round is clean only when both are, and a round of the result that gives no verdict of acceptance does not end the step (D-119). Before each round the author runs `ont-check --task <task> --statement <file>`; when it says the budget is exhausted, the round waits for the owner (D-108). Its line `REPORT` names the marks of half the limit and the limit that the spend has passed; the author reports them to the owner and goes on as the other lines say.
 
 <!-- ont: -->
 ## Licence
