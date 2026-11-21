@@ -2,7 +2,7 @@
 // names under manualRuns. A record says which check ran, when, on which commit, with which stamp and
 // verdict, by whom, and where the evidence is; the evidence itself stays outside the repository
 // (rule.manual-evidence-kept).
-// ont: ent.manual-run, edge.manual-run.check, field.manual-run.time, field.manual-run.commit, field.manual-run.stamp, field.manual-run.verdict, field.manual-run.by, field.manual-run.evidence, derived.current-run
+// ont: ent.manual-run, rule.records-english-in-repo, edge.manual-run.check, field.manual-run.time, field.manual-run.commit, field.manual-run.stamp, field.manual-run.verdict, field.manual-run.by, field.manual-run.evidence, derived.current-run
 import { createHash } from "node:crypto";
 import { basename } from "node:path";
 import { listFiles, read } from "./lib.mjs";
@@ -23,12 +23,74 @@ export const runStamp = (c, ONT, rows, checkById, notes) =>
     .digest("hex")
     .slice(0, 8);
 
+// What a record may hold, since it sits in the repository (rule.records-english-in-repo, D-151): no path
+// outside the repository, in every project; and, where the configuration sets records.latinOnly, as this
+// repository does for its rule of English only (D-03), no letter of a script other than Latin. Each
+// problem names its line, from 1, and the token that breaks the rule.
+//
+// By construction rather than by a pattern of what a path looks like: the line is cut into tokens, the
+// target of a Markdown link whole, the rest at white space and at the marks of Markdown and quotes, an
+// HTML end tag such as </svg> dropped first. A token is then one of: a URL of the web, http or https,
+// which is allowed; a URL of any other scheme, file: or another, which names something on one machine
+// and is outside; an absolute path, /x, ~/x, C:\x, C:/x or \\server; or a relative path, which must not
+// leave the repository by "..". A token without a slash or a backslash is a word, a commit range such
+// as main..HEAD included.
+// ont: rule.records-english-in-repo
+const NOT_LATIN = /[^\P{L}\p{Script=Latin}]/u;
+// Strict, and simple on purpose (D-151): the check does not read Markdown or find where words end beyond
+// one rule. A line loses its web URLs and its HTML end tags; then it is refused for
+// - a prefix that names something on a machine, anywhere: /home/, /Users/, /root/, /tmp/, /var/, /etc/,
+//   /mnt/, /opt/, ~/, C:\ or C:/ (any drive), \\server, file:, mailto:;
+// - an absolute path or a URL of another scheme where no letter or digit stands before it, so that a
+//   mark, a quote, an emoji or an underscore before a slash starts a path;
+// - any ".." next to a slash: a path in a record is written as the repository's own, normalised.
+// A false refusal, such as docs/../x for docs/x, or a path after a combining mark, is the cost, and is
+// recorded in docs/limitations.md; a path let through would be the worse error.
+const WEB_URL = /\bhttps?:\/\/[^\s<>`"'|,;()\[\]]+/gi;
+const END_TAG = /<\/[A-Za-z][A-Za-z0-9-]*>/g;
+const LOCAL_PREFIX = /(\/(?:home|Users|root|tmp|var|etc|mnt|opt)\/|~\/|[A-Za-z]:[\\/]|\\\\[^\s\\]|(?<![\p{L}\p{N}])(?:file|mailto):)/giu;
+// A URL of another scheme has a slash or an @ anywhere after its colon, as app:x/y or app:x@y.
+const ABSOLUTE = /(?<![\p{L}\p{N}.~-])(\/[^\s/]|(?!https?:)[a-z][a-z0-9+.-]*:[^\s:]*[\/@])/giu;
+// The target of a Markdown link or autolink with a scheme other than http and https, such as (about:config), names
+// a place on a machine whatever follows its colon.
+// The same in an autolink, <about:config>.
+const LINK_SCHEME = /\]\(\s*<?((?!https?:)[a-z][a-z0-9+.-]*:)/giu;
+const AUTOLINK_SCHEME = /<((?!https?:)[a-z][a-z0-9+.-]*:)[^\s<>]*>/giu;
+const UP = /(?:^|[^.])(\.\.[\\/]|[\\/]\.\.(?![^\s\\/.]))/gu;
+const wordAt = (line, i) => line.slice(i).match(/^[^\s<>`"'|,;()\[\]*]+/)?.[0] ?? line.slice(i, i + 20);
+export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
+  const problems = [];
+  text.split("\n").forEach((line, i) => {
+    const at = `line ${i + from}`;
+    const plain = line.replace(WEB_URL, " ").replace(END_TAG, " ");
+    if (latinOnly) {
+      const letter = plain.match(NOT_LATIN);
+      if (letter) problems.push(`${at}: the letter ${letter[0]} is not English text`);
+    }
+    const named = new Set();
+    const name = (start, what) => {
+      // The word the match is in, from its start, to name it in the refusal.
+      let s0 = start;
+      while (s0 > 0 && !/[\s<>`"'|,;()\[\]*]/.test(plain[s0 - 1])) s0--;
+      const w = wordAt(plain, s0).replace(/[.:!?]+$/, "");
+      if (!named.has(w)) problems.push(`${at}: ${w} ${what}`), named.add(w);
+    };
+    for (const m of plain.matchAll(LOCAL_PREFIX)) name(m.index, "is a path outside the repository");
+    for (const m of plain.matchAll(ABSOLUTE)) name(m.index, "is a path outside the repository");
+    for (const m of line.matchAll(LINK_SCHEME)) name(m.index + m[0].length - m[1].length, "is a link outside the repository");
+    for (const m of line.matchAll(AUTOLINK_SCHEME)) name(m.index + 1, "is a link outside the repository");
+    for (const m of plain.matchAll(UP)) name(m.index + m[0].length - m[1].length, "leaves the repository, or may: write the path from the repository's root, without ..");
+  });
+  return problems;
+}
+
 // Every record of the directory, with what is wrong with it.
-export function parseRuns(dir, known) {
+export function parseRuns(dir, known, opts = {}) {
   const runs = [];
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
-    const pairs = read(f)
+    const text = read(f);
+    const pairs = text
       .split("\n")
       .map((l) => l.match(/^(Check|Time|Commit|Stamp|Verdict|By|Evidence):\s*(.*?)\s*$/))
       .filter(Boolean)
@@ -47,6 +109,7 @@ export function parseRuns(dir, known) {
       !fields.by && "no author",
       !named && "the name is not <UTC time>-<check>-<4 characters>.md, such as 20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md",
       named && (named[2] !== fields.check || named[1] !== compact(fields.time)) && "the name does not match the record's check and time",
+      ...outsideRecord(text, 1, opts),
     ].filter(Boolean);
     if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
     else runs.push({ file: name, ...fields });
@@ -77,15 +140,20 @@ export const currentRun = (runs, id, stamp) =>
 // not of its check or not at its stamp now, or the check of errors in code is carried.
 // ont: action.record-verdicts
 const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
-export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [] }) {
-  const by = text.match(/^By:\s*(.+?)\s*$/m)?.[1];
-  const rows = text
-    .split("\n")
+export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], source = "the table", latinOnly = false }) {
+  // The reviewer is named on the By: line itself; a value on the next line is no value (D-151).
+  const by = text.match(/^By:[ \t]*(\S.*?)[ \t]*$/m)?.[1];
+  const lines = text.split("\n");
+  const rows = lines
     .map((l) => l.match(/^\|\s*`?(check\.[a-z0-9.-]+)`?\s*\|\s*([a-z-]+)\s*\|\s*(.*?)\s*\|\s*$/))
     .filter(Boolean)
     .map((m) => ({ check: m[1], verdict: m[2], evidence: m[3].replace(/^`|`$/g, "") }));
   const problems = [];
   if (!by) problems.push("no By: line naming the reviewer");
+  // What the records would hold, the By: line and the rows, is read as a record is (D-151).
+  lines.forEach((l, i) => {
+    if (/^By:/.test(l) || /^\|\s*`?check\./.test(l)) problems.push(...outsideRecord(l, i + 1, { latinOnly }).map((p) => `${source}: ${p}`));
+  });
   const seen = new Set();
   for (const r of rows) {
     if (seen.has(r.check)) problems.push(`${r.check}: given twice`);

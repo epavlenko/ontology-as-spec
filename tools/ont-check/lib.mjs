@@ -60,7 +60,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "reviewRounds.dir", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "records.latinOnly", "reviewRounds.dir", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
@@ -163,6 +163,9 @@ export function loadConfig(configPath, text) {
     reviewPaths: (raw.reviewPaths ?? []).map((p) => ({ dir: at(p.dir), concepts: p.concepts ?? [] })),
     // Records of manual runs, one file per run, and whether every manual check of implemented concepts
     // needs a current run (D-78).
+    // Whether records of runs and rounds hold Latin letters only: a project's rule of language, such as
+    // this repository's English only (D-03, D-151), not the approach's.
+    records: { latinOnly: raw.records?.latinOnly === true },
     manualRuns: raw.manualRuns && { dir: at(raw.manualRuns.dir), require: raw.manualRuns.require === true },
     // Records of the rounds of review, one file per round (D-99).
     reviewRounds: raw.reviewRounds && { dir: at(raw.reviewRounds.dir) },
