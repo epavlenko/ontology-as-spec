@@ -43,14 +43,14 @@ A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at
 <!-- ont: derived.approval@7ae7ed, derived.statement-state@e76bdf -->
 ### A later version of a statement is trusted to keep the owner's items
 
-After a finding goes to the owner, or when the author edits a statement, a later version is approved by a clean round of its review or by the owner's record of approval. The tool compares versions by their hash only: it does not see whether the new version still holds every item the owner decided, with its source. The reviewer of the new version judges that, against the owner's words (D-152).
+A finding `not fixable` is a question to the owner, and only his record of approval of a new version answers it; a clean round of review cannot. When the author edits a statement for any other reason, a clean round of its review approves the new version. The tool compares versions by their hash only: it does not see whether a version approved by a round still holds every item the owner decided, with its source, nor whether an edit changed one of them, which would need his approval. The reviewer of the new version judges that, against the owner's words (D-152).
 
-<!-- ont: rule.rounds-converge@8fd85a, derived.next-round@91a815 -->
+<!-- ont: rule.rounds-converge@8fd85a, derived.next-round@1a1713 -->
 ### The tool does not see whether the design changed after stagnation
 
 When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and a full round follows. The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both, and a repeated class in it is stagnation again (D-152).
 
-<!-- ont: rule.findings-filed@113365 -->
+<!-- ont: rule.findings-filed@f29b6d -->
 ### A filed finding is trusted to belong where it is filed
 
 The tool checks that a finding filed as `limitation` or `later` names `docs/limitations.md` or a file under `issues/` that holds its class word for word, and refuses it in a verdict of acceptance. It does not see whether the case is unlikely, whether the finding is outside the approved statement, or whether the text there says what the finding means. The reviewer of the same round judges that before a verdict that may end the step (D-152).
