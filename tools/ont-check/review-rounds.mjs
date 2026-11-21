@@ -166,6 +166,9 @@ export function parseRounds(dir, opts = {}) {
       fields.contribution !== undefined && fields.start === undefined && "a contribution without a start",
       realTime(fields.start) && realTime(fields.time) && fields.start > fields.time && `start ${fields.start} is after its time ${fields.time}`,
       fields["statement-hash"] !== undefined && !SHA256.test(fields["statement-hash"]) && `statement hash ${fields["statement-hash"]} is not a SHA-256`,
+      // A blank line Statement-hash: names no version: a round so written would drop out of the review
+      // of its version unseen (D-152).
+      rec.pairs.some(([k, v]) => k === "statement-hash" && v.trim() === "") && "statement hash is blank: name the version of the statement the round read",
       acceptance && fields.step !== "result-review" && "an acceptance on a review that is not of the result",
       acceptance && !(acceptance.value === "clean" || (acceptance.value === "" && acceptance.findings.length)) && "an acceptance that is neither clean nor a list of findings",
       !fields.by && "no author",
@@ -340,7 +343,9 @@ export function stepPayoff(rounds) {
 // NEXT of its own, which nextOf(task) gives: the check passes tasks.mjs taskNext, the function --task and
 // done.mjs ask too, so they never disagree (D-152). Without nextOf, as in a test, the next round of the
 // task's last step. malformed is the list of records of rounds that cannot be read.
-export function renderRounds(rounds, { nextOf = null, malformed = [] } = {}) {
+// readOf(task), where given, is the rounds of the review of the result its task view reads (D-152): the
+// last of them is named, not a late round of another version.
+export function renderRounds(rounds, { nextOf = null, malformed = [], readOf = null } = {}) {
   const lines = [];
   const tasks = [...new Set(rounds.map((r) => r.task))].sort();
   for (const t of tasks) {
@@ -348,8 +353,8 @@ export function renderRounds(rounds, { nextOf = null, malformed = [] } = {}) {
       const of = rounds.filter((r) => r.task === t && r.step === step);
       if (!of.length) continue;
       const full = of.filter((r) => !r.narrow).length;
-      const last = byTime(of).at(-1);
-      lines.push(`ROUNDS ${t} · ${step}: ${full} full, ${of.length - full} narrow · last ${last.file}, ${isClean(last) ? "clean" : "with findings of the change"}`);
+      const last = (step === "result-review" && readOf ? byTime(readOf(t)) : byTime(of)).at(-1);
+      lines.push(`ROUNDS ${t} · ${step}: ${full} full, ${of.length - full} narrow · ${last ? `last ${last.file}, ${isClean(last) ? "clean" : "with findings of the change"}` : "none of the version approved now"}`);
     }
     const own = rounds.filter((r) => r.task === t);
     const n = malformed.length ? { say: blockedSay(malformed) } : nextOf ? nextOf(t) : nextRound(own.filter((r) => r.step === byTime(own).at(-1).step));

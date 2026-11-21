@@ -48,7 +48,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { byTime, renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, gitEnv, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, taskBudget, taskNext, taskState } from "./tasks.mjs";
+import { acceptanceProblems, gitEnv, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, taskBudget, taskNext, taskState, taskView } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1368,19 +1368,24 @@ if (cfg.reviewRounds) {
   // statement's own limits, compares the whole line.
   // ont: field.review-round.overspend, rule.budget-before-next
   const gatesFrom = cfg.reviewRounds.gatesFrom;
+  // Every task's records of the result are read through its task view (D-152): a round of the result
+  // after the approval of the version it would be read for that names no version cannot be read.
+  const tasksOf = [...new Set(rounds.map((r) => r.task))];
+  const viewOf = (t) => taskView({ rounds, done: records.done, approvals: records.approvals, task: t });
+  report("rounds of the review of a result that name no version of the statement", tasksOf.flatMap((t) => viewOf(t).malformed));
   const nextOf = (t) => taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, gatesFrom });
-  const ended = [...new Set(rounds.map((r) => r.task))].filter((t) => nextOf(t).branch === "done");
+  const ended = tasksOf.filter((t) => nextOf(t).branch === "done");
   report(
     "records of acceptance whose line Overspend: is not the tool's",
     ended.flatMap((t) => {
-      const end = byTime(rounds.filter((r) => r.task === t && r.step === "result-review")).at(-1);
+      const end = viewOf(t).results.at(-1);
       return overspendProblems(end, taskBudget({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null }));
     }),
   );
   // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
   // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
   if (flag("--rounds") > 0) {
-    console.log(renderRounds(rounds, { malformed, nextOf }));
+    console.log(renderRounds(rounds, { malformed, nextOf, readOf: (t) => viewOf(t).results }));
   }
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
   // budget (D-152, D-108), with the marks of the budget it has passed.

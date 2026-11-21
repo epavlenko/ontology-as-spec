@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { nextRound, parseRounds } from "../review-rounds.mjs";
-import { TASK_BRANCHES, acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readRoundRecords, readStatement, readTaskInputs, reserveOf, sha256, stepNext, taskBudget, taskNext, taskState } from "../tasks.mjs";
+import { TASK_BRANCHES, acceptanceProblems, budgetLines, gitEnv, overlaps, parseTaskRecords, readRoundRecords, readStatement, readTaskInputs, reserveOf, resolveRecords, sha256, stepNext, taskBudget, taskNext, taskState } from "../tasks.mjs";
 import { loadConfig } from "../lib.mjs";
 
 const TOOLS = fileURLToPath(new URL("../", import.meta.url));
@@ -688,11 +688,12 @@ test("[check.task-statement.question-alone] a gate opened by a finding not fixab
   // done.mjs refuses while the gate is open, and records done after the owner's approval.
   const { repo, done, clean } = doneRepo("t");
   try {
-    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "result-review", number: 1, time: T(10), found: 1, fix: "not fixable" }));
+    // The round names the version it read: one after the approval that names none cannot be read (D-152).
+    const hash = readRoundRecords({ base: repo, reviewRounds: { dir: join(repo, "rounds") }, records: { latinOnly: false } }).rounds.find((x) => x.step === "statement-review").statementHash;
+    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "result-review", number: 1, time: T(10), hash, found: 1, fix: "not fixable" }));
     const refused = done("t");
     assert.equal(refused.status, 1, refused.stdout);
     assert.match(refused.stdout, /no record of done written: the task's next action is not work on the result: a question to the owner: a finding cannot be fixed[^\n]*\(2\.md\)/);
-    const hash = readRoundRecords({ base: repo, reviewRounds: { dir: join(repo, "rounds") }, records: { latinOnly: false } }).rounds.find((x) => x.step === "statement-review").statementHash;
     writeFileSync(join(repo, "tasks", "a.md"), approvalText({ hash, time: T(11) }));
     assert.equal(done("t").status, 0);
   } finally {
@@ -858,6 +859,72 @@ test("[check.task-statement.done-of-version] after version A is accepted and a c
     assert.equal(askTask(repo, null), "NEXT t: give --statement <file> to compare the version it names with the file");
   } finally {
     clean();
+  }
+});
+
+// Version B approved by the owner after version A, its record of done and a clean acceptance of it
+// (D-152); then records of A made after B's approval, each of which the task view does not read.
+const ofB = { rounds: [approvedA], done: [{ time: T(11), hash: B }], approvals: [{ hash: B, time: T(10) }] };
+const acceptB = (extra = {}) => finalRound({ hash: B, ...extra });
+const nextOfB = (sc, extra = {}) => taskNext({ rounds: sc.rounds, spend: sc.records.spend, done: sc.records.done, approvals: sc.records.approvals, task: "t", statement: fileOf(B), needFile: true, ...extra });
+const stateOfB = (sc) => taskState({ rounds: sc.rounds, spend: sc.records.spend, done: sc.records.done, approvals: sc.records.approvals, task: "t", defaults: limits(null, null), statement: fileOf(B) }).lines.join("\n");
+
+test("[check.task-statement.other-version-not-read] a round of A with a finding not fixable after B's approval opens no gate: B's acceptance ends the task", () => {
+  const sc = scenario({ ...ofB, rounds: [...ofB.rounds, acceptB(), { step: "result-review", number: 2, time: T(13), hash: A, found: 1, fix: "not fixable", prefix: "late" }] });
+  const n = nextOfB(sc);
+  assert.equal(n.branch, "done", n.say);
+  assert.doesNotMatch(stateOfB(sc), /a question to the owner/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.other-version-not-read] a record of done of A made after B's and before B's acceptance does not refuse it", () => {
+  const sc = scenario({ ...ofB, rounds: [...ofB.rounds, acceptB()], done: [...ofB.done, { time: T(11, 30), hash: A }] });
+  assert.deepEqual(acceptanceProblems(sc.rounds, sc.records.done, sc.records.approvals), []);
+  assert.equal(nextOfB(sc).branch, "done");
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.other-version-not-read] the state names B's round and record of done, and lists A's later ones as not read", () => {
+  const sc = scenario({ ...ofB, rounds: [...ofB.rounds, acceptB(), { step: "result-review", number: 2, time: T(13), hash: A, found: 1, prefix: "late" }], done: [...ofB.done, { time: T(12, 30), hash: A }] });
+  const out = stateOfB(sc);
+  assert.match(out, /NEXT t: done: the last round and its acceptance are clean/);
+  assert.match(out, /TASK t · done: recorded in d0\.md, commit [0-9a-f]{7}, version [0-9a-f]{12}, at [^,]+, 1 commands passed; reviewed after it in r1\.md/);
+  assert.match(out, /TASK t · not read: d1\.md, of version [0-9a-f]{12}; r2\.md, of version [0-9a-f]{12}: of another version or an earlier approval than version [0-9a-f]{12}/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.other-version-not-read] the commits of B's acceptance are held, whatever a later round of A names; A's missing commit is information", () => {
+  const missing = "0".repeat(7);
+  const sc = scenario({ ...ofB, rounds: [...ofB.rounds, acceptB({ commits: `${missing}..${CA.slice(0, 7)}` }), { step: "result-review", number: 2, time: T(13), hash: A, acceptance: "clean", commits: "1".repeat(7) }] });
+  const r = resolveRecords(REPO, { done: sc.records.done, rounds: sc.rounds, approvals: sc.records.approvals });
+  assert.equal(r.problems.length, 1, r.problems.join("\n"));
+  assert.match(r.problems[0], /^r1\.md: the round gives the acceptance of the latest record of done of t, and its line Commits: names commit 0{7}/);
+  assert.match(r.notes.join("\n"), /r2\.md: names a commit this clone does not have, 1{7}/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.other-version-not-read] the check compares the overspend of B's round, not of a later round of A", () => {
+  const sc = scenario({ ...ofB, rounds: [...ofB.rounds, acceptB({ tokens: [150, 0, 0], overspend: "new input 150 of 100" }), { step: "result-review", number: 2, time: T(13), hash: A, found: 1, prefix: "late" }] });
+  const r = checkWith(sc, { budget: { newInput: 100, output: null } }, ["--rounds"]);
+  assert.doesNotMatch(r.stdout, /Overspend: is not the tool's/, r.stdout);
+  assert.match(r.stdout, /NEXT t: done, with an overspend: new input 150 of 100; report it to the owner/);
+  assert.match(r.stdout, /ROUNDS t · result-review: 2 full, 0 narrow · last r1\.md, clean/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.review-round.result-names-version] a round of the result with a finding and a blank Statement-hash:, or none, after the approval cannot be read: the next action is to correct it", () => {
+  for (const blank of [true, false]) {
+    const sc = scenario({ ...ofB, rounds: ofB.rounds });
+    const text = roundText({ step: "result-review", number: 1, time: T(12), found: 1 }).replace("Number: 1\n", `Number: 1\n${blank ? "Statement-hash:\n" : ""}`);
+    writeFileSync(join(sc.dir, "rounds", "r9.md"), text);
+    writeFileSync(join(sc.dir, "b.md"), B_TEXT);
+    const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "b.md"), "--rounds"]);
+    const next = r.stdout.split("\n").filter((l) => l.startsWith("NEXT t:"));
+    assert.equal(next.length, 2, r.stdout);
+    for (const l of next) assert.match(l, /^NEXT t: correct the records of rounds that cannot be read first: the one next action \(r9\.md\)$/);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stdout + r.stderr, blank ? /r9\.md: statement hash is blank/ : /r9\.md: a round of the review of the result after version [0-9a-f]{12} was approved names no version/);
+    rmSync(sc.dir, { recursive: true, force: true });
   }
 });
 
