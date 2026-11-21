@@ -44,11 +44,15 @@ const NOT_LATIN = /[^\P{L}\p{Script=Latin}]/u;
 const WEB_URL = /\bhttps?:\/\/[^\s<>`"'|,;()\[\]]+/gi;
 const END_TAG = /<\/[A-Za-z][A-Za-z0-9-]*>/g;
 // Where a word starts: the start of the line or a mark that is not part of a word or a relative path.
-const START = "(?:^|[^A-Za-z0-9._~-])";
+// A letter or a digit of any script, a dot, a tilde or a hyphen continues a word; an underscore, the
+// mark of Markdown emphasis, does not.
+const START = "(?:^|[^\\p{L}\\p{N}.~-])";
 // An absolute path: /x, ~/x, C:\x, C:/x or \\server.
-const ABSOLUTE = new RegExp(`${START}(\\/[^\\s/]|~\\/|[A-Za-z]:[\\\\/]|\\\\\\\\[^\\s\\\\])`, "g");
+const ABSOLUTE = new RegExp(`${START}(\\/[^\\s/]|~\\/|[A-Za-z]:[\\\\/]|\\\\\\\\[^\\s\\\\])`, "gu");
 // A scheme other than http and https, with anything after it: file:x, file:///x, mailto:x, app://x.
-const OTHER_SCHEME = new RegExp(`${START}((?!https?:)[a-z][a-z0-9+.-]*:(?:\\/|[^\\s:]*[\\/@]))`, "gi");
+// file: and mailto: name something local or a person whatever follows; another scheme with a slash after
+// it is a link into a local app.
+const OTHER_SCHEME = new RegExp(`${START}((?:file|mailto):\\S|(?!https?:)[a-z][a-z0-9+.-]*:(?:\\/|[^\\s:]*[\\/@]))`, "giu");
 const leaves = (token) => {
   let depth = 0;
   for (const part of token.split(/[\\/]/)) {
@@ -83,8 +87,8 @@ export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
     }
     // A relative path that leaves the repository by "..": each word of the line, its marks of a sentence
     // taken off but not the dots of a final "..".
-    for (const raw of plain.split(/[\s<>`"'|,;()\[\]*=]+/)) {
-      const t = /(?:^|[\\/])\.\.[:!?.]*$/.test(raw) ? raw.replace(/[:!?]+$/, "") : raw.replace(/[.:!?]+$/, "");
+    for (const raw of plain.split(/[\s<>`"'|,;()\[\]*_=]+/)) {
+      const t = /(?:^|[\\/])\.\.[.:!?]*$/.test(raw) ? raw.replace(/(\.\.)[.:!?]+$/, "$1") : raw.replace(/[.:!?]+$/, "");
       if (/[\\/]/.test(t) && !named.has(t) && leaves(t.replace(/:\d+(?:-\d+)?$/, ""))) problems.push(`${at}: ${t} leaves the repository`);
     }
   });
