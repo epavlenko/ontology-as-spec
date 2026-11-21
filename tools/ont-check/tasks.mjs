@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
-import { BUDGET_QUESTION, GATE, SHA256, TASK_NAME, blockLines, blockedSay, byTime, isClean, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
+import { BUDGET_QUESTION, GATE, SHA256, TASK_NAME, blockLines, blockedSay, byTime, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
@@ -62,7 +62,7 @@ export const budgetLines = (budget) => BUDGET_ALL.map(([k, name]) => `${name}: $
 export function readTaskInputs(cfg) {
   const { rounds: parsedRounds, malformed: unreadable, top } = readRoundRecords(cfg);
   const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
-  const late = lateRecords({ rounds: parsedRounds, done: parsed.done, approvals: parsed.approvals });
+  const late = lateRecords({ rounds: parsedRounds, done: parsed.done, approvals: parsed.approvals, gatesFrom: cfg.reviewRounds.gatesFrom ?? null });
   const kept = (x) => !late.some((l) => l.record === x);
   const malformed = [...unreadable, ...late.map((l) => l.text)];
   const resolved = resolveRecords(top, { done: parsed.done.filter(kept), rounds: parsedRounds.filter(kept), approvals: parsed.approvals });
@@ -72,10 +72,12 @@ export function readTaskInputs(cfg) {
 // The late records of every task (D-152): a round of the review of the result, with its verdict of
 // acceptance, or a record of done, that names another version of the statement than the one last
 // approved when it ended, or none, and ends after that version's approval. No reader handles one: it is
-// a record that cannot be read, which blocks every task until the executor moves or removes it.
-export function lateRecords({ rounds, done = [], approvals = [] }) {
+// a record that cannot be read, which blocks every task until the executor moves or removes it. A
+// legacy record (isLegacy), before gatesFrom, is never late: it reads as it did.
+export function lateRecords({ rounds, done = [], approvals = [], gatesFrom = null }) {
   const v = (h) => (h ? `version ${h.slice(0, 12)}` : "no version");
   return [...rounds.filter((r) => r.step === "result-review"), ...done].flatMap((record) => {
+    if (isLegacy(record, gatesFrom)) return [];
     const w = taskView({ rounds, approvals, task: record.task, before: record.time }).window;
     if (!w || record.statementHash === w.hash || record.time <= w.from) return [];
     return [{ record, text: `${record.file}: a late record: it names ${v(record.statementHash)}, after version ${w.hash.slice(0, 12)} was approved at ${w.from}; move it out of the records or remove it` }];
@@ -476,16 +478,23 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
     if (last?.kind === "approval") return { next: "clean", say: `the owner approved version ${last.hash.slice(0, 12)} (${last.file})` };
   }
   // Work on the result goes on only under an approval in force, as --task says (rule.work-under-approval):
-  // a later round of the statement with findings withdraws even the owner's approval. A task whose
-  // statement was never reviewed by version, recorded before D-106, reads as it did.
-  const byVersion = approvals.some((a) => a.task === task) || rounds.some((r) => r.task === task && r.step === "statement-review" && r.statementHash);
-  if (step === "result-review" && all.length && byVersion && !approvedHash(rounds, task, null, approvals)) return { next: "no-approval", say: NO_APPROVAL };
+  // a later round of the statement with findings withdraws even the owner's approval. A task all of whose
+  // records are legacy reads as it did (byVersion).
+  if (step === "result-review" && all.length && byVersion({ rounds, done, approvals, task, gatesFrom }) && !approvedHash(rounds, task, null, approvals)) return { next: "no-approval", say: NO_APPROVAL };
   // An earlier round's acceptance held when it held by the records as they were when it was given, for
   // the version the round read: no statement is given to it, so --task, with a file of a later version,
   // and --rounds, with none, find the same end of the step (D-152). Only the last round, which would end
   // the task now, is held to the file --task is given (D-123).
   return go();
 }
+
+// Whether a task is read by versions of its statement (D-152): unless every record of it, of rounds, of
+// done and of approval, is legacy (isLegacy), as a task recorded before D-106 is; a task with no record
+// yet is. The one test --task, --rounds and done.mjs read, through taskNext and stepNext.
+export const byVersion = ({ rounds, done = [], approvals = [], task, gatesFrom = null }) => {
+  const own = [...rounds, ...done, ...approvals].filter((r) => r.task === task);
+  return !own.length || own.some((r) => !isLegacy(r, gatesFrom));
+};
 
 // The open gates of a task (D-152): the rounds of either step, after the owner's last record of approval
 // for the task, with a finding `not fixable`. While one is open, the next action of --task and --rounds is
@@ -497,7 +506,7 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
 // clean round that approves another version closes nothing.
 export const openGates = ({ rounds, approvals = [], task, gatesFrom = null }) =>
   notFixableIn(
-    ofTask(rounds, task).filter((r) => gatesFrom === null || r.time >= gatesFrom),
+    ofTask(rounds, task).filter((r) => !isLegacy(r, gatesFrom)),
     approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null,
   );
 // Every task any record names: a round, a record of spend, of done or of the owner's approval (D-152).
@@ -522,12 +531,11 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const approvedNow = approvedHash(rounds, task, null, approvals);
   const st = ofTask(rounds, task, "statement-review");
   const rr = ofTask(rounds, task, "result-review");
-  // A task recorded before D-106, whose statement was never reviewed by version, has no statement
-  // branches: its rounds read as they did.
-  const byVersion = approvals.some((a) => a.task === task) || st.some((r) => r.statementHash) || !rounds.some((r) => r.task === task);
+  // A task all of whose records are legacy has no statement branches: its rounds read as they did.
+  const versioned = byVersion({ rounds, done, approvals, task, gatesFrom });
   const step = (name) => stepNext({ rounds, done, approvals, task, step: name, statement, gatesFrom });
   const fileOk = !statement || statement.hash === approvedNow;
-  const result = approvedNow ? step("result-review") : !byVersion ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;
+  const result = approvedNow ? step("result-review") : !versioned ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;
   const gates = openGates({ rounds, approvals, task, gatesFrom });
   const nextFull = Math.max(0, ...st.filter((r) => !r.narrow).map((r) => r.number)) + 1;
   const nextResult = Math.max(0, ...rr.filter((r) => !r.narrow).map((r) => r.number)) + 1;
@@ -548,10 +556,10 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
         : b?.conflict?.length
           ? `the spend cannot be summed while records of one contribution overlap: ${BUDGET_QUESTION}, until the records are corrected`
           : b?.exhausted && BUDGET_QUESTION,
-    "no review": () => byVersion && !last && "it needs a review of the statement",
-    "under review": () => byVersion && last?.kind === "round" && !isClean(last.round) && step("statement-review").say,
-    "no version": () => byVersion && needFile && !statement && NO_FILE,
-    changed: () => byVersion && statement && last && approvedNow !== statement.hash && `the statement changed after its approval: next is full round ${nextFull} of the new version`,
+    "no review": () => versioned && !last && "it needs a review of the statement",
+    "under review": () => versioned && last?.kind === "round" && !isClean(last.round) && step("statement-review").say,
+    "no version": () => versioned && needFile && !statement && NO_FILE,
+    changed: () => versioned && statement && last && approvedNow !== statement.hash && `the statement changed after its approval: next is full round ${nextFull} of the new version`,
     step: () => {
       if (!result) return NO_APPROVAL;
       // No round of the result has read the version in force yet: the work under it, then its first round.
@@ -600,13 +608,22 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
   // The rounds of the result and the records of done are the task view's (D-152); the others are listed
   // as not read.
   const end = view.results.at(-1);
+  // The state of the acceptance is that of the latest record of done of the window (D-152): a clean
+  // verdict that does not hold for it, as of an earlier record of done, is said refused, with why, by
+  // endingWhy, which the next action reads too; never clean.
+  const acceptanceLabel = (r) => {
+    if (!r.acceptance) return ", with no verdict of acceptance";
+    if (r.acceptance.findings.length) return ", its acceptance has findings";
+    const why = endingWhy(r, { rounds, done, approvals, statement });
+    return why ? `, its verdict of acceptance is refused: ${why}` : ", its acceptance is clean";
+  };
   const resultLine = !next.approved && next.branch !== "done"
     ? NO_APPROVAL
     : !end
       ? "no round of its review yet"
     : next.branch === "done"
       ? "done: the last round and its acceptance are clean"
-      : `the last round of its review, ${end.file}, ${isClean(end) ? "is clean on merging" : "found findings of the change"}${end.acceptance ? (end.acceptance.findings.length ? ", its acceptance has findings" : ", its acceptance is clean") : ", with no verdict of acceptance"}`;
+      : `the last round of its review, ${end.file}, ${isClean(end) ? "is clean on merging" : "found findings of the change"}${acceptanceLabel(end)}`;
   if (next.branch === "done") errors.push(...overspendProblems(end, b));
   const lines = [say("statement", statementLine), say("result", resultLine)];
   errors.push(...(statement?.wrong ?? []).map((w) => `the statement's line ${w}`));

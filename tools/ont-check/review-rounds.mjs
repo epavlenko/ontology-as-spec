@@ -172,7 +172,7 @@ export function parseRounds(dir, opts = {}) {
       // A round of the result at or after opts.hashFrom, the configuration's reviewRounds.gatesFrom ("" for
       // every round without the key), names its version, by the record alone, so that no approval before
       // or after it and no other task hides the omission; an older round reads as it did (D-152).
-      opts.hashFrom !== undefined && fields.step === "result-review" && !rec.pairs.some(([k]) => k === "statement-hash") && realTime(fields.time) && fields.time >= opts.hashFrom && "no line Statement-hash: on a round of the review of the result at or after reviewRounds.gatesFrom: name the version of the statement it read",
+      opts.hashFrom !== undefined && fields.step === "result-review" && !rec.pairs.some(([k]) => k === "statement-hash") && realTime(fields.time) && !isLegacy(fields, opts.hashFrom) && "no line Statement-hash: on a round of the review of the result at or after reviewRounds.gatesFrom: name the version of the statement it read",
       acceptance && fields.step !== "result-review" && "an acceptance on a review that is not of the result",
       acceptance && !(acceptance.value === "clean" || (acceptance.value === "" && acceptance.findings.length)) && "an acceptance that is neither clean nor a list of findings",
       !fields.by && "no author",
@@ -259,6 +259,14 @@ export const GATE = "a question to the owner: a finding cannot be fixed without 
 // next action. ontology.md and docs/parts/agent-rules.md list them by these names in this order, which a
 // test compares. The budget is no branch of a step: the next action of the task, tasks.mjs taskNext, is
 // the one place that orders it (D-152).
+// Whether a record is legacy (D-152): the one test of it, by the record's time alone, never by a version
+// it names or an approval before it. A record of rounds, of done or of approval written before the
+// configuration's reviewRounds.gatesFrom is legacy and keeps the reading it had: a round of the result
+// may name no version, is never late, and a finding `not fixable` in it opens no gate; a task all of
+// whose records are legacy reads as a task recorded before D-106. Every record at or after the time
+// follows the rules of D-152. Without the key no record is legacy.
+export const isLegacy = (record, gatesFrom) => Boolean(gatesFrom) && record.time < gatesFrom;
+
 export const BRANCHES = ["open gate", "no round", "no acceptance", "acceptance refused", "clean", "stagnation", "next round"];
 
 // refused(round) says why the clean verdict of acceptance of the last round does not end the task now, or
@@ -277,7 +285,7 @@ export function nextRound(stepRounds, { refused = () => null, held = () => true,
   const last = all.at(-1);
   const clean = last && isClean(last);
   const gated = gateSince === null ? every : every.filter((r) => r.time > gateSince);
-  const gates = [...new Set([...gate, ...notFixableIn(gated.filter((r) => gatesFrom === null || r.time >= gatesFrom)), ...(last ? notFixableIn([last]) : [])])];
+  const gates = [...new Set([...gate, ...notFixableIn(gated.filter((r) => !isLegacy(r, gatesFrom))), ...(last ? notFixableIn([last]) : [])])];
   const why = clean && last.step === "result-review" && last.acceptance ? refused(last) : null;
   const branch = {
     "open gate": () => gates.length && { next: "question", gates, say: `${GATE} (${gates.join(", ")})` },

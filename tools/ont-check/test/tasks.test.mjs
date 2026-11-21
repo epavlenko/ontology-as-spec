@@ -1508,3 +1508,55 @@ test("[check.task-statement.reserve-of-statement] a statement's line Budget-rese
   assert.doesNotMatch(c.stdout, /NEXT t: the budget is exhausted/, "the result line names the unreadable line, not a spent budget");
   for (const d of [sc.dir, no.dir, other.dir, bad.dir]) rmSync(d, { recursive: true, force: true });
 });
+
+test("[check.task-result.latest-done] at the budget's cap, the state of the result says a clean acceptance of an earlier record of done is refused, never clean, in --task and in --rounds", () => {
+  const sc = scenario({ rounds: [approvedA, finalRound()], done: [{ time: T(11) }, { time: T(13), commit: CC }], spend: [{ start: T(13, 10), end: T(13, 20), tokens: [1000, 0, 0] }] });
+  const refused = new RegExp(`TASK t · result: the last round of its review, r1\\.md, is clean on merging, its verdict of acceptance is refused: the record of done d1\\.md, of commit ${CC.slice(0, 7)}, was made after it`);
+  const out = state(sc, { statement: fileOf(A), defaults: limits(1000, 1000) });
+  assert.match(out, /NEXT t: the budget is exhausted: a question to the owner/);
+  assert.match(out, refused);
+  assert.doesNotMatch(out, /its acceptance is clean/);
+  const r = checkWith(sc, { budget: limits(1000, 1000) }, ["--rounds"]);
+  assert.match(r.stdout, /NEXT t: the budget is exhausted: a question to the owner/);
+  assert.match(r.stdout, refused);
+  assert.doesNotMatch(r.stdout, /its acceptance is clean/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.gates-from] a round of the result at gatesFrom that names a version, with no approval history, is not legacy: --task, --rounds and done.mjs give no round of the result", () => {
+  const sc = scenario({ rounds: [{ step: "result-review", number: 1, time: T(12), hash: A, found: 1 }] });
+  writeFileSync(join(sc.dir, "statement.md"), A_TEXT);
+  const gated = { reviewRounds: { dir: join(sc.dir, "rounds"), gatesFrom: T(11) } };
+  for (const args of [["--task", "t", "--statement", join(sc.dir, "statement.md")], ["--rounds"]]) {
+    const r = checkWith(sc, gated, args);
+    assert.equal(nextLines(r).join("\n"), "NEXT t: it needs a review of the statement", `${args[0]}: ${r.stdout}`);
+    assert.match(r.stdout, /TASK t · result: work is not allowed/, args[0]);
+    assert.doesNotMatch(r.stdout, /narrow round|full round \d+ of the review of the result/, args[0]);
+  }
+  rmSync(sc.dir, { recursive: true, force: true });
+  const { repo, outside, done, clean } = doneRepo("t");
+  try {
+    const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+    writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, reviewRounds: { dir: "rounds", gatesFrom: T(11) } }));
+    rmSync(join(repo, "rounds", "1.md"));
+    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "result-review", number: 1, time: T(12), hash: readStatement(join(outside, "s.md")).hash, found: 1 }));
+    const r = done("t");
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(r.stdout, /no record of done written: no approval is in force for the statement/);
+    assert.doesNotMatch(r.stdout, /round of the review of the result/);
+  } finally {
+    clean();
+  }
+});
+
+test("[check.review-round.result-names-version] a round of the result with no Statement-hash: before gatesFrom, after the owner's approval of its task, is legacy: it is not late and blocks no task", () => {
+  const sc = scenario({ rounds: [{ step: "result-review", number: 1, time: T(10, 30), found: 1 }], approvals: [{ time: T(10) }] });
+  writeFileSync(join(sc.dir, "statement.md"), A_TEXT);
+  const gated = { reviewRounds: { dir: join(sc.dir, "rounds"), gatesFrom: T(11) } };
+  for (const args of [["--task", "t", "--statement", join(sc.dir, "statement.md")], ["--rounds"]]) {
+    const r = checkWith(sc, gated, args);
+    assert.doesNotMatch(r.stdout + r.stderr, /r0\.md: a late record|correct the records/, `${args[0]}: ${r.stdout}`);
+    assert.equal(nextLines(r).length, 1, `${args[0]}: ${r.stdout}`);
+  }
+  rmSync(sc.dir, { recursive: true, force: true });
+});
