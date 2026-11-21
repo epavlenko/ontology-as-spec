@@ -10,10 +10,10 @@ Checks-listed: 18
 Checks-given: 18
 Checks-carried: 0
 Findings:
-- budget stop at the end of a step · important · change · fixable
+- budget stop at the end of a step · important · change · fixable · check.task-statement.reserve-of-statement
 
 Acceptance:
-- budget stop at the end of a step · important · change · fixable
+- budget stop at the end of a step · important · change · fixable · check.task-statement.reserve-of-statement
 
 ## Verdicts
 
