@@ -26,7 +26,7 @@ npm run gap -- issues/0009-filed-findings-end-a-step-unseen.md   # SLICE_DONE
 npm test
 ```
 
-`SLICE_DONE` means a test of `check.review-round.filed` holds: a round of the result whose only findings of the change are filed, with no confirmed condition, does not end the step until a reviewer has read the filings, or the rule says why it may.
+`SLICE_DONE` means a test of `check.review-round.filed` holds: a round of the result whose only findings of the change are filed, with no confirmed condition, does not end the step until a reviewer has read the filings, or the rule says why it may. The check `check.review-round.filed` already holds today, so `SLICE_DONE` alone proves nothing: this slice is done only with a new test of the behaviour above, tagged with that check.
 
 ## Pre-authorized
 

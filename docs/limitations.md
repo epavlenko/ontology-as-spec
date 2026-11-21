@@ -48,7 +48,7 @@ A finding `not fixable` is a question to the owner, and only his record of appro
 <!-- ont: rule.rounds-converge@43896e, derived.next-round@431678 -->
 ### The tool does not see whether the design changed after stagnation
 
-When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and a full round follows. The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both, and a repeated class in it is stagnation again (D-152).
+When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and then the round `derived.next-round` names follows: a full round, or, when the stagnating round is the one that confirmed the goal's condition, the one narrow round after it (D-153). The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both, and a repeated class in it is stagnation again (D-152).
 
 <!-- ont: rule.findings-filed@c0ec2e -->
 ### A filed finding is trusted to belong where it is filed

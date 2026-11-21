@@ -512,11 +512,11 @@ export const byVersion = ({ rounds, done = [], approvals = [], task }) => {
 export const openGatesBy = ({ rounds, done = [], approvals = [], task, gatesFrom = null }) => {
   const own = ofTask(rounds, task).filter((r) => !isLegacy(r, gatesFrom));
   const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
-  return { notFixable: notFixableIn(own, since), condition: conditionGatesIn(own, since, (r) => !acceptanceWhy(r, rounds, done, null, { approvals })) };
+  return { notFixable: notFixableIn(own, since), condition: conditionGatesIn(own, since, (r) => acceptanceWhy(r, rounds, done, null, { approvals })) };
 };
 export const openGates = (args) => {
   const g = openGatesBy(args);
-  return [...g.notFixable, ...g.condition];
+  return [...g.notFixable, ...g.condition.map((x) => x.file)];
 };
 // Every task any record names: a round, a record of spend, of done or of the owner's approval (D-152).
 export const taskIds = ({ rounds = [], spend = [], done = [], approvals = [] }) => [...new Set([...rounds, ...spend, ...done, ...approvals].map((r) => r.task).filter(Boolean))].sort();
@@ -551,7 +551,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const fileOk = !statement || statement.hash === approvedNow;
   const result = approvedNow ? step("result-review") : !versioned ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;
   const gatesBy = openGatesBy({ rounds, done, approvals, task, gatesFrom });
-  const gates = [...gatesBy.notFixable, ...gatesBy.condition];
+  const gates = [...gatesBy.notFixable, ...gatesBy.condition.map((x) => x.file)];
   const nextFull = Math.max(0, ...st.filter((r) => !r.narrow).map((r) => r.number)) + 1;
   const nextResult = Math.max(0, ...rr.filter((r) => !r.narrow).map((r) => r.number)) + 1;
   // The current version window, which every branch below reads for the version: its rounds of the result

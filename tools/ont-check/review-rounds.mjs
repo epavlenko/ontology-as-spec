@@ -274,26 +274,35 @@ const conditionIn = (window) => {
   return at < 0 ? null : { c: window[at], after: window.length - 1 - at };
 };
 export const CONDITION_GATE = "a question to the owner: the reviewer confirmed the goal's condition and the one round after it did not end the step; only his approval of a version lets rounds go on";
+// Why a round after C did not end the step, as the owner's question names it (D-153): the classes of its
+// findings of the change left unfiled, or that it has no verdict of acceptance, or why that is refused.
+export const conditionWhat = (r, refusedWhy = () => null) => {
+  const left = [...new Set(ofChange(r).map((x) => x.cls))];
+  return left.length ? `findings left: ${left.join(", ")}` : !r.acceptance ? "no verdict of acceptance" : `the verdict of acceptance is refused: ${refusedWhy(r)}`;
+};
 // The rounds of the review of the result that hold the gate of the condition confirmed (D-153): in the
 // rounds of one version after the owner's last approval, whose time is since, the round that follows C
-// with no end of the step between them, when it does not end the step itself. held judges an acceptance
-// by the records as they were when it was given; tasks.mjs openGates gives them over the whole task.
-export const conditionGatesIn = (rounds, since = null, held = () => true) => {
+// with no end of the step between them, when it does not end the step itself, each with why, by
+// conditionWhat. refusedWhy says why an acceptance is refused by the records as they were when it was
+// given, or null; tasks.mjs openGates gives them over the whole task.
+export const conditionGatesIn = (rounds, since = null, refusedWhy = () => null) => {
+  const held = (r) => !refusedWhy(r);
   const out = [];
   const results = byTime(rounds.filter((r) => r.step === "result-review" && (since === null || r.time > since)));
   for (const hash of new Set(results.map((r) => r.statementHash))) {
     let c = null;
     for (const r of results.filter((x) => x.statementHash === hash)) {
       const ends = endsStep(r, held);
-      if (c && !ends) out.push(r.file);
+      if (c && !ends) out.push({ file: r.file, what: conditionWhat(r, refusedWhy) });
       c = ends || c ? null : r.condition ? r : null;
     }
   }
   return out;
 };
-// The text of an open gate, by its kinds.
+// The text of an open gate, by its kinds: the files of findings not fixable, and each round of the gate of
+// the condition confirmed with why it did not end the step, the one text --task, --rounds and done.mjs give.
 export const gateSay = (notFixable, condition = []) =>
-  [notFixable.length && `${GATE} (${notFixable.join(", ")})`, condition.length && `${CONDITION_GATE} (${condition.join(", ")})`].filter(Boolean).join("; ");
+  [notFixable.length && `${GATE} (${notFixable.join(", ")})`, condition.length && `${CONDITION_GATE} (${condition.map((g) => `${g.file}: ${g.what}`).join("; ")})`].filter(Boolean).join("; ");
 
 // The rounds of a step that hold an open gate: a finding of the change `not fixable`, not filed, in a round
 // after the owner's last record of approval for the task, whose time is since (D-152). Only a newer
@@ -340,18 +349,14 @@ export function nextRound(stepRounds, { refused = () => null, held = () => true,
   // The last round ends the step by the one end of a step (D-153): held for the latest record of done.
   const ends = last && endsStep(last, (r) => !refused(r));
   const cond = last && last.step === "result-review" && !ends ? conditionIn(window) : null;
-  const condGates = [...new Set(conditionGate)];
+  const condGates = conditionGate.filter((g, i) => conditionGate.findIndex((x) => x.file === g.file) === i);
   const branch = {
-    "open gate": () => (gates.length || condGates.length) && { next: "question", gates: [...gates, ...condGates], say: gateSay(gates, condGates) },
+    "open gate": () => (gates.length || condGates.length) && { next: "question", gates: [...gates, ...condGates.map((g) => g.file)], say: gateSay(gates, condGates) },
     "no round": () => !last && (every.length ? { next: "first round", number: nextFull, say: `the owner approved a later version: work goes on under it, then full round ${nextFull}` } : { next: "first round" }),
     // After C one narrow round alone; when it does not end the step, the owner's gate (D-153).
     "condition confirmed": () => {
       if (!cond) return null;
-      const left = ofChange(last).map((x) => x.cls);
-      if (cond.after > 0) {
-        const what = left.length ? `findings left: ${[...new Set(left)].join(", ")}` : !last.acceptance ? "no verdict of acceptance" : `the verdict of acceptance is refused: ${refused(last)}`;
-        return { next: "question", gates: [last.file], say: `${CONDITION_GATE} (${last.file}: ${what})` };
-      }
+      if (cond.after > 0) return { next: "question", gates: [last.file], say: gateSay([], [{ file: last.file, what: conditionWhat(last, refused) }]) };
       const s = stagnates(last, window.slice(0, -1));
       const on = `the reviewer confirmed the goal's condition in ${last.file}`;
       return s

@@ -534,7 +534,9 @@ test("[check.review-round.condition-branch] after C one narrow round alone, then
   // An open gate comes first.
   assert.equal(nextRound([C(1, ["a:not"])]).branch, "open gate");
   // The gate of a later round of the task given by the reader holds the step, as one not fixable does.
-  assert.equal(nextRound([named(1, [], { acceptance: [] })], { conditionGate: ["x.md"] }).branch, "open gate");
+  const g = nextRound([named(1, [], { acceptance: [] })], { conditionGate: [{ file: "x.md", what: "no verdict of acceptance" }] });
+  assert.equal(g.branch, "open gate");
+  assert.match(g.say, /the one round after it did not end the step; only his approval of a version lets rounds go on \(x\.md: no verdict of acceptance\)$/);
   // After C ended the step, a new round with findings is read afresh.
   assert.equal(nextRound([C(1, [], { acceptance: [] }), named(2, ["a"])]).next, "narrow");
 });
@@ -577,13 +579,20 @@ test("[check.review-round.triage-record] the weight and the filing are the execu
     mkdirSync(join(root, "issues"));
     mkdirSync(join(root, "rounds"));
     writeFileSync(join(root, "issues", "0001-x.md"), "# X\n\nThe tool: a rare thing.\n");
-    const rec = (name, number, line, note) =>
-      writeFileSync(join(root, "rounds", name), [`Task: t`, `Step: result-review`, `Number: ${number}`, `Time: 2026-11-20T1${number}:00:00Z`, `By: a model`, `Condition: holds`, `Findings:`, line, "", "## Notes", "", note, ""].join("\n"));
+    const rec = (name, number, line, note, condition = true) =>
+      writeFileSync(join(root, "rounds", name), [`Task: t`, `Step: result-review`, `Number: ${number}`, `Time: 2026-11-20T1${number}:00:00Z`, `By: a model`, ...(condition ? [`Condition: holds`] : []), `Findings:`, ...[line].flat(), "", "## Notes", "", note, ""].join("\n"));
     rec("kept.md", 1, "- a usual thing · important · change · fixable · t.mjs", "- a usual thing: reviewer's mark rare; the executor names the step of usual work it breaks: recording done.");
     rec("filed.md", 2, "- a rare thing · important · change · later · issues/0001-x.md", "- a rare thing: reviewer's mark usual; the executor names no step of usual work.");
+    // The weight both ways against the reviewer's: raised from nit to important, lowered from important to nit.
+    rec("prev.md", 3, ["- a raised thing · important · change · fixable · t.mjs", "- a lowered thing · important · change · fixable · t.mjs"], "- both important here.", false);
+    rec("raised.md", 4, "- a raised thing · important · change · fixable · t.mjs", "- a raised thing: reviewer's weight nit; the executor's important.", false);
+    rec("lowered.md", 5, "- a lowered thing · nit · change · fixable · t.mjs", "- a lowered thing: reviewer's weight important; the executor's nit.", false);
     const { rounds, malformed } = parseRounds(join(root, "rounds"), { root });
     assert.deepEqual(malformed, []);
-    const [kept, filed] = ["kept.md", "filed.md"].map((f) => rounds.find((r) => r.file === f));
+    const [kept, filed, prev, raised, lowered] = ["kept.md", "filed.md", "prev.md", "raised.md", "lowered.md"].map((f) => rounds.find((r) => r.file === f));
+    // Raised to important, the class repeats an important one: stagnation. Lowered to nit: no repeat.
+    assert.deepEqual(nextRound([prev, raised]).classes, ["a raised thing"]);
+    assert.equal(nextRound([prev, lowered]).next, "narrow");
     // Kept fixable against the advice rare, in C: it counts, and the one narrow round follows.
     assert.match(nextRound([kept]).say, /narrow round 1, the one round after it/);
     // Filed against the advice usual: it counts neither as a finding nor in the comparison.

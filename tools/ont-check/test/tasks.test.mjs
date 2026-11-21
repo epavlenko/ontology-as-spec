@@ -1690,27 +1690,34 @@ const approvedV = { step: "statement-review", number: 1, time: T(9), hash: V };
 const doneV = { time: T(10), hash: V, command: "true" };
 const resultV = (number, extra = {}) => ({ step: "result-review", number, time: T(10 + number + (extra.narrow ? 5 : 0)), hash: V, commits: CA.slice(0, 7), acceptance: "clean", ...extra });
 const BEFORE = ["- old · important · before · fixable"];
-// Every reader of one history: the NEXT lines of --task and --rounds, the errors of the check, and
-// whether done.mjs refuses for the task's next action (1) or goes on to run the commands of done (0); the
-// configuration is outside the commit, so the commands themselves are not what is compared.
+// Every reader of one history: the NEXT lines of --task and --rounds, the errors of the check, and the
+// exit of done.mjs, 0 when it ran the command of done on the commit and recorded done, 1 when it refused,
+// with its output. done.mjs runs in a clone of the repository with a committed configuration naming the
+// same records, so that its command runs for real in the worktree it makes at the commit.
 function readers(h, budget = null) {
   const sc = scenario({ rounds: [approvedV, ...h.rounds], done: [doneV, ...(h.done ?? [])], approvals: h.approvals ?? [] });
   const file = join(sc.dir, "v.md");
   writeFileSync(file, V_TEXT);
   const extra = budget ? { budget } : {};
   const r = checkWith(sc, extra, ["--task", "t", "--statement", file, "--rounds"]);
-  const cfgDir = mkdtempSync(join(REPO, "task-cfg-"));
-  cpSync(EXAMPLE, cfgDir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
-  const cfgPath = join(cfgDir, "ont.config.json");
-  writeFileSync(cfgPath, JSON.stringify({ ...JSON.parse(readFileSync(cfgPath, "utf8")), reviewRounds: { dir: join(sc.dir, "rounds") }, taskRecords: { dir: join(sc.dir, "tasks") }, ...extra }));
-  const d = spawnSync("node", [join(TOOLS, "done.mjs"), "t", "--statement", file, "--config", cfgPath], { encoding: "utf8" });
-  rmSync(cfgDir, { recursive: true, force: true });
+  // A clone of the repository of commits a, b and c, which the records name, so that they resolve.
+  const own = mkdtempSync(join(tmpdir(), "done-own-"));
+  git(own, "clone", "-q", REPO, ".");
+  writeFileSync(join(own, "ont.config.json"), JSON.stringify({ classes: { ent: "Entity" }, ontology: "ontology.md", reviewRounds: { dir: join(sc.dir, "rounds") }, taskRecords: { dir: join(sc.dir, "tasks") }, ...extra }));
+  git(own, "add", ".");
+  git(own, "commit", "-q", "-m", "config");
+  const d = spawnSync("node", [join(TOOLS, "done.mjs"), "t", "--statement", file, "--config", join(own, "ont.config.json")], { encoding: "utf8" });
+  rmSync(own, { recursive: true, force: true });
   rmSync(sc.dir, { recursive: true, force: true });
-  return { next: nextLines(r), out: r.stdout, done: /the task's next action is not work on the result/.test(d.stdout) ? 1 : 0, doneOut: d.stdout };
+  return { next: nextLines(r), out: r.stdout, done: d.status, doneOut: d.stdout };
 }
 const ENDS = /^NEXT t: done/;
 const NARROW = /^NEXT t: the reviewer confirmed the goal's condition in r\d+\.md: narrow round 1, the one round after it/;
-const QUESTION = /^NEXT t: a question to the owner: the reviewer confirmed the goal's condition and the one round after it did not end the step/;
+// The owner's question names the round after C and why it did not end the step.
+const GATE_OF = (why) => new RegExp(`a question to the owner: the reviewer confirmed the goal's condition and the one round after it did not end the step; only his approval of a version lets rounds go on \\(r2\\.md: ${why}`);
+const LEFT = "findings left: other 0\\)";
+const NO_ACCEPTANCE = "no verdict of acceptance\\)";
+const REFUSED = "the verdict of acceptance is refused: the record of done d0\\.md is of commit [0-9a-f]{7}, not of the commit the round reviewed";
 // The cases of the branch condition confirmed, each on its side of its boundary, with the case of
 // derived.next-round its rounds fall under.
 const CONDITION_CASES = {
@@ -1722,10 +1729,10 @@ const CONDITION_CASES = {
   "C, acceptance refused": { rounds: [resultV(1, { condition: true, commits: CB.slice(0, 7) })], next: NARROW, doneMjs: 0 },
   "after C, narrow, nothing left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, extra: BEFORE })], next: ENDS, doneMjs: 0 },
   "after C, full, nothing left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(2)], next: ENDS, doneMjs: 0 },
-  "after C, a finding left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, found: 1, prefix: "other" })], next: QUESTION, doneMjs: 1 },
-  "after C, no acceptance": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(2, { acceptance: undefined })], next: QUESTION, doneMjs: 1 },
-  "after C, acceptance refused": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, commits: CB.slice(0, 7) })], next: QUESTION, doneMjs: 1 },
-  "after C, Condition: holds again": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, condition: true, found: 1, prefix: "other" })], next: QUESTION, doneMjs: 1 },
+  "after C, a finding left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, found: 1, prefix: "other" })], next: GATE_OF(LEFT), doneMjs: 1 },
+  "after C, no acceptance": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(2, { acceptance: undefined })], next: GATE_OF(NO_ACCEPTANCE), doneMjs: 1 },
+  "after C, acceptance refused": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, commits: CB.slice(0, 7) })], next: GATE_OF(REFUSED), doneMjs: 1 },
+  "after C, Condition: holds again": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, condition: true, found: 1, prefix: "other" })], next: GATE_OF(LEFT), doneMjs: 1 },
 };
 
 test("[check.review-round.condition-branch] --task, --rounds, the check and done.mjs give each case of the condition confirmed alike", () => {
@@ -1735,6 +1742,9 @@ test("[check.review-round.condition-branch] --task, --rounds, the check and done
     assert.equal(r.next[0], r.next[1], `${name}: --task and --rounds disagree`);
     assert.match(r.next[0], h.next, `${name}: ${r.out}`);
     assert.equal(r.done, h.doneMjs, `${name}, done.mjs: ${r.doneOut}`);
+    // done.mjs records done after its command passed for real, or refuses with the same question.
+    if (h.doneMjs === 0) assert.match(r.doneOut, /^DONE t: 1 commands passed on [0-9a-f]{7}/, name);
+    else assert.match(r.doneOut, h.next, name);
     // The check finds the end of the step too: with no overspend there it reports nothing of the task.
     assert.doesNotMatch(r.out, /Overspend: is not the tool's/, name);
   }
@@ -1747,8 +1757,9 @@ test("[check.review-round.condition-gate] the gate after the round after C holds
   // A clean round of the statement approves W, a record of done of W and a clean acceptance of it.
   const approvedW = { step: "statement-review", number: 2, time: T(20), hash: W };
   const reviewer = readers({ rounds: [...failed, approvedW, { ...resultV(3), time: T(22), hash: W }], done: [{ time: T(21), hash: W, command: "true" }] });
-  for (const l of reviewer.next) assert.match(l, QUESTION, reviewer.out);
+  for (const l of reviewer.next) assert.match(l, GATE_OF(LEFT), reviewer.out);
   assert.equal(reviewer.done, 1, reviewer.doneOut);
+  assert.match(reviewer.doneOut, GATE_OF(LEFT));
   // The owner's approval of V closes it: work goes on.
   const owner = readers({ rounds: failed, approvals: [{ hash: V, time: T(20) }] });
   for (const l of owner.next) assert.doesNotMatch(l, /a question to the owner/, owner.out);

@@ -890,7 +890,7 @@
       ],
       "given": "a round that follows stagnation",
       "when": "a reviewer reads its rounds and the change",
-      "then": "the design of the solution was changed rather than patched, and the round was full"
+      "then": "the design of the solution was changed rather than patched, and the round was the one `derived.next-round` names: full, or, after a round C of the condition confirmed that stagnated, the one narrow round"
     },
     {
       "id": "check.review-round.filed-right",
