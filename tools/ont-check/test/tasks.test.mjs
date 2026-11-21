@@ -962,7 +962,7 @@ test("[check.review-round.result-names-version] a round of the result of another
     const label = `${kind} at ${time}${approvals.length ? " with a later approval" : ""}`;
     assert.equal(r.status, 1, `${label}: ${r.stdout}`);
     assert.equal(nextLines(r).join("\n"), "NEXT t: correct the records that cannot be read first: the one next action (r9.md)", label);
-    assert.match(r.stdout + r.stderr, kind === "blank" ? /r9\.md: statement hash is blank/ : /r9\.md: no line Statement-hash: on a round of the review of the result at or after reviewRounds\.gatesFrom/, label);
+    assert.match(r.stdout + r.stderr, kind === "blank" ? /r9\.md: statement hash is blank/ : /r9\.md: no line Statement-hash: on a round at or after reviewRounds\.gatesFrom/, label);
     rmSync(sc.dir, { recursive: true, force: true });
   }
   // Before gatesFrom the omission reads as it did.
@@ -1084,7 +1084,7 @@ test("[check.task-result.done-recorded] done.mjs records done only under an appr
     assert.match(bad.stdout, /no record of done written: 1 of 1 commands of done failed/);
     const unapproved = done(loose);
     assert.equal(unapproved.status, 1);
-    assert.match(unapproved.stdout, /the approval in force is for version/);
+    assert.match(unapproved.stdout, /the task's next action is not work on the result: the statement changed after its approval/);
     assert.equal(readdirSync(join(repo, "tasks")).length, 1);
     // A statement whose budget line the tool cannot read is refused, under an approval in force, and no
     // record is written with the reserve as none (D-150).
@@ -1542,7 +1542,7 @@ test("[check.task-statement.gates-from] a round of the result at gatesFrom that 
     writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "result-review", number: 1, time: T(12), hash: readStatement(join(outside, "s.md")).hash, found: 1 }));
     const r = done("t");
     assert.equal(r.status, 1, r.stdout);
-    assert.match(r.stdout, /no record of done written: no approval is in force for the statement/);
+    assert.match(r.stdout, /no record of done written: the task's next action is not work on the result: it needs a review of the statement/);
     assert.doesNotMatch(r.stdout, /round of the review of the result/);
   } finally {
     clean();
@@ -1590,4 +1590,54 @@ test("[check.task-statement.gates-from] before gatesFrom, an approval withdrawn 
   assert.equal(next.say, stepNext({ rounds: sc.rounds, task: "t", step: "statement-review", gatesFrom: T(11) }).say);
   for (const out of outs) assert.deepEqual(nextLines({ stdout: out }), [`NEXT t: ${next.say}`]);
   rmSync(sc.dir, { recursive: true, force: true });
+});
+
+// done.mjs, --task and --rounds in one repository of doneRepo: the NEXT lines of the two views, by the
+// reader and the function the two commands use (readTaskInputs, taskState), and the refusal of done.mjs
+// (D-152).
+const threeViews = (repo, outside, done) => {
+  const cfg = loadConfig(join(repo, "ont.config.json"));
+  const { rounds, malformed, records } = readTaskInputs(cfg);
+  const view = (statement, needFile) =>
+    taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: "t", defaults: cfg.budget, statement, malformed, gatesFrom: cfg.reviewRounds.gatesFrom ?? null, needFile }).lines.filter((l) => l.startsWith("NEXT t:"));
+  return { task: view(readStatement(join(outside, "s.md")), true), rounds: view(null, false), done: done("t") };
+};
+
+test("[check.review-round.result-names-version] a clean round of the statement with no Statement-hash: at or after gatesFrom cannot be read: --task, --rounds and done.mjs ask to correct it", () => {
+  const { repo, outside, done, clean } = doneRepo("t");
+  try {
+    const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+    writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, reviewRounds: { dir: "rounds", gatesFrom: T(8) } }));
+    writeFileSync(join(repo, "rounds", "1.md"), roundText({ task: "t", step: "statement-review", number: 1, time: T(9) }));
+    const v = threeViews(repo, outside, done);
+    assert.deepEqual(v.task, ["NEXT t: correct the records that cannot be read first: the one next action (1.md)"]);
+    assert.deepEqual(v.rounds, v.task);
+    assert.equal(v.done.status, 1, v.done.stdout);
+    assert.match(v.done.stdout, /no record of done written: correct the records that cannot be read first: the one next action \(1\.md\): 1\.md: no line Statement-hash: on a round at or after reviewRounds\.gatesFrom/);
+  } finally {
+    clean();
+  }
+});
+
+test("[check.task-statement.budget-one-action] with no approval in force, done.mjs refuses with the action --task and --rounds give: the budget question at the cap, the gate when one is open", () => {
+  for (const [kind, extra, want] of [
+    ["cap", { found: 1 }, /the budget is exhausted: a question to the owner/],
+    ["gate", { found: 1, fix: "not fixable" }, /a question to the owner: a finding cannot be fixed/],
+  ]) {
+    const { repo, outside, done, clean } = doneRepo("t");
+    try {
+      const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+      writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, ...(kind === "cap" ? { budget: { newInput: 1000, output: 1000 } } : {}) }));
+      writeFileSync(join(repo, "rounds", "1.md"), roundText({ task: "t", step: "statement-review", number: 1, time: T(9), hash: readStatement(join(outside, "s.md")).hash, ...extra }));
+      if (kind === "cap") writeFileSync(join(repo, "tasks", "s.md"), spendText({ start: T(9, 30), end: T(9, 40), tokens: [1000, 0, 0] }));
+      const v = threeViews(repo, outside, done);
+      assert.equal(v.task.length, 1, kind);
+      assert.match(v.task[0], want, kind);
+      assert.deepEqual(v.rounds, v.task, kind);
+      assert.equal(v.done.status, 1, v.done.stdout);
+      assert.equal(v.done.stdout.trim(), `ERROR · no record of done written: the task's next action is not work on the result: ${v.task[0].slice("NEXT t: ".length)}`, kind);
+    } finally {
+      clean();
+    }
+  }
 });

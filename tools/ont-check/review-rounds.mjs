@@ -169,10 +169,11 @@ export function parseRounds(dir, opts = {}) {
       // A blank line Statement-hash: names no version: a round so written would drop out of the review
       // of its version unseen (D-152).
       rec.pairs.some(([k, v]) => k === "statement-hash" && v.trim() === "") && "statement hash is blank: name the version of the statement the round read",
-      // A round of the result at or after opts.hashFrom, the configuration's reviewRounds.gatesFrom ("" for
-      // every round without the key), names its version, by the record alone, so that no approval before
-      // or after it and no other task hides the omission; an older round reads as it did (D-152).
-      opts.hashFrom !== undefined && fields.step === "result-review" && !rec.pairs.some(([k]) => k === "statement-hash") && realTime(fields.time) && !isLegacy(fields, opts.hashFrom) && "no line Statement-hash: on a round of the review of the result at or after reviewRounds.gatesFrom: name the version of the statement it read",
+      // A round of either step at or after opts.hashFrom, the configuration's reviewRounds.gatesFrom (""
+      // for every round without the key), names its version, by the record alone, so that no approval
+      // before or after it and no other task hides the omission, and a task none of whose records names a
+      // version is one whose records are all legacy; an older round reads as it did (D-152).
+      opts.hashFrom !== undefined && !rec.pairs.some(([k]) => k === "statement-hash") && realTime(fields.time) && !isLegacy(fields, opts.hashFrom) && "no line Statement-hash: on a round at or after reviewRounds.gatesFrom: name the version of the statement it read",
       acceptance && fields.step !== "result-review" && "an acceptance on a review that is not of the result",
       acceptance && !(acceptance.value === "clean" || (acceptance.value === "" && acceptance.findings.length)) && "an acceptance that is neither clean nor a list of findings",
       !fields.by && "no author",

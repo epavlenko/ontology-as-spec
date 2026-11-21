@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadConfig } from "./lib.mjs";
-import { TASK_NAME, blockedSay } from "./review-rounds.mjs";
+import { TASK_NAME } from "./review-rounds.mjs";
 import { approvedHash, budgetLines, gitEnv, readStatement, readTaskInputs, runAtCommit, taskNext } from "./tasks.mjs";
 
 const argv = process.argv.slice(2);
@@ -35,9 +35,16 @@ if (statement.wrong?.length) refuse(`the statement's ${statement.wrong.join("; "
 // that an approval it would have withdrawn is never taken for one in force (D-152).
 // Every record is read as the check reads it, by readTaskInputs, the commits records name resolved too.
 const { rounds, malformed, records } = readTaskInputs(cfg);
-if (malformed.length) refuse(`${blockedSay(malformed)}: ${malformed.join("; ")}`);
 // The owner's approvals count as the check counts them (D-121).
 const { approvals } = records;
+// The task's one next action, as --task gives it (derived.task-next, D-152), asked for new work, before
+// any refusal of done.mjs's own, so that it refuses with the action --task and --rounds give: an
+// unreadable record, a spent budget, an open gate, a statement under review or changed. Done is recorded
+// only when it is a step of the work on the result; a task done already does not stand for new work.
+const next = taskNext({ rounds, spend: records.spend, done: records.done, approvals, task, defaults: cfg.budget, statement, malformed, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, forWork: true });
+if (next.branch === "unreadable record") refuse(`${next.say}: ${malformed.join("; ")}`);
+if (next.branch !== "step") refuse(`the task's next action is not work on the result: ${next.say}`);
+// A safety net after the action: done is recorded only under an approval in force for the file's version.
 const approved = approvedHash(rounds, task, null, approvals);
 if (approved !== statement.hash)
   refuse(
@@ -45,11 +52,6 @@ if (approved !== statement.hash)
       ? `the approval in force is for version ${approved.slice(0, 12)}, the file is ${statement.hash.slice(0, 12)}`
       : "no approval is in force for the statement: its last round of review is not clean or names no version, and no approval of the owner follows it",
   );
-// The task's one next action, as --task gives it (derived.task-next, D-152), asked for new work: done is
-// recorded only when it is a step of the work on the result. A task done already does not stand for new
-// work, so a spent budget, an open gate or a statement that is not the approved version refuse it.
-const next = taskNext({ rounds, spend: records.spend, done: records.done, approvals, task, defaults: cfg.budget, statement, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, forWork: true });
-if (next.branch !== "step") refuse(`the task's next action is not work on the result: ${next.say}`);
 const git = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() });
 const top = git("rev-parse", "--show-toplevel").stdout.trim();
 const commit = git("rev-parse", "--verify", `${value("--commit") ?? "HEAD"}^{commit}`).stdout.trim();
