@@ -24,6 +24,7 @@
     "concept.oracle",
     "concept.product-layer",
     "derived.approval",
+    "derived.budget-report",
     "derived.current-run",
     "derived.deferral-in-force",
     "derived.gap",
@@ -44,6 +45,7 @@
     "derived.surviving-mutation",
     "derived.target",
     "derived.task-budget",
+    "derived.task-next",
     "derived.to-reread",
     "derived.tree-stale",
     "derived.waiting-for-owner",
@@ -171,7 +173,6 @@
     "field.protocol-release.version",
     "field.review-round.acceptance",
     "field.review-round.by",
-    "field.review-round.ceiling",
     "field.review-round.checks-carried",
     "field.review-round.checks-given",
     "field.review-round.checks-listed",
@@ -200,7 +201,6 @@
     "field.task-spend.tokens-new",
     "field.task-spend.tokens-out",
     "field.task-statement.budget",
-    "field.task-statement.ceilings",
     "field.task-statement.done-when",
     "field.task-statement.file",
     "field.task-statement.not-todo",
@@ -325,6 +325,7 @@
     "rule.departure-by-entry",
     "rule.divergence-becomes-work",
     "rule.divergence-contradicts",
+    "rule.findings-filed",
     "rule.findings-mislead",
     "rule.form-follows-rows",
     "rule.guard-from-acceptance",
@@ -355,7 +356,6 @@
     "rule.records-english-in-repo",
     "rule.reread-then-stamp",
     "rule.reviewed-before-merge",
-    "rule.round-ceilings",
     "rule.round-recorded",
     "rule.rounds-converge",
     "rule.run-recorded",
@@ -387,7 +387,11 @@
     "rule.work-under-approval"
   ],
   "retired": {
+    "check.review-round.ceilings-set": null,
     "field.map-row.does-not-do": null,
+    "field.review-round.ceiling": "rule.rounds-converge",
+    "field.task-statement.ceilings": "rule.rounds-converge",
+    "rule.round-ceilings": "rule.rounds-converge",
     "rule.target-not-tuning": "rule.number-by-role"
   },
   "manualChecks": [
@@ -867,16 +871,6 @@
       "then": "the report says where else the same class of problem was looked for"
     },
     {
-      "id": "check.review-round.ceilings-set",
-      "section": "Review round",
-      "concepts": [
-        "rule.round-ceilings"
-      ],
-      "given": "a task whose result is reviewed",
-      "when": "a reviewer reads its statement",
-      "then": "it names a ceiling for the review of the statement and one for the review of the result"
-    },
-    {
       "id": "check.review-round.ready-after-clean",
       "section": "Review round",
       "concepts": [
@@ -885,6 +879,26 @@
       "given": "a change about to be merged",
       "when": "a reviewer reads its rounds",
       "then": "its last round of the review of the result is clean, and the merge is one the owner's policy allows"
+    },
+    {
+      "id": "check.review-round.redesign-after-stagnation",
+      "section": "Review round",
+      "concepts": [
+        "rule.rounds-converge"
+      ],
+      "given": "a round that follows stagnation",
+      "when": "a reviewer reads its rounds and the change",
+      "then": "the design of the solution was changed rather than patched, and the round was full"
+    },
+    {
+      "id": "check.review-round.filed-right",
+      "section": "Review round",
+      "concepts": [
+        "rule.findings-filed"
+      ],
+      "given": "a finding filed as `limitation` or `later`",
+      "when": "the reviewer of the same round reads the finding and its file, before a verdict that may end the step",
+      "then": "an unlikely case is in the limitations, a finding outside the approved statement in a ticket, and no item of the approved statement is filed"
     },
     {
       "id": "check.review-round.recorded",

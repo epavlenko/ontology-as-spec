@@ -40,6 +40,26 @@ The check confirms that the files named in the table exist and which of them nam
 
 A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at most two digits after the point, so the cap of a task's budget is exact. The configuration is JSON, and its parser rounds a long fraction to a number before the tool reads it, so a value that rounds to two digits passes the check. A record of done that `done.mjs` itself wrote before the rule, with a reserve of three digits such as `1.125`, is refused by the check even beside a later, correct one. If the approved statement still gives that reserve, correct the statement and have the corrected version approved first; then remove the old record, record done again, and give again in a new round the acceptance given for it. An `Overspend:` line in the earlier text is refused and written again. Each arises from a configuration edited by hand or a record the earlier tool wrote (D-150).
 
+<!-- ont: derived.approval@7ae7ed, derived.statement-state@749d42 -->
+### A later version of a statement is trusted to keep the owner's items
+
+A finding `not fixable` is a question to the owner, and only his record of approval of a new version answers it; a clean round of review cannot. When the author edits a statement for any other reason, a clean round of its review approves the new version. The tool compares versions by their hash only: it does not see whether a version approved by a round still holds every item the owner decided, with its source, nor whether an edit changed one of them, which would need his approval. The reviewer of the new version judges that, against the owner's words (D-152).
+
+<!-- ont: rule.rounds-converge@8fd85a, derived.next-round@c3332c -->
+### The tool does not see whether the design changed after stagnation
+
+When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and a full round follows. The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both, and a repeated class in it is stagnation again (D-152).
+
+<!-- ont: rule.findings-filed@f29b6d -->
+### A filed finding is trusted to belong where it is filed
+
+The tool checks that a finding filed as `limitation` or `later` names `docs/limitations.md` or a file under `issues/` that holds its class word for word, and refuses it in a verdict of acceptance. It does not see whether the case is unlikely, whether the finding is outside the approved statement, or whether the text there says what the finding means. The reviewer of the same round judges that before a verdict that may end the step (D-152).
+
+<!-- ont: derived.budget-report@63246a -->
+### The tool prints the marks of the budget, not that they were sent
+
+`--task` prints a line `REPORT` with the marks of half the limit and the limit that the spend has passed, each run it is given. It keeps no record of which marks were reported: the executor sends the owner one report with every mark not yet reported, and the tool does not see that it was sent, nor stops when it was not (D-152).
+
 <!-- ont: rule.records-english-in-repo@6e97a3 -->
 ### Records refuse a path strictly
 

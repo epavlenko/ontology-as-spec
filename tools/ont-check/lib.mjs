@@ -112,7 +112,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "records.latinOnly", "reviewRounds.dir", "taskRecords.dir", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "records.latinOnly", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
@@ -220,7 +220,16 @@ export function loadConfig(configPath, text) {
     records: { latinOnly: raw.records?.latinOnly === true },
     manualRuns: raw.manualRuns && { dir: at(raw.manualRuns.dir), require: raw.manualRuns.require === true },
     // Records of the rounds of review, one file per round (D-99).
-    reviewRounds: raw.reviewRounds && { dir: at(raw.reviewRounds.dir) },
+    // gatesFrom: the UTC time from which a round's finding `not fixable` carries the meaning of D-152.
+    reviewRounds: raw.reviewRounds && {
+      dir: at(raw.reviewRounds.dir),
+      gatesFrom: (() => {
+        const t = raw.reviewRounds.gatesFrom ?? null;
+        const real = typeof t === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(t) && new Date(t).toISOString().replace(".000Z", "Z") === t;
+        if (t !== null && !real) throw new Error(`reviewRounds.gatesFrom ${JSON.stringify(t)} is not a UTC time to the second, such as 2026-11-21T09:35:15Z (D-152)`);
+        return t;
+      })(),
+    },
     // Records of a task's done and of the executor's spend, one file each (D-107, D-108).
     taskRecords: raw.taskRecords && { dir: at(raw.taskRecords.dir) },
     // The approach's own releases (D-109): the file of their entries, in the approach's repository only.

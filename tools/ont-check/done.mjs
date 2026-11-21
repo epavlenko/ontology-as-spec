@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The executor's record of done (D-107): runs the commands of done of the task's statement on the
+// The executor's record of done (D-152): runs the commands of done of the task's statement on the
 // commit, in a temporary worktree, and writes the record only under an approval in force for the
 // statement's version and when every command passed.
 //   node tools/ont-check/done.mjs <task> --statement FILE [--config ont.config.json] [--commit REF]
@@ -9,8 +9,8 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadConfig } from "./lib.mjs";
-import { TASK_NAME, parseRounds } from "./review-rounds.mjs";
-import { approvedHash, budgetLines, gitEnv, parseTaskRecords, readStatement, runAtCommit } from "./tasks.mjs";
+import { TASK_NAME } from "./review-rounds.mjs";
+import { approvedHash, budgetLines, gitEnv, readStatement, readTaskInputs, runAtCommit, taskNext } from "./tasks.mjs";
 
 const argv = process.argv.slice(2);
 const value = (flag) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
@@ -27,13 +27,25 @@ if (!cfg.reviewRounds || !cfg.taskRecords) refuse("the configuration names no re
 const file = value("--statement");
 if (!file) refuse("give the statement with --statement FILE");
 const statement = readStatement(file);
-if (!statement.doneWhen.length) refuse("the statement has no line Done-when: with a command of done");
-// A record of done carries the statement's budget; a line of it the tool cannot read is refused, never
-// written as none (D-150).
-if (statement.wrong?.length) refuse(`the statement's ${statement.wrong.join("; ")}`);
-const { rounds } = parseRounds(cfg.reviewRounds.dir);
+// The records of rounds are read as the check reads them; one that cannot be read blocks every task, so
+// that an approval it would have withdrawn is never taken for one in force (D-152).
+// Every record is read as the check reads it, by readTaskInputs, the commits records name resolved too.
+const { rounds, malformed, records } = readTaskInputs(cfg);
 // The owner's approvals count as the check counts them (D-121).
-const { approvals } = parseTaskRecords(cfg.taskRecords.dir);
+const { approvals } = records;
+// The task's one next action, as --task gives it (derived.task-next, D-152), asked for new work, before
+// any refusal of done.mjs's own, so that it refuses with the action --task and --rounds give: an
+// unreadable record, a spent budget, an open gate, a statement under review or changed. Done is recorded
+// only when it is a step of the work on the result; a task done already does not stand for new work.
+const next = taskNext({ rounds, spend: records.spend, done: records.done, approvals, task, defaults: cfg.budget, statement, malformed, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, forWork: true });
+// Done is recorded only on an action of kind work, never by the name of a branch (D-152).
+if (next.kind === "correct" && malformed.length) refuse(`${next.say}: ${malformed.join("; ")}`);
+if (next.kind !== "work") refuse(`the task's next action is not work on the result: ${next.say}`);
+// Safety nets after the action, which refuses both first: a statement with no command of done, and a
+// line of its budget the tool cannot read, which a record of done never writes as none (D-150).
+if (!statement.doneWhen.length) refuse("the statement has no line Done-when: with a command of done");
+if (statement.wrong?.length) refuse(`the statement's ${statement.wrong.join("; ")}`);
+// A safety net after the action: done is recorded only under an approval in force for the file's version.
 const approved = approvedHash(rounds, task, null, approvals);
 if (approved !== statement.hash)
   refuse(
