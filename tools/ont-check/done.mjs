@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The executor's record of done (D-107): runs the commands of done of the task's statement on the
+// The executor's record of done (D-152): runs the commands of done of the task's statement on the
 // commit, in a temporary worktree, and writes the record only under an approval in force for the
 // statement's version and when every command passed.
 //   node tools/ont-check/done.mjs <task> --statement FILE [--config ont.config.json] [--commit REF]
@@ -9,8 +9,8 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadConfig } from "./lib.mjs";
-import { TASK_NAME, parseRounds } from "./review-rounds.mjs";
-import { approvedHash, budgetLines, gitEnv, parseTaskRecords, readStatement, runAtCommit } from "./tasks.mjs";
+import { TASK_NAME, blockedSay } from "./review-rounds.mjs";
+import { approvedHash, budgetLines, gitEnv, parseTaskRecords, readRoundRecords, readStatement, runAtCommit } from "./tasks.mjs";
 
 const argv = process.argv.slice(2);
 const value = (flag) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
@@ -31,7 +31,10 @@ if (!statement.doneWhen.length) refuse("the statement has no line Done-when: wit
 // A record of done carries the statement's budget; a line of it the tool cannot read is refused, never
 // written as none (D-150).
 if (statement.wrong?.length) refuse(`the statement's ${statement.wrong.join("; ")}`);
-const { rounds } = parseRounds(cfg.reviewRounds.dir);
+// The records of rounds are read as the check reads them; one that cannot be read blocks every task, so
+// that an approval it would have withdrawn is never taken for one in force (D-152).
+const { rounds, malformed } = readRoundRecords(cfg);
+if (malformed.length) refuse(`${blockedSay(malformed)}: ${malformed.join("; ")}`);
 // The owner's approvals count as the check counts them (D-121).
 const { approvals } = parseTaskRecords(cfg.taskRecords.dir);
 const approved = approvedHash(rounds, task, null, approvals);

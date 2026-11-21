@@ -47,8 +47,8 @@ import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contrac
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
-import { byTime, parseRounds, renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, gitEnv, overlaps, overspendProblems, parseTaskRecords, readStatement, resolveRecords, stepNext, taskBudget, taskState } from "./tasks.mjs";
+import { byTime, renderRounds } from "./review-rounds.mjs";
+import { acceptanceProblems, gitEnv, overlaps, overspendProblems, parseTaskRecords, readRoundRecords, readStatement, resolveRecords, stepNext, taskBudget, taskState } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1266,7 +1266,8 @@ if (flag("--next") > 0) {
 // ont: inv.manual-checks-run, inv.manual-runs-well-formed, derived.current-run
 const stampFor = (c) => runStamp(c, ONT, rows, checkById, notes);
 if (cfg.manualRuns) {
-  const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
+  // A run of a check the Retired IDs table retires is read as history and is never current (D-152).
+  const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
   const { runs, malformed, ambiguous } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
   report("manual run records that cannot be read", malformed);
   // ont: inv.named-commits-resolve
@@ -1312,7 +1313,7 @@ if (flag("--review") > 0) {
       fail("--record needs the reviewer's table of verdicts, a file", 2);
     }
     const listed = new Map([...r.project, ...r.approach].map((c) => [c.id, c]));
-    const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id)]);
+    const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
     const { runs } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
     const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--short", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout.trim();
     const dirty = spawnSync("git", ["-C", cfg.base, "status", "--porcelain", "--", ".", `:!${relative(cfg.base, cfg.manualRuns.dir)}`], { encoding: "utf8", env: gitEnv() }).stdout.trim();
@@ -1340,10 +1341,12 @@ if (flag("--review") > 0) {
 // Flags that only another flag gives a meaning to (D-129).
 if (flag("--record") > 0 && !(flag("--review") > 0)) fail("--record needs --review <base>: the change whose verdicts it records");
 if (flag("--statement") > 0 && !(flag("--task") > 0)) fail("--statement needs --task <task>: the task whose statement it is");
-// --rounds: what follows the last round of each task's review, and the payoff of each step (D-97, D-99).
-// ont: derived.next-round, derived.step-payoff, inv.review-rounds-well-formed
+// --rounds: what follows the last round of each task's review, and the payoff of each step (D-99, D-152).
+// The records are read by the one function --task and done.mjs use; one that cannot be read blocks
+// every task (D-152).
+// ont: derived.next-round, derived.step-payoff, inv.review-rounds-well-formed, rule.findings-filed
 if (cfg.reviewRounds) {
-  const { rounds: parsedRounds, malformed } = parseRounds(cfg.reviewRounds.dir, { latinOnly: cfg.records.latinOnly });
+  const { rounds: parsedRounds, malformed, top: projectTop } = readRoundRecords(cfg);
   report("review round records that cannot be read", malformed);
   // Records of done and of spend (D-107, D-108): a contribution recorded twice over one interval, and a
   // verdict of acceptance with no record of done behind it, are errors.
@@ -1356,7 +1359,6 @@ if (cfg.reviewRounds) {
   // the rounds resolveRecords gives, which carry their missing commits, so the round that would end a
   // task is refused for one in the check, --task and --rounds alike (D-148).
   // ont: inv.named-commits-resolve
-  const projectTop = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
   const resolved = resolveRecords(projectTop, { done: parsed.done, rounds: parsedRounds, approvals: parsed.approvals });
   const { rounds } = resolved;
   const records = { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] };
@@ -1381,18 +1383,18 @@ if (cfg.reviewRounds) {
   // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
   if (flag("--rounds") > 0) {
     const exhaustedOf = (t) => Boolean(taskBudget({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null })?.exhausted);
-    console.log(renderRounds(rounds, { exhaustedOf, nextOf: (t, step) => stepNext({ rounds, done: records.done, approvals: records.approvals, task: t, step, exhausted: exhaustedOf(t) }) }));
+    console.log(renderRounds(rounds, { malformed, exhaustedOf, nextOf: (t, step) => stepNext({ rounds, done: records.done, approvals: records.approvals, task: t, step, exhausted: exhaustedOf(t) }) }));
   }
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
-  // budget (D-106, D-108).
-  // ont: derived.statement-state, derived.task-budget, rule.budget-before-next
+  // budget (D-152, D-108), with the marks of the budget it has passed.
+  // ont: derived.statement-state, derived.task-budget, derived.budget-report, rule.budget-before-next
   if (flag("--task") > 0) {
     const task = process.argv[flag("--task") + 1];
     const file = flag("--statement") > 0 ? process.argv[flag("--statement") + 1] : null;
     if (!task || task.startsWith("--") || (flag("--statement") > 0 && (!file || !existsSync(file)))) {
       fail("--task needs a task, and --statement an existing file", 2);
     }
-    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement: file ? readStatement(file) : null });
+    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement: file ? readStatement(file) : null, malformed });
     console.log(st.lines.join("\n"));
     report("task records that do not say what --task found", st.errors);
   }

@@ -1,4 +1,4 @@
-// A task's statement and its approval (D-106), acceptance after done (D-107) and the task's budget (D-108).
+// A task's statement and its approval, acceptance after done (D-152) and the task's budget (D-108).
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -25,16 +25,15 @@ after(() => rmSync(REPO, { recursive: true, force: true }));
 const inRepo = (...a) => spawnSync("git", ["-C", REPO, ...a], { encoding: "utf8", env: GIT_ENV }).stdout.trim();
 inRepo("init", "-q", "-b", "main");
 const [CB, CA, CC] = ["b", "a", "c"].map((m) => (inRepo("commit", "-q", "--allow-empty", "-m", m), inRepo("rev-parse", "HEAD")));
-const finding = (i, test = "t.test.mjs") => `- class ${i} · important · change · fixable${test ? ` · ${test}` : ""}`;
+const finding = (i, test = "t.test.mjs", prefix = "class", fix = "fixable") => `- ${prefix} ${i} · important · change · ${fix}${test ? ` · ${test}` : ""}`;
 
 // A record of a round: its fields, then its findings, then its verdict of acceptance.
-const roundText = ({ task = "t", step = "statement-review", number = 1, narrow, ceiling, start, time, hash, found = 0, tokens, contribution, acceptance, overspend, untested, commits }) =>
+const roundText = ({ task = "t", step = "statement-review", number = 1, narrow, prefix = "class", fix = "fixable", start, time, hash, found = 0, tokens, contribution, acceptance, overspend, untested, commits }) =>
   [
     `Task: ${task}`,
     `Step: ${step}`,
     ...(narrow ? ["Narrow: true"] : []),
     `Number: ${number}`,
-    ...(ceiling ? [`Ceiling: ${ceiling}`] : []),
     ...(start ? [`Start: ${start}`] : []),
     `Time: ${time}`,
     `By: a model (a provider)`,
@@ -43,7 +42,7 @@ const roundText = ({ task = "t", step = "statement-review", number = 1, narrow, 
     ...(hash ? [`Statement-hash: ${hash}`] : []),
     ...(tokens ? [`Tokens-new: ${tokens[0]}`, `Tokens-cached: ${tokens[1]}`, `Tokens-out: ${tokens[2]}`] : []),
     ...(overspend ? [`Overspend: ${overspend}`] : []),
-    ...(found ? ["Findings:", ...Array.from({ length: found }, (_, i) => finding(i, untested ? null : "t.test.mjs"))] : []),
+    ...(found ? ["Findings:", ...Array.from({ length: found }, (_, i) => finding(i, untested || fix !== "fixable" ? null : "t.test.mjs", prefix, fix))] : []),
     ...(acceptance === undefined ? [] : acceptance === "clean" ? ["Acceptance: clean"] : ["Acceptance:", ...acceptance]),
     "",
   ].join("\n");
@@ -70,7 +69,7 @@ function scenario({ rounds = [], spend = [], done = [], approvals = [] }) {
 const state = (sc, { statement = null, defaults = { newInput: null, output: null, reserve: null } } = {}) =>
   taskState({ rounds: sc.rounds, spend: sc.records.spend, done: sc.records.done, approvals: sc.records.approvals, task: "t", defaults, statement }).lines.join("\n");
 const fileOf = (hash) => ({ hash, doneWhen: ["npm test"], budget: { newInput: null, output: null } });
-const approvedA = { step: "statement-review", number: 1, ceiling: 2, time: T(9), hash: A };
+const approvedA = { step: "statement-review", number: 1, time: T(9), hash: A };
 
 test("[check.task-statement.needs-review] a task with no round of the review of its statement needs one", () => {
   assert.match(state(scenario({})), /statement: it needs a review of the statement/);
@@ -78,22 +77,30 @@ test("[check.task-statement.needs-review] a task with no round of the review of 
 
 test("[check.task-statement.findings-next] after a round of the statement with findings, the next round is what derived.next-round says", () => {
   const sc = scenario({ rounds: [{ ...approvedA, found: 2 }] });
-  assert.match(state(sc, { statement: fileOf(A) }), /statement: round 2, within the ceiling of 2/);
+  assert.match(state(sc, { statement: fileOf(A) }), /statement: narrow round 1, on the fixes of the last round/);
 });
 
-test("[check.task-statement.changed-after-approval] a statement edited after a clean round needs a full round of the new version, within the ceiling", () => {
+test("[check.task-statement.changed-after-approval] a statement edited after a clean round needs a full round of the new version with the next free number, after any number of rounds", () => {
   const sc = scenario({ rounds: [approvedA] });
   const out = state(sc, { statement: fileOf(B) });
-  assert.match(out, /statement: the statement changed after its approval: next is full round 2 of the new version, within the ceiling of 2/);
+  assert.match(out, /statement: the statement changed after its approval: next is full round 2 of the new version\n/);
   assert.match(out, /result: work is not allowed/);
+  // Eight full rounds and four narrow ones, the last clean: full round 9, never a question.
+  const many = [
+    ...Array.from({ length: 8 }, (_, i) => ({ step: "statement-review", number: i + 1, time: T(1 + i), hash: A, found: 10 - i })),
+    ...Array.from({ length: 4 }, (_, i) => ({ step: "statement-review", number: i + 1, narrow: true, time: T(10 + i), hash: A, found: i === 3 ? 0 : 1 })),
+  ];
+  const after = state(scenario({ rounds: many }), { statement: fileOf(B) });
+  assert.match(after, /statement: the statement changed after its approval: next is full round 9 of the new version/);
+  assert.doesNotMatch(after, /question/);
 });
 
 test("[check.task-statement.later-version-findings] a full round of version B with findings after a clean narrow round of A: no work, no acceptance for A, the next round from B", () => {
   const rounds = [
-    { step: "statement-review", number: 1, ceiling: 1, time: T(9), hash: A, found: 2 },
+    { step: "statement-review", number: 1, time: T(9), hash: A, found: 2 },
     { step: "statement-review", number: 1, narrow: true, time: T(10), hash: A },
     { step: "statement-review", number: 2, time: T(11), hash: B, found: 2 },
-    { step: "result-review", number: 1, ceiling: 2, time: T(13), hash: A, acceptance: "clean" },
+    { step: "result-review", number: 1, time: T(13), hash: A, acceptance: "clean" },
   ];
   const sc = scenario({ rounds, done: [{ hash: A, time: T(12) }] });
   const out = state(sc, { statement: fileOf(B) });
@@ -103,11 +110,6 @@ test("[check.task-statement.later-version-findings] a full round of version B wi
   assert.deepEqual(acceptanceProblems(sc.rounds, sc.records.done), ["r3.md: acceptance of t refused: the record of done d0.md was made with no approval in force for its version of the statement"]);
   // Ordered full rounds first, the clean narrow round would have ended the step: by time it does not.
   assert.notEqual(nextRound(sc.rounds.filter((r) => r.step === "statement-review")).next, "clean");
-});
-
-test("[check.task-statement.changed-after-six] a statement edited after six full rounds is a question to the owner", () => {
-  const rounds = [5, 4, 3, 2, 1, 0].map((found, i) => ({ step: "statement-review", number: i + 1, ceiling: i ? undefined : 1, time: T(9 + i), hash: A, found }));
-  assert.match(state(scenario({ rounds }), { statement: fileOf(B) }), /statement: the statement changed after 6 full rounds: a question to the owner/);
 });
 
 test("[check.task-statement.approved] a clean round of the version in the file lets work start", () => {
@@ -122,20 +124,22 @@ test("[check.review-round.by-time] the last round by time decides the step, not 
   const rounds = parseRounds(
     scenario({
       rounds: [
-        { step: "statement-review", number: 1, ceiling: 3, time: T(9), hash: A, found: 1 },
+        { step: "statement-review", number: 1, time: T(9), hash: A, found: 1 },
         { step: "statement-review", number: 1, narrow: true, time: T(10), hash: A },
         { step: "statement-review", number: 2, time: T(11), hash: B, found: 2 },
       ],
     }).dir + "/rounds",
   ).rounds;
+  // The clean narrow round of A ended the step; the full round of B is the first after it, its finding
+  // tested: narrow round 2, the next free number.
   const n = nextRound(rounds);
-  assert.equal(n.next, "full");
-  assert.match(n.say, /round 3, within the ceiling of 3/);
+  assert.equal(n.next, "narrow");
+  assert.equal(n.number, 2);
 });
 
-test("[check.review-round.numbers-go-on] a next narrow round takes the next free number, and three narrow rounds count over the step", () => {
+test("[check.review-round.numbers-go-on] a next narrow round takes the next free number over every narrow round of the step", () => {
   const base = [
-    { step: "statement-review", number: 1, ceiling: 2, time: T(8), hash: A, found: 3 },
+    { step: "statement-review", number: 1, time: T(8), hash: A, found: 3 },
     { step: "statement-review", number: 2, time: T(9), hash: A, found: 3 },
     { step: "statement-review", number: 1, narrow: true, time: T(10), hash: A, found: 2 },
     { step: "statement-review", number: 2, narrow: true, time: T(11), hash: A },
@@ -145,10 +149,9 @@ test("[check.review-round.numbers-go-on] a next narrow round takes the next free
   assert.equal(n.next, "narrow");
   assert.equal(n.number, 3);
   assert.match(n.say, /narrow round 3/);
-  // Narrow round 3 of B with fewer findings: no fourth narrow round.
-  const more = nextRound(scenario({ rounds: [...base, { step: "statement-review", number: 3, narrow: true, time: T(13), hash: B, found: 2 }] }).rounds);
-  assert.equal(more.next, "question");
-  assert.match(more.say, /after 3 narrow rounds/);
+  // Narrow round 3 of B with fewer important classes of other names: narrow round 4, no ceiling of three.
+  const four = nextRound(scenario({ rounds: [...base, { step: "statement-review", number: 3, narrow: true, time: T(13), hash: B, found: 2, prefix: "other" }] }).rounds);
+  assert.deepEqual([four.next, four.number], ["narrow", 4]);
 });
 
 test("[check.review-round.contribution-needs-start] a contribution without a start, a start after the time, a contribution with no ID and an acceptance of a statement are refused", () => {
@@ -200,7 +203,7 @@ test("[check.task-statement.budget-silent] with no limit anywhere nothing is sai
 });
 
 // The commit a round of the result reviewed is the one the records of done name, "a" forty times.
-const finalRound = (extra = {}) => ({ step: "result-review", number: 1, ceiling: 2, time: T(12), hash: A, acceptance: "clean", commits: `${CB.slice(0, 7)}..${CA.slice(0, 7)}`, ...extra });
+const finalRound = (extra = {}) => ({ step: "result-review", number: 1, time: T(12), hash: A, acceptance: "clean", commits: `${CB.slice(0, 7)}..${CA.slice(0, 7)}`, ...extra });
 
 test("[check.task-statement.budget-final-exact] a clean final round that spends the budget exactly ends the task with no question and no overspend", () => {
   const sc = scenario({ rounds: [{ ...approvedA, tokens: [500, 0, 10] }, finalRound({ tokens: [500, 0, 10] })], done: [{ time: T(11) }] });
@@ -242,11 +245,11 @@ test("[check.task-statement.budget-executor-only] the executor's spend alone, wi
 test("[check.task-statement.budget-converging] rounds that converge give a question when the budget is exhausted", () => {
   const rounds = scenario({
     rounds: [
-      { step: "result-review", number: 1, ceiling: 1, time: T(9), found: 3 },
-      { step: "result-review", number: 2, time: T(10), found: 2 },
+      { step: "result-review", number: 1, time: T(9), found: 3 },
+      { step: "result-review", number: 2, time: T(10), found: 2, prefix: "other" },
     ],
   }).rounds;
-  assert.equal(nextRound(rounds).next, "full");
+  assert.equal(nextRound(rounds).next, "narrow");
   const n = nextRound(rounds, { exhausted: true });
   assert.equal(n.next, "budget");
   assert.match(n.say, /the budget is exhausted: a question to the owner/);
@@ -282,7 +285,7 @@ test("[check.task-result.acceptance-not-clean] a verdict of acceptance that find
     done: [{ time: T(11) }],
   });
   assert.deepEqual(acceptanceProblems(sc.rounds, sc.records.done), []);
-  assert.match(state(sc, { statement: fileOf(A) }), /result: round 2, within the ceiling of 2/);
+  assert.match(state(sc, { statement: fileOf(A) }), /result: narrow round 1, on the fixes of the last round/);
   // The same round with acceptance clean ends the task.
   const clean = scenario({ rounds: [approvedA, finalRound()], done: [{ time: T(11) }] });
   assert.match(state(clean, { statement: fileOf(A) }), /result: done/);
@@ -336,7 +339,7 @@ test("[check.task-result.acceptance-bound] an acceptance is refused for a done o
   // Done at 11 and accepted at 12, under a round of the statement with findings at 10; A approved only at 13.
   const late = scenario({
     rounds: [
-      { step: "statement-review", number: 1, ceiling: 2, time: T(10), hash: A, found: 1 },
+      { step: "statement-review", number: 1, time: T(10), hash: A, found: 1 },
       finalRound(),
       { step: "statement-review", number: 1, narrow: true, time: T(13), hash: A },
     ],
@@ -457,7 +460,7 @@ test("[check.task-spend.overlap-across-tasks] records of one session that overla
 });
 
 test("[check.task-statement.budget-one-action] after a round of the result with the budget spent, --task names one next action, the stop", () => {
-  const sc = scenario({ rounds: [{ ...approvedA, tokens: [600, 0, 10] }, { step: "result-review", number: 1, ceiling: 2, time: T(12), found: 1, tokens: [600, 0, 10] }] });
+  const sc = scenario({ rounds: [{ ...approvedA, tokens: [600, 0, 10] }, { step: "result-review", number: 1, time: T(12), found: 1, tokens: [600, 0, 10] }] });
   const out = state(sc, { statement: fileOf(A), defaults: limits(1000, 1000) });
   assert.match(out, /statement: approved, version [0-9a-f]{12}, but the budget is exhausted: a question to the owner; work may not go on/);
   assert.match(out, /result: the budget is exhausted: a question to the owner/);
@@ -465,7 +468,7 @@ test("[check.task-statement.budget-one-action] after a round of the result with 
   // Within the budget, the same rounds let work go on, and the next is round 2.
   const within = state(sc, { statement: fileOf(A), defaults: limits(10000, 10000) });
   assert.match(within, /statement: approved, version [0-9a-f]{12}: work may go on under it/);
-  assert.match(within, /result: round 2, within the ceiling of 2/);
+  assert.match(within, /result: narrow round 1, on the fixes of the last round/);
   rmSync(sc.dir, { recursive: true, force: true });
 });
 
@@ -488,6 +491,94 @@ test("[check.task-statement.budget-final-over] through the check, --task fails w
   assert.match(r.stdout, /TASK t · result: done, with an overspend/);
   assert.match(r.stdout, /task records that do not say what --task found \(1\)/);
   rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.question-alone] a finding not fixable makes the question the one next action, and the owner's approval of a new version lifts it", () => {
+  const rounds = [approvedA, { step: "result-review", number: 1, time: T(12), hash: A, found: 1, fix: "not fixable" }];
+  const out = state(scenario({ rounds }), { statement: fileOf(A) });
+  assert.match(out, /statement: approved, version [0-9a-f]{12}; the question to the owner on the result is the one next action/);
+  assert.match(out, /result: a question to the owner: a finding cannot be fixed without changing what the owner decided/);
+  assert.doesNotMatch(out, /work may|narrow round|full round|records done/);
+  // The owner answers with version B, approved: the question is lifted, and the next round of the
+  // result takes the next free number.
+  const sc = scenario({ rounds, approvals: [{ hash: B, time: T(13) }] });
+  const after = state(sc, { statement: fileOf(B) });
+  assert.match(after, /statement: approved by the owner \(a0\.md\), version [0-9a-f]{12}: work may go on under it/);
+  assert.match(after, /result: the owner approved a later version: work goes on under it, then full round 2/);
+  assert.doesNotMatch(after, /question/);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
+
+test("[check.task-statement.budget-report] REPORT names half from exactly half and limit from exactly the limit, for each kind apart, beside the next action", () => {
+  const spendOf = (tokens) => [{ start: T(10), end: T(11), tokens }];
+  const report = (tokens, rounds = [approvedA], extra = {}) => state(scenario({ rounds, spend: spendOf(tokens), ...extra }), { statement: fileOf(A), defaults: limits(1000, 100, 2) });
+  const line = (out) => out.split("\n").find((l) => l.startsWith("REPORT")) ?? null;
+  assert.equal(line(report([499, 0, 49])), null);
+  assert.match(line(report([500, 0, 49])), /^REPORT t: new input 500 of 1000: half; send the owner one report/);
+  assert.match(line(report([999, 0, 50])), /^REPORT t: new input 999 of 1000: half · output 50 of 100: half;/);
+  assert.match(line(report([1000, 0, 99])), /new input 1000 of 1000: half, limit · output 99 of 100: half;/);
+  assert.match(line(report([0, 0, 100])), /^REPORT t: output 100 of 100: half, limit;/);
+  // One contribution that passes both marks gives both, and work goes on.
+  const both = report([1500, 0, 0]);
+  assert.match(line(both), /new input 1500 of 1000: half, limit/);
+  assert.match(both, /work may start under it/);
+  // Past the reserve, with a round with findings: the question, and the marks beside it.
+  const past = report([2500, 0, 0], [approvedA, { step: "result-review", number: 1, time: T(12), hash: A, found: 1 }]);
+  assert.match(past, /result: the budget is exhausted: a question to the owner/);
+  assert.match(line(past), /half, limit/);
+  // A clean round of acceptance past the reserve: done, no question.
+  const doneOut = report([2500, 0, 0], [approvedA, finalRound()], { done: [{ time: T(11) }] });
+  assert.match(doneOut, /result: done, with an overspend/);
+  assert.doesNotMatch(doneOut, /question/);
+  assert.match(line(doneOut), /half, limit/);
+  // Records of one contribution that overlap: the question, and no REPORT.
+  const overlap = state(scenario({ rounds: [approvedA], spend: [...spendOf([600, 0, 0]), { start: T(10, 30), end: T(12), tokens: [600, 0, 0] }] }), { statement: fileOf(A), defaults: limits(1000, 100, 2) });
+  assert.match(overlap, /the spend cannot be summed/);
+  assert.match(overlap, /result: the budget is exhausted: a question to the owner/);
+  assert.equal(line(overlap), null);
+  // A line of the statement's budget the tool cannot read: the question, and no REPORT.
+  const unreadable = state(scenario({ rounds: [approvedA], spend: spendOf([1500, 0, 0]) }), { statement: { ...fileOf(A), wrong: ["Budget-reserve: 1,5 is not a number"] }, defaults: limits(1000, 100, 2) });
+  assert.match(unreadable, /cannot be read: a question to the owner/);
+  assert.equal(line(unreadable), null);
+});
+
+test("[check.review-round.malformed-blocks] a record of rounds that cannot be read blocks every task in --task, --rounds and done.mjs", () => {
+  // A later round of the statement with findings, in a letter outside the Latin script: dropped by the
+  // reader, it would leave the approval of the round before in force.
+  const sc = scenario({ rounds: [approvedA] });
+  const cyrillic = roundText({ step: "statement-review", number: 2, time: T(10), hash: A, found: 1 }).replace("class 0", "класс 0");
+  writeFileSync(join(sc.dir, "rounds", "r1.md"), cyrillic);
+  writeFileSync(join(sc.dir, "statement.md"), A_TEXT);
+  const latin = { records: { latinOnly: true } };
+  for (const args of [["--task", "t", "--statement", join(sc.dir, "statement.md")], ["--rounds"]]) {
+    const r = checkWith(sc, latin, args);
+    assert.equal(r.status, 1, r.stdout);
+    const lines = r.stdout.split("\n").filter((l) => /^(TASK|ROUNDS|BUDGET|REPORT)/.test(l));
+    assert.ok(lines.length > 0, r.stdout);
+    for (const l of lines) assert.match(l, /correct the records of rounds that cannot be read first: the one next action \(r1\.md\)/);
+    assert.doesNotMatch(r.stdout, /work may|approved/);
+  }
+  // A record with no task blocks every task too.
+  writeFileSync(join(sc.dir, "rounds", "r1.md"), roundText({ step: "statement-review", number: 2, time: T(10), hash: A, found: 1 }).replace("Task: t\n", ""));
+  const noTask = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "statement.md")]);
+  assert.match(noTask.stdout, /TASK t · next: correct the records of rounds that cannot be read first/);
+  assert.doesNotMatch(noTask.stdout, /work may/);
+  rmSync(sc.dir, { recursive: true, force: true });
+  // done.mjs refuses, by the same reader with the configuration's records.latinOnly.
+  const { repo, done, clean } = doneRepo("t");
+  try {
+    assert.equal(done("t").status, 0);
+    const cfg = JSON.parse(readFileSync(join(repo, "ont.config.json"), "utf8"));
+    writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ ...cfg, records: { latinOnly: true } }));
+    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "statement-review", number: 2, time: T(10), hash: sha256("x"), found: 1 }).replace("class 0", "класс 0"));
+    const r = done("t");
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(r.stdout, /no record of done written: correct the records of rounds that cannot be read first/);
+    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "statement-review", number: 2, time: T(10), hash: sha256("x") }).replace("Task: t\n", ""));
+    assert.match(done("t").stdout, /no record of done written: correct the records of rounds that cannot be read first/);
+  } finally {
+    clean();
+  }
 });
 
 // done.mjs in a repository of its own, the statement outside it.
@@ -518,7 +609,7 @@ test("[check.task-result.done-recorded] done.mjs records done only under an appr
     writeFileSync(fail, "# Another\n\nDone-when: test -f missing.txt\n");
     const loose = join(outside, "loose.md");
     writeFileSync(loose, "# Not reviewed\n\nDone-when: true\n");
-    const approve = (file, number, time) => writeFileSync(join(repo, "rounds", `${number}.md`), roundText({ task: "t", step: "statement-review", number, ceiling: number === 1 ? 2 : undefined, time, hash: readStatement(file).hash }));
+    const approve = (file, number, time) => writeFileSync(join(repo, "rounds", `${number}.md`), roundText({ task: "t", step: "statement-review", number, time, hash: readStatement(file).hash }));
     const done = (file) => spawnSync("node", [join(TOOLS, "done.mjs"), "t", "--statement", file, "--config", join(repo, "ont.config.json")], { encoding: "utf8" });
     approve(pass, 1, T(9));
     const ok = done(pass);
@@ -567,7 +658,7 @@ function doneRepo(task) {
   git(repo, "commit", "-q", "-m", "first");
   const statement = join(outside, "s.md");
   writeFileSync(statement, "# A statement\n\nDone-when: true\n");
-  writeFileSync(join(repo, "rounds", "1.md"), roundText({ task, step: "statement-review", number: 1, ceiling: 2, time: T(9), hash: readStatement(statement).hash }));
+  writeFileSync(join(repo, "rounds", "1.md"), roundText({ task, step: "statement-review", number: 1, time: T(9), hash: readStatement(statement).hash }));
   const done = (name, env = process.env) => spawnSync("node", [join(TOOLS, "done.mjs"), name, "--statement", statement, "--config", join(repo, "ont.config.json")], { encoding: "utf8", env });
   const clean = () => [repo, outside].forEach((d) => rmSync(d, { recursive: true, force: true }));
   return { repo, outside, done, clean };
@@ -619,7 +710,7 @@ test("[check.task-result.git-env-of-hook] the variables Git sets for a hook of a
 });
 
 // Round 3 of the review of the result of task releases-and-task (D-121, D-128).
-const withFindings = { step: "statement-review", number: 1, ceiling: 2, time: T(9), hash: A, found: 2 };
+const withFindings = { step: "statement-review", number: 1, time: T(9), hash: A, found: 2 };
 
 test("[check.owner-approval.after-findings] after rounds with findings the owner's approval of the file's version lets work start and done be recorded, and a later round with findings withdraws it", () => {
   const before = scenario({ rounds: [withFindings] });
@@ -643,7 +734,7 @@ test("[check.owner-approval.after-findings] after rounds with findings the owner
   try {
     const statement = join(outside, "s.md");
     const hash = readStatement(statement).hash;
-    writeFileSync(join(repo, "rounds", "1.md"), roundText({ task: "t", step: "statement-review", number: 1, ceiling: 2, time: T(9), hash, found: 2 }));
+    writeFileSync(join(repo, "rounds", "1.md"), roundText({ task: "t", step: "statement-review", number: 1, time: T(9), hash, found: 2 }));
     const run = () => spawnSync("node", [join(TOOLS, "done.mjs"), "t", "--statement", statement, "--config", join(repo, "ont.config.json")], { encoding: "utf8" });
     const refused = run();
     assert.equal(refused.status, 1, refused.stdout);
@@ -800,7 +891,7 @@ test("[check.task-result.missing-commit-information] in a real git clone, old re
   mkdirSync(join(src, "reviews", "rounds"), { recursive: true });
   mkdirSync(join(src, "reviews", "tasks"), { recursive: true });
   mkdirSync(join(src, "example", "verify", "runs"), { recursive: true });
-  writeFileSync(join(src, "reviews", "rounds", "old-1.md"), roundText({ task: "old", step: "result-review", number: 1, ceiling: 2, time: T(8), hash: A, found: 1, commits: `${base.slice(0, 7)}..${lost.slice(0, 7)}` }));
+  writeFileSync(join(src, "reviews", "rounds", "old-1.md"), roundText({ task: "old", step: "result-review", number: 1, time: T(8), hash: A, found: 1, commits: `${base.slice(0, 7)}..${lost.slice(0, 7)}` }));
   writeFileSync(
     join(src, "example", "verify", "runs", "20261105T090000Z-check.loan.overdue-in-real-time-a1b2.md"),
     `# Manual run\n\nCheck: check.loan.overdue-in-real-time\nCommit: ${lost.slice(0, 7)}\nBy: a model, a provider\nTime: 2026-11-05T09:00:00Z\nStamp: 0000\nVerdict: pass\n`,
@@ -890,7 +981,7 @@ test("[check.task-result.ending-round-one-function] a commit missing from Commit
   assert.doesNotMatch(f.stdout, /the task is done|result: done/);
   assert.match(f.stdout, /ONT_OK/);
   // A clean round followed by a later clean round that names commits the repository has: the first ends nothing, the task is done.
-  const later = scenario({ rounds: [approvedA, finalRound({ commits: `${ghost}..${CA.slice(0, 7)}` }), finalRound({ number: 2, ceiling: undefined, time: T(13) })], done: [{ time: T(11) }] });
+  const later = scenario({ rounds: [approvedA, finalRound({ commits: `${ghost}..${CA.slice(0, 7)}` }), finalRound({ number: 2, time: T(13) })], done: [{ time: T(11) }] });
   const l = run(later);
   assert.equal(l.status, 0, l.stdout);
   assert.match(l.stdout, /info · rounds of review whose commits this clone does not have [^\n]*\(1\):\n  r1\.md: names a commit this clone does not have, 1111111/);
@@ -905,14 +996,14 @@ test("[check.task-statement.reserve-of-statement] a statement's line Budget-rese
   const without = "version N\nDone-when: npm test\nBudget-new-input: 3000000\nBudget-output: 1500000\n";
   const [HR, HN] = [sha256(withReserve), sha256(without)];
   // A spend of 3200000 new input and 1000000 output, past the limit of 3000000 and within 3000000 × 1.5, and a round of the result with a finding.
-  const spent = (hash) => [{ ...approvedA, hash }, { step: "result-review", number: 1, ceiling: 2, time: T(12), hash, found: 1, tokens: [3200000, 0, 1000000], commits: `${CB.slice(0, 7)}..${CA.slice(0, 7)}` }];
+  const spent = (hash) => [{ ...approvedA, hash }, { step: "result-review", number: 1, time: T(12), hash, found: 1, tokens: [3200000, 0, 1000000], commits: `${CB.slice(0, 7)}..${CA.slice(0, 7)}` }];
   const sc = scenario({ rounds: spent(HR), done: [{ time: T(11), hash: HR, budget: [3000000, 1500000, 1.5] }] });
   writeFileSync(join(sc.dir, "statement.md"), withReserve);
   const r = checkWith(sc, { budget: { newInput: 100, output: 100 } }, ["--task", "t", "--statement", join(sc.dir, "statement.md"), "--rounds"]);
   assert.equal(r.status, 0, r.stdout);
   assert.match(r.stdout, /BUDGET t: new input 3200000 of 3000000 × 1\.5 = 4500000, output 1000000 of 1500000 × 1\.5 = 2250000; known for 1 of 2 contributions\n/);
-  assert.match(r.stdout, /TASK t · result: round 2, within the ceiling of 2/);
-  assert.match(r.stdout, /ROUNDS t · result-review: 1 full, 0 narrow · next: round 2, within the ceiling of 2/);
+  assert.match(r.stdout, /TASK t · result: narrow round 1, on the fixes of the last round/);
+  assert.match(r.stdout, /ROUNDS t · result-review: 1 full, 0 narrow · next: narrow round 1, on the fixes of the last round/);
   assert.doesNotMatch(r.stdout, /exhausted|question to the owner/);
   assert.match(r.stdout, /ONT_OK/);
   // Without the line the reserve is 1: the same spend stops the next round, in --task and --rounds alike.

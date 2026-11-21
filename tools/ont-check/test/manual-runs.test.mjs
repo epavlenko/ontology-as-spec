@@ -116,6 +116,19 @@ test("[check.manual-run.malformed] fails on records it cannot read and says what
   assert.match(r.out, /bbbb\.md: verdict passed is not one of/);
 });
 
+test("[check.manual-run.retired-check] a record of a run of a retired check is read as history and is no current run", () => {
+  const r = run((dir) => {
+    patch(dir, "ontology.md", "| `edge.waits-for`       | `edge.hold.waits-for`       | D-06     |", "| `edge.waits-for`       | `edge.hold.waits-for`       | D-06     |\n| `check.loan.retired-one` | — | D-06 |");
+    record(dir, "20261105T090000Z-check.loan.retired-one-aaaa.md", { Check: "check.loan.retired-one", Time: "2026-11-05T09:00:00Z", Stamp: "x", Verdict: "pass" });
+  });
+  assert.equal(r.code, 0, r.out);
+  assert.doesNotMatch(r.out, /manual run records that cannot be read/);
+  assert.doesNotMatch(r.out, /retired-one/);
+  // A check neither in the catalogue nor retired is still unknown.
+  const unknown = run((dir) => record(dir, "20261105T090000Z-check.loan.retired-one-aaaa.md", { Check: "check.loan.retired-one", Time: "2026-11-05T09:00:00Z", Stamp: "x", Verdict: "pass" }));
+  assert.match(unknown.out, /retired-one-aaaa\.md: unknown check check\.loan\.retired-one/);
+});
+
 test("[check.manual-run.malformed] fails on a record without a commit, and it does not count as a run", () => {
   const r = run((dir) => {
     record(dir, `20261105T090000Z-${CHECK}-a1b2.md`, { Time: "2026-11-05T09:00:00Z", Stamp: stampIn(dir, CHECK), Verdict: "pass", Commit: "" });

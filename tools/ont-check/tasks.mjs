@@ -1,16 +1,24 @@
-// A task's statement, its approval, its record of done and its budget (D-106, D-107, D-108). The
+// A task's statement, its approval, its record of done and its budget (D-152, D-108). The
 // statement is a file, often outside the repository, named by its SHA-256; the records of done and of
 // the executor's spend are files in the directory the configuration names under taskRecords.
-// ont: ent.owner-approval, inv.owner-approval-sourced, field.owner-approval.task, field.owner-approval.by, field.owner-approval.source, field.owner-approval.time, edge.owner-approval.statement, ent.task-statement, field.task-statement.file, field.task-statement.done-when, field.task-statement.budget, derived.approval, derived.statement-state, derived.task-budget, rule.work-under-approval, rule.budget-before-next, rule.no-default-budget, ent.task-result, field.task-result.task, field.task-result.commit, field.task-result.budget, field.task-result.checks, field.task-result.time, edge.task-result.statement, inv.acceptance-after-done, rule.acceptance-against-approved, ent.task-spend, field.task-spend.contribution, field.task-spend.start, field.task-spend.end, field.task-spend.tokens-new, field.task-spend.tokens-cached, field.task-spend.tokens-out, edge.task-spend.task, inv.contributions-apart, inv.named-commits-resolve
+// ont: ent.owner-approval, inv.owner-approval-sourced, field.owner-approval.task, field.owner-approval.by, field.owner-approval.source, field.owner-approval.time, edge.owner-approval.statement, ent.task-statement, field.task-statement.file, field.task-statement.done-when, field.task-statement.budget, derived.approval, derived.statement-state, derived.task-budget, derived.budget-report, rule.work-under-approval, rule.budget-before-next, rule.no-default-budget, ent.task-result, field.task-result.task, field.task-result.commit, field.task-result.budget, field.task-result.checks, field.task-result.time, edge.task-result.statement, inv.acceptance-after-done, rule.acceptance-against-approved, ent.task-spend, field.task-spend.contribution, field.task-spend.start, field.task-spend.end, field.task-spend.tokens-new, field.task-spend.tokens-cached, field.task-spend.tokens-out, edge.task-spend.task, inv.contributions-apart, inv.named-commits-resolve
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
-import { BUDGET_QUESTION, FULL_ROUNDS, SHA256, TASK_NAME, blockLines, byTime, isClean, nextRound, parseContribution, realTime } from "./review-rounds.mjs";
+import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, isClean, nextRound, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
+
+// The records of rounds of a project, as the check, --task, --rounds and done.mjs all read them: by one
+// function, with the configuration's records.latinOnly and the root of the repository, in which a filed
+// finding's file is looked up (D-152). top is that root, or "" outside a Git repository.
+export function readRoundRecords(cfg) {
+  const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
+  return { ...parseRounds(cfg.reviewRounds.dir, { latinOnly: cfg.records.latinOnly, root: top || null }), top };
+}
 
 // The lines of a statement the tool reads; the rest of it is for people and the reviewer.
 export function readStatement(file) {
@@ -371,22 +379,29 @@ export function overspendProblems(end, b) {
 // with the task's budget and with a clean verdict of acceptance that does not hold read as refused.
 // A record of the owner's approval after the last round of the review of the statement ends that step
 // (D-121); a verdict of acceptance holds only for the latest record of done (D-128).
+// The owner's last record of approval for the task ends both steps (D-152): the rounds before it are not
+// read by the branches of derived.next-round, so a question it answered is lifted.
 export function stepNext({ rounds, done = [], approvals = [], task, step, exhausted = false, statement = null }) {
   const of = ofTask(rounds, task, step);
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);
     if (last?.kind === "approval") return { next: "clean", say: `the owner approved version ${last.hash.slice(0, 12)} (${last.file})` };
   }
-  return nextRound(of, { exhausted, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
+  return nextRound(of, { exhausted, since, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
 }
 
 // What a task needs next, its statement, its result and its budget, as lines; and the errors of its
 // records that only --task can see (derived.statement-state, rule.budget-before-next). With the budget
 // exhausted and the task not done, every line that names a next action names the stop (D-124). The
 // approval in force is the last by time of the rounds of the statement and the owner's approvals
-// (D-121); the task is done only when the latest record of done has its own acceptance (D-128).
-export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement }) {
+// (D-121); the task is done only when the latest record of done has its own acceptance (D-128). malformed
+// is the list of records of rounds that cannot be read: while one stands, its correction is the one next
+// action (D-152). When the next action is a question to the owner, it is the one line that names an
+// action. The marks of the budget go on a line of their own (derived.budget-report).
+export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [] }) {
   const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement });
+  if (malformed.length) return { lines: [`TASK ${task} · next: ${blockedSay(malformed)}`], errors: [], approved: false, budget: b };
   // A line of the statement's budget the tool cannot read stops the task as a spent budget does: no
   // next action is named under a budget the tool does not know (D-150).
   const unreadable = (statement?.wrong ?? []).length > 0;
@@ -403,20 +418,16 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
   else if (last.kind === "round" && !isClean(last.round)) statementLine = stepNext({ rounds, done, approvals, task, step: "statement-review", exhausted, statement }).say;
   else if (!hash) statementLine = `${last.kind === "approval" ? "the owner approved a version" : "the last round is clean"}; give --statement <file> to compare the version it names with the file`;
   else if (last.hash !== hash) {
-    const full = st.filter((r) => !r.narrow);
-    const next = Math.max(0, ...full.map((r) => r.number)) + 1;
-    const ceiling = full.find((r) => r.ceiling)?.ceiling;
-    statementLine =
-      full.length >= FULL_ROUNDS
-        ? `the statement changed after ${FULL_ROUNDS} full rounds: a question to the owner`
-        : exhausted
-          ? STOP
-          : `the statement changed after its approval: next is full round ${next} of the new version${ceiling ? (next <= ceiling ? `, within the ceiling of ${ceiling}` : `, past the ceiling of ${ceiling}`) : ""}`;
+    // A full round of the new version, with the next free number over every version; no round is
+    // counted (derived.statement-state, D-152).
+    const next = Math.max(0, ...st.filter((r) => !r.narrow).map((r) => r.number)) + 1;
+    statementLine = exhausted ? STOP : `the statement changed after its approval: next is full round ${next} of the new version`;
   } else approved = true;
   const rr = ofTask(rounds, task, "result-review");
   const end = rr.at(-1);
   const n = approved && end ? stepNext({ rounds, done, approvals, task, step: "result-review", exhausted, statement }) : null;
   const finished = n?.next === "clean";
+  const asked = n?.next === "question";
   let resultLine;
   if (!approved) resultLine = "work is not allowed: no approval in force for the statement";
   else if (!end) resultLine = exhausted ? STOP : "the executor works, then records done with done.mjs";
@@ -430,7 +441,9 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
       ? `approved${by}, version ${hash.slice(0, 12)}: the task is done`
       : exhausted
         ? `approved${by}, version ${hash.slice(0, 12)}, but ${STOP}; work may not ${end ? "go on" : "start"}`
-        : `approved${by}, version ${hash.slice(0, 12)}: work may ${end ? "go on" : "start"} under it`;
+        : asked
+          ? `approved${by}, version ${hash.slice(0, 12)}; the question to the owner on the result is the one next action`
+          : `approved${by}, version ${hash.slice(0, 12)}: work may ${end ? "go on" : "start"} under it`;
   // A step's next action named by the rounds says the budget is spent; when the cause is a line the tool
   // cannot read, it says that instead (D-150).
   const why = (t) => (unreadable && typeof t === "string" ? t.replaceAll(BUDGET_QUESTION, STOP) : t);
@@ -460,8 +473,23 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
         (b.noReserve ? "; neither Budget-reserve: of the statement nor budget.reserve is set, so the reserve is 1" : "") +
         (b.over ? `; overspend: ${overspendText(b)}` : b.exhausted ? "; exhausted" : ""),
     );
+    // No mark where no spend is measured: a line of the budget the tool cannot read (D-150).
+    const marks = unreadable ? [] : budgetMarks(b);
+    if (marks.length)
+      lines.push(`REPORT ${task}: ${marks.map((m) => `${LABEL[m.kind]} ${num(b.used[m.kind])} of ${num(b.limits[m.kind])}: ${m.marks.join(", ")}`).join(" · ")}; send the owner one report of every mark not yet reported; the next action is the one the lines above name`);
   }
   return { lines, errors, approved, budget: b };
+}
+
+// The marks of the budget a task's spend has passed (derived.budget-report, D-152): for new input and for
+// output apart, each with a limit, "half" at half the limit or more and "limit" at the limit or more, the
+// limit before the reserve, compared in whole numbers; none when the spend cannot be summed.
+export function budgetMarks(b) {
+  if (!b || b.conflict?.length || !b.used) return [];
+  return ["newInput", "output"]
+    .filter((k) => b.limits[k] !== null)
+    .map((k) => ({ kind: k, marks: [BigInt(b.used[k]) * 2n >= BigInt(b.limits[k]) && "half", b.used[k] >= b.limits[k] && "limit"].filter(Boolean) }))
+    .filter((m) => m.marks.length);
 }
 
 // The environment of a command run on a commit: without the variable a running test runner sets, which
