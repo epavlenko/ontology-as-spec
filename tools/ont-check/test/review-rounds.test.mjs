@@ -155,16 +155,26 @@ test("[check.review-round.branch-order] not fixable comes before stagnation, fin
   assert.ok(!BRANCHES.some((b) => /budget/.test(b)));
 });
 
-test("[check.review-round.branch-order-documented] the ontology and the guide list the branches of the next round by the names and in the order the code takes them", () => {
-  const ontology = readFileSync(fileURLToPath(new URL("../../../ontology.md", import.meta.url)), "utf8").split("\n").find((l) => l.includes("`derived.next-round`") && l.startsWith("| Derived"));
-  const guide = readFileSync(fileURLToPath(new URL("../../../docs/parts/agent-rules.md", import.meta.url)), "utf8").split("\n").find((l) => l.startsWith("What follows a round, by its records"));
-  for (const [name, text] of [["ontology.md", ontology], ["agent-rules.md", guide]]) {
-    assert.ok(text, name);
-    const at = BRANCHES.map((b, i) => text.indexOf(`(${i + 1}) ${b}:`));
-    assert.ok(at.every((x) => x >= 0), `${name}: ${BRANCHES.filter((b, i) => at[i] < 0).join(", ")} missing`);
-    assert.deepEqual([...at].sort((a, b) => a - b), at, `${name}: out of order`);
-    assert.equal(text.indexOf(`(${BRANCHES.length + 1})`), -1, `${name}: a branch the code does not take`);
+test("[check.review-round.branch-order-documented] the ontology lists the branches of the next round by the names and in the order the code takes them, and the guide and the skill point to it without restating them", () => {
+  const read = (rel) => readFileSync(fileURLToPath(new URL(`../../../${rel}`, import.meta.url)), "utf8");
+  const ontology = read("ontology.md").split("\n").find((l) => l.includes("`derived.next-round`") && l.startsWith("| Derived"));
+  assert.ok(ontology, "ontology.md");
+  const at = BRANCHES.map((b, i) => ontology.indexOf(`(${i + 1}) ${b}:`));
+  assert.ok(at.every((x) => x >= 0), `ontology.md: ${BRANCHES.filter((b, i) => at[i] < 0).join(", ")} missing`);
+  assert.deepEqual([...at].sort((a, b) => a - b), at, "ontology.md: out of order");
+  assert.equal(ontology.indexOf(`(${BRANCHES.length + 1})`), -1, "ontology.md: a branch the code does not take");
+  // The guide's section on rounds and the skill restate no branch and no round that follows
+  // stagnation or a confirmation; each points once to the definition and the line NEXT.
+  const section = (text, from, to) => text.slice(text.indexOf(from), text.indexOf(to, text.indexOf(from)));
+  const guide = section(read("docs/parts/agent-rules.md"), "## Rounds of review", "## What a review costs");
+  const skill = read("skills/change-review/SKILL.md");
+  for (const [name, text] of [["agent-rules.md", guide], ["SKILL.md", skill]]) {
+    assert.ok(text.length > 100, name);
+    for (const b of BRANCHES) assert.doesNotMatch(text, new RegExp(`\\(\\d\\) ${b}:`), `${name}: restates branch ${b}`);
+    assert.doesNotMatch(text, /(full|narrow) round (follows|after it)|the next round is (full|narrow)|one narrow round alone/, `${name}: says which round follows`);
+    assert.equal(text.match(/the line `NEXT <task>:` of `--task` and `--rounds`, given by the ordered branches of (\[)?`derived\.next-round`/g)?.length, 1, `${name}: one pointer to the branches`);
   }
+  const guideAll = read("docs/parts/agent-rules.md");
   // The code takes them in that order: each history gives the branch of its name.
   assert.equal(nextRound([named(1, ["a:not"])]).branch, "open gate");
   assert.equal(nextRound([]).branch, "no round");
@@ -174,8 +184,8 @@ test("[check.review-round.branch-order-documented] the ontology and the guide li
   assert.equal(nextRound([named(1, [], { acceptance: [] })]).branch, "clean");
   assert.equal(nextRound(seq(["a"], ["a"])).branch, "stagnation");
   assert.equal(nextRound([named(1, ["a"])]).branch, "next round");
-  // The guide to rounds says the budget is ordered by the task's next action, before an open gate.
-  assert.match(guide, /The budget is no branch of a step/);
+  // The guide to rounds says the budget is ordered by the task's next action.
+  assert.match(guideAll, /The budget is no branch of a step/);
 });
 
 test("[check.review-round.not-fixable] a gate opened by a finding not fixable holds over later rounds, a clean acceptance too, until the owner's approval", () => {

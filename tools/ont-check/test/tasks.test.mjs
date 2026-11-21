@@ -1694,12 +1694,16 @@ const BEFORE = ["- old · important · before · fixable"];
 // exit of done.mjs, 0 when it ran the command of done on the commit and recorded done, 1 when it refused,
 // with its output. done.mjs runs in a clone of the repository with a committed configuration naming the
 // same records, so that its command runs for real in the worktree it makes at the commit.
-function readers(h, budget = null) {
+function readers(h, budget = null, { skipDone = false, args = null } = {}) {
   const sc = scenario({ rounds: [approvedV, ...h.rounds], done: [doneV, ...(h.done ?? [])], approvals: h.approvals ?? [] });
   const file = join(sc.dir, "v.md");
   writeFileSync(file, V_TEXT);
   const extra = budget ? { budget } : {};
-  const r = checkWith(sc, extra, ["--task", "t", "--statement", file, "--rounds"]);
+  const r = checkWith(sc, extra, args ?? ["--task", "t", "--statement", file, "--rounds"]);
+  if (skipDone) {
+    rmSync(sc.dir, { recursive: true, force: true });
+    return { next: nextLines(r), out: r.stdout, status: r.status };
+  }
   // A clone of the repository of commits a, b and c, which the records name, so that they resolve.
   const own = mkdtempSync(join(tmpdir(), "done-own-"));
   git(own, "clone", "-q", REPO, ".");
@@ -1709,7 +1713,7 @@ function readers(h, budget = null) {
   const d = spawnSync("node", [join(TOOLS, "done.mjs"), "t", "--statement", file, "--config", join(own, "ont.config.json")], { encoding: "utf8" });
   rmSync(own, { recursive: true, force: true });
   rmSync(sc.dir, { recursive: true, force: true });
-  return { next: nextLines(r), out: r.stdout, done: d.status, doneOut: d.stdout };
+  return { next: nextLines(r), out: r.stdout, status: r.status, done: d.status, doneOut: d.stdout };
 }
 const ENDS = /^NEXT t: done/;
 const NARROW = /^NEXT t: the reviewer confirmed the goal's condition in r\d+\.md: narrow round 1, the one round after it/;
@@ -1745,10 +1749,19 @@ test("[check.review-round.condition-branch] --task, --rounds, the check and done
     // done.mjs records done after its command passed for real, or refuses with the same question.
     if (h.doneMjs === 0) assert.match(r.doneOut, /^DONE t: 1 commands passed on [0-9a-f]{7}/, name);
     else assert.match(r.doneOut, h.next, name);
-    // The check finds the end of the step too: with no overspend there it reports nothing of the task.
-    assert.doesNotMatch(r.out, /Overspend: is not the tool's/, name);
-    // A refused verdict of acceptance in the history is reported by the check as well, not only by the next action.
-    if (name.includes("acceptance refused")) assert.match(r.out, /verdicts of acceptance refused/, name);
+    // The check passes, but where the history holds a refused verdict of acceptance, which it reports.
+    const refusedHere = name.includes("acceptance refused");
+    assert.equal(r.status, refusedHere ? 1 : 0, `${name}, the check: ${r.out}`);
+    if (refusedHere) assert.match(r.out, /verdicts of acceptance refused/, name);
+    assert.doesNotMatch(r.out, /names an overspend/, name);
+    // The check's own decision that the step ended (ont-check.mjs, ended), the check run alone, with no
+    // --task to report the line: an Overspend: line on the last round, within a budget that finds none, is
+    // refused by it exactly when the step ended, and read as nothing otherwise.
+    const last = h.rounds.length - 1;
+    const marked = readers({ ...h, rounds: h.rounds.map((x, i) => (i === last ? { ...x, overspend: "new input 1 of 2, output 1 of 2" } : x)) }, null, { skipDone: true, args: [] });
+    const ended = h.next === ENDS;
+    assert.equal(/names an overspend, "new input 1 of 2, output 1 of 2", where the tool finds none/.test(marked.out), ended, `${name}, the check's end of the step: ${marked.out}`);
+    assert.equal(marked.status, ended || refusedHere ? 1 : 0, `${name}, the check with Overspend:: ${marked.out}`);
   }
 });
 

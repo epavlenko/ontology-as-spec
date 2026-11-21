@@ -311,8 +311,8 @@ export const notFixableIn = (rounds, since = null) => rounds.filter((r) => (sinc
 export const GATE = "a question to the owner: a finding cannot be fixed without changing what the owner decided, and only his approval of a version answers it";
 
 // The branches of derived.next-round, in their order (D-152): the first whose condition holds gives the
-// next action. ontology.md and docs/parts/agent-rules.md list them by these names in this order, which a
-// test compares. The budget is no branch of a step: the next action of the task, tasks.mjs taskNext, is
+// next action. ontology.md lists them by these names in this order, which a test compares; the guide
+// and the change-review skill do not restate them and point to it (D-153). The budget is no branch of a step: the next action of the task, tasks.mjs taskNext, is
 // the one place that orders it (D-152).
 // Whether a record is legacy (D-152): the one test of it, by the record's time alone, never by a version
 // it names or an approval before it. A record of rounds, of done or of approval written before the
