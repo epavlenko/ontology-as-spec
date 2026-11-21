@@ -60,26 +60,6 @@ The tool checks that a finding filed as `limitation` or `later` names `docs/limi
 
 `--task` prints a line `REPORT` with the marks of half the limit and the limit that the spend has passed, each run it is given. It keeps no record of which marks were reported: the executor sends the owner one report with every mark not yet reported, and the tool does not see that it was sent, nor stops when it was not (D-152).
 
-<!-- ont: derived.task-next@ff7695, derived.task-budget@43edc0 -->
-### `--rounds` may judge the budget by other limits than `--task`
-
-The next action of a task is one function for `--task`, `--rounds`, `done.mjs` and the check. Its budget question is measured by the limits `derived.task-budget` gives: `--task` reads them from the statement's file, while `--rounds` and the check, which read no statement, take them from the latest record of done of the approved version, and before there is one, from the configuration. In that interval the two may differ on the budget question alone: `--rounds` may advise the next round under the configuration's limit where `--task` stops under the statement's, or the other way round. `--task` is the one run before each step and each round, so its answer decides (D-147, D-152).
-
-<!-- ont: inv.contributions-apart@ed4033, derived.budget-report@63246a -->
-### Records of spend that overlap stop a task with no spend measured
-
-Two records of one contribution whose intervals overlap are an unlikely case, kept as a question to the owner rather than a new round of rules: while they stand, the spend is not summed, the next action is the question, and no line `REPORT` is printed, since no threshold was measured (D-118, D-124, D-152). The question may come although the real spend is far from the limit; correcting the records lifts it. One case is not a question: when the last round of the result and its acceptance are clean, the task is done past the budget (D-108), and `NEXT` says done while the check reports the overlapping records as an error; the records are still corrected, and the overspend is computed only then.
-
-<!-- ont: field.task-statement.budget@86d641, derived.budget-report@63246a -->
-### A budget line the tool cannot read stops a task with no spend measured
-
-A line of the statement's budget the tool cannot read, such as `Budget-reserve: 1,5`, stops the task as a spent budget does: the next action is the question to the owner, and no line `REPORT` is printed, since the limit the marks are measured against is not known (D-150, D-152). Correcting the line, in a version that is approved again, lifts it.
-
-<!-- ont: derived.task-next@ff7695, field.task-statement.done-when@348caa -->
-### An approved statement with no command of done names only that question at the cap
-
-An approved statement with no line `Done-when:` is a question to the owner, branch 3 of the next action, as a spent budget is; when the spend is also at the cap, the line `BUDGET` says the budget is exhausted while `NEXT` names only the missing command of done. Both are questions to the owner with no next round, so the executor stops either way; an unlikely case kept as a limitation rather than a new round of rules (D-152, the owner's answer to question 1011, point 3). Reading `BUDGET` beside `NEXT` shows both.
-
 <!-- ont: rule.records-english-in-repo@6e97a3 -->
 ### Records refuse a path strictly
 
