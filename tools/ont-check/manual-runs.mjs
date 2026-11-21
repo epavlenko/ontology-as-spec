@@ -48,8 +48,9 @@ const NOT_LATIN = /[^\P{L}\p{Script=Latin}]/u;
 // recorded in docs/limitations.md; a path let through would be the worse error.
 const WEB_URL = /\bhttps?:\/\/[^\s<>`"'|,;()\[\]]+/gi;
 const END_TAG = /<\/[A-Za-z][A-Za-z0-9-]*>/g;
-const LOCAL_PREFIX = /(\/(?:home|Users|root|tmp|var|etc|mnt|opt)\/|~\/|[A-Za-z]:[\\/]|\\\\[^\s\\]|\b(?:file|mailto):)/giu;
-const ABSOLUTE = /(?<![\p{L}\p{N}.~-])(\/[^\s/]|(?!https?:)[a-z][a-z0-9+.-]*:\/)/giu;
+const LOCAL_PREFIX = /(\/(?:home|Users|root|tmp|var|etc|mnt|opt)\/|~\/|[A-Za-z]:[\\/]|\\\\[^\s\\]|(?<![\p{L}\p{N}])(?:file|mailto):)/giu;
+// A URL of another scheme has a slash or an @ anywhere after its colon, as app:x/y or app:x@y.
+const ABSOLUTE = /(?<![\p{L}\p{N}.~-])(\/[^\s/]|(?!https?:)[a-z][a-z0-9+.-]*:[^\s:]*[\/@])/giu;
 const UP = /(?:^|[^.])(\.\.[\\/]|[\\/]\.\.(?![^\s\\/.]))/gu;
 const wordAt = (line, i) => line.slice(i).match(/^[^\s<>`"'|,;()\[\]*]+/)?.[0] ?? line.slice(i, i + 20);
 export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
