@@ -32,7 +32,7 @@ const [CB, CA, CC] = ["b", "a", "c"].map((m) => (inRepo("commit", "-q", "--allow
 const finding = (i, test = "t.test.mjs", prefix = "class", fix = "fixable") => `- ${prefix} ${i} · important · change · ${fix}${test ? ` · ${test}` : ""}`;
 
 // A record of a round: its fields, then its findings, then its verdict of acceptance.
-const roundText = ({ task = "t", step = "statement-review", number = 1, narrow, prefix = "class", fix = "fixable", start, time, hash, found = 0, tokens, contribution, acceptance, overspend, untested, commits }) =>
+const roundText = ({ task = "t", step = "statement-review", number = 1, narrow, prefix = "class", fix = "fixable", start, time, hash, found = 0, tokens, contribution, acceptance, overspend, untested, commits, condition, extra = [] }) =>
   [
     `Task: ${task}`,
     `Step: ${step}`,
@@ -46,7 +46,8 @@ const roundText = ({ task = "t", step = "statement-review", number = 1, narrow, 
     ...(hash ? [`Statement-hash: ${hash}`] : []),
     ...(tokens ? [`Tokens-new: ${tokens[0]}`, `Tokens-cached: ${tokens[1]}`, `Tokens-out: ${tokens[2]}`] : []),
     ...(overspend ? [`Overspend: ${overspend}`] : []),
-    ...(found ? ["Findings:", ...Array.from({ length: found }, (_, i) => finding(i, untested || fix !== "fixable" ? null : "t.test.mjs", prefix, fix))] : []),
+    ...(condition ? ["Condition: holds"] : []),
+    ...(found || extra.length ? ["Findings:", ...Array.from({ length: found }, (_, i) => finding(i, untested || fix !== "fixable" ? null : "t.test.mjs", prefix, fix)), ...extra] : []),
     ...(acceptance === undefined ? [] : acceptance === "clean" ? ["Acceptance: clean"] : ["Acceptance:", ...acceptance]),
     "",
   ].join("\n");
@@ -1678,4 +1679,94 @@ test("[check.task-statement.budget-one-action] under an approval in force, a leg
   } finally {
     clean();
   }
+});
+
+// The condition confirmed (D-153), read alike by --task, --rounds, the check and done.mjs, under version
+// V of a statement whose command of done is true, so that done.mjs can run it: its approval, a record of
+// done of commit a and rounds of its result that review that commit.
+const V_TEXT = "version V\nDone-when: true\n";
+const V = sha256(V_TEXT);
+const approvedV = { step: "statement-review", number: 1, time: T(9), hash: V };
+const doneV = { time: T(10), hash: V, command: "true" };
+const resultV = (number, extra = {}) => ({ step: "result-review", number, time: T(10 + number + (extra.narrow ? 5 : 0)), hash: V, commits: CA.slice(0, 7), acceptance: "clean", ...extra });
+const BEFORE = ["- old · important · before · fixable"];
+// Every reader of one history: the NEXT lines of --task and --rounds, the errors of the check, and
+// whether done.mjs refuses for the task's next action (1) or goes on to run the commands of done (0); the
+// configuration is outside the commit, so the commands themselves are not what is compared.
+function readers(h, budget = null) {
+  const sc = scenario({ rounds: [approvedV, ...h.rounds], done: [doneV, ...(h.done ?? [])], approvals: h.approvals ?? [] });
+  const file = join(sc.dir, "v.md");
+  writeFileSync(file, V_TEXT);
+  const extra = budget ? { budget } : {};
+  const r = checkWith(sc, extra, ["--task", "t", "--statement", file, "--rounds"]);
+  const cfgDir = mkdtempSync(join(REPO, "task-cfg-"));
+  cpSync(EXAMPLE, cfgDir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
+  const cfgPath = join(cfgDir, "ont.config.json");
+  writeFileSync(cfgPath, JSON.stringify({ ...JSON.parse(readFileSync(cfgPath, "utf8")), reviewRounds: { dir: join(sc.dir, "rounds") }, taskRecords: { dir: join(sc.dir, "tasks") }, ...extra }));
+  const d = spawnSync("node", [join(TOOLS, "done.mjs"), "t", "--statement", file, "--config", cfgPath], { encoding: "utf8" });
+  rmSync(cfgDir, { recursive: true, force: true });
+  rmSync(sc.dir, { recursive: true, force: true });
+  return { next: nextLines(r), out: r.stdout, done: /the task's next action is not work on the result/.test(d.stdout) ? 1 : 0, doneOut: d.stdout };
+}
+const ENDS = /^NEXT t: done/;
+const NARROW = /^NEXT t: the reviewer confirmed the goal's condition in r\d+\.md: narrow round 1, the one round after it/;
+const QUESTION = /^NEXT t: a question to the owner: the reviewer confirmed the goal's condition and the one round after it did not end the step/;
+// The cases of the branch condition confirmed, each on its side of its boundary, with the case of
+// derived.next-round its rounds fall under.
+const CONDITION_CASES = {
+  "C, nothing left, acceptance holds": { rounds: [resultV(1, { condition: true })], next: ENDS, doneMjs: 0 },
+  "C, a finding there before only": { rounds: [resultV(1, { condition: true, extra: BEFORE })], next: ENDS, doneMjs: 0 },
+  "C, a finding left": { rounds: [resultV(1, { condition: true, found: 1 })], next: NARROW, doneMjs: 0 },
+  "C, a nit left": { rounds: [resultV(1, { condition: true, extra: ["- small · nit · change · fixable · t.test.mjs"] })], next: NARROW, doneMjs: 0 },
+  "C, no acceptance": { rounds: [resultV(1, { condition: true, acceptance: undefined })], next: NARROW, doneMjs: 0 },
+  "C, acceptance refused": { rounds: [resultV(1, { condition: true, commits: CB.slice(0, 7) })], next: NARROW, doneMjs: 0 },
+  "after C, narrow, nothing left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, extra: BEFORE })], next: ENDS, doneMjs: 0 },
+  "after C, full, nothing left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(2)], next: ENDS, doneMjs: 0 },
+  "after C, a finding left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, found: 1, prefix: "other" })], next: QUESTION, doneMjs: 1 },
+  "after C, no acceptance": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(2, { acceptance: undefined })], next: QUESTION, doneMjs: 1 },
+  "after C, acceptance refused": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, commits: CB.slice(0, 7) })], next: QUESTION, doneMjs: 1 },
+  "after C, Condition: holds again": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, condition: true, found: 1, prefix: "other" })], next: QUESTION, doneMjs: 1 },
+};
+
+test("[check.review-round.condition-branch] --task, --rounds, the check and done.mjs give each case of the condition confirmed alike", () => {
+  for (const [name, h] of Object.entries(CONDITION_CASES)) {
+    const r = readers(h);
+    assert.equal(r.next.length, 2, `${name}: ${r.out}`);
+    assert.equal(r.next[0], r.next[1], `${name}: --task and --rounds disagree`);
+    assert.match(r.next[0], h.next, `${name}: ${r.out}`);
+    assert.equal(r.done, h.doneMjs, `${name}, done.mjs: ${r.doneOut}`);
+    // The check finds the end of the step too: with no overspend there it reports nothing of the task.
+    assert.doesNotMatch(r.out, /Overspend: is not the tool's/, name);
+  }
+});
+
+test("[check.review-round.condition-gate] the gate after the round after C holds over the task, a reviewer's approval of a new version too, until the owner's approval; an open gate comes first; both ends by C at the budget's limit end the task", () => {
+  const failed = CONDITION_CASES["after C, a finding left"].rounds;
+  const W_TEXT = "version W\nDone-when: true\n";
+  const W = sha256(W_TEXT);
+  // A clean round of the statement approves W, a record of done of W and a clean acceptance of it.
+  const approvedW = { step: "statement-review", number: 2, time: T(20), hash: W };
+  const reviewer = readers({ rounds: [...failed, approvedW, { ...resultV(3), time: T(22), hash: W }], done: [{ time: T(21), hash: W, command: "true" }] });
+  for (const l of reviewer.next) assert.match(l, QUESTION, reviewer.out);
+  assert.equal(reviewer.done, 1, reviewer.doneOut);
+  // The owner's approval of V closes it: work goes on.
+  const owner = readers({ rounds: failed, approvals: [{ hash: V, time: T(20) }] });
+  for (const l of owner.next) assert.doesNotMatch(l, /a question to the owner/, owner.out);
+  assert.equal(owner.done, 0, `${owner.out}\n${owner.doneOut}`);
+  // A finding not fixable before C: its gate is named first.
+  const first = readers({ rounds: [resultV(1, { found: 1, fix: "not fixable", prefix: "nf" }), resultV(2, { condition: true, found: 1 }), resultV(3, { found: 1, prefix: "other" })] });
+  for (const l of first.next) assert.match(l, /^NEXT t: a question to the owner: a finding cannot be fixed/, first.out);
+  // Both ends by C past the budget are ends: done with an overspend, which the check requires named.
+  const budget = { newInput: 100, output: 100 };
+  for (const [name, rounds] of [
+    ["C", [resultV(1, { condition: true, tokens: [500, 0, 10] })]],
+    ["after C", [resultV(1, { condition: true, found: 1, tokens: [500, 0, 10] }), resultV(1, { narrow: true })]],
+  ]) {
+    const r = readers({ rounds }, budget);
+    for (const l of r.next) assert.match(l, /^NEXT t: done, with an overspend/, `${name}: ${r.out}`);
+    assert.match(r.out, /does not name the overspend|Overspend: is not the tool's/, name);
+  }
+  // Past the budget, the round after C that does not end the step is the budget question.
+  const over = readers({ rounds: [resultV(1, { condition: true, found: 1, tokens: [500, 0, 10] }), resultV(1, { narrow: true, found: 1, prefix: "other" })] }, budget);
+  for (const l of over.next) assert.match(l, /the budget is exhausted: a question to the owner/, over.out);
 });

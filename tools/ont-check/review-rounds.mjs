@@ -1,7 +1,7 @@
 // Records of review rounds (D-99, D-152): one file per round of review of a task, in the directory the
 // configuration names under reviewRounds, with what the round cost and found. From them the tool says
 // what follows the last round of each step, and, once a step has ten applications, what it paid off.
-// ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.overspend, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.rounds-converge, rule.findings-filed, rule.ready-after-clean-round, inv.review-rounds-well-formed, rule.records-english-in-repo
+// ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.condition, field.review-round.overspend, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.rounds-converge, rule.findings-filed, rule.executor-triage, rule.ready-after-clean-round, inv.review-rounds-well-formed, rule.records-english-in-repo
 import { realpathSync } from "node:fs";
 import { basename, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { isFile, listFiles, read } from "./lib.mjs";
@@ -9,7 +9,7 @@ import { outsideRecord } from "./manual-runs.mjs";
 
 export const STEPS = ["statement-review", "result-review"];
 // The line Ceiling: of a record made before D-152 is read, as a whole number, and decides nothing.
-const FIELDS = ["Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "By", "Contribution", "Statement-hash", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Overspend"];
+const FIELDS = ["Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "By", "Contribution", "Statement-hash", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Overspend", "Condition"];
 const COUNTS = ["number", "ceiling", "tokens-new", "tokens-cached", "tokens-out", "checks-listed", "checks-given", "checks-carried"];
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 // A time is real when it reads back as itself: 2026-99-99T99:99:99Z has the shape and is no time.
@@ -175,6 +175,9 @@ export function parseRounds(dir, opts = {}) {
       // version is one whose records are all legacy; an older round reads as it did (D-152).
       opts.hashFrom !== undefined && !rec.pairs.some(([k]) => k === "statement-hash") && realTime(fields.time) && !isLegacy(fields, opts.hashFrom) && "no line Statement-hash: on a round at or after reviewRounds.gatesFrom: name the version of the statement it read",
       acceptance && fields.step !== "result-review" && "an acceptance on a review that is not of the result",
+      // The goal's condition confirmed by the reviewer of the result (field.review-round.condition, D-153):
+      // the executor carries only "holds" into the record.
+      ...rec.pairs.filter(([k]) => k === "condition").flatMap(([, v]) => [v !== "holds" && `condition ${v || "(blank)"} is not holds`, fields.step !== "result-review" && "a condition on a review that is not of the result"]),
       acceptance && !(acceptance.value === "clean" || (acceptance.value === "" && acceptance.findings.length)) && "an acceptance that is neither clean nor a list of findings",
       !fields.by && "no author",
       ...COUNTS.filter((k) => fields[k] !== undefined && !/^\d+$/.test(fields[k])).map((k) => `${k} ${fields[k]} is not a whole number`),
@@ -208,6 +211,7 @@ export function parseRounds(dir, opts = {}) {
       tokens: { new: n("tokens-new"), cached: n("tokens-cached"), out: n("tokens-out") },
       findings,
       acceptance: acceptance && { findings: acceptance.findings },
+      condition: fields.condition === "holds",
       overspend: fields.overspend ?? null,
     });
   }
@@ -248,7 +252,48 @@ export const NO_ACCEPTANCE = "the last round is clean on merging and gives no ve
 // records as they were when it was given, against the version of the statement that round read, never
 // against a statement given later; tasks.mjs stepNext gives it, the one function --task, --rounds and the
 // check ask for the state of a step.
+// A finding there before the change counts never, and a filed one never (rule.executor-triage). A clean
+// round, the round C of the condition confirmed and the one round after it end their step alike, by this
+// one test, which derived.next-round defines and every reader asks (D-153).
 export const endsStep = (r, held = () => true) => isClean(r) && (r.step !== "result-review" || (Boolean(r.acceptance) && held(r)));
+
+// Stagnation of the last round against the rounds compared before it, or null (D-152): an important
+// class of it repeats one of an earlier round, or it has no fewer important classes than the round before.
+const stagnates = (last, earlier) => {
+  const now = important(last);
+  if (!now.size || !earlier.length) return null;
+  const repeated = [...now].filter((c) => earlier.some((r) => important(r).has(c)));
+  if (!repeated.length && now.size < important(earlier.at(-1)).size) return null;
+  return { now, repeated, say: repeated.length ? `repeated: ${repeated.join(", ")}` : `${now.size} important classes, no fewer than the round before` };
+};
+
+// The round C of the rounds compared, the first with Condition: holds, and how many rounds follow it, or
+// null (derived.next-round, D-153).
+const conditionIn = (window) => {
+  const at = window.findIndex((r) => r.condition);
+  return at < 0 ? null : { c: window[at], after: window.length - 1 - at };
+};
+export const CONDITION_GATE = "a question to the owner: the reviewer confirmed the goal's condition and the one round after it did not end the step; only his approval of a version lets rounds go on";
+// The rounds of the review of the result that hold the gate of the condition confirmed (D-153): in the
+// rounds of one version after the owner's last approval, whose time is since, the round that follows C
+// with no end of the step between them, when it does not end the step itself. held judges an acceptance
+// by the records as they were when it was given; tasks.mjs openGates gives them over the whole task.
+export const conditionGatesIn = (rounds, since = null, held = () => true) => {
+  const out = [];
+  const results = byTime(rounds.filter((r) => r.step === "result-review" && (since === null || r.time > since)));
+  for (const hash of new Set(results.map((r) => r.statementHash))) {
+    let c = null;
+    for (const r of results.filter((x) => x.statementHash === hash)) {
+      const ends = endsStep(r, held);
+      if (c && !ends) out.push(r.file);
+      c = ends || c ? null : r.condition ? r : null;
+    }
+  }
+  return out;
+};
+// The text of an open gate, by its kinds.
+export const gateSay = (notFixable, condition = []) =>
+  [notFixable.length && `${GATE} (${notFixable.join(", ")})`, condition.length && `${CONDITION_GATE} (${condition.join(", ")})`].filter(Boolean).join("; ");
 
 // The rounds of a step that hold an open gate: a finding of the change `not fixable`, not filed, in a round
 // after the owner's last record of approval for the task, whose time is since (D-152). Only a newer
@@ -268,17 +313,18 @@ export const GATE = "a question to the owner: a finding cannot be fixed without 
 // read by versions is another question, never decided by the time (tasks.mjs byVersion).
 export const isLegacy = (record, gatesFrom) => Boolean(gatesFrom) && record.time < gatesFrom;
 
-export const BRANCHES = ["open gate", "no round", "no acceptance", "acceptance refused", "clean", "stagnation", "next round"];
+export const BRANCHES = ["open gate", "no round", "condition confirmed", "no acceptance", "acceptance refused", "clean", "stagnation", "next round"];
 
 // refused(round) says why the clean verdict of acceptance of the last round does not end the task now, or
 // null (inv.acceptance-after-done): such a round does not end its step either (D-123). held(round) says
 // whether an earlier round's acceptance held, for endsStep, which alone resets the comparison of rounds.
-// gate is the files of the rounds of the task's other step that hold an open gate.
+// gate is the files of the rounds of the task that hold an open gate of a finding not fixable, and
+// conditionGate those that hold the gate of the condition confirmed (D-153).
 // gatesFrom: a round before it carries the meaning `not fixable` had before D-152, a question at that
 // round only, when it is the last.
 // gateSince: the owner's last approval, from which a finding not fixable is a gate; since by default.
 // numbered: every round of the step, over which a next round takes the next free number of its kind.
-export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], gatesFrom = null, numbered = stepRounds } = {}) {
+export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], conditionGate = [], gatesFrom = null, numbered = stepRounds } = {}) {
   const every = byTime(stepRounds);
   const nextOf = (narrow) => Math.max(0, ...numbered.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
@@ -288,27 +334,36 @@ export function nextRound(stepRounds, { refused = () => null, held = () => true,
   const gated = gateSince === null ? every : every.filter((r) => r.time > gateSince);
   const gates = [...new Set([...gate, ...notFixableIn(gated.filter((r) => !isLegacy(r, gatesFrom))), ...(last ? notFixableIn([last]) : [])])];
   const why = clean && last.step === "result-review" && last.acceptance ? refused(last) : null;
+  // Only the rounds after the last end of the step are compared, a round that ended it or the owner's
+  // approval; the first round with findings after it is not stagnation.
+  const window = last ? all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1) : [];
+  // The last round ends the step by the one end of a step (D-153): held for the latest record of done.
+  const ends = last && endsStep(last, (r) => !refused(r));
+  const cond = last && last.step === "result-review" && !ends ? conditionIn(window) : null;
+  const condGates = [...new Set(conditionGate)];
   const branch = {
-    "open gate": () => gates.length && { next: "question", gates, say: `${GATE} (${gates.join(", ")})` },
+    "open gate": () => (gates.length || condGates.length) && { next: "question", gates: [...gates, ...condGates], say: gateSay(gates, condGates) },
     "no round": () => !last && (every.length ? { next: "first round", number: nextFull, say: `the owner approved a later version: work goes on under it, then full round ${nextFull}` } : { next: "first round" }),
+    // After C one narrow round alone; when it does not end the step, the owner's gate (D-153).
+    "condition confirmed": () => {
+      if (!cond) return null;
+      const left = ofChange(last).map((x) => x.cls);
+      if (cond.after > 0) {
+        const what = left.length ? `findings left: ${[...new Set(left)].join(", ")}` : !last.acceptance ? "no verdict of acceptance" : `the verdict of acceptance is refused: ${refused(last)}`;
+        return { next: "question", gates: [last.file], say: `${CONDITION_GATE} (${last.file}: ${what})` };
+      }
+      const s = stagnates(last, window.slice(0, -1));
+      const on = `the reviewer confirmed the goal's condition in ${last.file}`;
+      return s
+        ? { next: "redesign", number: nextNarrow, classes: s.repeated, say: `${on} and the rounds stagnate (${s.say}): change the design of the solution, do not patch it; then narrow round ${nextNarrow}, the one round after it` }
+        : { next: "narrow", number: nextNarrow, say: `${on}: narrow round ${nextNarrow}, the one round after it, on the fixes and the filings` };
+    },
     "no acceptance": () => clean && last.step === "result-review" && !last.acceptance && { next: "acceptance", say: NO_ACCEPTANCE },
     "acceptance refused": () => why && { next: "refused", say: `the verdict of acceptance of ${last.file} is refused: ${why}; the result needs a verdict of acceptance that holds` },
     clean: () => clean && { next: "clean", say: "the step ended clean" },
-    // Only the rounds after the last end of the step are compared, a round that ended it or the owner's
-    // approval; the first round with findings after it is not stagnation.
     stagnation: () => {
-      const window = all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1);
-      const now = important(last);
-      const earlier = window.slice(0, -1);
-      if (!now.size || !earlier.length) return null;
-      const repeated = [...now].filter((c) => earlier.some((r) => important(r).has(c)));
-      if (!repeated.length && now.size < important(earlier.at(-1)).size) return null;
-      return {
-        next: "redesign",
-        number: nextFull,
-        classes: repeated,
-        say: `the rounds stagnate (${repeated.length ? `repeated: ${repeated.join(", ")}` : `${now.size} important classes, no fewer than the round before`}): change the design of the solution, do not patch it; then full round ${nextFull}`,
-      };
+      const s = stagnates(last, window.slice(0, -1));
+      return s && { next: "redesign", number: nextFull, classes: s.repeated, say: `the rounds stagnate (${s.say}): change the design of the solution, do not patch it; then full round ${nextFull}` };
     },
     "next round": () =>
       allTested(last) ? { next: "narrow", number: nextNarrow, say: `narrow round ${nextNarrow}, on the fixes of the last round` } : { next: "full", number: nextFull, say: `full round ${nextFull}: a finding of the last round has no test that holds its fix` },

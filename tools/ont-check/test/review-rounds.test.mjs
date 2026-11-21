@@ -35,12 +35,12 @@ const round = (number, found, { narrow = false, untested = 0, notFixable = 0, be
 const full = (counts, opts) => counts.map((n, i) => round(i + 1, n, opts));
 // A round by its findings named: "a" an important finding of class a, "a:nit" a nit, "a:not" one not
 // fixable, "a:later" and "a:limitation" filed ones, "a:untested" one with no test yet.
-const named = (number, names, { narrow = false, step = "result-review", time, acceptance } = {}) => {
+const named = (number, names, { narrow = false, step = "result-review", time, acceptance, condition = false } = {}) => {
   const f = (n) => {
     const [cls, how = ""] = n.split(":");
     return { cls, weight: how === "nit" ? "nit" : "important", ofChange: true, fixable: !["not", "later", "limitation"].includes(how), filed: ["later", "limitation"].includes(how) ? how : null, test: how === "untested" || ["later", "limitation"].includes(how) ? null : "t.mjs" };
   };
-  return { task: "t", step, narrow, number, ...(time ? { time } : {}), tokens: { new: 1, cached: 0, out: 1 }, findings: names.map(f), ...(acceptance ? { acceptance: { findings: acceptance.map(f) } } : {}) };
+  return { task: "t", step, narrow, number, ...(time ? { time } : {}), tokens: { new: 1, cached: 0, out: 1 }, findings: names.map(f), ...(acceptance ? { acceptance: { findings: acceptance.map(f) } } : {}), ...(condition ? { condition: true } : {}) };
 };
 // Rounds one after the other, the full ones numbered first, as records with no time sort.
 const seq = (...lists) => lists.map((names, i) => named(i + 1, names));
@@ -168,6 +168,7 @@ test("[check.review-round.branch-order-documented] the ontology and the guide li
   // The code takes them in that order: each history gives the branch of its name.
   assert.equal(nextRound([named(1, ["a:not"])]).branch, "open gate");
   assert.equal(nextRound([]).branch, "no round");
+  assert.equal(nextRound([named(1, [], { condition: true })]).branch, "condition confirmed");
   assert.equal(nextRound([named(1, [])]).branch, "no acceptance");
   assert.equal(nextRound([named(1, [], { acceptance: [] })], { refused: () => "x" }).branch, "acceptance refused");
   assert.equal(nextRound([named(1, [], { acceptance: [] })]).branch, "clean");
@@ -490,4 +491,114 @@ test("[check.manual-run.record-verdicts] --review --record writes the records in
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// The round C of the condition confirmed and the one round after it (D-153). A finding "a:before" is one
+// that was there before the change.
+const C = (number, names, opts = {}) => named(number, names, { condition: true, ...opts });
+const before = (r) => ({ ...r, findings: [...r.findings, { cls: "old", weight: "important", ofChange: false, fixable: true, filed: null, test: null }] });
+
+test("[check.review-round.condition-branch] after C one narrow round alone, then the owner's gate; C or the round after it ends the step only with no finding left and an acceptance that holds", () => {
+  // C with no finding left and a clean acceptance that holds ends the step, a finding there before too.
+  assert.equal(nextRound([C(1, [], { acceptance: [] })]).next, "clean");
+  assert.equal(nextRound([before(C(1, [], { acceptance: [] }))]).next, "clean");
+  assert.equal(nextRound([C(1, ["r:later"], { acceptance: [] })]).next, "clean");
+  // C with a finding left, a nit too, with no acceptance or one refused: one narrow round.
+  for (const [why, rounds, opts] of [
+    ["a finding", [C(1, ["a:untested"], { acceptance: [] })], {}],
+    ["a nit", [C(1, ["a:nit"], { acceptance: [] })], {}],
+    ["no acceptance", [C(1, [])], {}],
+    ["refused", [C(1, [], { acceptance: [] })], { refused: () => "no record of done" }],
+  ]) {
+    const n = nextRound(rounds, opts);
+    assert.deepEqual([n.branch, n.next, n.number], ["condition confirmed", "narrow", 1], `${why}: ${n.say}`);
+    assert.match(n.say, /the one round after it/);
+  }
+  // The round after C, narrow or full, with nothing left and an acceptance that holds ends the step.
+  assert.equal(nextRound([C(1, ["a"]), named(1, [], { narrow: true, acceptance: [] })]).next, "clean");
+  assert.equal(nextRound([C(1, ["a"]), named(2, [], { acceptance: [] })]).next, "clean");
+  assert.equal(nextRound([C(1, ["a"]), before(named(1, [], { narrow: true, acceptance: [] }))]).next, "clean");
+  // The round after C with a finding left, no acceptance or one refused: the owner's gate, naming why.
+  for (const [why, rounds, opts, said] of [
+    ["a finding", [C(1, ["a"]), named(1, ["b"], { narrow: true, acceptance: [] })], {}, /findings left: b/],
+    ["full, no acceptance", [C(1, ["a"]), named(2, [])], {}, /no verdict of acceptance/],
+    ["refused", [C(1, ["a"]), named(1, [], { narrow: true, acceptance: [] })], { refused: (r) => (r.narrow ? "x" : null) }, /the verdict of acceptance is refused: x/],
+  ]) {
+    const n = nextRound(rounds, opts);
+    assert.deepEqual([n.branch, n.next], ["condition confirmed", "question"], `${why}: ${n.say}`);
+    assert.match(n.say, /the one round after it did not end the step/);
+    assert.match(n.say, said);
+  }
+  // A repeat of Condition: holds adds nothing: the round after C is still the last one allowed.
+  assert.equal(nextRound([C(1, ["a"]), C(1, ["b"], { narrow: true })]).next, "question");
+  // An open gate comes first.
+  assert.equal(nextRound([C(1, ["a:not"])]).branch, "open gate");
+  // The gate of a later round of the task given by the reader holds the step, as one not fixable does.
+  assert.equal(nextRound([named(1, [], { acceptance: [] })], { conditionGate: ["x.md"] }).branch, "open gate");
+  // After C ended the step, a new round with findings is read afresh.
+  assert.equal(nextRound([C(1, [], { acceptance: [] }), named(2, ["a"])]).next, "narrow");
+});
+
+test("[check.review-round.condition-stagnation] a C that stagnates, by a repeated class or by no fewer classes, changes the design, then the one narrow round", () => {
+  for (const [why, rounds, classes] of [
+    ["repeated", [named(1, ["a", "b"]), C(2, ["a"])], ["a"]],
+    ["no fewer", [named(1, ["a"]), C(2, ["b"])], []],
+  ]) {
+    const n = nextRound(rounds);
+    assert.deepEqual([n.branch, n.next, n.number, n.classes], ["condition confirmed", "redesign", 1, classes], `${why}: ${n.say}`);
+    assert.match(n.say, /change the design of the solution, do not patch it; then narrow round 1, the one round after it/);
+  }
+  // Without C the same rounds go to a full round.
+  assert.equal(nextRound([named(1, ["a", "b"]), named(2, ["a"])]).number, 3);
+});
+
+test("[check.review-round.condition-well-formed] a record gives Condition: holds only, and only on a review of the result", () => {
+  const dir = mkdtempSync(join(tmpdir(), "rounds-condition-"));
+  try {
+    const rec = (name, step, line) => writeFileSync(join(dir, name), [`Task: t`, `Step: ${step}`, `Number: 1`, `Time: 2026-11-20T10:00:00Z`, `By: a model`, line, ""].join("\n"));
+    rec("holds.md", "result-review", "Condition: holds");
+    rec("not-yet.md", "statement-review", "Condition: not yet");
+    rec("blank.md", "result-review", "Condition:");
+    rec("statement.md", "statement-review", "Condition: holds");
+    const { rounds, malformed } = parseRounds(dir);
+    assert.deepEqual(rounds.map((r) => [r.file, r.condition]), [["holds.md", true]]);
+    const has = (file, what) => assert.ok(malformed.some((m) => m.startsWith(`${file}:`) && m.includes(what)), `${file}: ${what}\n${malformed.join("\n")}`);
+    has("not-yet.md", "condition not yet is not holds");
+    has("blank.md", "condition (blank) is not holds");
+    has("statement.md", "a condition on a review that is not of the result");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("[check.review-round.triage-record] the weight and the filing are the executor's line, whatever the reviewer's advice in the notes says", () => {
+  const root = mkdtempSync(join(tmpdir(), "rounds-triage-"));
+  try {
+    mkdirSync(join(root, "issues"));
+    mkdirSync(join(root, "rounds"));
+    writeFileSync(join(root, "issues", "0001-x.md"), "# X\n\nThe tool: a rare thing.\n");
+    const rec = (name, number, line, note) =>
+      writeFileSync(join(root, "rounds", name), [`Task: t`, `Step: result-review`, `Number: ${number}`, `Time: 2026-11-20T1${number}:00:00Z`, `By: a model`, `Condition: holds`, `Findings:`, line, "", "## Notes", "", note, ""].join("\n"));
+    rec("kept.md", 1, "- a usual thing · important · change · fixable · t.mjs", "- a usual thing: reviewer's mark rare; the executor names the step of usual work it breaks: recording done.");
+    rec("filed.md", 2, "- a rare thing · important · change · later · issues/0001-x.md", "- a rare thing: reviewer's mark usual; the executor names no step of usual work.");
+    const { rounds, malformed } = parseRounds(join(root, "rounds"), { root });
+    assert.deepEqual(malformed, []);
+    const [kept, filed] = ["kept.md", "filed.md"].map((f) => rounds.find((r) => r.file === f));
+    // Kept fixable against the advice rare, in C: it counts, and the one narrow round follows.
+    assert.match(nextRound([kept]).say, /narrow round 1, the one round after it/);
+    // Filed against the advice usual: it counts neither as a finding nor in the comparison.
+    assert.equal(nextRound([{ ...filed, acceptance: { findings: [] } }]).next, "clean");
+    // As the one round after C, its only finding filed, it ends the step.
+    assert.equal(nextRound([kept, { ...filed, number: 1, narrow: true, condition: false, acceptance: { findings: [] } }]).next, "clean");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("[check.review-round.triage-documented] the change-review skill asks the reviewer of a result for a line Condition: in every reply and a mark usual or rare on each finding", () => {
+  const skill = readFileSync(fileURLToPath(new URL("../../../skills/change-review/SKILL.md", import.meta.url)), "utf8");
+  assert.match(skill, /`Condition: holds` or `Condition: not yet`/);
+  assert.match(skill, /a reply without (it|one) is an error/i);
+  assert.match(skill, /`usual` or `rare`/);
+  assert.match(skill, /advice/);
 });

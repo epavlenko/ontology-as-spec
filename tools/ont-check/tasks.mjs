@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
-import { BUDGET_QUESTION, GATE, SHA256, TASK_NAME, blockLines, blockedSay, byTime, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
+import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, conditionGatesIn, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
@@ -200,10 +200,10 @@ const missingWhy = (task, c) => `the round gives the acceptance of the latest re
 // once: resolveRecords holds only this round to the commits of its line Commits:, and endingWhy, which
 // --task, --rounds and the check ask through stepNext, refuses its acceptance when one is missing. A
 // round with a finding on merging, or one followed by another round, ends nothing, whatever it names.
+// Whether it ends its step is the one end of a step, endsStep (derived.next-round, D-153).
 export function endingRound({ rounds, done = [], approvals = [], task, statement = null }) {
   const last = taskView({ rounds, done, approvals, task }).results.at(-1);
-  if (!last || !last.acceptance || !isClean(last)) return null;
-  return acceptanceWhy(last, rounds, done, statement, { approvals, latest: true }) ? null : last;
+  return last && endsStep(last, (r) => !acceptanceWhy(r, rounds, done, statement, { approvals, latest: true })) ? last : null;
 }
 // Why the acceptance of the last round of the review of a task's result does not end the task, or null:
 // acceptanceWhy for the latest record of done, then a commit of its line Commits: that the repository
@@ -469,10 +469,10 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   // every round of the step (D-152).
   const of = step === "result-review" ? view.results : all;
   // An open gate holds the whole task, both steps, until the owner's newer approval (D-152).
-  const gate = openGates({ rounds, approvals, task, gatesFrom });
+  const gates = openGatesBy({ rounds, done, approvals, task, gatesFrom });
   const held = (r) => !acceptanceWhy(r, rounds, done, null, { approvals });
-  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
-  if (gate.length) return go();
+  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, conditionGate: gates.condition, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  if (gates.notFixable.length || gates.condition.length) return go();
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);
     if (last?.kind === "approval") return { next: "clean", say: `the owner approved version ${last.hash.slice(0, 12)} (${last.file})` };
@@ -507,11 +507,17 @@ export const byVersion = ({ rounds, done = [], approvals = [], task }) => {
 // when it is the last of its step (D-152). Without the key every round carries the meaning of D-152.
 // The rounds are every round of the task, whatever version each names, never a window's: a reviewer's
 // clean round that approves another version closes nothing.
-export const openGates = ({ rounds, approvals = [], task, gatesFrom = null }) =>
-  notFixableIn(
-    ofTask(rounds, task).filter((r) => !isLegacy(r, gatesFrom)),
-    approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null,
-  );
+// The gate of the condition confirmed (D-153) is read the same way, over every version: the round after
+// C that did not end the step, judged by the records as they were when it was given.
+export const openGatesBy = ({ rounds, done = [], approvals = [], task, gatesFrom = null }) => {
+  const own = ofTask(rounds, task).filter((r) => !isLegacy(r, gatesFrom));
+  const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
+  return { notFixable: notFixableIn(own, since), condition: conditionGatesIn(own, since, (r) => !acceptanceWhy(r, rounds, done, null, { approvals })) };
+};
+export const openGates = (args) => {
+  const g = openGatesBy(args);
+  return [...g.notFixable, ...g.condition];
+};
 // Every task any record names: a round, a record of spend, of done or of the owner's approval (D-152).
 export const taskIds = ({ rounds = [], spend = [], done = [], approvals = [] }) => [...new Set([...rounds, ...spend, ...done, ...approvals].map((r) => r.task).filter(Boolean))].sort();
 export const NO_APPROVAL = "work is not allowed: no approval in force for the statement";
@@ -544,7 +550,8 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const step = (name) => stepNext({ rounds, done, approvals, task, step: name, statement, gatesFrom });
   const fileOk = !statement || statement.hash === approvedNow;
   const result = approvedNow ? step("result-review") : !versioned ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;
-  const gates = openGates({ rounds, approvals, task, gatesFrom });
+  const gatesBy = openGatesBy({ rounds, done, approvals, task, gatesFrom });
+  const gates = [...gatesBy.notFixable, ...gatesBy.condition];
   const nextFull = Math.max(0, ...st.filter((r) => !r.narrow).map((r) => r.number)) + 1;
   const nextResult = Math.max(0, ...rr.filter((r) => !r.narrow).map((r) => r.number)) + 1;
   // The current version window, which every branch below reads for the version: its rounds of the result
@@ -553,7 +560,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const window = view.window;
   const branch = {
     "unreadable record": () => malformed.length && blockedSay(malformed),
-    "open gate": () => gates.length && `${GATE} (${gates.join(", ")})`,
+    "open gate": () => gates.length && gateSay(gatesBy.notFixable, gatesBy.condition),
     done: () =>
       !forWork &&
       (window ? view.results.length && (!needFile || statement?.hash === window.hash) : rr.length) &&
