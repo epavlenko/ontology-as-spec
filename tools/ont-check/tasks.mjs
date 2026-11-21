@@ -381,13 +381,13 @@ export function overspendProblems(end, b) {
 // (D-121); a verdict of acceptance holds only for the latest record of done (D-128).
 // The owner's last record of approval for the task ends both steps (D-152): the rounds before it are not
 // read by the branches of derived.next-round, so a question it answered is lifted.
-export function stepNext({ rounds, done = [], approvals = [], task, step, exhausted = false, statement = null, gatesFrom = null }) {
+export function stepNext({ rounds, done = [], approvals = [], task, step, statement = null, gatesFrom = null }) {
   const of = ofTask(rounds, task, step);
   const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
   // An open gate holds the whole task, both steps, until the owner's newer approval (D-152).
   const gate = openGates({ rounds, approvals, task, gatesFrom });
   const held = (r) => !acceptanceWhy(r, rounds, done, null, { approvals });
-  const go = () => nextRound(of, { exhausted, since, held, gate, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  const go = () => nextRound(of, { since, held, gate, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
   if (gate.length) return go();
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);
@@ -422,7 +422,7 @@ export const NO_APPROVAL = "work is not allowed: no approval in force for the st
 // branches, in this order, which ontology.md and docs/parts/agent-rules.md list by the same names and
 // numbers. --task, --rounds, done.mjs and the check all ask it; every other line of --task and --rounds
 // says a state only.
-export const TASK_BRANCHES = ["unreadable record", "open gate", "done", "budget question", "no review", "under review", "no version", "changed", "step"];
+export const TASK_BRANCHES = ["unreadable record", "done", "budget question", "open gate", "no review", "under review", "no version", "changed", "step"];
 export const NO_FILE = "give --statement <file> to compare the version it names with the file";
 // needFile: the caller, --task or done.mjs, compares the version with a statement's file; --rounds and the
 // check do not. gatesFrom: the configuration's reviewRounds.gatesFrom.
@@ -442,10 +442,14 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const result = approvedNow ? step("result-review") : !byVersion ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;
   const gates = openGates({ rounds, approvals, task, gatesFrom });
   const nextFull = Math.max(0, ...st.filter((r) => !r.narrow).map((r) => r.number)) + 1;
+  // A clean last round of the result that read another version than the one approved now: its
+  // acceptance ends nothing of this version, for --task with its file and --rounds without alike (D-152).
+  const end = rr.at(-1);
+  const endOld = Boolean(approvedNow && end && isClean(end) && end.statementHash && end.statementHash !== approvedNow);
   const branch = {
     "unreadable record": () => malformed.length && blockedSay(malformed),
     "open gate": () => gates.length && `${GATE} (${gates.join(", ")})`,
-    done: () => fileOk && result?.next === "clean" && rr.length && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean"),
+    done: () => fileOk && !endOld && result?.next === "clean" && rr.length && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean"),
     "budget question": () =>
       unreadable
         ? "a line of the statement's budget cannot be read: a question to the owner, with no next round"
@@ -458,6 +462,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
     changed: () => byVersion && statement && last && approvedNow !== statement.hash && `the statement changed after its approval: next is full round ${nextFull} of the new version`,
     step: () => {
       if (!result) return NO_APPROVAL;
+      if (endOld) return `the approval in force is of version ${approvedNow.slice(0, 12)}, and the last round of the result, ${end.file}, read version ${end.statementHash.slice(0, 12)}: the executor works under the approved version, then records done with done.mjs`;
       if (result.next === "first round" && !rr.length && st.length) return result.say ?? "the executor works, then records done with done.mjs";
       if (result.next === "first round" && !result.say) return "the executor works, then records done with done.mjs";
       return result.say;

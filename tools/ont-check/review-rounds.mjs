@@ -250,9 +250,9 @@ export const GATE = "a question to the owner: a finding cannot be fixed without 
 
 // The branches of derived.next-round, in their order (D-152): the first whose condition holds gives the
 // next action. ontology.md and docs/parts/agent-rules.md list them by these names in this order, which a
-// test compares. While the budget with its reserve is exhausted, each branch before "clean" gives the
-// question of the budget instead.
-export const BRANCHES = ["open gate", "no round", "no acceptance", "acceptance refused", "clean", "budget exhausted", "stagnation", "next round"];
+// test compares. The budget is no branch of a step: the next action of the task, tasks.mjs taskNext, is
+// the one place that orders it (D-152).
+export const BRANCHES = ["open gate", "no round", "no acceptance", "acceptance refused", "clean", "stagnation", "next round"];
 
 // refused(round) says why the clean verdict of acceptance of the last round does not end the task now, or
 // null (inv.acceptance-after-done): such a round does not end its step either (D-123). held(round) says
@@ -260,7 +260,7 @@ export const BRANCHES = ["open gate", "no round", "no acceptance", "acceptance r
 // gate is the files of the rounds of the task's other step that hold an open gate.
 // gatesFrom: a round before it carries the meaning `not fixable` had before D-152, a question at that
 // round only, when it is the last.
-export function nextRound(stepRounds, { exhausted = false, refused = () => null, held = () => true, since = null, gate = [], gatesFrom = null } = {}) {
+export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gate = [], gatesFrom = null } = {}) {
   const every = byTime(stepRounds);
   const nextOf = (narrow) => Math.max(0, ...every.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
@@ -269,14 +269,12 @@ export function nextRound(stepRounds, { exhausted = false, refused = () => null,
   const clean = last && isClean(last);
   const gates = [...new Set([...gate, ...notFixableIn(all.filter((r) => gatesFrom === null || r.time >= gatesFrom)), ...(last ? notFixableIn([last]) : [])])];
   const why = clean && last.step === "result-review" && last.acceptance ? refused(last) : null;
-  const budget = (say) => (exhausted ? { next: "budget", say: say ? `${say}; ${BUDGET_QUESTION}` : BUDGET_QUESTION } : null);
   const branch = {
-    "open gate": () => gates.length && (budget() ?? { next: "question", gates, say: `${GATE} (${gates.join(", ")})` }),
-    "no round": () => !last && (budget() ?? (every.length ? { next: "first round", number: nextFull, say: `the owner approved a later version: work goes on under it, then full round ${nextFull}` } : { next: "first round" })),
-    "no acceptance": () => clean && last.step === "result-review" && !last.acceptance && (budget() ?? { next: "acceptance", say: NO_ACCEPTANCE }),
-    "acceptance refused": () => why && (budget(`the verdict of acceptance of ${last.file} is refused: ${why}`) ?? { next: "refused", say: `the verdict of acceptance of ${last.file} is refused: ${why}; the result needs a verdict of acceptance that holds` }),
+    "open gate": () => gates.length && { next: "question", gates, say: `${GATE} (${gates.join(", ")})` },
+    "no round": () => !last && (every.length ? { next: "first round", number: nextFull, say: `the owner approved a later version: work goes on under it, then full round ${nextFull}` } : { next: "first round" }),
+    "no acceptance": () => clean && last.step === "result-review" && !last.acceptance && { next: "acceptance", say: NO_ACCEPTANCE },
+    "acceptance refused": () => why && { next: "refused", say: `the verdict of acceptance of ${last.file} is refused: ${why}; the result needs a verdict of acceptance that holds` },
     clean: () => clean && { next: "clean", say: "the step ended clean" },
-    "budget exhausted": () => budget(),
     // Only the rounds after the last end of the step are compared, a round that ended it or the owner's
     // approval; the first round with findings after it is not stagnation.
     stagnation: () => {

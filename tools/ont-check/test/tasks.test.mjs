@@ -250,9 +250,10 @@ test("[check.task-statement.budget-converging] rounds that converge give a quest
     ],
   }).rounds;
   assert.equal(nextRound(rounds).next, "narrow");
-  const n = nextRound(rounds, { exhausted: true });
-  assert.equal(n.next, "budget");
-  assert.match(n.say, /the budget is exhausted: a question to the owner/);
+  // The task's next action, with the budget exhausted, is the question, ahead of the converging step.
+  const n = taskNext({ rounds, spend: [{ task: "t", contribution: "a · 1", start: T(8), end: T(8), tokens: { new: 2000, cached: 0, out: 0 } }], task: "t", defaults: limits(1000, 1000) });
+  assert.equal(n.branch, "budget question");
+  assert.equal(n.say, "the budget is exhausted: a question to the owner");
 });
 
 test("[check.task-result.clean-needs-acceptance] a round of the result clean on merging with no verdict of acceptance does not end the step, and with the budget exhausted the next action is the question, in --task and in --rounds", () => {
@@ -261,7 +262,6 @@ test("[check.task-result.clean-needs-acceptance] a round of the result clean on 
   const rr = sc.rounds.filter((r) => r.step === "result-review");
   assert.equal(nextRound(rr).next, "acceptance");
   assert.match(nextRound(rr).say, /gives no verdict of acceptance yet: a round that gives it follows/);
-  assert.equal(nextRound(rr, { exhausted: true }).next, "budget");
   // --task, within the budget and past it.
   assert.match(state(sc, { statement: fileOf(A), defaults: limits(10000, 10000) }), /NEXT t: the last round is clean on merging and gives no verdict of acceptance yet/);
   const spent = state(sc, { statement: fileOf(A), defaults: limits(1000, 1000) });
@@ -774,11 +774,43 @@ test("[check.task-statement.task-next-documented] the ontology and the guide lis
   }
 });
 
+test("[check.task-statement.done-of-version] after version A is accepted and a clean round approves version B, the task is not done: --task, --rounds and done.mjs all give work under B", () => {
+  const rounds = [approvedA, finalRound(), { step: "statement-review", number: 2, time: T(13), hash: B }];
+  const sc = scenario({ rounds, done: [{ time: T(11) }] });
+  writeFileSync(join(sc.dir, "b.md"), B_TEXT);
+  const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "b.md"), "--rounds"]);
+  const next = r.stdout.split("\n").filter((l) => l.startsWith("NEXT t:"));
+  assert.equal(next.length, 2, r.stdout);
+  for (const l of next) assert.match(l, /^NEXT t: the approval in force is of version [0-9a-f]{12}, and the last round of the result, r1\.md, read version [0-9a-f]{12}: the executor works under the approved version/);
+  assert.equal(next[0], next[1]);
+  assert.doesNotMatch(r.stdout, /NEXT t: done|the task is done/);
+  // Before B's approval, A's acceptance ends the task.
+  const before = scenario({ rounds: rounds.slice(0, 2), done: [{ time: T(11) }] });
+  assert.equal(taskNext({ rounds: before.rounds, done: before.records.done, task: "t" }).branch, "done");
+  [sc, before].forEach((x) => rmSync(x.dir, { recursive: true, force: true }));
+  // done.mjs records done for B in that interval: the action is work on the result.
+  const { repo, outside, done, clean } = doneRepo("t");
+  try {
+    const b = join(outside, "b.md");
+    writeFileSync(b, "# B\n\nDone-when: true\n");
+    assert.equal(done("t").status, 0);
+    const recs = parseTaskRecords(join(repo, "tasks")).done;
+    writeFileSync(join(repo, "rounds", "2.md"), roundText({ task: "t", step: "result-review", number: 1, time: T(23), hash: readStatement(join(outside, "s.md")).hash, acceptance: "clean", commits: recs[0].commit.slice(0, 7) }));
+    writeFileSync(join(repo, "rounds", "3.md"), roundText({ task: "t", step: "statement-review", number: 2, time: T(23, 30), hash: readStatement(b).hash }));
+    const forB = spawnSync("node", [join(TOOLS, "done.mjs"), "t", "--statement", b, "--config", join(repo, "ont.config.json")], { encoding: "utf8" });
+    assert.equal(forB.status, 0, forB.stdout);
+  } finally {
+    clean();
+  }
+});
+
 test("[check.task-statement.budget-one-action] with an approval in force and the budget exhausted, --task names the question on one line only", () => {
   const histories = [
     [{ ...approvedA, tokens: [1200, 0, 10] }],
     [{ ...approvedA, tokens: [600, 0, 10] }, { step: "result-review", number: 1, time: T(12), hash: A, found: 1, tokens: [600, 0, 10] }],
     [{ ...approvedA, tokens: [600, 0, 10] }, { step: "result-review", number: 1, time: T(12), hash: A, found: 1, fix: "not fixable", tokens: [600, 0, 10] }],
+    // Exactly at the limit times the reserve of 1, with a live gate.
+    [{ ...approvedA, tokens: [400, 0, 10] }, { step: "result-review", number: 1, time: T(12), hash: A, found: 1, fix: "not fixable", tokens: [600, 0, 10] }],
   ];
   for (const rounds of histories) {
     const out = state(scenario({ rounds }), { statement: fileOf(A), defaults: limits(1000, 1000) });
@@ -786,7 +818,8 @@ test("[check.task-statement.budget-one-action] with an approval in force and the
     assert.equal(lines.filter((l) => l.startsWith("NEXT")).length, 1, out);
     assert.deepEqual(lines.filter((l) => !l.startsWith("NEXT") && /question to the owner|the executor works|round \d|work may/.test(l)), [], out);
     assert.match(out, /statement: approved, version [0-9a-f]{12}\n/);
-    assert.match(out, /NEXT t: [^\n]*a question to the owner/);
+    // Exactly the question of the budget, also where a gate is open: the budget comes first.
+    assert.match(out, /NEXT t: the budget is exhausted: a question to the owner$/);
   }
 });
 

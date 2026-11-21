@@ -136,29 +136,23 @@ test("[check.review-round.stagnation-reset] a round of the result clean on mergi
   assert.equal(nextRound(rounds(middle(true))).next, "narrow");
 });
 
-test("[check.review-round.branch-order] the budget comes before not fixable and stagnation, not fixable before stagnation, and findings only in the acceptance are findings", () => {
-  const stagnating = seq(["a", "b"], ["c", "d"]);
-  assert.equal(nextRound(stagnating, { exhausted: true }).next, "budget");
+test("[check.review-round.branch-order] not fixable comes before stagnation, findings only in the acceptance are findings, and no branch of a step knows the budget", () => {
   // The last round would stagnate by its two important classes; its finding not fixable goes first.
   const notFixable = seq(["a", "b"], ["c", "d", "e:not"]);
   assert.equal(nextRound(seq(["a", "b"], ["c", "d"])).next, "redesign");
   assert.equal(nextRound(notFixable).next, "question");
-  assert.equal(nextRound(notFixable, { exhausted: true }).next, "budget");
   // Findings in the verdict of acceptance only: not clean, and compared as findings.
   const onlyAcceptance = [named(1, ["a"]), named(2, [], { acceptance: ["a"] })];
   assert.equal(nextRound(onlyAcceptance).next, "redesign");
   assert.equal(nextRound([named(1, ["a", "b"]), named(2, [], { acceptance: ["c"] })]).next, "narrow");
-  // The first three branches, and their question when the budget is exhausted.
   assert.equal(nextRound([]).next, "first round");
-  assert.equal(nextRound([], { exhausted: true }).next, "budget");
-  const noAcceptance = [named(1, [])];
-  assert.equal(nextRound(noAcceptance).next, "acceptance");
-  assert.equal(nextRound(noAcceptance, { exhausted: true }).next, "budget");
+  assert.equal(nextRound([named(1, [])]).next, "acceptance");
   const refusedRound = [named(1, [], { acceptance: [] })];
   assert.equal(nextRound(refusedRound, { refused: () => "no record of done" }).next, "refused");
-  assert.equal(nextRound(refusedRound, { refused: () => "no record of done", exhausted: true }).next, "budget");
-  // A clean round of acceptance ends the step even with the budget exhausted.
-  assert.equal(nextRound(refusedRound, { exhausted: true }).next, "clean");
+  assert.equal(nextRound(refusedRound).next, "clean");
+  // The budget is ordered by the next action of the task only: a step given "exhausted" ignores it.
+  assert.equal(nextRound(notFixable, { exhausted: true }).next, "question");
+  assert.ok(!BRANCHES.some((b) => /budget/.test(b)));
 });
 
 test("[check.review-round.branch-order-documented] the ontology and the guide list the branches of the next round by the names and in the order the code takes them", () => {
@@ -177,12 +171,10 @@ test("[check.review-round.branch-order-documented] the ontology and the guide li
   assert.equal(nextRound([named(1, [])]).branch, "no acceptance");
   assert.equal(nextRound([named(1, [], { acceptance: [] })], { refused: () => "x" }).branch, "acceptance refused");
   assert.equal(nextRound([named(1, [], { acceptance: [] })]).branch, "clean");
-  assert.equal(nextRound([named(1, ["a"])], { exhausted: true }).branch, "budget exhausted");
   assert.equal(nextRound(seq(["a"], ["a"])).branch, "stagnation");
   assert.equal(nextRound([named(1, ["a"])]).branch, "next round");
-  // With the budget exhausted, the first four give the question of the budget.
-  for (const h of [[named(1, ["a:not"])], [], [named(1, [])]]) assert.equal(nextRound(h, { exhausted: true }).next, "budget");
-  assert.equal(nextRound([named(1, [], { acceptance: [] })], { refused: () => "x", exhausted: true }).next, "budget");
+  // The guide to rounds says the budget is ordered by the task's next action, before an open gate.
+  assert.match(guide, /The budget is no branch of a step/);
 });
 
 test("[check.review-round.not-fixable] a gate opened by a finding not fixable holds over later rounds, a clean acceptance too, until the owner's approval", () => {
