@@ -258,14 +258,16 @@ export const BRANCHES = ["open gate", "no round", "no acceptance", "acceptance r
 // null (inv.acceptance-after-done): such a round does not end its step either (D-123). held(round) says
 // whether an earlier round's acceptance held, for endsStep, which alone resets the comparison of rounds.
 // gate is the files of the rounds of the task's other step that hold an open gate.
-export function nextRound(stepRounds, { exhausted = false, refused = () => null, held = () => true, since = null, gate = [] } = {}) {
+// gatesFrom: a round before it carries the meaning `not fixable` had before D-152, a question at that
+// round only, when it is the last.
+export function nextRound(stepRounds, { exhausted = false, refused = () => null, held = () => true, since = null, gate = [], gatesFrom = null } = {}) {
   const every = byTime(stepRounds);
   const nextOf = (narrow) => Math.max(0, ...every.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
   const all = since === null ? every : every.filter((r) => r.time > since);
   const last = all.at(-1);
   const clean = last && isClean(last);
-  const gates = [...new Set([...gate, ...notFixableIn(all)])];
+  const gates = [...new Set([...gate, ...notFixableIn(all.filter((r) => gatesFrom === null || r.time >= gatesFrom)), ...(last ? notFixableIn([last]) : [])])];
   const why = clean && last.step === "result-review" && last.acceptance ? refused(last) : null;
   const budget = (say) => (exhausted ? { next: "budget", say: say ? `${say}; ${BUDGET_QUESTION}` : BUDGET_QUESTION } : null);
   const branch = {
@@ -333,23 +335,26 @@ export function stepPayoff(rounds) {
   return out;
 }
 
-// exhaustedOf(task) says whether a task's budget is exhausted, from the configuration's limits: a
-// statement's own limits are read by --task, which is run before each step (D-119). nextOf(task, step,
-// rounds) gives the next round of a step; the check passes tasks.mjs stepNext, the function --task uses,
-// so the two never disagree (D-123). malformed is the list of records of rounds that cannot be read:
-// while one stands, the one next action of every task is to correct it (D-152).
-export function renderRounds(rounds, { exhaustedOf = () => false, nextOf = null, malformed = [] } = {}) {
+// The rounds of each step of each task, as lines of state, and each task's one next action on a line
+// NEXT of its own, which nextOf(task) gives: the check passes tasks.mjs taskNext, the function --task and
+// done.mjs ask too, so they never disagree (D-152). Without nextOf, as in a test, the next round of the
+// task's last step. malformed is the list of records of rounds that cannot be read.
+export function renderRounds(rounds, { nextOf = null, malformed = [] } = {}) {
   const lines = [];
-  if (malformed.length) lines.push(`ROUNDS: ${blockedSay(malformed)}`);
   const tasks = [...new Set(rounds.map((r) => r.task))].sort();
-  for (const t of tasks)
+  for (const t of tasks) {
     for (const step of STEPS) {
       const of = rounds.filter((r) => r.task === t && r.step === step);
       if (!of.length) continue;
-      const n = malformed.length ? { say: blockedSay(malformed) } : nextOf ? nextOf(t, step, of) : nextRound(of, { exhausted: exhaustedOf(t) });
       const full = of.filter((r) => !r.narrow).length;
-      lines.push(`ROUNDS ${t} · ${step}: ${full} full, ${of.length - full} narrow · next: ${n.say}`);
+      const last = byTime(of).at(-1);
+      lines.push(`ROUNDS ${t} · ${step}: ${full} full, ${of.length - full} narrow · last ${last.file}, ${isClean(last) ? "clean" : "with findings of the change"}`);
     }
+    const own = rounds.filter((r) => r.task === t);
+    const n = malformed.length ? { say: blockedSay(malformed) } : nextOf ? nextOf(t) : nextRound(own.filter((r) => r.step === byTime(own).at(-1).step));
+    lines.push(`NEXT ${t}: ${n.say ?? "the first round"}`);
+  }
+  if (malformed.length && !tasks.length) lines.push(`NEXT: ${blockedSay(malformed)}`);
   for (const p of stepPayoff(rounds))
     lines.push(
       `PAYOFF ${p.step}: ${p.applications} applications, ${p.rounds} rounds, tokens ` +

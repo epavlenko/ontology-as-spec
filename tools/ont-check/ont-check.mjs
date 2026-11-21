@@ -48,7 +48,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { byTime, renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, gitEnv, overlaps, overspendProblems, parseTaskRecords, readRoundRecords, readStatement, resolveRecords, stepNext, taskBudget, taskState } from "./tasks.mjs";
+import { acceptanceProblems, gitEnv, overlaps, overspendProblems, parseTaskRecords, readRoundRecords, readStatement, resolveRecords, taskBudget, taskNext, taskState } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1371,7 +1371,9 @@ if (cfg.reviewRounds) {
   // configuration's limits, and every spend it names the one the tool sums (D-128); --task, with the
   // statement's own limits, compares the whole line.
   // ont: field.review-round.overspend, rule.budget-before-next
-  const ended = [...new Set(rounds.map((r) => r.task))].filter((t) => stepNext({ rounds, done: records.done, approvals: records.approvals, task: t, step: "result-review" }).next === "clean");
+  const gatesFrom = cfg.reviewRounds.gatesFrom;
+  const nextOf = (t) => taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, gatesFrom });
+  const ended = [...new Set(rounds.map((r) => r.task))].filter((t) => nextOf(t).branch === "done");
   report(
     "records of acceptance whose line Overspend: is not the tool's",
     ended.flatMap((t) => {
@@ -1382,8 +1384,7 @@ if (cfg.reviewRounds) {
   // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
   // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
   if (flag("--rounds") > 0) {
-    const exhaustedOf = (t) => Boolean(taskBudget({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null })?.exhausted);
-    console.log(renderRounds(rounds, { malformed, exhaustedOf, nextOf: (t, step) => stepNext({ rounds, done: records.done, approvals: records.approvals, task: t, step, exhausted: exhaustedOf(t) }) }));
+    console.log(renderRounds(rounds, { malformed, nextOf }));
   }
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
   // budget (D-152, D-108), with the marks of the budget it has passed.
@@ -1394,7 +1395,7 @@ if (cfg.reviewRounds) {
     if (!task || task.startsWith("--") || (flag("--statement") > 0 && (!file || !existsSync(file)))) {
       fail("--task needs a task, and --statement an existing file", 2);
     }
-    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement: file ? readStatement(file) : null, malformed });
+    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement: file ? readStatement(file) : null, malformed, gatesFrom });
     console.log(st.lines.join("\n"));
     report("task records that do not say what --task found", st.errors);
   }

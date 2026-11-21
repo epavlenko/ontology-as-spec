@@ -110,7 +110,7 @@ test("[check.tool-copy.options-documented] a configuration with every key of the
       reviewPaths: [{ dir: "data", concepts: ["ent.x"] }],
       manualRuns: { dir: "runs", require: true },
       records: { latinOnly: true },
-      reviewRounds: { dir: "rounds" },
+      reviewRounds: { dir: "rounds", gatesFrom: "2026-11-21T09:35:15Z" },
       taskRecords: { dir: "tasks" },
       protocolReleases: { file: "releases.md" },
       releases: { dir: "releases", pin: "tools/ontology-as-spec/upstream.json", tool: "tools/ontology-as-spec" },
