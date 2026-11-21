@@ -478,9 +478,9 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
     if (last?.kind === "approval") return { next: "clean", say: `the owner approved version ${last.hash.slice(0, 12)} (${last.file})` };
   }
   // Work on the result goes on only under an approval in force, as --task says (rule.work-under-approval):
-  // a later round of the statement with findings withdraws even the owner's approval. A task all of whose
-  // records are legacy reads as it did (byVersion).
-  if (step === "result-review" && all.length && byVersion({ rounds, done, approvals, task, gatesFrom }) && !approvedHash(rounds, task, null, approvals)) return { next: "no-approval", say: NO_APPROVAL };
+  // a later round of the statement with findings withdraws even the owner's approval. A task none of
+  // whose records names a version reads as it did (byVersion).
+  if (step === "result-review" && all.length && byVersion({ rounds, done, approvals, task }) && !approvedHash(rounds, task, null, approvals)) return { next: "no-approval", say: NO_APPROVAL };
   // An earlier round's acceptance held when it held by the records as they were when it was given, for
   // the version the round read: no statement is given to it, so --task, with a file of a later version,
   // and --rounds, with none, find the same end of the step (D-152). Only the last round, which would end
@@ -488,12 +488,15 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   return go();
 }
 
-// Whether a task is read by versions of its statement (D-152): unless every record of it, of rounds, of
-// done and of approval, is legacy (isLegacy), as a task recorded before D-106 is; a task with no record
-// yet is. The one test --task, --rounds and done.mjs read, through taskNext and stepNext.
-export const byVersion = ({ rounds, done = [], approvals = [], task, gatesFrom = null }) => {
+// Whether a task is read by versions of its statement (D-152): the one test of it, which --task,
+// --rounds and done.mjs read through taskNext and stepNext. A task is versioned once any record of it
+// names a version of its statement, a round of either step with Statement-hash:, a record of done or a
+// record of the owner's approval, or when it has no record yet; never by the time of its records, which
+// decides only how each record is read (isLegacy). A task none of whose records names a version, as one
+// recorded before D-106, skips the statement's branches and reads as it did.
+export const byVersion = ({ rounds, done = [], approvals = [], task }) => {
   const own = [...rounds, ...done, ...approvals].filter((r) => r.task === task);
-  return !own.length || own.some((r) => !isLegacy(r, gatesFrom));
+  return !own.length || own.some((r) => r.statementHash);
 };
 
 // The open gates of a task (D-152): the rounds of either step, after the owner's last record of approval
@@ -531,8 +534,8 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const approvedNow = approvedHash(rounds, task, null, approvals);
   const st = ofTask(rounds, task, "statement-review");
   const rr = ofTask(rounds, task, "result-review");
-  // A task all of whose records are legacy has no statement branches: its rounds read as they did.
-  const versioned = byVersion({ rounds, done, approvals, task, gatesFrom });
+  // A task none of whose records names a version has no statement branches: its rounds read as they did.
+  const versioned = byVersion({ rounds, done, approvals, task });
   const step = (name) => stepNext({ rounds, done, approvals, task, step: name, statement, gatesFrom });
   const fileOk = !statement || statement.hash === approvedNow;
   const result = approvedNow ? step("result-review") : !versioned ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;

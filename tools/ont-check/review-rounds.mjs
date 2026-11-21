@@ -262,9 +262,9 @@ export const GATE = "a question to the owner: a finding cannot be fixed without 
 // Whether a record is legacy (D-152): the one test of it, by the record's time alone, never by a version
 // it names or an approval before it. A record of rounds, of done or of approval written before the
 // configuration's reviewRounds.gatesFrom is legacy and keeps the reading it had: a round of the result
-// may name no version, is never late, and a finding `not fixable` in it opens no gate; a task all of
-// whose records are legacy reads as a task recorded before D-106. Every record at or after the time
-// follows the rules of D-152. Without the key no record is legacy.
+// may name no version, is never late, and a finding `not fixable` in it opens no gate. Every record at
+// or after the time follows the rules of D-152. Without the key no record is legacy. Whether a task is
+// read by versions is another question, never decided by the time (tasks.mjs byVersion).
 export const isLegacy = (record, gatesFrom) => Boolean(gatesFrom) && record.time < gatesFrom;
 
 export const BRANCHES = ["open gate", "no round", "no acceptance", "acceptance refused", "clean", "stagnation", "next round"];

@@ -1560,3 +1560,34 @@ test("[check.review-round.result-names-version] a round of the result with no St
   }
   rmSync(sc.dir, { recursive: true, force: true });
 });
+
+test("[check.task-statement.gates-from] a task whose records all predate gatesFrom and name versions keeps the statement's branches: the real releases-and-task asks for the file, and for a full round when the file changed", () => {
+  const cfg = loadConfig(fileURLToPath(new URL("../../../ont.config.json", import.meta.url)));
+  const { rounds } = readRoundRecords(cfg);
+  const records = parseTaskRecords(cfg.taskRecords.dir);
+  const at = (statement, needFile) => taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: "releases-and-task", defaults: cfg.budget, statement, gatesFrom: cfg.reviewRounds.gatesFrom, needFile }).next;
+  assert.equal(at(null, true).branch, "no version");
+  assert.equal(at(null, true).say, "give --statement <file> to compare the version it names with the file");
+  assert.equal(at(fileOf(B), true).branch, "changed");
+  assert.match(at(fileOf(B), true).say, /^the statement changed after its approval: next is full round \d+ of the new version$/);
+  // --rounds, given no file, compares no version: the task is done, as on main.
+  assert.equal(at(null, false).branch, "done");
+});
+
+test("[check.task-statement.gates-from] before gatesFrom, an approval withdrawn by a later round of the statement with findings allows no work: --task and --rounds give the statement's next round, never a round of the result", () => {
+  const rounds = [approvedA, { step: "result-review", number: 1, time: T(9, 30), hash: A, found: 1 }, { step: "statement-review", number: 2, time: T(10), hash: B, found: 1 }];
+  const sc = scenario({ rounds });
+  writeFileSync(join(sc.dir, "b.md"), "version B");
+  const gated = { reviewRounds: { dir: join(sc.dir, "rounds"), gatesFrom: T(11) } };
+  const outs = [["--task", "t", "--statement", join(sc.dir, "b.md")], ["--rounds"]].map((args) => checkWith(sc, gated, args).stdout);
+  for (const out of outs) {
+    assert.match(out, /TASK t · result: work is not allowed/, out);
+    assert.match(out, /TASK t · statement: the last round of its review, r2\.md, found findings of the change/, out);
+  }
+  // The one next action is the statement's, by the branch under review, the same in both.
+  const next = taskNext({ rounds: sc.rounds, task: "t", statement: { ...fileOf(B), hash: sha256("version B") }, needFile: true, gatesFrom: T(11) });
+  assert.equal(next.branch, "under review");
+  assert.equal(next.say, stepNext({ rounds: sc.rounds, task: "t", step: "statement-review", gatesFrom: T(11) }).say);
+  for (const out of outs) assert.deepEqual(nextLines({ stdout: out }), [`NEXT t: ${next.say}`]);
+  rmSync(sc.dir, { recursive: true, force: true });
+});
