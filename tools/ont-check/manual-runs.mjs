@@ -46,7 +46,7 @@ const END_TAG = /<\/[A-Za-z][A-Za-z0-9-]*>/g;
 // Where a word starts: the start of the line or a mark that is not part of a word or a relative path.
 // A letter or a digit of any script, a dot, a tilde or a hyphen continues a word; an underscore, the
 // mark of Markdown emphasis, does not.
-const START = "(?:^|[^\\p{L}\\p{N}.~-])";
+const START = "(?:^|[^\\p{L}\\p{M}\\p{N}.~-])";
 // An absolute path: /x, ~/x, C:\x, C:/x or \\server.
 const ABSOLUTE = new RegExp(`${START}(\\/[^\\s/]|~\\/|[A-Za-z]:[\\\\/]|\\\\\\\\[^\\s\\\\])`, "gu");
 // A scheme other than http and https, with anything after it: file:x, file:///x, mailto:x, app://x.
@@ -56,7 +56,8 @@ const OTHER_SCHEME = new RegExp(`${START}((?:file|mailto):\\S|(?!https?:)[a-z][a
 const leaves = (token) => {
   let depth = 0;
   for (const part of token.split(/[\\/]/)) {
-    if (part === "..") depth--;
+    // A part of dots only, "..", or ".." run into an ellipsis "...", goes up.
+    if (/^\.{2,}$/.test(part)) depth--;
     else if (part && part !== ".") depth++;
     if (depth < 0) return true;
   }
@@ -85,11 +86,13 @@ export function outsideRecord(text, from = 1, { latinOnly = false } = {}) {
         if (!named.has(w)) problems.push(`${at}: ${w} is a path outside the repository`), named.add(w);
       }
     }
-    // A relative path that leaves the repository by "..": each word of the line, its marks of a sentence
-    // taken off but not the dots of a final "..".
-    for (const raw of plain.split(/[\s<>`"'|,;()\[\]*_=]+/)) {
-      const t = /(?:^|[\\/])\.\.[.:!?]*$/.test(raw) ? raw.replace(/(\.\.)[.:!?]+$/, "$1") : raw.replace(/[.:!?]+$/, "");
-      if (/[\\/]/.test(t) && !named.has(t) && leaves(t.replace(/:\d+(?:-\d+)?$/, ""))) problems.push(`${at}: ${t} leaves the repository`);
+    // A relative path that leaves the repository by "..": each run of the characters of a path, letters
+    // and digits of any script, marks, "._~-", slashes and backslashes, so that whatever follows a path,
+    // a quote, a dash, an ellipsis or a full stop, ends it; a ":12" after it is its line.
+    for (const m of plain.matchAll(/[\p{L}\p{M}\p{N}._~\-\/\\]+/gu)) {
+      // Underscores at its ends are Markdown emphasis, not the path's.
+      const t = m[0].replace(/^_+|_+$/g, "").replace(/:\d+(?:-\d+)?$/, "");
+      if (/[\\/]/.test(t) && /\.\./.test(t) && !named.has(t) && leaves(t)) problems.push(`${at}: ${t} leaves the repository`);
     }
   });
   return problems;
