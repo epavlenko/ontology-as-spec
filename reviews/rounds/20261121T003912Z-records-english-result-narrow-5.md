@@ -9,6 +9,6 @@ Checks-listed: 52
 Checks-given: 52
 Checks-carried: 0
 Findings:
-- a relative path outside the repository let through · important · change · fixable
-- absolute paths let through · important · change · fixable
-- a path inside the repository refused · nit · change · fixable
+- a relative path outside the repository let through · important · change · fixable · check.manual-run.english-in-repo
+- absolute paths let through · important · change · fixable · check.manual-run.english-in-repo
+- a path inside the repository refused · nit · change · fixable · check.manual-run.english-in-repo
