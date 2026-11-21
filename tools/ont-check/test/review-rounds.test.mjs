@@ -131,7 +131,7 @@ test("[check.review-round.stagnation-reset] a round of the result clean on mergi
   // No acceptance: nothing ended, class a repeats.
   assert.equal(nextRound(rounds(middle(false))).next, "redesign");
   // An acceptance refused: nothing ended either.
-  assert.equal(nextRound(rounds(middle(true)), { refused: (r) => (r.number === 2 ? "no record of done" : null) }).next, "redesign");
+  assert.equal(nextRound(rounds(middle(true)), { held: (r) => r.number !== 2 }).next, "redesign");
   // An acceptance that holds ended the step: class a is the first finding after it.
   assert.equal(nextRound(rounds(middle(true))).next, "narrow");
 });
@@ -266,6 +266,30 @@ test("[check.review-round.malformed] names each record of rounds that cannot be 
     rmSync(cfgDir, { recursive: true, force: true });
     assert.equal(r.status, 1, r.stdout);
     assert.match(r.stdout, /review round records that cannot be read \(6\)/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("[check.review-round.strict-head] the head of a record is read strictly: an indented or misshaped finding, an unknown line or a finding outside a block makes it unreadable, and notes after a heading are free", () => {
+  const dir = mkdtempSync(join(tmpdir(), "rounds-strict-"));
+  try {
+    const head = ["Task: t", "Step: statement-review", "Number: 1", "Time: 2026-11-20T10:00:00Z", "By: a model"];
+    const w = (name, lines) => writeFileSync(join(dir, name), [...head, ...lines, ""].join("\n"));
+    w("indented.md", ["Findings:", "  - a · important · change · fixable"]);
+    w("unknown.md", ["Verdict: fix first", "Findings:", "- a · important · change · fixable"]);
+    w("outside.md", ["- a · important · change · fixable"]);
+    w("prose.md", ["The reviewer found nothing."]);
+    w("notes.md", ["Findings:", "- a · important · change · fixable", "", "## Notes", "", "Any text here, - even this", "  - and an indented line, Task: x"]);
+    const { rounds, malformed } = parseRounds(dir);
+    const has = (file, line) => assert.ok(malformed.some((m) => m.startsWith(`${file}:`) && m.includes(`line ${line}: not a field`)), `${file} line ${line}\n${malformed.join("\n")}`);
+    has("indented.md", 7);
+    has("unknown.md", 6);
+    has("outside.md", 6);
+    has("prose.md", 6);
+    // The notes are not read: the record reads, with its one finding and its own task.
+    assert.deepEqual(rounds.map((r) => [r.file, r.task, r.findings.length]), [["notes.md", "t", 1]]);
+    assert.equal(nextRound(rounds).next, "full");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

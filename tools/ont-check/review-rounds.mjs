@@ -83,6 +83,29 @@ const blockAt = (text, name) => {
   return out;
 };
 
+// The head of a record: its lines up to its first Markdown heading.
+const headOf = (text) => {
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => /^#/.test(l));
+  return (at < 0 ? lines : lines.slice(0, at)).join("\n");
+};
+const BLOCKS = /^(Findings|Acceptance):\s*$/;
+// The numbers of the lines of a head that the reader would otherwise pass over: a line that is not a
+// field, a block's name or "Acceptance: clean", nor a finding line "- …" directly inside a block, nor
+// blank. An indented or misshaped finding is such a line, and makes the record unreadable (D-152).
+const strayLines = (head) => {
+  const field = new RegExp(`^(${FIELDS.join("|")}):`);
+  let inBlock = false;
+  const out = [];
+  head.split("\n").forEach((l, i) => {
+    if (!l.trim()) return;
+    if (BLOCKS.test(l)) inBlock = true;
+    else if (/^Acceptance:/.test(l) || field.test(l)) inBlock = false;
+    else if (!(inBlock && /^- \S/.test(l))) out.push(i + 1);
+  });
+  return out;
+};
+
 // Every record of the directory, with what is wrong with it. opts.latinOnly is the configuration's
 // records.latinOnly; opts.root, the root of the repository, in which a filed finding's file is looked up.
 // The check, --task, --rounds and done.mjs read the records only through readRoundRecords of tasks.mjs,
@@ -92,18 +115,22 @@ export function parseRounds(dir, opts = {}) {
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
     const text = read(f);
-    const pairs = text
+    // The record is its head, up to its first Markdown heading; what follows is the reviewer's notes,
+    // which the tool does not read but holds to rule.records-english-in-repo. The head is read strictly:
+    // each line is a field, a block's name, a finding line inside the block, or blank (D-152).
+    const head = headOf(text);
+    const pairs = head
       .split("\n")
       .map((l) => l.match(new RegExp(`^(${FIELDS.join("|")}):\\s*(.*?)\\s*$`)))
       .filter(Boolean)
       .map((m) => [m[1].toLowerCase(), m[2]]);
     const fields = Object.fromEntries(pairs.filter(([, v]) => v !== ""));
     const repeated = [...new Set(pairs.map(([k]) => k).filter((k, i, a) => a.indexOf(k) !== i))];
-    const findingsAt = (blockAt(text, "Findings") ?? []).map((b) => ({ ...parseFinding(b.line), n: b.n }));
+    const findingsAt = (blockAt(head, "Findings") ?? []).map((b) => ({ ...parseFinding(b.line), n: b.n }));
     const findings = findingsAt.map(({ n, ...x }) => x);
     // The verdict of acceptance (D-107, D-152): "Acceptance: clean", or "Acceptance:" and its finding lines.
-    const acceptLine = text.match(/^Acceptance:[ \t]*(.*?)\s*$/m);
-    const acceptAt = (blockAt(text, "Acceptance") ?? []).map((b) => ({ ...parseFinding(b.line), n: b.n }));
+    const acceptLine = head.match(/^Acceptance:[ \t]*(.*?)\s*$/m);
+    const acceptAt = (blockAt(head, "Acceptance") ?? []).map((b) => ({ ...parseFinding(b.line), n: b.n }));
     const acceptance = !acceptLine ? null : { value: acceptLine[1], findings: acceptAt.map(({ n, ...x }) => x) };
     const contribution = fields.contribution === undefined ? null : parseContribution(fields.contribution);
     const wrong = [
@@ -129,6 +156,7 @@ export function parseRounds(dir, opts = {}) {
       ...acceptAt.flatMap((x, i) => x.wrong.map((w) => `acceptance finding ${i + 1}, line ${x.n}: ${w}`)),
       // An item of the approved statement that is not met is not put off (rule.findings-filed).
       ...acceptAt.filter((x) => x.filed).map((x) => `acceptance finding ${acceptAt.indexOf(x) + 1}, line ${x.n}: ${x.filed} in a verdict of acceptance, where an item of the approved statement not met is not put off`),
+      ...strayLines(head).map((n) => `line ${n}: not a field, a block's name or a finding line of the form "- class · weight · change or before · fix · test or file" in a block`),
       ...outsideRecord(text, 1, opts),
     ].filter(Boolean);
     const name = basename(f);
@@ -189,12 +217,17 @@ export const BUDGET_QUESTION = "the budget is exhausted: a question to the owner
 // exhausted.
 export const NO_ACCEPTANCE = "the last round is clean on merging and gives no verdict of acceptance yet: a round that gives it follows, after done.mjs records done";
 export const NOT_FIXABLE = "a question to the owner: a finding cannot be fixed without changing what the owner decided";
-// refused(round) says why a clean verdict of acceptance does not hold, or null (inv.acceptance-after-done):
-// such a round does not end its step either (D-123). tasks.mjs stepNext gives it, for --task and --rounds.
-// ended(round) says whether an earlier round ended its step, which resets the comparison of rounds: a
-// clean round of the statement, or a clean round of the result whose verdict of acceptance held; by
-// default, one that refused does not hold for.
-export function nextRound(stepRounds, { exhausted = false, refused = () => null, since = null, ended = null } = {}) {
+// Whether a round ended its step, the one definition of it (D-152): a clean round of the statement, or a
+// clean round of the result whose verdict of acceptance held. held(round) judges an acceptance by the
+// records as they were when it was given, against the version of the statement that round read, never
+// against a statement given later; tasks.mjs stepNext gives it, the one function --task, --rounds and the
+// check ask for the state of a step.
+export const endsStep = (r, held = () => true) => isClean(r) && (r.step !== "result-review" || (Boolean(r.acceptance) && held(r)));
+
+// refused(round) says why the clean verdict of acceptance of the last round does not end the task now, or
+// null (inv.acceptance-after-done): such a round does not end its step either (D-123). held(round) says
+// whether an earlier round's acceptance held, for endsStep, which alone resets the comparison of rounds.
+export function nextRound(stepRounds, { exhausted = false, refused = () => null, held = () => true, since = null } = {}) {
   const every = byTime(stepRounds);
   const nextOf = (narrow) => Math.max(0, ...every.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
@@ -218,8 +251,7 @@ export function nextRound(stepRounds, { exhausted = false, refused = () => null,
   // Stagnation: only the rounds after the last end of the step are compared, a round that ended it or the
   // owner's approval; the first round with findings after it is not stagnation. A round of the result
   // clean on merging whose acceptance is absent or refused ended nothing, so it resets nothing (D-152).
-  const ends = ended ?? ((r) => isClean(r) && (r.step !== "result-review" || (r.acceptance && !refused(r))));
-  const window = all.slice(all.findLastIndex((r) => r !== last && ends(r)) + 1);
+  const window = all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1);
   const now = important(last);
   const earlier = window.slice(0, -1);
   if (now.size && earlier.length) {

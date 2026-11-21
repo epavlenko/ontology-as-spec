@@ -393,10 +393,12 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, exhaus
   const byVersion = approvals.some((a) => a.task === task) || rounds.some((r) => r.task === task && r.step === "statement-review" && r.statementHash);
   if (step === "result-review" && of.length && byVersion && !approvedHash(rounds, task, null, approvals)) return { next: "no-approval", say: NO_APPROVAL };
   const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
-  // An earlier round of the result ended its step when its clean verdict of acceptance held for the record
-  // of done before it, whatever came after (D-152).
-  const ended = (r) => isClean(r) && (r.step !== "result-review" || (Boolean(r.acceptance) && !acceptanceWhy(r, rounds, done, statement, { approvals })));
-  return nextRound(of, { exhausted, since, ended, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  // An earlier round's acceptance held when it held by the records as they were when it was given, for
+  // the version the round read: no statement is given to it, so --task, with a file of a later version,
+  // and --rounds, with none, find the same end of the step (D-152). Only the last round, which would end
+  // the task now, is held to the file --task is given (D-123).
+  const held = (r) => !acceptanceWhy(r, rounds, done, null, { approvals });
+  return nextRound(of, { exhausted, since, held, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
 }
 export const NO_APPROVAL = "work is not allowed: no approval in force for the statement";
 

@@ -549,6 +549,10 @@ test("[check.review-round.malformed-blocks] a record of rounds that cannot be re
     language: (hash) => roundText({ step: "statement-review", number: 2, time: T(10), hash, found: 1 }).replace("class 0", "класс 0"),
     "no task": (hash) => roundText({ step: "statement-review", number: 2, time: T(10), hash, found: 1 }).replace("Task: t\n", ""),
     "another task": (hash) => roundText({ task: "u", step: "final", number: 1, time: T(10), hash, found: 1 }),
+    // An important finding indented under Findings:, which a lenient reader would pass over, approving
+    // the version with no finding read.
+    "indented finding": (hash) => roundText({ step: "statement-review", number: 2, time: T(10), hash, found: 1 }).replace("\n- class 0", "\n  - class 0"),
+    "unknown line": (hash) => roundText({ step: "statement-review", number: 2, time: T(10), hash, found: 1 }).replace("Findings:", "Verdict: fix first\nFindings:"),
   };
   const latin = { records: { latinOnly: true } };
   for (const [kind, text] of Object.entries(kinds)) {
@@ -596,6 +600,57 @@ test("[check.task-statement.later-version-findings] after a later round of the s
   const before = scenario({ rounds: rounds.slice(0, 2), approvals: [{ hash: A, time: T(10) }] });
   assert.match(checkWith(before, {}, ["--rounds"]).stdout, /ROUNDS t · result-review: 1 full, 0 narrow · next: narrow round 1/);
   [sc, before].forEach((x) => rmSync(x.dir, { recursive: true, force: true }));
+});
+
+// Step histories, each read by --task, with the file of the version in force, and by --rounds: both
+// give the next action of the review of the result by the one function stepNext, so they agree.
+const B_TEXT = "version B";
+const HISTORIES = {
+  "a first finding": { rounds: [approvedA, { step: "result-review", number: 1, time: T(10), hash: A, found: 1 }], file: A_TEXT, next: /narrow round 1, on the fixes/ },
+  "a repeated class": { rounds: [approvedA, { step: "result-review", number: 1, time: T(10), hash: A, found: 1 }, { step: "result-review", number: 2, time: T(11), hash: A, found: 1 }], file: A_TEXT, next: /the rounds stagnate \(repeated: class 0\)/ },
+  "a finding not fixable": { rounds: [approvedA, { step: "result-review", number: 1, time: T(10), hash: A, found: 1, fix: "not fixable" }], file: A_TEXT, next: /a question to the owner: a finding cannot be fixed/ },
+  "no acceptance between": {
+    rounds: [approvedA, { step: "result-review", number: 1, time: T(10), hash: A, found: 1 }, finalRound({ number: 2, acceptance: undefined }), { step: "result-review", number: 3, time: T(13), hash: A, found: 1 }],
+    done: [{ time: T(11) }],
+    file: A_TEXT,
+    next: /the rounds stagnate \(repeated: class 0\)/,
+  },
+  // The reported case: a clean acceptance of A, then version B approved by a clean round, then a first
+  // finding on B. The acceptance of A held for A; judged against the file of B it would not.
+  "acceptance of A, then B": {
+    rounds: [
+      approvedA,
+      { step: "result-review", number: 1, time: T(10), hash: A, found: 1 },
+      finalRound({ number: 2 }),
+      { step: "statement-review", number: 2, time: T(13), hash: B },
+      { step: "result-review", number: 3, time: T(14), hash: B, found: 1 },
+    ],
+    done: [{ time: T(11) }],
+    file: B_TEXT,
+    next: /narrow round 1, on the fixes/,
+  },
+  "approval withdrawn": {
+    rounds: [{ step: "statement-review", number: 1, time: T(9), hash: A, found: 2 }, { step: "result-review", number: 1, time: T(12), hash: A, found: 1 }, { step: "statement-review", number: 2, time: T(13), hash: B, found: 1, prefix: "other" }],
+    approvals: [{ hash: A, time: T(10) }],
+    file: A_TEXT,
+    next: /work is not allowed: no approval in force/,
+  },
+};
+
+test("[check.review-round.entry-points-agree] --task and --rounds give one next action of the review of the result for every history", () => {
+  for (const [name, h] of Object.entries(HISTORIES)) {
+    const sc = scenario({ rounds: h.rounds, done: h.done ?? [], approvals: h.approvals ?? [] });
+    writeFileSync(join(sc.dir, "statement.md"), h.file);
+    const r = checkWith(sc, {}, ["--task", "t", "--statement", join(sc.dir, "statement.md"), "--rounds"]);
+    const task = r.stdout.match(/^TASK t · result: (.*)$/m)?.[1];
+    const rounds = r.stdout.match(/^ROUNDS t · result-review: [^·]*· next: (.*)$/m)?.[1];
+    assert.match(task ?? "", h.next, `${name}, --task:\n${r.stdout}`);
+    assert.equal(task, rounds, `${name}: --task and --rounds disagree`);
+    // The same from the function both call, given the file and given none.
+    const one = (statement) => stepNext({ rounds: sc.rounds, done: sc.records.done, approvals: sc.records.approvals, task: "t", step: "result-review", statement }).say;
+    assert.equal(one(readStatement(join(sc.dir, "statement.md"))), one(null), name);
+    rmSync(sc.dir, { recursive: true, force: true });
+  }
 });
 
 test("[check.review-round.stagnation-reset] only a round of the result whose acceptance held resets the comparison: one with no acceptance or a refused one does not", () => {
