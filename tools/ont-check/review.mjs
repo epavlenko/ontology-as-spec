@@ -91,6 +91,9 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids,
   let judged = false;
   // The approach's checks of run whose guide's hash the change of the copy of approach.json changes.
   const guideChanged = new Set();
+  // The IDs a changed section of a run guide names: a check of run is listed by them, and not by a
+  // section of an ordinary doc set that is anchored to it.
+  const inGuide = new Set();
   let screens = false;
   let doubt = false;
   for (const f of changed) {
@@ -154,12 +157,18 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids,
     // Data files carry no ont: names; reviewPaths says which concepts a change of them touches (D-80).
     for (const p of cfg.reviewPaths) if (inDir(f, p.dir)) add(p.concepts);
     // A page a set names one by one may also be code or agent instructions, so it is read as those too (D-96).
-    const docDir = cfg.docSets.some((d) => !d.files && inDir(f, d.dir));
-    const doc = docDir || cfg.docSets.some((d) => d.files?.includes(f));
-    if (doc) {
+    const sets = cfg.docSets.filter((d) => (d.files ? d.files.includes(f) : inDir(f, d.dir)));
+    const docDir = sets.some((d) => !d.files);
+    if (sets.length) {
       kinds.add("docs");
+      // A run guide is a set whose proofs include run, the earlier manual included (D-156).
+      const guide = sets.some((d) => d.checks.includes("run"));
       const [a, b] = [docSections(before(f)), docSections(now(f))];
-      for (const key of changedKeys(a, b)) add(key.split("#")[0].split(",").filter(Boolean));
+      for (const key of changedKeys(a, b)) {
+        const named = key.split("#")[0].split(",").filter(Boolean);
+        add(named);
+        if (guide) named.forEach((x) => inGuide.add(x));
+      }
     }
     if (own.has(f) || docDir) continue;
     const rel = relative(cfg.root, f);
@@ -172,8 +181,8 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids,
       add(names);
     }
   }
-  // A changed section of a doc set adds the IDs of its anchor, the checks it names among them.
-  const project = checks.filter((c) => untested(c.proof) && (c.concepts.some((x) => touched.has(x)) || (c.proof === "run" && touched.has(c.id))));
+  // A changed section of a run guide lists the checks of run its anchor names.
+  const project = checks.filter((c) => untested(c.proof) && (c.concepts.some((x) => touched.has(x)) || (c.proof === "run" && inGuide.has(c.id))));
   const sections = new Set([...kinds].flatMap((k) => KIND_SECTIONS[k]));
   const taken = new Set(project.map((c) => c.id));
   if ([...touched].some((x) => x.startsWith("view."))) screens = true;

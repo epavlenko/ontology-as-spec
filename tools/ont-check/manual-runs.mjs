@@ -119,6 +119,9 @@ export function parseRuns(dir, known, opts = {}) {
       !fields.stamp && "no stamp",
       !fields.by && "no author",
       fields.performer !== undefined && !PERFORMERS.includes(fields.performer) && `performer ${fields.performer || "(none)"} is not one of ${PERFORMERS.join(", ")}`,
+      // No one carried out a not-run or a not-applicable; a person who did is named in the evidence (D-157).
+      fields.performer !== undefined && VERDICTS.includes(fields.verdict) && fields.verdict !== "pass" && fields.verdict !== "fail" && `a performer is given on a pass or a fail only, not on ${fields.verdict}`,
+      fields.performer === "person" && !fields.evidence && "performer person without the evidence that names the person",
       !named && "the name is not <UTC time>-<check>-<4 characters>.md, such as 20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md",
       named && (named[2] !== fields.check || named[1] !== compact(fields.time)) && "the name does not match the record's check and time",
       ...outsideRecord(text, 1, opts),
@@ -146,21 +149,26 @@ export const currentRun = (runs, id, stamp) =>
 
 // The records of a review, from the reviewer's table of verdicts (D-100). A row reads
 // | check.id | verdict | evidence |, or | check.id | verdict | evidence | performer | where the project gave
-// the run to someone else than the agent (D-157), where the verdict is one of VERDICTS or `carried`, and a carried
+// the run to someone else than the agent (D-157), where the verdict is one of VERDICTS, written with a
+// hyphen as a record writes it or with a space as the skill says it, `not run`, or `carried`; a pipe of
+// Markdown escaped in a cell, \|, is part of the cell; and a carried
 // verdict gives the file of the record it carries and, after " · ", the files the reviewer read for it,
 // none of which may have changed since the record's commit (D-95); a `By:` line names the reviewer. A record is written for each new verdict and none for a carried one. The table is refused
 // whole when a check is not listed, is given twice, a listed check has neither, a carried record is
 // not of its check or not at its stamp now, or the check of errors in code is carried.
 // ont: action.record-verdicts
 const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
+// A cell of a row: anything but a pipe, an escaped one included; read without its escapes and backticks.
+const CELL = String.raw`(?:\\.|[^|\\])*?`;
+const cell = (x) => (x ?? "").replace(/\\\|/g, "|").replace(/^`|`$/g, "");
 export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], source = "the table", latinOnly = false }) {
   // The reviewer is named on the By: line itself; a value on the next line is no value (D-151).
   const by = text.match(/^By:[ \t]*(\S.*?)[ \t]*$/m)?.[1];
   const lines = text.split("\n");
   const rows = lines
-    .map((l) => l.match(/^\|\s*`?(check\.[a-z0-9.-]+)`?\s*\|\s*([a-z-]+)\s*\|\s*([^|]*?)\s*\|(?:\s*([^|]*?)\s*\|)?\s*$/))
+    .map((l) => l.match(new RegExp(`^\\|\\s*\`?(check\\.[a-z0-9.-]+)\`?\\s*\\|\\s*([a-z]+(?:[ -][a-z]+)?)\\s*\\|\\s*(${CELL})\\s*\\|(?:\\s*(${CELL})\\s*\\|)?\\s*$`)))
     .filter(Boolean)
-    .map((m) => ({ check: m[1], verdict: m[2], evidence: m[3].replace(/^`|`$/g, ""), performer: (m[4] ?? "").replace(/^`|`$/g, "") }));
+    .map((m) => ({ check: m[1], verdict: m[2].replace(" ", "-"), evidence: cell(m[3]), performer: cell(m[4]) }));
   const problems = [];
   if (!by) problems.push("no By: line naming the reviewer");
   // What the records would hold, the By: line and the rows, is read as a record is (D-151).
@@ -179,6 +187,7 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
     // Who carried the check out, on a pass or a fail only: no one carried out a not-run (D-157).
     if (r.performer && !PERFORMERS.includes(r.performer)) problems.push(`${r.check}: performer ${r.performer} is not one of ${PERFORMERS.join(", ")}`);
     else if (r.performer && r.verdict !== "pass" && r.verdict !== "fail") problems.push(`${r.check}: a performer is given on a pass or a fail only, not on ${r.verdict}`);
+    else if (r.performer === "person" && !r.evidence) problems.push(`${r.check}: performer person without the evidence that names the person`);
     if (r.verdict === "carried") {
       if (r.check === CODE_CHECK) problems.push(`${r.check}: the check of errors in code reads every new diff and is never carried`);
       const [file, read = ""] = r.evidence.split("·").map((x) => x.trim());

@@ -4,7 +4,7 @@
 // of its own and run the check on it.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -113,7 +113,7 @@ test("[check.check.coverage-kinds] --coverage counts the checks of review and of
   );
 });
 
-test("[check.test.tags-manual] tests that name a check of review, of run or of the earlier manual, and a suite that names a check of run, fail", () => {
+test("[check.test.tags-manual] tests that name a check of review, of run, of the earlier manual or of run of the approach, and a suite that names a check of run, fail", () => {
   inExample(
     (dir) => {
       const r = check(dir);
@@ -122,6 +122,7 @@ test("[check.test.tags-manual] tests that name a check of review, of run or of t
         "check.loan.overdue-in-real-time",
         "check.loan.renew-explained",
         "check.loan.renew-old",
+        "check.mockup-element.label-is-true",
       ]);
       assert.deepEqual(listedUnder(r.out, "ERROR · checks of review or run the judged suite names"), [OVERDUE]);
     },
@@ -129,7 +130,7 @@ test("[check.test.tags-manual] tests that name a check of review, of run or of t
       before: (dir) => {
         addCheck(dir, "check.loan.renew-explained", "action.renew", "review");
         addCheck(dir, "check.loan.renew-old", "action.renew", "manual");
-        patch(dir, "e2e/cli.test.mjs", "[check.loan.return-closes-loan]", `[check.loan.return-closes-loan, ${OVERDUE}, check.loan.renew-explained, check.loan.renew-old]`);
+        patch(dir, "e2e/cli.test.mjs", "[check.loan.return-closes-loan]", `[check.loan.return-closes-loan, ${OVERDUE}, check.loan.renew-explained, check.loan.renew-old, check.mockup-element.label-is-true]`);
         patch(dir, "ont.config.json", '"check.member.limit-refusal-explained",', `"check.member.limit-refusal-explained",\n        "${OVERDUE}",`);
       },
     },
@@ -240,30 +241,61 @@ test("[check.manual-run.stamp-kinds] review keeps the stamp of manual, run has i
   assert.notEqual(outside(runCheck), outside({ ...runCheck, guide: { ...runCheck.guide, hash: "000000000000" } }), "the guide's hash is in it");
 });
 
-test("[check.manual-run.performer] --record writes the performer on a pass or a fail only, refuses a wrong one, and carries records with or without it", () => {
+test("[check.manual-run.performer] --review --record makes the directory of verdicts, reads both spellings and escaped pipes, writes the performer on a pass or a fail only, refuses a wrong one, and carries records with or without it", () => {
+  const table = (rows) => `By: gpt-6.1-sol, OpenAI\n\n| Check | Verdict | Evidence | Performer |\n| - | - | - | - |\n${rows.join("\n")}\n`;
+  inExample(
+    (dir) => {
+      // The first verdicts of the project: its directory of verdicts does not exist yet.
+      rmSync(join(dir, "verify/runs"), { recursive: true, force: true });
+      const listedNow = check(dir, ["--review", "HEAD"]).out;
+      const ids = [...listedNow.matchAll(/^ {2}(check\.\S+) \[/gm)].map((m) => m[1]);
+      assert.ok(ids.length >= 4, listedNow);
+      const [one, two, three, four, ...rest] = ids;
+      const tableFile = join(mkdtempSync(join(tmpdir(), "ont-table-")), "table.md");
+      const record = (rows) => {
+        writeFileSync(tableFile, table(rows));
+        return check(dir, ["--review", "HEAD", "--record", tableFile]);
+      };
+      const others = rest.map((id) => `| ${id} | pass | x |`);
+      const refused = (row, problem) => {
+        const r = record([row, `| ${two} | pass | x |`, `| ${three} | pass | x |`, `| ${four} | pass | x |`, ...others]);
+        assert.equal(r.code, 1, r.out);
+        assert.match(r.out, /the table of verdicts is refused, no record written/, r.out);
+        assert.ok(r.out.includes(`  ${problem}\n`), r.out);
+        assert.ok(!existsSync(join(dir, "verify/runs")), "a refused table writes nothing");
+      };
+      refused(`| ${one} | pass | x | robot |`, `${one}: performer robot is not one of code, model, agent, person`);
+      refused(`| ${one} | not run | x | person |`, `${one}: a performer is given on a pass or a fail only, not on not-run`);
+      refused(`| ${one} | pass | | person |`, `${one}: performer person without the evidence that names the person`);
+      const r = record([
+        `| ${one} | pass | the log, kept outside |`,
+        `| ${two} | fail | the run of a librarian, Ann \\| her notes, kept outside | person |`,
+        `| ${three} | not run | no product to run |`,
+        `| ${four} | not applicable | no screen |`,
+        ...others,
+      ]);
+      assert.equal(r.code, 0, r.out);
+      assert.match(r.out, new RegExp(`RECORDED ${ids.length} verdicts, 0 carried`), r.out);
+      const files = readdirSync(join(dir, "verify/runs"));
+      assert.equal(files.length, ids.length);
+      const text = (id) => readFileSync(join(dir, "verify/runs", files.find((f) => f.includes(`-${id}-`))), "utf8");
+      assert.match(text(one), /\nVerdict: pass\n[^]*\nPerformer: agent\n/);
+      assert.match(text(two), /\nVerdict: fail\n[^]*\nPerformer: person\nEvidence: the run of a librarian, Ann \| her notes, kept outside\n/);
+      assert.match(text(three), /\nVerdict: not-run\n/);
+      assert.match(text(four), /\nVerdict: not-applicable\n/);
+      assert.doesNotMatch(text(three), /Performer:/);
+      assert.doesNotMatch(text(four), /Performer:/);
+      // The records written are read back whole.
+      const back = parseRuns(join(dir, "verify/runs"), new Set(ids));
+      assert.deepEqual(back.malformed, []);
+      assert.equal(back.runs.find((x) => x.check === two).evidence, "the run of a librarian, Ann | her notes, kept outside");
+    },
+    { after: (dir) => writeFileSync(join(dir, "app/format.mjs"), "// ont: derived.overdue\nexport const pad = (s) => String(s).padStart(2, '0');\n") },
+  );
   const c = (id) => ({ id, concepts: ["derived.overdue"], given: "g", when: "w", then: "t", proof: "run" });
-  const ids = ["check.a.one", "check.a.two", "check.a.three", "check.a.four"];
-  const listed = new Map(ids.map((id) => [id, c(id)]));
+  const ids = ["check.a.one", "check.a.two"];
   const stamp = () => "abcd1234";
   const now = new Date("2026-11-22T10:00:00Z");
-  const table = (rows) => `By: gpt-6.1-sol, OpenAI\n\n| Check | Verdict | Evidence | Performer |\n| - | - | - | - |\n${rows.join("\n")}\n`;
-  const res = recordVerdicts({
-    text: table(["| check.a.one | pass | the log, kept outside |", "| check.a.two | fail | the run of a librarian, Ann, kept outside | person |", "| check.a.three | not-run | no product to run |", "| check.a.four | not-applicable | no screen |"]),
-    listed,
-    runs: [],
-    stamp,
-    commit: "abc1234",
-    now,
-  });
-  assert.deepEqual(res.problems, []);
-  const text = (id) => res.records.find((r) => r.text.includes(`Check: ${id}\n`)).text;
-  assert.match(text("check.a.one"), /\nPerformer: agent\n/);
-  assert.match(text("check.a.two"), /\nPerformer: person\n/);
-  assert.doesNotMatch(text("check.a.three"), /Performer:/);
-  assert.doesNotMatch(text("check.a.four"), /Performer:/);
-  const refused = (row) => recordVerdicts({ text: table([row, "| check.a.two | pass | x |", "| check.a.three | pass | x |", "| check.a.four | pass | x |"]), listed, runs: [], stamp, commit: "abc1234", now });
-  assert.deepEqual(refused("| check.a.one | pass | x | robot |").problems, ["check.a.one: performer robot is not one of code, model, agent, person"]);
-  assert.deepEqual(refused("| check.a.one | not-run | x | person |").problems, ["check.a.one: a performer is given on a pass or a fail only, not on not-run"]);
   // Carried: a record --record wrote with Performer: person, and an earlier one without the line.
   const two = new Map(ids.slice(0, 2).map((id) => [id, c(id)]));
   const runs = [
@@ -282,15 +314,22 @@ test("[check.manual-run.performer] --record writes the performer on a pass or a 
   assert.deepEqual(carried.problems, []);
   assert.equal(carried.carried, 2);
   assert.equal(carried.records.length, 0);
-  // A record whose performer is none of the four cannot be read; one without the line is read.
+  // A record whose performer is none of the four, one with a performer on a not-run, and one with
+  // person and no evidence cannot be read; one without the line is read.
   const dir = mkdtempSync(join(tmpdir(), "ont-performer-"));
   try {
     const rec = (name, extra) =>
       writeFileSync(join(dir, name), `Check: check.a.one\nTime: 2026-11-22T09:00:00Z\nCommit: abc1234\nStamp: abcd1234\nVerdict: pass\nBy: gpt-6.1-sol, OpenAI\n${extra}`);
     rec("20261122T090000Z-check.a.one-aaaa.md", "Performer: robot\n");
+    writeFileSync(join(dir, "20261122T090002Z-check.a.one-cccc.md"), "Check: check.a.one\nTime: 2026-11-22T09:00:02Z\nCommit: abc1234\nStamp: abcd1234\nVerdict: not-run\nBy: gpt-6.1-sol, OpenAI\nPerformer: agent\nEvidence: no product\n");
+    writeFileSync(join(dir, "20261122T090003Z-check.a.one-dddd.md"), "Check: check.a.one\nTime: 2026-11-22T09:00:03Z\nCommit: abc1234\nStamp: abcd1234\nVerdict: pass\nBy: gpt-6.1-sol, OpenAI\nPerformer: person\n");
     writeFileSync(join(dir, "20261122T090001Z-check.a.one-bbbb.md"), "Check: check.a.one\nTime: 2026-11-22T09:00:01Z\nCommit: abc1234\nStamp: abcd1234\nVerdict: pass\nBy: gpt-6.1-sol, OpenAI\n");
     const { runs: read, malformed } = parseRuns(dir, new Set(["check.a.one"]));
-    assert.deepEqual(malformed, ["20261122T090000Z-check.a.one-aaaa.md: performer robot is not one of code, model, agent, person"]);
+    assert.deepEqual(malformed, [
+      "20261122T090000Z-check.a.one-aaaa.md: performer robot is not one of code, model, agent, person",
+      "20261122T090002Z-check.a.one-cccc.md: a performer is given on a pass or a fail only, not on not-run",
+      "20261122T090003Z-check.a.one-dddd.md: performer person without the evidence that names the person",
+    ]);
     assert.deepEqual(read.map((r) => r.file), ["20261122T090001Z-check.a.one-bbbb.md"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -321,7 +360,7 @@ test("[check.agent-rules.review-path-kinds] reviewPaths pass with a check of rev
   );
 });
 
-test("[check.agent-rules.review-run-listed] a changed guide section lists its check of run; a changed mockup lists the approach's checks of run of the mockup apart, with their guide", () => {
+test("[check.agent-rules.review-run-listed] a changed guide section lists its check of run, a changed help section anchored to it does not; a changed mockup lists the approach's checks of run of the mockup apart, with their guide", () => {
   inExample(
     (dir) => {
       const r = check(dir, ["--review", "HEAD"]);
@@ -329,6 +368,18 @@ test("[check.agent-rules.review-run-listed] a changed guide section lists its ch
       assert.ok(!reviewList(r.out, "review", "project").includes(OVERDUE), r.out);
     },
     { after: (dir) => patch(dir, "verify/overdue.md", "Note the due date", "Write down the due date") },
+  );
+  // A section of the help, an ordinary doc set, anchored to the same check: its change lists no check of run.
+  inExample(
+    (dir) => {
+      const r = check(dir, ["--review", "HEAD"]);
+      assert.match(r.out, /Kinds of artifact: [^\n]*docs/, r.out);
+      assert.deepEqual(reviewList(r.out, "run", "project"), [], r.out);
+    },
+    {
+      before: (dir) => appendFileSync(join(dir, "help/borrowing.md"), `\n<!-- ont: ${OVERDUE} -->\n## When a loan is overdue\n\nA loan is overdue the moment its due date passes.\n`),
+      after: (dir) => patch(dir, "help/borrowing.md", "the moment its due date passes", "as soon as its due date passes"),
+    },
   );
   inExample(
     (dir) => {

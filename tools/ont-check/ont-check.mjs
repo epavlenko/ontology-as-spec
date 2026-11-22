@@ -12,7 +12,7 @@
 //   and the later entries that name it.
 // --run also runs every trace of the catalogue on the oracle (D-93) and prints each check's result.
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
-import { existsSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
 import {
@@ -629,6 +629,11 @@ if (cfg.checks) {
 // through a check that names it.
 // ont: ent.test, edge.test.checks, edge.test.suite, inv.test-names-known-checks, inv.test-only-implemented, inv.no-manual-tested, inv.auto-check-tested, ent.test-suite, field.test-suite.name, field.test-suite.cover, inv.suite-names-unique, inv.suite-not-empty, inv.suite-covers-classes
 const approachCheckIds = new Set((approach?.checks ?? []).map((c) => c.id));
+// The proof of a check a test or a suite names: the project's, or the approach's bundled one.
+const approachProof = new Map((approach?.checks ?? []).map((c) => [c.id, c.proof]));
+// The approach's comparison with the oracle is a check of review whose test a project must register by
+// its tag (D-103, inv.code-compared): the one check of review or run a test may carry.
+const proofOf = (x) => checkById.get(x)?.proof ?? (x === "check.formal-form.code-compared" ? undefined : approachProof.get(x));
 let tested = new Set();
 const bySuite = new Map();
 const checksTested = new Set();
@@ -653,7 +658,7 @@ for (const t of cfg.testSuites) {
   );
   report(
     `checks of review or run tagged in ${suiteName(t)}tests (a check of review or run has no test; mark it auto or judged)`,
-    [...own].filter((x) => untested(checkById.get(x)?.proof)).sort(),
+    [...own].filter((x) => untested(proofOf(x))).sort(),
   );
   report(
     `checks in ${suiteName(t)}tests whose concepts are not all implemented`,
@@ -669,7 +674,7 @@ for (const t of cfg.testSuites) {
   report(`checks the ${suiteName(t)}suite names that the catalogue does not have`, t.checks.filter((x) => !checkById.has(x)));
   report(
     `checks of review or run the ${suiteName(t)}suite names (a check of review or run has no test)`,
-    t.checks.filter((x) => untested(checkById.get(x)?.proof)),
+    t.checks.filter((x) => untested(proofOf(x))),
   );
   report(
     `checks the ${suiteName(t)}suite names, of implemented concepts, that none of its tests implements`,
@@ -1326,7 +1331,9 @@ if (flag("--review") > 0) {
     fail(r.error, 2);
   }
   // Where the guide of each check of run is (D-155): a project's own, in its run guides; one of the
-  // approach, at the commit its copy came from, or in the approach's own working tree.
+  // approach, at the commit its copy came from, which the copy information names, or in the approach's
+  // own working tree.
+  // ont: field.tool-copy.copy-info
   const copy = loadCopyInfo();
   const guideOf = (c, ofApproach) => {
     const g = ofApproach && !cfg.approachIds ? c.guide : runGuides.get(c.id) ?? c.guide;
@@ -1368,6 +1375,8 @@ if (flag("--review") > 0) {
     if (res.problems.length) {
       fail(`the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`, 1);
     }
+    // The first verdicts of a project make their directory.
+    mkdirSync(cfg.manualRuns.dir, { recursive: true });
     for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text);
     console.log(`RECORDED ${res.records.length} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
   }
