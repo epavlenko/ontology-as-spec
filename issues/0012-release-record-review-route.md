@@ -1,10 +1,10 @@
 # #12 A changed record of a product release does not reach its check in --review
 
-A finding of round 4 of the review of the statement of task enforcement-review-run, filed as `later`: it was there before that change, and it belongs to the publication gate, task enforcement-config-release of the goal enforcement.
+A finding of round 4 of the review of the statement of task enforcement-review-run, class "release record does not trigger its run", filed as `later`: it was there before that change, and it belongs to the publication gate, task enforcement-config-release of the goal enforcement.
 
 ## Slice
 
-IDs: `derived.review-checks`, `ent.product-release`.
+IDs: `derived.review-checks`, `rule.intact-is-not-run`.
 
 Checks: `check.product-release.verified-by-reviewer`.
 
