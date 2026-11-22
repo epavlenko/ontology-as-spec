@@ -140,6 +140,11 @@ Records of runs written before the split of manual checks into review and run na
 
 The link `--review` prints for the run guide of a bundled check points at the commit the project's pin file records, found through `releases.pin` or at its default place. A project that keeps its pin elsewhere and configures no releases would get a link to the guide on main, which may be newer than its pinned tool (class "bundled run guides for pinned projects"). Review found that this is the documented way to update a pin, so it is not left as a limitation: the pin command writes the approach's commit into the copied bundle, and the link uses it wherever the pin file lives (task enforcement-review-run).
 
+<!-- ont: ent.manual-run@893f59 -->
+### The verifier of a pin does not check the information about the copy
+
+The pin command writes the commit of the approach into a file of information about the copy, listed among the pin's own files, and `--review` builds the links to run guides from it. `pin.mjs verify` compares only the copied files, so a commit of an upgrade that leaves that file out, or a file edited by hand to another commit, still verifies, and the links then point at another version of the guides (class "pin verification without guide metadata"). The pin command writes the file together with the copy, so the case needs a partial commit or a hand edit.
+
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
