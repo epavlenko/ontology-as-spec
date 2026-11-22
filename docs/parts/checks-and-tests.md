@@ -37,11 +37,11 @@ A project made with the approach is checked twice. The tool checks the ontology 
 
 The two meet in this repository. The tool is the approach's product, so its own tests are the product layer of the tool, and the checks they implement are the ontology layer of every other project.
 
-<!-- ont: ent.test@af89b6, inv.test-names-known-checks@1384c7, inv.test-only-implemented@059c2e, inv.no-manual-tested@b084ca, rule.validator-test-breaks@b4a061 -->
+<!-- ont: ent.test@af89b6, inv.test-names-known-checks@1384c7, inv.test-only-implemented@059c2e, inv.no-manual-tested@b09f5d, rule.validator-test-breaks@b4a061 -->
 
 ## Tests that name checks
 
-A test starts its title with the IDs of the checks it implements, in square brackets. The tag is plain text in the title, so it works with any test runner and shows up in its output. A test may also name a concept directly, `[field.loan.renewals]`, for something that is not a product check, such as comparing the code's constants with the generated contract.
+A test starts its title with the IDs of the checks it implements, in square brackets. The tag is plain text in the title, so it works with any test runner and shows up in its output. A test may also name a concept directly, `[field.loan.renewals]`, for something that is not a product check, such as comparing the code's constants with the generated contract. A check of review or run has no test, the project's or one of the approach's, and the tool fails on a test or a suite that names one; the approach's comparison with the oracle, which a project's test registers by its tag, is the one exception (D-103).
 
 The tool reads tags anywhere in a test file, not only in titles, because it cannot parse the syntax of every test framework. A string in a fixture that looks like a tag counts as one. When a fixture must contain an invalid tag, build the string from parts, as the tool's own tests do.
 
@@ -143,7 +143,7 @@ Some cases need someone who has not seen something: a reader of the ontology who
 
 A doc set that lists `"checks": ["run"]` must name every check of run of implemented concepts, so a check of run without a way to carry it out fails the check at the moment an automatic check without a test would. A set that still lists the earlier `["manual"]` asks for the checks of run and for those whose proof is still `manual`, and the tool says to write `["run"]`. The evidence of a run is kept outside the repository, named by the check's ID and the date; the guide says what to keep. The approach's own checks of run have their guide in [`docs/run-guide.md`](../run-guide.md); `--review` in a project links each of them to its section at the commit the project's copy of the tool came from (D-155).
 
-<!-- ont: ent.manual-run@1f6ae3, derived.current-run@6104ff, rule.run-recorded@23e83d, inv.manual-checks-run@a05fc2, inv.manual-runs-well-formed@f71efe, rule.records-english-in-repo@09514b -->
+<!-- ont: ent.manual-run@1f6ae3, derived.current-run@6104ff, rule.run-recorded@23e83d, inv.manual-checks-run@a05fc2, inv.manual-runs-well-formed@3b1f50, rule.records-english-in-repo@09514b -->
 
 ## Verdict records
 
@@ -160,7 +160,7 @@ Performer: agent
 Evidence: https://example.org/runs/2026-11-05-overdue
 ```
 
-`By:` names who gave the verdict, one value for every record of a review; `Performer:` names who carried the check out, one of `code`, `model`, `agent` and `person`, on a pass or a fail only, since no one carried out a `not-run`. The reviewer's table names `person` where the project gave the run to a person and the reviewer passes on the result; the person's name is then in the evidence. A record without the line, written before it, is read as before. The IDs of the record keep the word manual of their first name, `ent.manual-run` and its fields, since what they name did not change.
+`By:` names who gave the verdict, one value for every record of a review; `Performer:` names who carried the check out, one of `code`, `model`, `agent` and `person`, on a pass or a fail only, since no one carried out a `not-run`. The reviewer's table names `person` where the project gave the run to a person and the reviewer passes on the result; the person's name is then in the evidence. A record with a performer on a `not-run` or a `not-applicable`, or with `person` and no evidence, cannot be read, and `--record` refuses such a row. A record without the line, written before it, is read as before. The IDs of the record keep the word manual of their first name, `ent.manual-run` and its fields, since what they name did not change.
 
 The record is not the evidence. It may sit in the repository, where CI sees it, and it links to the evidence, which stays outside. The stamp covers the check's case, its proof and the stamps of its concepts, and `--review` prints it for each check, so a record goes stale the moment the check or one of its concepts changes, as a doc section does. In the stamp `review` is written as the earlier `manual`, so the rename alone stales no verdict, while `run` is written as itself: a check that became a run needs a new verdict, its way of being checked having changed. A check of run of the approach adds the hash of its guide's section, so that an edit of the guide stales its verdict once the project updates its copy. The reviewer of a change writes a record for each verdict it gives.
 

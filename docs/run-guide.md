@@ -11,7 +11,7 @@ Some cases need someone who has not seen something: the product, or the code. Th
 
 Start in the project's mockup, the file `mockup` of its configuration, opened from the file system in a browser, and the project's ontology map.
 
-1. Take the elements the change touches: the rows of the map it changed, or the elements whose `data-ont` it changed. Each names an action.
+1. Take the elements the change touches that are labelled with an action: the rows of the map it changed, or the elements whose `data-ont` it changed, that name an action. An element mapped to a view, a field or a derived value has no action to compare with and is not this check's; when the change touches no element labelled with an action, the verdict is `not-applicable`.
 2. For each, read the action's definition row in the ontology.
 3. Use the element in the mockup as a user would: click it, fill what it asks for. What shows is what the mockup does.
 4. Compare what it did with the definition. A difference is a fail, named with the element, the action and what each says.
