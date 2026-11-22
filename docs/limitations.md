@@ -138,7 +138,7 @@ Records of runs written before the split of manual checks into review and run na
 <!-- ont: ent.manual-run@893f59 -->
 ### A guide link falls back to main without a known pin
 
-The link `--review` prints for the run guide of a bundled check points at the commit the project's pin file records, found through `releases.pin` or at its default place. A project that keeps its pin elsewhere and configures no releases gets a link to the guide on main, which may be newer than its pinned tool (class "bundled run guides for pinned projects").
+The link `--review` prints for the run guide of a bundled check points at the commit the project's pin file records, found through `releases.pin` or at its default place. A project that keeps its pin elsewhere and configures no releases would get a link to the guide on main, which may be newer than its pinned tool (class "bundled run guides for pinned projects"). Review found that this is the documented way to update a pin, so it is not left as a limitation: the pin command writes the approach's commit into the copied bundle, and the link uses it wherever the pin file lives (task enforcement-review-run).
 
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet
