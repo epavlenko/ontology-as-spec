@@ -177,6 +177,7 @@
     "field.review-round.checks-given",
     "field.review-round.checks-listed",
     "field.review-round.commits",
+    "field.review-round.condition",
     "field.review-round.contribution",
     "field.review-round.findings",
     "field.review-round.narrow",
@@ -325,6 +326,7 @@
     "rule.departure-by-entry",
     "rule.divergence-becomes-work",
     "rule.divergence-contradicts",
+    "rule.executor-triage",
     "rule.findings-filed",
     "rule.findings-mislead",
     "rule.form-follows-rows",
@@ -888,17 +890,18 @@
       ],
       "given": "a round that follows stagnation",
       "when": "a reviewer reads its rounds and the change",
-      "then": "the design of the solution was changed rather than patched, and the round was full"
+      "then": "the design of the solution was changed rather than patched, and the round was the one `derived.next-round` names: full, or, after a round C of the condition confirmed that stagnated, the one narrow round"
     },
     {
       "id": "check.review-round.filed-right",
       "section": "Review round",
       "concepts": [
-        "rule.findings-filed"
+        "rule.findings-filed",
+        "rule.executor-triage"
       ],
-      "given": "a finding filed as `limitation` or `later`",
-      "when": "the reviewer of the same round reads the finding and its file, before a verdict that may end the step",
-      "then": "an unlikely case is in the limitations, a finding outside the approved statement in a ticket, and no item of the approved statement is filed"
+      "given": "a finding filed as `limitation` or `later`, and a finding kept fixable",
+      "when": "the reviewer of the next round, if there is one, reads the finding, its file and the step of usual work the notes name for it",
+      "then": "what the approach does not do by choice is in the limitations, a fault of the tool or a finding outside the approved statement in a ticket, a finding marked usual path names the step of usual work it breaks, and no item of the approved statement is filed"
     },
     {
       "id": "check.review-round.recorded",

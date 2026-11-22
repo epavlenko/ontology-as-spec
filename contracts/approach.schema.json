@@ -509,6 +509,11 @@
           "x-ont": "field.review-round.acceptance",
           "type": "string"
         },
+        "condition": {
+          "description": "On a review of the result, holds when the reviewer confirmed that the goal's condition by the approved statement is met: the reviewer's reply says Condition: holds or Condition: not yet, and the executor carries only holds into the record of the round; any other value, and the line on a review of the statement, is an error of the record (derived.next-round).",
+          "x-ont": "field.review-round.condition",
+          "type": "string"
+        },
         "overspend": {
           "description": "On the round that ends the task, what it spent past its budget with reserve, new input and output each, exactly as --task prints it, new input N of L, output N of L: the spend and the limit the tool computes, by the limits derived.task-budget gives, each number written one way, a whole number or a decimal with a point, such as 151.5; required past the limit and absent within it, by --task and the check alike.",
           "x-ont": "field.review-round.overspend",
