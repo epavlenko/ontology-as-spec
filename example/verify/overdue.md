@@ -1,8 +1,8 @@
 # Run guide: a loan becomes overdue on its own
 
-> Example run guide (part 6 of the approach): how to run a manual check of the catalogue with the command line front end. What must hold is in `../checks.md`; this page says only how to get there, what shows after each step, what to keep and where a run gets lost.
+> Example run guide (part 6 of the approach): how an agent carries out a check of run of the catalogue with the command line front end. What must hold is in `../checks.md`; this page says only how to get there, what shows after each step, what to keep and where a run gets lost.
 
-<!-- ont: check.loan.overdue-in-real-time@092c60 -->
+<!-- ont: check.loan.overdue-in-real-time@bfc9fb -->
 ## Overdue without anyone setting the date
 
 Start on a machine whose clock nobody sets by hand, with a state file of its own: `export LIBRARY_STATE=$HOME/overdue-run.json`. From the repository root:

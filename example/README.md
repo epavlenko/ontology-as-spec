@@ -14,7 +14,7 @@ A library lends books, games and tools. Members borrow items, wait in a queue fo
 | [AGENTS.md](./AGENTS.md)                               | the rules for agents: what else to update, what to run     |
 | [issues/](./issues/)                                   | two tickets, each a slice of the gap, done when `--gap` with it prints `SLICE_DONE` |
 | [help/](./help/README.md)                              | help for members, anchored to concepts, and the generated terms page |
-| [verify/](./verify/)                                   | run guides: how to run the manual checks of what is built |
+| [verify/](./verify/)                                   | run guides: how an agent carries out the checks of run of what is built |
 | [app/](./app/)                                         | the code: a small domain module, a command line front end, unit tests whose titles name the checks they implement, and a test that compares the code with the oracle on random sequences of actions |
 | [judged/](./judged/)                                   | a test that a model judges: the library refuses a checkout at the limit, and a judge in `JUDGE` reads the refusal next to its check; skipped without one |
 | [e2e/](./e2e/)                                         | end-to-end tests that run the command line front end as a user does, also named by check |
