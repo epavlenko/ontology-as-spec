@@ -131,6 +131,25 @@ The vocabulary of types is checked where contracts are generated: a project with
 The forms restate the rows in a small language of records, actions, refusals and days. What the language cannot say stays in prose: screens (views are not in the oracle), the real calendar, errors of reading a state file, lists of references, and processes about text and files, such as parsing a page or comparing a commit. Most rules of the approach itself are of the second kind: they are about pages and commits, and the check's code, not the oracle, runs them. A form also restates its row: where the two disagree the row is the meaning (D-73), and the check sees only that the form's names are defined, not that it says what the row says; a trace that fails, or a reviewer, finds that.
 
 <!-- ont: -->
+## Kinds of checks the approach does not run yet
+
+A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
+
+- **Fuzzing.** Random and broken input, to find crashes and holes in the code that reads it. It matters where a product reads data it does not control: forms, files, an API, and the records and tables this tool parses.
+- **Performance testing**: load, stress, soak and spike. How fast the product answers and how it holds up as users and data grow.
+- **Dynamic security testing and penetration testing.** Attacks on the running system, by a tool, a person or an agent. The reviewer reads a change for security problems, but nothing attacks the product.
+- **Calibration of a judge.** Whether the model that judges a judged check agrees with people on a sample of its verdicts.
+- **Exploratory testing.** A search, by a person or an agent, for what no check was written for. The catalogue proves only the checks it holds; a blind derivation from the ontology comes closest, and it is bounded by the ontology.
+- **Usability testing.** Whether people, or agents that simulate them, reach their goal in the product.
+- **Red teaming.** Deliberate attacks on a product that uses a model: getting round its rules, leaking data, instructions hidden in data. The suite of attacks on the process of the approach is red teaming of the approach itself.
+- **Smoke tests.** Whether the system starts at all after a build or a deployment.
+- **Canary releases.** A new version on a small share of the traffic, its metrics compared with the old one.
+- **Synthetic monitoring.** Scenarios run on a schedule against the product in production.
+- **Observation of real users**: metrics of real use, service levels, evaluations of a model's answers on real traffic.
+
+The approach ends at a release. The last five begin after it, and the approach has no stage after a release yet.
+
+<!-- ont: -->
 ## Open questions
 
 - **Scale.** One ontology file with about 150 concepts was workable. At what size should it split, and along which lines: by bounded context, by product surface?
