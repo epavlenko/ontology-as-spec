@@ -1404,11 +1404,9 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: keeping a ceiling of six full rounds as a second hard stop (option b); keeping the rules as they were (option c); a line `Redesign:` that the tool checks (the tool cannot tell a changed design from a patch); counting nits or filed findings with the important ones (two rounds of nits would stop a converging step).
 - Concepts: `rule.rounds-converge`, `derived.next-round`, `derived.statement-state`, `rule.findings-filed`, `derived.budget-report`, `inv.review-rounds-well-formed`, `field.review-round.findings`, `inv.manual-runs-well-formed`, `ent.task-statement`, `ent.owner-approval`, `ent.task-result`, `rule.whole-class`, `rule.ready-after-clean-round`.
 
-## Tentative
-
 ### D-153 · The executor triages findings, and after the goal's condition is confirmed one narrow round alone follows
 
-- Date: 2026-11-21 · Status: tentative
+- Date: 2026-11-21 · Status: accepted
 - Supersedes: D-152
 - Source: the owner's answers of 2026-11-21: to question 1020, "How not to spend rounds of review on rare cases: who sorts out the findings that do not stand in the way of the goal, and when", "1020 b", to the wording the registry gave option b that day: "(1) the thread itself sorts the findings before any fix: it marks each finding of the reviewer as breaking the goal's condition on the usual path or as a rare history; (2) only the first go into the work and into the count of convergence, the second go into the limitations; (3) the reviewer is asked to give the same mark, but the thread decides; (4) the rule that a repeated class changes the design applies to the first only; (5) once the reviewer has confirmed that the goal's condition holds, only one narrow round on findings of the usual path is allowed, then the merge" (translated from Russian); to question 1021, "1021 b": the limitations hold only what the approach does not do by choice, and faults of the tool are tickets under issues/; and to question 1028, "1028 a": a finding is of the usual path only when the executor names the concrete step of usual work it breaks, otherwise it is a rare history. What D-152 decided under the owner's answer "1011 a" holds as restated below. The layout in IDs, the field `Condition:`, the place of the branch and the gate after the round that follows C are the thread's technical decisions, in the statement of task triage-rules, version 14, approved by the owner's record of approval.
 - Decision: the executor triages the findings of a round, and once the reviewer has confirmed the goal's condition one narrow round alone follows.
@@ -1436,10 +1434,13 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: option a of question 1020, the triage without the stop after the confirmed condition; option c, the rules of D-152 as they were with the coordinating thread watching for rounds that do not fall; a reviewer's mark that the tool reads or that blocks (the executor decides); a ceiling of rounds after C other than the owner's gate.
 - Concepts: `rule.executor-triage`, `field.review-round.condition`, `derived.next-round`, `derived.task-next`, `rule.rounds-converge`, `rule.ready-after-clean-round`, `rule.findings-filed`, `inv.review-rounds-well-formed`, `inv.named-commits-resolve`, `ent.owner-approval`.
 
+## Tentative
+
 ## Open questions
 
 ## History
 
+- 2026-11-22: D-153 accepted by the owner ("1032 a": merge as it is, the finding of round 5 of the review of the result, a restatement of the action on stagnation in four texts, filed as ticket 11).
 - 2026-11-21: D-152 accepted by the owner ("1018 b": merge without a clean round, the findings of round 16 filed as tickets, "1021 b").
 - 2026-11-21: D-150 accepted by the thread after the clean narrow round 7 of the review of the result of task releases-and-task, under the owner's answer to question 1007.
 - 2026-11-21: D-149 accepted by the thread after the clean narrow round 7 of the review of the result of task releases-and-task, under the owner's answer to question 1007.
