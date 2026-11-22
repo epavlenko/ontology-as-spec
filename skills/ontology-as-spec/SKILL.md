@@ -107,7 +107,7 @@ Fix every line the check prints; do not weaken the configuration to make it pass
 <!-- ont: ent.check@d0dcbc, ent.test@af89b6, ent.trace@eb1f36 -->
 ## 5. Write the checks and tag the tests
 
-Copy `templates/checks.md`. Every invariant and rule gets at least one check: GIVEN, WHEN, THEN, in the product's own terms, true for any implementation. `auto` means a test proves it, `manual` that a person does, `judged` that a model judges the product's output.
+Copy `templates/checks.md`. Every invariant and rule gets at least one check: GIVEN, WHEN, THEN, in the product's own terms, true for any implementation. `auto` means a test proves it, `judged` that a model judges the product's output, `review` that a reviewer of another provider gives it a verdict reading the change before merge, `run` that an agent carries it out on the working product, by its section in a run guide, or a person where the project chooses so.
 
 ```markdown
 | Check                         | Concepts                 | GIVEN                      | WHEN              | THEN                                    | Proof |
@@ -141,7 +141,7 @@ A ticket is a slice of the gap: an `IDs:` line, a `Checks:` line, what is out of
 
 Later parts, when the product has them: the mockup, the first implementation of the interface, written from the ontology, with each element labelled by `data-ont` and a map that links elements to concepts, and anchoring help pages so the check says which sections to reread after a definition changed. Both are described in `docs/parts/` of the repository.
 
-<!-- ont: rule.start-from-ids@8804d9, rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@779cd7, rule.work-under-approval@619f52, rule.budget-before-next@603840 -->
+<!-- ont: rule.start-from-ids@8804d9, rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@0124fe, rule.work-under-approval@619f52, rule.budget-before-next@603840 -->
 ## Rules for you, the agent
 
 - **Start every task from the IDs it touches.** If a concept you need has no ID, propose its definition row, in its entity's table, before writing code or markup.

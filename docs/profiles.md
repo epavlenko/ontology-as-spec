@@ -108,7 +108,7 @@ Required, and checked by the tool: `code` lists the code directories. A change o
 
 Recommended: `"codeNames": { "owner": true }`, so that every code file names the concept it serves and a change of it is matched to concepts too; and, in the project's CI, a linter for its language, an audit of its dependencies and a scan for secrets, such as `npm audit` or `pip-audit` and gitleaks. The approach ships none of them: each belongs to a language or a platform, and the tool parses none.
 
-<!-- ont: rule.value-checked-against-source@52bea9, inv.review-path-checked@53e736, inv.review-paths-known@b3168e -->
+<!-- ont: rule.value-checked-against-source@52bea9, inv.review-path-checked@b2df4b, inv.review-paths-known@b3168e -->
 
 ## Research
 
@@ -132,16 +132,16 @@ Every value carries its kind and its sources. A fact comes from a primary docume
 { "fee": { "value": 25, "kind": "fact", "sources": ["fees-page-2026"] } }
 ```
 
-Configure the directory of the cases under `reviewPaths`, with the concept of their sources, and give that concept a manual check of values against their source:
+Configure the directory of the cases under `reviewPaths`, with the concept of their sources, and give that concept a check of review of values against their source:
 
 ```json
 "reviewPaths": [{ "dir": "cases", "concepts": ["edge.case.sources"] }]
 ```
 
 ```markdown
-| `check.case.value-matches-source` | `edge.case.sources` | a case value that a change adds or alters | the reviewer opens its source | the source says what the value says, at the kind the value claims | manual |
+| `check.case.value-matches-source` | `edge.case.sources` | a case value that a change adds or alters | the reviewer opens its source | the source says what the value says, at the kind the value claims | review |
 ```
 
-Required, and checked by the tool: the rules of kind and source are rules and invariants of the project's ontology, so `checks.require` asks for their checks and the automatic ones have tests; every concept under `reviewPaths` is defined and has a manual check. A change to a case then hands that check to the reviewer of the change, who opens the source of each value the change adds or alters and records a verdict ([part 7](parts/agent-rules.md#an-independent-critic)); a source it cannot open is `not-run`, with the reason.
+Required, and checked by the tool: the rules of kind and source are rules and invariants of the project's ontology, so `checks.require` asks for their checks and the automatic ones have tests; every concept under `reviewPaths` is defined and has a check of review or run. A change to a case then hands that check to the reviewer of the change, who opens the source of each value the change adds or alters and records a verdict ([part 7](parts/agent-rules.md#an-independent-critic)); a source it cannot open is `not-run`, with the reason.
 
 Recommended: values kept as `{ value, kind, sources }`, so that a contract generated from the types checks the value and a test checks its kind and sources. Whether and how often the sources are read again, since pages of prices and texts of laws change, is the project's choice.
