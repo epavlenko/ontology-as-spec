@@ -130,6 +130,16 @@ The vocabulary of types is checked where contracts are generated: a project with
 
 The forms restate the rows in a small language of records, actions, refusals and days. What the language cannot say stays in prose: screens (views are not in the oracle), the real calendar, errors of reading a state file, lists of references, and processes about text and files, such as parsing a page or comparing a commit. Most rules of the approach itself are of the second kind: they are about pages and commits, and the check's code, not the oracle, runs them. A form also restates its row: where the two disagree the row is the meaning (D-73), and the check sees only that the form's names are defined, not that it says what the row says; a trace that fails, or a reviewer, finds that.
 
+<!-- ont: ent.manual-run@893f59 -->
+### A legacy record of a run carries as a reviewer's verdict
+
+Records of runs written before the split of manual checks into review and run name no performer, and the tool reads every such record as a reviewer's verdict, which a later review may carry (class "run handoff during the migration"). A record a person or an agent wrote by hand for a run outside a review is read the same way. It is still a verdict on the same check, at the same stamp, with no file it read changed since; the case is rare, as records were written by the reviewer's table.
+
+<!-- ont: ent.manual-run@893f59 -->
+### A guide link falls back to main without a known pin
+
+The link `--review` prints for the run guide of a bundled check points at the commit the project's pin file records, found through `releases.pin` or at its default place. A project that keeps its pin elsewhere and configures no releases gets a link to the guide on main, which may be newer than its pinned tool (class "bundled run guides for pinned projects").
+
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
