@@ -42,6 +42,12 @@ import {
   tagIds,
   docSetFiles,
   isFile,
+  guideSections,
+  loadCopyInfo,
+  APPROACH_REPO,
+  OLD_PROOF,
+  PROOFS,
+  untested,
 } from "./lib.mjs";
 import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
@@ -272,13 +278,21 @@ if (cfg.contracts) {
   }
 }
 
+// The sections of the project's run guides, the doc sets that list the checks of run (D-156): where
+// --review points a reviewer for each check of run, and, in the approach's repository, what
+// approach.json carries for each.
+const runGuides = guideSections(cfg.docSets.filter((d) => d.checks.includes("run")).flatMap((d) => docSetFiles(d)), cfg.base, parseAnchors);
+// The keys of an earlier version the configuration still uses (rule.tool-before-files, D-157).
+// ont: rule.tool-before-files
+report("configuration keys of an earlier version, read as before (rename them)", cfg.oldKeys.map(([a, b]) => `${a}: write ${b}`), false);
+
 // The approach's own repository writes its IDs next to the tool, and they match its ontology (D-53).
 // ont: inv.approach-ids-current
 if (cfg.approachIds) {
   const actual = existsSync(cfg.approachIds.out) ? read(cfg.approachIds.out) : "";
   report(
     "generated approach IDs differ from the ontology (run gen-approach.mjs)",
-    actual === renderApproach(ONT, retired, cfg.checks ? parseChecks(read(cfg.checks.file)) : []) ? [] : [relative(cfg.base, cfg.approachIds.out)],
+    actual === renderApproach(ONT, retired, cfg.checks ? parseChecks(read(cfg.checks.file)) : [], runGuides) ? [] : [relative(cfg.base, cfg.approachIds.out)],
   );
 }
 
@@ -529,7 +543,7 @@ if (cfg.checks) {
     }),
   );
   report(
-    "malformed checks: six or seven cells, concepts, GIVEN, WHEN, THEN, auto, judged or manual",
+    "malformed checks: six or seven cells, concepts, GIVEN, WHEN, THEN, auto, judged, review or run",
     checks
       .filter(
         (c) =>
@@ -538,9 +552,16 @@ if (cfg.checks) {
           !c.given ||
           !c.when ||
           !c.then ||
-          !["auto", "judged", "manual"].includes(c.proof),
+          ![...PROOFS, OLD_PROOF].includes(c.proof),
       )
       .map((c) => c.id),
+  );
+  // The earlier proof manual is read as before, until a decision retires it (D-154).
+  // ont: rule.tool-before-files
+  report(
+    "checks whose proof is the earlier manual, read as before (write review when a reviewer gives the verdict reading the change, run when an agent carries it out on the product)",
+    checks.filter((c) => c.proof === OLD_PROOF).map((c) => c.id),
+    false,
   );
   unknown("IDs in the check catalogue but not in the glossary", "the check catalogue", checkConcepts);
   // Completeness (D-62): every value of every axis the configuration lists is covered by a check, and
@@ -607,7 +628,7 @@ if (cfg.checks) {
 // must cover: every implemented concept of those classes needs a test in that suite, directly or
 // through a check that names it.
 // ont: ent.test, edge.test.checks, edge.test.suite, inv.test-names-known-checks, inv.test-only-implemented, inv.no-manual-tested, inv.auto-check-tested, ent.test-suite, field.test-suite.name, field.test-suite.cover, inv.suite-names-unique, inv.suite-not-empty, inv.suite-covers-classes
-const approachCheckIds = new Set((approach?.manualChecks ?? []).map((c) => c.id));
+const approachCheckIds = new Set((approach?.checks ?? []).map((c) => c.id));
 let tested = new Set();
 const bySuite = new Map();
 const checksTested = new Set();
@@ -631,8 +652,8 @@ for (const t of cfg.testSuites) {
     [...own].filter((x) => !checkById.has(x) && !approachCheckIds.has(x)).sort(),
   );
   report(
-    `manual checks tagged in ${suiteName(t)}tests (mark them auto or judged)`,
-    [...own].filter((x) => checkById.get(x)?.proof === "manual").sort(),
+    `checks of review or run tagged in ${suiteName(t)}tests (a check of review or run has no test; mark it auto or judged)`,
+    [...own].filter((x) => untested(checkById.get(x)?.proof)).sort(),
   );
   report(
     `checks in ${suiteName(t)}tests whose concepts are not all implemented`,
@@ -647,8 +668,8 @@ for (const t of cfg.testSuites) {
   // ont: edge.test-suite.checks, inv.suite-implements-checks
   report(`checks the ${suiteName(t)}suite names that the catalogue does not have`, t.checks.filter((x) => !checkById.has(x)));
   report(
-    `manual checks the ${suiteName(t)}suite names (a manual check has no test)`,
-    t.checks.filter((x) => checkById.get(x)?.proof === "manual"),
+    `checks of review or run the ${suiteName(t)}suite names (a check of review or run has no test)`,
+    t.checks.filter((x) => untested(checkById.get(x)?.proof)),
   );
   report(
     `checks the ${suiteName(t)}suite names, of implemented concepts, that none of its tests implements`,
@@ -778,9 +799,10 @@ for (const d of cfg.docSets) {
     `${d.scope === "all" ? "concepts" : "implemented concepts"} the ${label} do not explain`,
     d.cover.length ? diff(scope, concepts).filter((x) => cover.test(x)) : [],
   );
-  // A run guide covers checks rather than classes (D-41): every check of a listed proof, of implemented
-  // concepts or of all of them, is named in an anchor of the set, so that a manual check has a way to
-  // be run by the time it can be.
+  // A run guide covers checks rather than classes (D-156): every check of a listed proof, of implemented
+  // concepts or of all of them, is named in an anchor of the set, so that a check of run has a way to
+  // be run by the time it can be. The earlier ["manual"] asks for the checks of run and those still manual.
+  report(`${label} list the checks of the earlier proof manual, read as run and manual (write ["run"])`, d.oldChecks ? [d.name || "(unnamed)"] : [], false);
   report(
     `${d.checks.join(" and ")} checks the ${label} do not explain how to run`,
     checks
@@ -1026,8 +1048,8 @@ if (flag("--coverage") > 0) {
     ...(cfg.checks
       ? [["checks", (x) => {
           const cs = checksOf(x);
-          const manual = cs.filter((c) => c.proof === "manual").length;
-          return cs.length ? `${cs.length}${manual ? ` (${manual} manual)` : ""}` : "";
+          const kinds = ["review", "run", OLD_PROOF].map((p) => [p, cs.filter((c) => c.proof === p).length]).filter(([, n]) => n);
+          return cs.length ? `${cs.length}${kinds.length ? ` (${kinds.map(([p, n]) => `${n} ${p}`).join(", ")})` : ""}` : "";
         }]]
       : []),
     ...cfg.testSuites.map((t) => [t.name || "tests", (x) => (bySuite.get(t.name).has(x) ? "yes" : "")]),
@@ -1248,42 +1270,44 @@ if (flag("--next") > 0) {
   }
 }
 
-// Review paths (D-80): every concept they name is defined and has a manual check of the project, so a
-// change of their files always hands the reviewer a check to give a verdict.
+// Review paths (D-80): every concept they name is defined and has a check of review or run of the
+// project, or one still manual, so a change of their files always hands the reviewer a check to give a
+// verdict, before the catalogue is moved and after (D-155).
 // ont: inv.review-paths-known, inv.review-path-checked
 {
   const named = [...new Set(cfg.reviewPaths.flatMap((p) => p.concepts))];
   report("concepts under reviewPaths that the ontology does not define", named.filter((x) => !glossary.has(x)));
   report(
-    "concepts under reviewPaths without a manual check in the catalogue",
-    named.filter((x) => glossary.has(x) && !checks.some((c) => c.proof === "manual" && c.concepts.includes(x))),
+    "concepts under reviewPaths without a check of review or run in the catalogue",
+    named.filter((x) => glossary.has(x) && !checks.some((c) => untested(c.proof) && c.concepts.includes(x))),
   );
 }
 
-// Manual runs (D-78): a manual check of implemented concepts has a current run, a pass or a fail whose
-// stamp is the check's stamp now. Without manualRuns.require a missing run is information; a failed
-// current run is always information, since the key asks that checks are run, not that they pass.
+// Verdict records (D-157): a check of review or run of implemented concepts, or one still manual, has a
+// current record, a pass or a fail whose stamp is the check's stamp now. Without verdicts.require a
+// missing record is information; a failed current record is always information, since the key asks
+// that checks get a verdict, not that they pass.
 // ont: inv.manual-checks-run, inv.manual-runs-well-formed, derived.current-run
 const stampFor = (c) => runStamp(c, ONT, rows, checkById, notes);
 if (cfg.manualRuns) {
   // A run of a check the Retired IDs table retires is read as history and is never current (D-152).
-  const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
+  const known = new Set([...checkById.keys(), ...(approach?.checks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
   const { runs, malformed, ambiguous } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
-  report("manual run records that cannot be read", malformed);
+  report("verdict records that cannot be read", malformed);
   // ont: inv.named-commits-resolve
   const runsTop = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
-  // A manual run proves what it proves without its commit (D-145): one this clone lacks is information.
-  report("manual run records whose commit this clone does not have (what a run proves does not rest on it)", resolveRecords(runsTop, { runs }).notes, false, 10);
-  report("manual run records that two files claim (same check, time and author)", ambiguous);
-  const due = checks.filter((c) => c.proof === "manual" && c.concepts.some((x) => implemented.has(x)));
+  // A verdict record proves what it proves without its commit (D-145): one this clone lacks is information.
+  report("verdict records whose commit this clone does not have (what a verdict proves does not rest on it)", resolveRecords(runsTop, { runs }).notes, false, 10);
+  report("verdict records that two files claim (same check, time and author)", ambiguous);
+  const due = checks.filter((c) => untested(c.proof) && c.concepts.some((x) => implemented.has(x)));
   const current = new Map(due.map((c) => [c.id, currentRun(runs, c.id, stampFor(c))]));
   report(
-    "manual checks of implemented concepts with no current run",
+    "checks of review or run of implemented concepts with no current record",
     due.filter((c) => !current.get(c.id)).map((c) => c.id),
     cfg.manualRuns.require,
   );
   report(
-    "manual checks whose last current run failed",
+    "checks of review or run whose last current record failed",
     due.filter((c) => current.get(c.id)?.verdict === "fail").map((c) => `${c.id} (${current.get(c.id).file})`),
     false,
   );
@@ -1297,23 +1321,33 @@ if (flag("--review") > 0) {
   if (!base || base.startsWith("--")) {
     fail("--review needs a base: a branch, a tag or a commit", 2);
   }
-  const r = reviewChange({ cfg, base, checks, approachChecks: approach?.manualChecks, implRows, ids });
+  const r = reviewChange({ cfg, base, checks, approachChecks: approach?.checks, implRows, ids, guides: runGuides });
   if (r.error) {
     fail(r.error, 2);
   }
-  console.log(renderReview(r, base, cfg.base, stampFor));
+  // Where the guide of each check of run is (D-155): a project's own, in its run guides; one of the
+  // approach, at the commit its copy came from, or in the approach's own working tree.
+  const copy = loadCopyInfo();
+  const guideOf = (c, ofApproach) => {
+    const g = ofApproach && !cfg.approachIds ? c.guide : runGuides.get(c.id) ?? c.guide;
+    if (!g) return null;
+    const at = `${g.path}${g.anchor ? `#${g.anchor}` : ""}`;
+    if (!ofApproach || cfg.approachIds) return at;
+    return copy?.commit ? `${at} · ${APPROACH_REPO}/blob/${copy.commit}/${at}` : `${at} (the copy has no copy.json: update it with pin.mjs)`;
+  };
+  console.log(renderReview(r, base, cfg.base, stampFor, guideOf));
   // --record <table>: the records of the review, written from the reviewer's table (D-100).
   // ont: action.record-verdicts
   if (flag("--record") > 0) {
     const table = process.argv[flag("--record") + 1];
     if (!cfg.manualRuns) {
-      fail("--record needs manualRuns in the configuration: the directory of the records", 2);
+      fail("--record needs verdicts in the configuration: the directory of the records", 2);
     }
     if (!table || table.startsWith("--") || !existsSync(table)) {
       fail("--record needs the reviewer's table of verdicts, a file", 2);
     }
     const listed = new Map([...r.project, ...r.approach].map((c) => [c.id, c]));
-    const known = new Set([...checkById.keys(), ...(approach?.manualChecks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
+    const known = new Set([...checkById.keys(), ...(approach?.checks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
     const { runs } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
     const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--short", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout.trim();
     const dirty = spawnSync("git", ["-C", cfg.base, "status", "--porcelain", "--", ".", `:!${relative(cfg.base, cfg.manualRuns.dir)}`], { encoding: "utf8", env: gitEnv() }).stdout.trim();
@@ -1468,7 +1502,7 @@ if (cfg.oracle) {
   report("checks with no trace and no Not traced line", t.untraced);
   report("traces or Not traced lines that name no check of the catalogue", t.unknown);
   report("checks with both a trace and a Not traced line", t.both);
-  report("checks on a Not traced line that the oracle can run (only a check of a section of views, a manual check or one that covers the error outcome may go untraced)", t.notAllowed);
+  report("checks on a Not traced line that the oracle can run (only a check of a section of views, a check of review or run or one that covers the error outcome may go untraced)", t.notAllowed);
   if (flag("--run") > 0) {
     const failed = [];
     let passed = 0;

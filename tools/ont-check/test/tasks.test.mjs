@@ -1364,7 +1364,7 @@ test("[check.task-result.missing-commit-information] in a real git clone, old re
   const ok = check();
   assert.equal(ok.status, 0, ok.stdout);
   assert.match(ok.stdout, new RegExp(`info · rounds of review whose commits this clone does not have [^\\n]*\\(1\\):\\n  old-1\\.md: names a commit this clone does not have, ${lost.slice(0, 7)}`));
-  assert.match(ok.stdout, new RegExp(`info · manual run records whose commit this clone does not have [^\\n]*\\(1\\):\\n  20261105T090000Z-check\\.loan\\.overdue-in-real-time-a1b2\\.md: names a commit this clone does not have, ${lost.slice(0, 7)}`));
+  assert.match(ok.stdout, new RegExp(`info · verdict records whose commit this clone does not have [^\\n]*\\(1\\):\\n  20261105T090000Z-check\\.loan\\.overdue-in-real-time-a1b2\\.md: names a commit this clone does not have, ${lost.slice(0, 7)}`));
   assert.match(ok.stdout, /ONT_OK/);
   // A record of done of the lost commit, and the round that accepts it: the task is not done, and the check fails.
   writeFileSync(join(clone, "reviews", "rounds", "t-1.md"), roundText(approvedA));

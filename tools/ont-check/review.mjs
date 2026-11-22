@@ -1,14 +1,17 @@
-// The checks to review for a change (D-77): the manual checks of the project whose concepts the change
-// touches, and the manual checks of the approach for the kinds of artifact it touches. A reviewer that
-// did not write the change gives each of them a verdict (skills/change-review).
+// The checks to review for a change (D-155): the checks of review and of run of the project whose
+// concepts the change touches, a check of run also when a changed section of its run guide names it,
+// and the checks of review and of run of the approach for the kinds of artifact it touches, with its
+// checks of run whose guide changed when the copy of approach.json changes. A check still manual is
+// listed with the checks of review. A reviewer that did not write the change gives each of them a
+// verdict (skills/change-review).
 // ont: derived.review-checks
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 import { parseAnchors } from "./docs.mjs";
-import { codeNames, gitEnv, parseChecks, parseGlossary } from "./lib.mjs";
+import { APPROACH_FILE, codeNames, gitEnv, parseChecks, parseGlossary, readApproach, untested } from "./lib.mjs";
 
-// Sections of the approach's catalogue whose manual checks concern each kind of artifact.
+// Sections of the approach's catalogue whose checks of review and run concern each kind of artifact.
 export const KIND_SECTIONS = {
   ontology: ["Concept"],
   decisions: ["Decision"],
@@ -65,7 +68,7 @@ const docSections = (text) => {
   );
 };
 
-export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids }) {
+export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids, approachFile = APPROACH_FILE }) {
   const top = git(cfg.base, "rev-parse", "--show-toplevel")?.trim();
   if (!top) return { error: "--review needs a git repository" };
   if (git(top, "rev-parse", "--verify", "--quiet", `${base}^{commit}`) === null) return { error: `--review: no commit ${base}` };
@@ -73,7 +76,7 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
     ...new Set([...lines(git(top, "diff", "--name-only", base, "--")), ...lines(git(top, "ls-files", "--others", "--exclude-standard"))]),
   ]
     .map((f) => resolve(top, f))
-    // The records of manual runs are the review's own result, not part of the change it reviews (D-82).
+    // The verdict records are the review's own result, not part of the change it reviews (D-82).
     .filter((f) => !(cfg.manualRuns && inDir(f, cfg.manualRuns.dir)) && !(cfg.reviewRounds && inDir(f, cfg.reviewRounds.dir)));
   const before = (f) => git(top, "show", `${base}:${relative(top, f).split(sep).join("/")}`) ?? "";
   const now = (f) => (existsSync(f) ? readFileSync(f, "utf8") : "");
@@ -86,6 +89,8 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
   const add = (xs) => xs.forEach((x) => touched.add(x));
   const own = new Set([cfg.ontology, cfg.checks?.file, cfg.decisions?.file, cfg.map?.file].filter(Boolean));
   let judged = false;
+  // The approach's checks of run whose guide's hash the change of the copy of approach.json changes.
+  const guideChanged = new Set();
   let screens = false;
   let doubt = false;
   for (const f of changed) {
@@ -113,6 +118,17 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
     // A file that is no artifact the configuration knows, and names no concept, may still be anything.
     if (!known && !SCREEN_FILE.test(f) && !implRows.some(([, files]) => files.includes(relative(cfg.root, f))) && !codeNames(now(f)).length && !codeNames(before(f)).length)
       doubt = true;
+    if (f === resolve(approachFile)) {
+      const read = (t) => {
+        try {
+          return t ? readApproach(t).checks : [];
+        } catch {
+          return [];
+        }
+      };
+      const was = new Map(read(before(f)).map((c) => [c.id, c]));
+      for (const c of read(now(f))) if (c.proof === "run" && (was.get(c.id)?.proof !== "run" || was.get(c.id)?.guide?.hash !== c.guide?.hash)) guideChanged.add(c.id);
+    }
     if (f === cfg.ontology) {
       kinds.add("ontology");
       add(changedKeys(signatures(before(f)), signatures(now(f))));
@@ -156,8 +172,8 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
       add(names);
     }
   }
-  const manual = (c) => c.proof === "manual";
-  const project = checks.filter((c) => manual(c) && c.concepts.some((x) => touched.has(x)));
+  // A changed section of a doc set adds the IDs of its anchor, the checks it names among them.
+  const project = checks.filter((c) => untested(c.proof) && (c.concepts.some((x) => touched.has(x)) || (c.proof === "run" && touched.has(c.id))));
   const sections = new Set([...kinds].flatMap((k) => KIND_SECTIONS[k]));
   const taken = new Set(project.map((c) => c.id));
   if ([...touched].some((x) => x.startsWith("view."))) screens = true;
@@ -168,6 +184,7 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
       !taken.has(c.id) &&
       relevant(c) &&
       (sections.has(c.section) ||
+        guideChanged.has(c.id) ||
         (kinds.has("code") && CODE_CONCEPT_CHECKS.includes(c.id)) ||
         (JUDGE_CHECKS.includes(c.id) && judged) ||
         (SCREEN_CHECKS.includes(c.id) && (screens || judged))),
@@ -175,17 +192,29 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids 
   return { changed, touched: [...touched].sort(), kinds: [...kinds], project, approach };
 }
 
-export const renderReview = (r, base, root, stamp = () => "") => {
-  const show = (c) => `  ${c.id} [${c.concepts.join(", ")}] stamp ${stamp(c)}\n    GIVEN ${c.given} · WHEN ${c.when} · THEN ${c.then}`;
+// Two lists (D-155): the checks of review, a check still manual among them, and the checks of run,
+// each with the place of its guide's section that guide(c, ofApproach) gives.
+export const renderReview = (r, base, root, stamp = () => "", guide = () => null) => {
+  const show = (c) => `  ${c.id} [${c.concepts.join(", ")}] stamp ${stamp(c)}${c.proof === "manual" ? " (proof manual, read as review)" : ""}\n    GIVEN ${c.given} · WHEN ${c.when} · THEN ${c.then}`;
+  const showRun = (ofApproach) => (c) => {
+    const g = guide(c, ofApproach);
+    return `${show(c)}${ofApproach ? `\n    (${c.section})` : ""}\n    guide: ${g ?? "none: the run guides name no section for it"}`;
+  };
   if (!r.project.length && !r.approach.length) return `REVIEW ${base}: nothing to review (${r.changed.length} files changed)`;
+  const isRun = (c) => c.proof === "run";
+  const [pr, pv, ar, av] = [r.project.filter(isRun), r.project.filter((c) => !isRun(c)), r.approach.filter(isRun), r.approach.filter((c) => !isRun(c))];
   return [
     `REVIEW ${base}: ${r.changed.length} files changed: ${r.changed.map((f) => relative(root, f)).join(", ")}`,
     `Touched concepts (${r.touched.length}): ${r.touched.join(", ") || "none"}`,
     `Kinds of artifact: ${r.kinds.join(", ") || "none"}`,
-    `Manual checks of the project whose concepts the change touches (${r.project.length}):`,
-    ...r.project.map(show),
-    `Manual checks of the approach for these kinds of artifact (${r.approach.length}):`,
-    ...r.approach.map((c) => `${show(c)}\n    (${c.section})`),
-    "Give each check a verdict: pass, fail, not run (applicable but could not be run, with the reason) or not applicable (with the reason).",
+    `Checks of review of the project whose concepts the change touches (${pv.length}):`,
+    ...pv.map(show),
+    `Checks of review of the approach for these kinds of artifact (${av.length}):`,
+    ...av.map((c) => `${show(c)}\n    (${c.section})`),
+    `Checks of run of the project that the change touches, to carry out by their guide (${pr.length}):`,
+    ...pr.map(showRun(false)),
+    `Checks of run of the approach for these kinds of artifact, to carry out by their guide (${ar.length}):`,
+    ...ar.map(showRun(true)),
+    "Give each check a verdict: pass, fail, not run (applicable but could not be run, with the reason) or not applicable (with the reason). A check of run is carried out by its guide, or given not run with the reason.",
   ].join("\n");
 };

@@ -39,9 +39,10 @@ const review = ({ before, after } = {}) => {
   }
 };
 
-// The IDs of the checks listed under one heading of the review: the project's or the approach's.
-const listed = (out, which) => {
-  const start = out.indexOf(`Manual checks of the ${which}`);
+// The IDs of the checks listed under one heading of the review: of review or of run, the project's or
+// the approach's (D-155).
+const listed = (out, which, kind = "review") => {
+  const start = out.indexOf(`Checks of ${kind} of the ${which}`);
   assert.ok(start >= 0, `no list of the ${which}'s checks in:\n${out}`);
   const rest = out.slice(start).split("\n").slice(1);
   const end = rest.findIndex((l) => !l.startsWith("  "));
@@ -52,7 +53,7 @@ const listed = (out, which) => {
 };
 
 const RENEW_EXPLAINED =
-  "| `check.loan.renew-explained` | `action.renew` | ana's renewal is refused | she reads the screen | she understands why and when she can renew | manual | |\n";
+  "| `check.loan.renew-explained` | `action.renew` | ana's renewal is refused | she reads the screen | she understands why and when she can renew | review | |\n";
 
 test("[check.agent-rules.review-definition-changed] lists the manual check of a concept whose definition changed", () => {
   const out = review({
@@ -67,7 +68,8 @@ test("[check.agent-rules.review-definition-changed] lists the manual check of a 
 
 test("[check.agent-rules.review-code-changed] lists the manual checks of the concepts a changed code file names", () => {
   const out = review({ after: (dir) => appendFileSync(join(dir, "app/library.mjs"), "// a change\n") });
-  assert.deepEqual(listed(out, "project"), ["check.loan.overdue-in-real-time"]);
+  assert.deepEqual(listed(out, "project"), []);
+  assert.deepEqual(listed(out, "project", "run"), ["check.loan.overdue-in-real-time"]);
   const approach = listed(out, "approach");
   assert.ok(approach.includes("check.implementation-row.true"), out);
   assert.ok(approach.includes("check.concept.code-from-ontology"), out);
@@ -82,7 +84,7 @@ test("[check.agent-rules.review-code-changed] a file a doc set names one by one 
   });
   assert.match(out, /Kinds of artifact: [^\n]*code/);
   assert.match(out, /Kinds of artifact: [^\n]*docs/);
-  assert.deepEqual(listed(out, "project"), ["check.loan.overdue-in-real-time"]);
+  assert.deepEqual(listed(out, "project", "run"), ["check.loan.overdue-in-real-time"]);
 });
 
 test("[check.agent-rules.review-code-errors-listed] lists the check of errors and security for a new code file that names no concept", () => {
@@ -97,6 +99,8 @@ test("[check.agent-rules.review-catalogue-changed] lists the approach's checks o
   });
   assert.match(out, /Kinds of artifact: catalogue\n/);
   assert.ok(listed(out, "approach").includes("check.check.product-terms"), out);
+  assert.deepEqual(listed(out, "approach", "run"), ["check.check.blind-derivation"]);
+  assert.ok(!listed(out, "approach").includes("check.check.blind-derivation"), out);
 });
 
 test("[check.agent-rules.review-ticket-changed] lists the approach's checks of tickets when a ticket changes", () => {
@@ -141,7 +145,7 @@ test("[check.agent-rules.review-path-unknown] fails on a concept under reviewPat
 
 test("[check.agent-rules.review-path-unchecked] fails on a concept under reviewPaths without a manual check", () => {
   const out = review({ before: withData(["edge.loan.item"]) });
-  assert.match(out, /ERROR · concepts under reviewPaths without a manual check in the catalogue \(1\):\n {2}edge\.loan\.item\n/);
+  assert.match(out, /ERROR · concepts under reviewPaths without a check of review or run in the catalogue \(1\):\n {2}edge\.loan\.item\n/);
 });
 
 test("[check.agent-rules.review-skips-runs] leaves the records of manual runs out of the change it reviews", () => {

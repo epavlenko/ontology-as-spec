@@ -76,6 +76,17 @@
       "scope": "all"
     },
     {
+      "name": "run",
+      "files": [
+        "docs/run-guide.md"
+      ],
+      "cover": [],
+      "checks": [
+        "run"
+      ],
+      "scope": "all"
+    },
+    {
       "name": "pages",
       "files": [
         "README.md",
@@ -95,14 +106,14 @@
     {
       "out": "docs/reference.md",
       "title": "Reference",
-      "intro": "Every concept of the approach, its type and definition, and the checks that hold it, generated from [ontology.md](../ontology.md) and [checks.md](../checks.md). Automatic checks are enforced by the tool; manual checks are what a reviewer does, because the tool cannot. The pages of this directory explain the parts; this page is what they refer to.",
+      "intro": "Every concept of the approach, its type and definition, and the checks that hold it, generated from [ontology.md](../ontology.md) and [checks.md](../checks.md). Automatic checks are enforced by the tool; a check of review is given its verdict by a reviewer reading the change, and a check of run is carried out by an agent on the working product, because the tool cannot. The pages of this directory explain the parts; this page is what they refer to.",
       "ids": true,
       "kinds": true,
       "types": true,
       "checks": true
     }
   ],
-  "manualRuns": {
+  "verdicts": {
     "dir": "reviews/runs"
   },
   "reviewRounds": {

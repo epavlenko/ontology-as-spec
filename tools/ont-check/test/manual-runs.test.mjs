@@ -56,15 +56,15 @@ const run = (edit) => {
   }
 };
 
-const NONE = /(info|ERROR) · manual checks of implemented concepts with no current run \(\d+\):\n((?: {2}.*\n)+)/;
+const NONE = /(info|ERROR) · checks of review or run of implemented concepts with no current record \(\d+\):\n((?: {2}.*\n)+)/;
 const noRun = (out) => (out.match(NONE)?.[2] ?? "").includes(CHECK);
-const failed = (out) => out.includes(`info · manual checks whose last current run failed (1):\n  ${CHECK}`);
-const requireRuns = (dir) => patch(dir, "ont.config.json", '"manualRuns": { "dir": "verify/runs" }', '"manualRuns": { "dir": "verify/runs", "require": true }');
+const failed = (out) => out.includes(`info · checks of review or run whose last current record failed (1):\n  ${CHECK}`);
+const requireRuns = (dir) => patch(dir, "ont.config.json", '"verdicts": { "dir": "verify/runs" }', '"verdicts": { "dir": "verify/runs", "require": true }');
 
 test("[check.manual-run.none] lists a manual check without a record as information", () => {
   const r = run();
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /info · manual checks of implemented concepts with no current run/);
+  assert.match(r.out, /info · checks of review or run of implemented concepts with no current record/);
   assert.ok(noRun(r.out), r.out);
 });
 
@@ -90,7 +90,7 @@ test("[check.manual-run.last-failed] lists a failed current run as information, 
   });
   assert.ok(failed(r.out), r.out);
   assert.ok(!noRun(r.out), r.out);
-  assert.doesNotMatch(r.out, /ERROR · manual checks whose last current run failed/);
+  assert.doesNotMatch(r.out, /ERROR · checks of review or run whose last current record failed/);
 });
 
 test("[check.manual-run.not-run-ignored] does not count a not-run record as a run", () => {
@@ -101,7 +101,7 @@ test("[check.manual-run.not-run-ignored] does not count a not-run record as a ru
 test("[check.manual-run.required] fails on a manual check without a current run when runs are required", () => {
   const r = run(requireRuns);
   assert.equal(r.code, 1, r.out);
-  assert.match(r.out, /ERROR · manual checks of implemented concepts with no current run/);
+  assert.match(r.out, /ERROR · checks of review or run of implemented concepts with no current record/);
   assert.ok(noRun(r.out), r.out);
 });
 
@@ -111,7 +111,7 @@ test("[check.manual-run.malformed] fails on records it cannot read and says what
     record(dir, `20261105T090000Z-${CHECK}-bbbb.md`, { Time: "2026-11-05T09:00:00Z", Stamp: "x", Verdict: "passed" });
   });
   assert.equal(r.code, 1, r.out);
-  assert.match(r.out, /ERROR · manual run records that cannot be read \(2\):/);
+  assert.match(r.out, /ERROR · verdict records that cannot be read \(2\):/);
   assert.match(r.out, /no-such-aaaa\.md: unknown check check\.loan\.no-such/);
   assert.match(r.out, /bbbb\.md: verdict passed is not one of/);
 });
@@ -122,7 +122,7 @@ test("[check.manual-run.retired-check] a record of a run of a retired check is r
     record(dir, "20261105T090000Z-check.loan.retired-one-aaaa.md", { Check: "check.loan.retired-one", Time: "2026-11-05T09:00:00Z", Stamp: "x", Verdict: "pass" });
   });
   assert.equal(r.code, 0, r.out);
-  assert.doesNotMatch(r.out, /manual run records that cannot be read/);
+  assert.doesNotMatch(r.out, /verdict records that cannot be read/);
   assert.doesNotMatch(r.out, /retired-one/);
   // A check neither in the catalogue nor retired is still unknown.
   const unknown = run((dir) => record(dir, "20261105T090000Z-check.loan.retired-one-aaaa.md", { Check: "check.loan.retired-one", Time: "2026-11-05T09:00:00Z", Stamp: "x", Verdict: "pass" }));
@@ -185,7 +185,7 @@ test("[check.manual-run.ambiguous] fails on two records of one check with the sa
     record(dir, `20261105T090000Z-${CHECK}-e5f6.md`, { Time: "2026-11-05T09:00:00Z", Stamp: stamp, Verdict: "fail" });
   });
   assert.equal(r.code, 1, r.out);
-  assert.match(r.out, /ERROR · manual run records that two files claim .*\(1\):\n {2}20261105T090000Z-check\.loan\.overdue-in-real-time-a1b2\.md and 20261105T090000Z-check\.loan\.overdue-in-real-time-e5f6\.md/);
+  assert.match(r.out, /ERROR · verdict records that two files claim .*\(1\):\n {2}20261105T090000Z-check\.loan\.overdue-in-real-time-a1b2\.md and 20261105T090000Z-check\.loan\.overdue-in-real-time-e5f6\.md/);
 });
 
 // Round 4 of the review of the result of task releases-and-task (D-143), and round 5 (D-145): what a
@@ -193,7 +193,7 @@ test("[check.manual-run.ambiguous] fails on two records of one check with the sa
 test("[check.task-result.missing-commit-information] a manual run of a commit the repository does not have is information, and the check passes", () => {
   const r = run((dir) => record(dir, `20261105T090000Z-${CHECK}-a1b2.md`, { Time: "2026-11-05T09:00:00Z", Stamp: stampIn(dir, CHECK), Verdict: "pass", Commit: "1111111" }));
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /info · manual run records whose commit this clone does not have \(what a run proves does not rest on it\) \(1\):\n  20261105T090000Z-check\.loan\.overdue-in-real-time-a1b2\.md: names a commit this clone does not have, 1111111/);
+  assert.match(r.out, /info · verdict records whose commit this clone does not have \(what a verdict proves does not rest on it\) \(1\):\n  20261105T090000Z-check\.loan\.overdue-in-real-time-a1b2\.md: names a commit this clone does not have, 1111111/);
   assert.doesNotMatch(r.out, /ERROR/);
 });
 

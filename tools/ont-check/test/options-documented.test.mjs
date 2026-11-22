@@ -36,7 +36,7 @@ const undocumented = (text) => ({
 
 test("[check.tool-copy.options-documented] every file, flag and configuration key is in the tool's README", () => {
   assert.ok(flagsOf(readFileSync(`${TOOLS}ont-check.mjs`, "utf8")).has("--run"));
-  for (const k of ["oracle", "manualRuns.dir", "codeNames.owner", "docSets[].files", "testSuites[].checks", "checks.axes[].each", "headings.otherWords"])
+  for (const k of ["oracle", "verdicts.dir", "codeNames.owner", "docSets[].files", "testSuites[].checks", "checks.axes[].each", "headings.otherWords"])
     assert.ok(CONFIG_KEYS.includes(k), k);
   assert.deepEqual(undocumented(readme), { files: [], flags: [], keys: [] });
 });
@@ -46,13 +46,13 @@ test("[check.tool-copy.options-documented] a file, a flag or a key taken out of 
     .replace("| `oracle.mjs`", "| x")
     .replaceAll("--run", "--xx")
     .replace(/`oracle(?:\.[a-zA-Z]+)*`/g, "`x`")
-    .replace("`manualRuns.dir`", "`x`")
+    .replaceAll("`verdicts.dir`", "`x`")
     .replace('"files", ', "")
     .replace('{ "name", "values", "each" }', "{ }");
   const r = undocumented(without);
   assert.ok(r.files.includes("oracle.mjs"), JSON.stringify(r));
   assert.ok(r.flags.includes("--run"), JSON.stringify(r));
-  for (const k of ["oracle", "manualRuns.dir", "docSets[].files", "checks.axes[].name", "checks.axes[].values", "checks.axes[].each"])
+  for (const k of ["oracle", "verdicts.dir", "docSets[].files", "checks.axes[].name", "checks.axes[].values", "checks.axes[].each"])
     assert.ok(r.keys.includes(k), JSON.stringify(r));
 });
 
@@ -109,6 +109,7 @@ test("[check.tool-copy.options-documented] a configuration with every key of the
       code: [{ dir: "src", match: "\\.js$" }],
       reviewPaths: [{ dir: "data", concepts: ["ent.x"] }],
       manualRuns: { dir: "runs", require: true },
+      verdicts: { dir: "runs", require: true },
       records: { latinOnly: true },
       reviewRounds: { dir: "rounds", gatesFrom: "2026-11-21T09:35:15Z" },
       taskRecords: { dir: "tasks" },
@@ -138,7 +139,15 @@ test("[check.tool-copy.options-documented] a configuration with every key of the
     };
     for (const k of CONFIG_KEYS) assert.ok(has(every, k.split(".")), `the fixture leaves out ${k}`);
     const path = join(dir, "ont.config.json");
+    // manualRuns and verdicts are one key under two names, and both at once are an error (D-157): each
+    // is loaded on its own.
     writeFileSync(path, JSON.stringify(every));
+    assert.throws(() => loadConfig(path), /sets both manualRuns and verdicts/);
+    const { verdicts, ...earlier } = every;
+    writeFileSync(path, JSON.stringify({ ...earlier, manualRuns: verdicts }));
+    assert.equal(loadConfig(path).manualRuns.require, true);
+    const { manualRuns, ...later } = every;
+    writeFileSync(path, JSON.stringify(later));
     const cfg = loadConfig(path);
     assert.equal(cfg.docSets[1].files.length, 1);
     assert.equal(cfg.checks.axes[1].name, "time");

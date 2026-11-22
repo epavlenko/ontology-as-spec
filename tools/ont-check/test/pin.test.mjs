@@ -83,7 +83,33 @@ test("[check.tool-copy.extra-file] verifying the pin names files it does not hol
     assert.match(verify().out, /\(1\):\n {2}not in the pin: old\/stale\.mjs\n/);
     rmSync(join(dir, "old"), { recursive: true });
     assert.equal(verify().code, 0);
-    assert.deepEqual(JSON.parse(readFileSync(pinFile, "utf8")).own, ["NOTES.md"]);
+    assert.deepEqual(JSON.parse(readFileSync(pinFile, "utf8")).own, ["NOTES.md", "copy.json"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("[check.tool-copy.copy-info] updating the copy writes copy.json with the commit, lists it as the project's own, and changes no copied file", () => {
+  const { root, dir, pinFile, update, verify } = setup();
+  try {
+    const r = update("HEAD");
+    assert.equal(r.code, 0, r.out);
+    const src = join(root, "approach");
+    const commit = spawnSync("git", ["-C", src, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
+    assert.equal(JSON.parse(readFileSync(join(dir, "copy.json"), "utf8")).commit, commit);
+    const pin = JSON.parse(readFileSync(pinFile, "utf8"));
+    assert.ok(pin.own.includes("copy.json"), JSON.stringify(pin));
+    assert.ok(!("copy.json" in pin.files), "copy.json is not compared with the approach");
+    // The copied files are the commit's, byte for byte.
+    for (const f of ["a.mjs", "c.mjs", "LICENSE"]) {
+      const path = f === "LICENSE" ? "LICENSE" : `tools/ont-check/${f}`;
+      assert.equal(readFileSync(join(dir, f), "utf8"), spawnSync("git", ["-C", src, "show", `HEAD:${path}`], { encoding: "utf8" }).stdout, f);
+    }
+    // The copy verifies at once, and again after a second update.
+    assert.match(verify().out, /^PIN_OK/);
+    assert.equal(update("HEAD").code, 0);
+    assert.match(verify().out, /^PIN_OK/);
+    assert.deepEqual(JSON.parse(readFileSync(pinFile, "utf8")).own, ["copy.json"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
