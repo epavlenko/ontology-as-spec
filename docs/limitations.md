@@ -150,6 +150,11 @@ The pin command writes the commit of the approach into a file of information abo
 
 `pin.mjs` writes the file of information about the copy, `copy.json`, into the tool's directory on every update. A project that already keeps a file of its own by that name there, even listed among the pin's own files, loses it to the update (class "project file overwritten by the pin"). The name is the tool's; a project that needs such a file keeps it elsewhere.
 
+<!-- ont: action.record-verdicts@dd6ebf -->
+### The recorder takes some cells its reader refuses
+
+The recorder of a reviewer's table checks that a row of a run given to a person has evidence, but a cell of only spaces in backticks passes it, and the record then fails the check when it is read (class "recorder accepts evidence its reader treats as empty"). A row whose verdict is misspelt with a doubled hyphen, such as `not--run`, is not read as a row at all, so a duplicate or an unlisted check written that way is dropped instead of refused (class "malformed verdict row bypasses validation"). Both need a cell or a spelling no reviewer writes by habit, and the check of the records catches the first.
+
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
