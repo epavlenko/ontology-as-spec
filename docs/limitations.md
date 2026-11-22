@@ -145,6 +145,11 @@ The link `--review` prints for the run guide of a bundled check points at the co
 
 The pin command writes the commit of the approach into a file of information about the copy, listed among the pin's own files, and `--review` builds the links to run guides from it. `pin.mjs verify` compares only the copied files, so a commit of an upgrade that leaves that file out, or a file edited by hand to another commit, still verifies, and the links then point at another version of the guides (class "pin verification without guide metadata"). The pin command writes the file together with the copy, so the case needs a partial commit or a hand edit.
 
+<!-- ont: field.tool-copy.copy-info@cd7554 -->
+### The pin writes its file of information over a project's own file of that name
+
+`pin.mjs` writes the file of information about the copy, `copy.json`, into the tool's directory on every update. A project that already keeps a file of its own by that name there, even listed among the pin's own files, loses it to the update (class "project file overwritten by the pin"). The name is the tool's; a project that needs such a file keeps it elsewhere.
+
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
