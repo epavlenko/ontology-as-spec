@@ -53,7 +53,8 @@ export function readStatement(file) {
 // version is the version of the statement whose limits apply (D-174): round.mjs record gives its brief's;
 // given none, the version in force, as --task, round.mjs brief, --rounds and done.mjs read it (versionInForce,
 // D-175). The unit is the goal the task's line Goal: names, by goalLineOf, from the statement given or else
-// from the task's own records of any version, or else the task itself (D-178).
+// from the task's records of that version, or of another only where none of that version copies the budget,
+// or else the task itself (D-179).
 // ont: derived.task-budget, derived.log-spend
 export function spendOf({ cfg, task, statement = null, version, inputs = null, env = process.env }) {
   if (cfg.spend?.fromLogs !== true) return null;
@@ -62,7 +63,7 @@ export function spendOf({ cfg, task, statement = null, version, inputs = null, e
   const v = version !== undefined ? version : versionInForce({ rounds, approvals: records.approvals, task, statement, pending });
   const l = versionLimits({ task, version: v, statement, pending, done: records.done, approvals: records.approvals, snapshots: records.snapshots, defaults: cfg.budget });
   const limits = { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version };
-  const goalLine = goalLineOf({ task, statement, pending, done: records.done, snapshots: records.snapshots });
+  const goalLine = goalLineOf({ task, statement, version: v, pending, done: records.done, snapshots: records.snapshots });
   const sp = logSpend({ cfg, task, goalLine, rounds, pending, limits, approvedOf: (t) => approvedHash(rounds, t, null, records.approvals), readStatementFile: readStatement, env });
   if (sp?.missing?.length && !sp.errors?.length) {
     const snap = (records.snapshots ?? []).filter((x) => x.task === task && v && x.limits?.task?.hash === v).sort(byTimeFile).at(-1);
@@ -86,19 +87,30 @@ export function snapshotOverspendProblems(end, snapshots = []) {
 }
 
 // The task's line Goal:, { line, of }, from which goalOf of spend.mjs gives the unit of its budget
-// (field.task-statement.goal, D-178): the statement's where a file is given, its line or none; or else, with
-// no file, as CI and round.mjs record read, the latest by time of the task's own records that copy it, of
-// any version, since the line belongs to the task and not to one version: its kept briefs and records of
-// done with Goal:, and its snapshots of spend whose Unit: is a goal, not the task; line null where none
-// carries it, and the task is its own unit.
-export function goalLineOf({ task, statement = null, pending = [], done = [], snapshots = [] }) {
+// (field.task-statement.goal, D-179): the statement's where a file is given, its line or none. With no file,
+// as CI and round.mjs record read, that of the records of version, the version that applies, that copy the
+// statement's lines of the budget: its kept brief of the version, or else its latest record of done of it,
+// or else its latest snapshot of spend of it, whose Unit: is the goal where it is not the task; the record's
+// line decides, and so does its absence, the task's own unit, whatever an older version named. Only where no
+// record of the version copies those lines, as for a version whose only record is the owner's approval, the
+// latest by time of the task's records of another version that carries a line; line null where none does,
+// and the task is its own unit.
+export function goalLineOf({ task, statement = null, version = null, pending = [], done = [], snapshots = [] }) {
   if (statement) return { line: statement.goal ?? null, of: "the statement" };
-  const lines = [
-    ...pending.filter((b) => b.task === task && b.brief?.Goal).map((b) => ({ line: b.brief.Goal, time: b.briefTime ?? "", of: `the kept brief of ${task}, ${b.step}` })),
-    ...done.filter((d) => d.task === task && d.goal).map((d) => ({ line: d.goal, time: d.time, of: `the record of done ${d.file}` })),
-    ...snapshots.filter((x) => x.task === task && x.unit && x.unit !== task).map((x) => ({ line: x.unit, time: x.time, of: `the snapshot of spend ${x.file}` })),
-  ].sort((a, b) => a.time.localeCompare(b.time));
-  const last = lines.at(-1);
+  const briefOf = (b) => ({ line: b.brief.Goal ?? null, time: b.briefTime ?? "", of: `the kept brief of ${task}, ${b.step}` });
+  const doneOf = (d) => ({ line: d.goal ?? null, time: d.time, of: `the record of done ${d.file}` });
+  const snapOf = (x) => ({ line: x.unit && x.unit !== task ? x.unit : null, time: x.time, of: `the snapshot of spend ${x.file}` });
+  const briefs = pending.filter((b) => b.task === task && b.brief);
+  const dones = done.filter((d) => d.task === task).sort(byTimeFile);
+  const snaps = snapshots.filter((x) => x.task === task).sort(byTimeFile);
+  if (version) {
+    const own =
+      briefs.filter((b) => b.brief["Statement-hash"] === version && b.brief["Budget-new-input"] !== undefined).map(briefOf).at(-1) ??
+      dones.filter((d) => d.statementHash === version && d.budget).map(doneOf).at(-1) ??
+      snaps.filter((x) => x.limits?.task?.hash === version).map(snapOf).at(-1);
+    if (own) return { line: own.line, of: own.of };
+  }
+  const last = [...briefs.map(briefOf), ...dones.map(doneOf), ...snaps.map(snapOf)].filter((x) => x.line).sort((a, b) => a.time.localeCompare(b.time)).at(-1);
   return last ? { line: last.line, of: last.of } : { line: null, of: "no record" };
 }
 
@@ -124,7 +136,7 @@ export function versionInForce({ rounds = [], approvals = [], task, statement = 
 // Task-statement-hash: is the version, which its writer compared with. A record of another version gives
 // nothing. Each limit and the reserve the configuration's where none of these holds it, or the version
 // holds none. from says where they came from: statement, brief, done, approval, snapshot or configuration;
-// file the record's file. The goal is no part of a version: goalLineOf reads it (D-178).
+// file the record's file. The goal is no part of a version: goalLineOf reads it (D-179).
 const byTimeFile = (a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file);
 const briefNumber = (v) => (v === undefined || v === "none" || !/^\d+$/.test(v) ? null : Number(v));
 export function versionLimits({ task, version, statement = null, pending = [], done = [], approvals = [], snapshots = [], defaults }) {
@@ -280,7 +292,7 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
       else {
         const budget = lim.budget;
         // The goal the statement names on Goal:, from which a reader given no file reads the scope of the
-        // budget, held to the configuration's goals (goalLineOf, D-178); a record made before the line names none.
+        // budget, held to the configuration's goals (goalLineOf, D-179); a record made before the line names none.
         const goal = field("Goal");
         if (goal !== null && !TASK_NAME.test(goal)) malformed.push(`${name}: goal ${goal} is not lower-case letters, digits and hyphens`);
         else done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence, goal });

@@ -1529,7 +1529,7 @@ if (cfg.reviewRounds) {
   report("contributions recorded twice over intervals that overlap", overlaps(rounds, records.spend));
   report("verdicts of acceptance refused", acceptanceProblems(rounds, records.done, records.approvals));
   // A line Goal: of a record of done or of a kept brief names a goal the configuration lists, whose list holds
-  // the task: goals is the composition of a goal (D-178).
+  // the task: goals is the composition of a goal (D-179).
   // ont: field.task-statement.goal, field.task-result.budget, field.round-brief.lines
   if (cfg.spend?.fromLogs === true)
     report("records whose line Goal: names a goal the configuration does not list the task under", [

@@ -122,14 +122,14 @@ function logs() {
 // The records and functions of a project, as the tool reads them.
 const inputsOf = (p) => readTaskInputs(p.config());
 // The limits of the version in force, as every reader asks them (D-174), and the task's line Goal:, which
-// gives the goal (D-178).
+// gives the goal (D-179).
 const spendIn = (p, task, st, env) => {
   const cfg = p.config();
   const inputs = inputsOf(p);
   const statement = st ? readStatement(st.file) : null;
   const version = versionInForce({ rounds: inputs.rounds, approvals: inputs.records.approvals, task, statement });
   const l = versionLimits({ task, version, statement, done: inputs.records.done, approvals: inputs.records.approvals, snapshots: inputs.records.snapshots, defaults: cfg.budget });
-  return logSpend({ cfg, task, goalLine: goalLineOf({ task, statement, done: inputs.records.done, snapshots: inputs.records.snapshots }), rounds: inputs.rounds, limits: { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version }, approvedOf: (t) => approvedHash(inputs.rounds, t, null, inputs.records.approvals), readStatementFile: readStatement, env });
+  return logSpend({ cfg, task, goalLine: goalLineOf({ task, statement, version, done: inputs.records.done, snapshots: inputs.records.snapshots }), rounds: inputs.rounds, limits: { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version }, approvedOf: (t) => approvedHash(inputs.rounds, t, null, inputs.records.approvals), readStatementFile: readStatement, env });
 };
 
 // A brief and the reviewer's reply to it: the brief's lines word for word, then the reply's own.
@@ -871,7 +871,7 @@ test("[check.spend-snapshot.goal-agrees] the unit is the goal a statement names 
     assert.match(p.tool("done.mjs", [task, "--statement", s.file], env).out, new RegExp(`no record of done written: .*${why.source}`));
   }
   // The approved statement of t with no line Goal: t is its own unit, with its own limits, from its own
-  // first round, with no error (D-178).
+  // first round, with no error (D-179).
   const sp = spendIn(p, "t", none, env);
   assert.deepEqual(sp.errors ?? [], []);
   assert.equal(sp.unit, "t");
@@ -941,7 +941,7 @@ test("[check.spend-snapshot.snapshot-of-version] with no logs, no kept brief and
   assert.equal(spendOf({ cfg: p.config(), task: "t", version: a.hash, inputs, env: {} }).fromSnapshot, snap);
 });
 
-test("[check.task-statement.limits-by-version] the limits of a version come from the records of that version alone: its file, its kept brief, its record of done, the owner's approval or its snapshot of spend, and the configuration's where none holds them; the task's line Goal: is read apart from any version, from the statement given or else the latest of the task's records that carries it", () => {
+test("[check.task-statement.limits-by-version] the limits of a version come from the records of that version alone: its file, its kept brief, its record of done, the owner's approval or its snapshot of spend, and the configuration's where none holds them; the task's line Goal: is the statement's where one is given, or else that of the records of the version that applies, its line or its absence, or the latest line of another version only where no record of that version copies the budget", () => {
   const defaults = { newInput: 95000, output: 10000, reserve: 1.25 };
   const H = (c) => c.repeat(64);
   const statementOf = { hash: H("a"), budget: { newInput: 1, output: 2, reserve: 1.5 }, goal: "g" };
@@ -967,15 +967,25 @@ test("[check.task-statement.limits-by-version] the limits of a version come from
   assert.deepEqual(of(H("2")), { newInput: 95000, output: 10000, reserve: 1.25, version: H("2"), from: "configuration" });
   // A version no record holds: the configuration's, whatever other versions hold.
   assert.deepEqual(of(H("e")), { newInput: 95000, output: 10000, reserve: 1.25, version: H("e"), from: "configuration" });
-  // The task's line Goal: is no part of a version (D-178): the statement's where one is given, even with no
-  // line; or else the latest of its records that carries one, whatever version each names: the snapshot d,
-  // whose unit is the goal g, after the record of done f, and a kept brief after both.
+  // The task's line Goal: (D-179): the statement's where one is given, even with no line; with no version, or
+  // a version no record of which copies the budget, the latest of its records that carries one, whatever
+  // version each names: the snapshot d, whose unit is the goal g, after the record of done f, and a kept
+  // brief after both.
   assert.deepEqual(goalLineOf({ task: "t", statement: statementOf, done, snapshots }), { line: "g", of: "the statement" });
   assert.deepEqual(goalLineOf({ task: "t", statement: { ...statementOf, goal: null }, done, snapshots }), { line: null, of: "the statement" });
   assert.deepEqual(goalLineOf({ task: "t", done, snapshots }), { line: "g", of: "the snapshot of spend d.md" });
   assert.deepEqual(goalLineOf({ task: "t", done }), { line: "other", of: "the record of done f.md" });
   assert.deepEqual(goalLineOf({ task: "t", done, snapshots, pending: [{ task: "t", step: "result-review", briefTime: at(9), brief: { Goal: "h" } }] }), { line: "h", of: "the kept brief of t, result-review" });
   assert.deepEqual(goalLineOf({ task: "u", done, snapshots }), { line: null, of: "no record" });
+  // With the version that applies, its own records decide, their line or its absence: the record of done c,
+  // with no line, is the task's own unit though the later snapshot d names g; the snapshot d and the kept
+  // brief b name g; the version 1, whose only record is the owner's approval, falls to the latest line of
+  // another version.
+  assert.deepEqual(goalLineOf({ task: "t", version: H("c"), done, snapshots }), { line: null, of: "the record of done c.md" });
+  assert.deepEqual(goalLineOf({ task: "t", version: H("f"), done, snapshots }), { line: "other", of: "the record of done f.md" });
+  assert.deepEqual(goalLineOf({ task: "t", version: H("d"), done, snapshots }), { line: "g", of: "the snapshot of spend d.md" });
+  assert.deepEqual(goalLineOf({ task: "t", version: H("b"), pending: [{ task: "t", step: "statement-review", briefTime: at(0), ...pending[0] }], done, snapshots }), { line: "g", of: "the kept brief of t, statement-review" });
+  assert.deepEqual(goalLineOf({ task: "t", version: H("1"), done, snapshots }), { line: "g", of: "the snapshot of spend d.md" });
   // Records of another task give nothing.
   assert.equal(versionLimits({ task: "u", version: H("c"), done, defaults }).from, "configuration");
   // The version in force: the approval's, else the file's, else the kept brief's, else the latest round's.
@@ -1062,6 +1072,92 @@ test("[check.spend-snapshot.done-names-goal-overspend] a clean acceptance record
   // --rounds names no action by the budget: the merge alone.
   const rounds = p.tool("ont-check.mjs", ["--rounds"], env);
   assert.match(rounds.out, /^NEXT t: done: the last round and its acceptance are clean: merge/m);
+});
+
+test("[check.spend-snapshot.goal-own-overspend] a goal's own clean acceptance recorded past the goal's reserve: the Overspend round.mjs record writes has the task's part alone, the text its snapshot gives, and the full check and --task with no logs accept it", () => {
+  const p = project({ fromLogs: true, goals: { g: ["t"] } });
+  const gst = statement({ budget: [100, 100] });
+  p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, at(-10)));
+  const work = p.commit("the goal approved");
+  const doneTime = iso(Date.now() - 40000);
+  p.put(`reviews/tasks/${doneTime.replace(/[-:]/g, "")}-g-done.md`, ["Record: done", "Task: g", `Commit: ${work}`, `Statement-hash: ${gst.hash}`, "Budget-new-input: 100", "Budget-output: 100", "Budget-reserve: 1.5", `Time: ${doneTime}`, "Checks:", "- true · pass", ""].join("\n"));
+  p.commit("done of the goal");
+  const L = logs();
+  L.claudeSession("exec-1", [{ user: "the goal g", time: iso(Date.now() - 30000) }]);
+  const env = L.env();
+  // Briefed within the reserve; the reviewer's session passes it, 100 × 1.5.
+  const b = p.tool("round.mjs", ["brief", "g", "--step", "result", "--statement", gst.file], env);
+  assert.equal(b.code, 0, b.out);
+  const lines = briefLines(b.out);
+  const soon = (s) => iso(Date.now() + s * 1000);
+  L.codexSession("rev-g", [{ user: `${lines}\n\nReview the result of goal g.`, time: soon(1) }, { input: 1000, cached: 0, out: 100, time: soon(2) }]);
+  const r = p.tool("round.mjs", ["record", "g", "--from", writeReply(lines, "By: m\nCondition: holds\nAcceptance: pass")], env);
+  assert.equal(r.code, 0, r.out);
+  p.commit("the goal's round");
+  const inputs = inputsOf(p);
+  const end = inputs.rounds.find((x) => x.task === "g" && x.step === "result-review");
+  // One part: the goal is its own unit, one sum against one set of limits (D-179).
+  assert.equal(end.overspend, "new input 1000 of 150, output 100 of 150");
+  const snap = inputs.records.snapshots.find((x) => x.file === end.spendRecord);
+  assert.equal(snap.unit, "g");
+  assert.equal(overspendOf(snapshotSpend(snap)), end.overspend);
+  assert.deepEqual(snapshotOverspendProblems(end, inputs.records.snapshots), []);
+  // The live state of spend gives the same text the snapshot does.
+  assert.equal(overspendOf(spendOf({ cfg: p.config(), task: "g", statement: readStatement(gst.file), inputs, env })), end.overspend);
+  // The full check, as CI runs it with no logs, validates the record against its snapshot.
+  const check = p.tool("ont-check.mjs", [], {});
+  assert.equal(check.code, 0, check.out);
+  assert.doesNotMatch(check.out, /Overspend: is not the tool's/);
+  const said = /^NEXT g: done, with an overspend: new input 1000 of 150, output 100 of 150; report it to the owner, and the last round and its acceptance are clean: merge \(rule\.ready-after-clean-round\)$/m;
+  assert.match(p.tool("ont-check.mjs", ["--task", "g", "--statement", gst.file], {}).out, said);
+  assert.match(p.tool("ont-check.mjs", ["--task", "g", "--statement", gst.file], env).out, said);
+});
+
+test("[check.spend-snapshot.goal-line-of-version] a task whose older version's record of done names Goal: g and whose revised statement has no line: its brief, recorded by round.mjs record with no file and no goal's statement, counts the task as its own unit in the snapshot and the record, and --rounds keeps it so", () => {
+  const p = project({ fromLogs: true, goals: { g: ["t"] } });
+  const gst = statement({ budget: [20000000, 9000000] });
+  p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, iso(Date.now() - 120000)));
+  // Version A names the goal, is approved, and its record of done copies the line.
+  const a = statement({ goal: "g", budget: [1000000, 200000] });
+  p.put("reviews/rounds/20261101T095500Z-t-statement-1.md", cleanStatementRound("t", a.hash, iso(Date.now() - 60000)));
+  const work = p.commit("the goal and version A approved");
+  const doneTime = iso(Date.now() - 40000);
+  p.put(`reviews/tasks/${doneTime.replace(/[-:]/g, "")}-t-done.md`, ["Record: done", "Task: t", `Commit: ${work}`, `Statement-hash: ${a.hash}`, "Goal: g", "Budget-new-input: 1000000", "Budget-output: 200000", "Budget-reserve: 1.5", `Time: ${doneTime}`, "Checks:", "- true · pass", ""].join("\n"));
+  p.commit("done of A");
+  // Version B, revised, with no line Goal: and limits of its own.
+  const b = statement({ budget: [3000000, 700000], extra: "Revised, out of the goal.\n\n" });
+  const L = logs();
+  L.claudeSession("exec-1", [{ user: "work on t", time: iso(Date.now() - 30000) }]);
+  const env = L.env();
+  const br = p.tool("round.mjs", ["brief", "t", "--step", "statement", "--statement", b.file], env);
+  assert.equal(br.code, 0, br.out);
+  assert.doesNotMatch(br.out, /^Goal:/m, br.out);
+  const lines = briefLines(br.out);
+  const soon = (s) => iso(Date.now() + s * 1000);
+  L.codexSession("rev-b", [{ user: `${lines}\n\nReview the statement of task t.`, time: soon(1) }, { input: 400, cached: 0, out: 40, time: soon(2) }]);
+  const before = inputsOf(p);
+  // Recorded as docs/parts/agent-rules.md gives it, with no statement, and no goal's statement in the environment.
+  const r = p.tool("round.mjs", ["record", "t", "--from", writeReply(lines, "By: gpt (OpenAI, Codex)")], env);
+  assert.equal(r.code, 0, r.out);
+  const round = readdirSync(join(p.dir, "reviews/rounds")).find((f) => f.includes("-t-statement-2"));
+  assert.ok(round, readdirSync(join(p.dir, "reviews/rounds")).join(", "));
+  const recordText = readFileSync(join(p.dir, "reviews/rounds", round), "utf8");
+  assert.match(recordText, new RegExp(`^Statement-hash: ${b.hash}$`, "m"));
+  const snap = recordText.match(/^Spend-record: (\S+)$/m)[1];
+  const text = readFileSync(join(p.dir, "reviews/tasks", snap), "utf8");
+  assert.match(text, /^Unit: t$/m);
+  assert.match(text, /^Unit-limit-new: 3000000$/m);
+  assert.match(text, new RegExp(`^Unit-statement-hash: ${b.hash}$`, "m"));
+  assert.doesNotMatch(text, new RegExp(gst.hash));
+  // The readers with no file: the kept brief of B decides, not A's record of done.
+  const pending = [{ task: "t", step: "statement-review", briefTime: lines.match(/^Brief-time: (\S+)$/m)[1], brief: Object.fromEntries(lines.split("\n").map((l) => [l.slice(0, l.indexOf(":")), l.slice(l.indexOf(":") + 1).trim()])) }];
+  assert.deepEqual(goalLineOf({ task: "t", version: b.hash, pending, done: before.records.done, snapshots: before.records.snapshots }), { line: null, of: "the kept brief of t, statement-review" });
+  assert.deepEqual(goalLineOf({ task: "t", version: a.hash, pending, done: before.records.done, snapshots: before.records.snapshots }).line, "g");
+  // After the round, with the brief used, B's snapshot decides: --rounds counts t as its own unit.
+  p.commit("the round of B");
+  const rounds = p.tool("ont-check.mjs", ["--rounds"], env);
+  assert.match(rounds.out, /^SPEND t: from the session logs since \S+: task t new input 400 of 3000000 × 1\.5 = 4500000, output 40 of 700000 × 1\.5 = 1050000$/m);
+  assert.equal(spendOf({ cfg: p.config(), task: "t", inputs: inputsOf(p), env }).unit, "t");
 });
 
 test("[check.spend-snapshot.no-logs-project] a project that does not count spend from the logs records done with no logs, with its seal", () => {

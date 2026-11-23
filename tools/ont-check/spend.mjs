@@ -8,8 +8,8 @@
 // sessions of the executor of the unit, ONT_EXECUTOR_SESSIONS, IDs separated by commas or white space; and,
 // for a task of a goal, the goal's statement, ONT_GOAL_STATEMENT, whose version must be approved in force.
 // The unit of the budget is the goal the task's line Goal: names, read from the statement given or else from
-// the task's own records that copy it, or else the task itself; goals is the composition of a goal, which
-// a line must name the task in, and by which a goal's own commands count it whole (D-178). The unit starts at its first
+// the task's records of the version that applies that copy it, or else the task itself; goals is the composition of a goal, which
+// a line must name the task in, and by which a goal's own commands count it whole (D-179). The unit starts at its first
 // brief of a round, or, for the rounds before the writers, at its first record of a round of the review of
 // its statement; the logs are read whole and the events after the start counted. An event is a message of Claude, once by its ID, or a
 // record token_count of Codex, whose part is the difference of its running totals with the record before it
@@ -194,7 +194,7 @@ export function roundSpend(sessions, brief) {
   return { found: true, sum, sessions: parts.map((p) => p.s) };
 }
 
-// The unit of the budget of a task (field.task-statement.goal, D-178): the goal its line Goal: names, line,
+// The unit of the budget of a task (field.task-statement.goal, D-179): the goal its line Goal: names, line,
 // where the task has one, or else the task itself, with no error; a goal itself is its own unit, whose
 // members are the tasks goals lists under it, those whose statements have no line included. goals is the
 // composition: a line that names a goal goals does not list, or one whose list does not hold the task, is
@@ -211,7 +211,7 @@ export function goalOf(cfg, task, { line = null, of = "the statement" } = {}) {
   return { unit: line, goal: true, members: [...goals[line]] };
 }
 
-// What is wrong with a line Goal: against the configuration's goals (D-178), or null: line is the goal the
+// What is wrong with a line Goal: against the configuration's goals (D-179), or null: line is the goal the
 // line names, or null where the text has none, which is never wrong; of names the text.
 export function goalLineProblem(cfg, task, { line = null, of = "the statement" } = {}) {
   if (line === null || line === undefined) return null;
@@ -245,10 +245,10 @@ export const reached = (used, cap, strict = false) => cap !== null && (strict ? 
 // set spend.fromLogs; with missing, the inputs the environment does not give. limits are the task's limits
 // and reserve of the version of its statement that applies, as derived.task-budget gives them for that
 // version (D-174); goalLine the task's line Goal:, { line, of }, as goalLineOf of tasks.mjs reads it from the
-// statement given or else from the task's records (D-178); approvedOf(task) the version approved in force.
+// statement given or else from the task's records (D-179); approvedOf(task) the version approved in force.
 export function logSpend({ cfg, task, goalLine = {}, rounds, pending = [], limits, approvedOf, readStatementFile, env = process.env, sessions = null }) {
   if (cfg.spend?.fromLogs !== true) return null;
-  // The scope of the budget: the goal the task's line Goal: names, or else the task (D-178).
+  // The scope of the budget: the goal the task's line Goal: names, or else the task (D-179).
   const u = goalOf(cfg, task, goalLine);
   if (u.error) return { errors: [u.error], missing: [] };
   const members = [...new Set([...u.members, u.unit])];
@@ -293,7 +293,7 @@ export function logSpend({ cfg, task, goalLine = {}, rounds, pending = [], limit
   const unitSide = side("unit");
   const taskSide = side("task");
   return {
-    unit: u.unit, goal: u.goal, members, start, used, missing: [], errors: [], sessions: all,
+    unit: u.unit, goal: u.goal, isGoal: u.isGoal === true, members, start, used, missing: [], errors: [], sessions: all,
     limits: { unit: unitSide.limits, task: taskSide.limits }, cap: { unit: unitSide.cap, task: taskSide.cap },
     exhausted: unitSide.exhausted || taskSide.exhausted, over: unitSide.over || taskSide.over,
     which: [unitSide.exhausted && (u.goal ? `the goal ${u.unit}` : `the task ${task}`), u.goal && !u.isGoal && taskSide.exhausted && `the task ${task}`].filter(Boolean),
@@ -301,17 +301,19 @@ export function logSpend({ cfg, task, goalLine = {}, rounds, pending = [], limit
 }
 
 // The text of an overspend from a snapshot or a state of spend (field.review-round.overspend, D-169): for
-// the task, and for its goal when the unit is one, past its cap, "new input N of C, output N of C" each
-// with a cap; none within.
+// the task, and for its goal when the unit is a goal other than the task, past its cap, "new input N of C,
+// output N of C" each with a cap; none within. A goal itself, isGoal, is its own unit: its unit and its task
+// are one sum against one set of limits, so it has the task's part alone, as snapshotSpend reads a snapshot
+// whose Unit: is its Task: (D-179).
 const LABEL = { newInput: ["new", "new input"], output: ["out", "output"] };
-export function overspendOf({ unit, goal, used, cap }) {
+export function overspendOf({ unit, goal, isGoal = false, used, cap }) {
   const part = (k) => {
     const c = cap[k];
     const over = ["newInput", "output"].some((x) => c[x] !== null && used[k][LABEL[x][0]] > c[x]);
     return over ? ["newInput", "output"].filter((x) => c[x] !== null).map((x) => `${LABEL[x][1]} ${used[k][LABEL[x][0]]} of ${c[x]}`).join(", ") : null;
   };
   const t = part("task");
-  const g = goal ? part("unit") : null;
+  const g = goal && !isGoal ? part("unit") : null;
   return [t, g && `goal ${unit}: ${g}`].filter(Boolean).join("; ") || null;
 }
 

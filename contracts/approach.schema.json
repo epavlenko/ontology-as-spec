@@ -534,7 +534,7 @@
           "type": "string"
         },
         "overspend": {
-          "description": "On the round that ends the task, what it spent past its budget with reserve, new input and output each, exactly as --task prints it, new input N of L, output N of L: the spend and the limit the tool computes, by the limits derived.task-budget gives, each number written one way, a whole number or a decimal with a point, such as 151.5; required past the limit and absent within it, by --task and the check alike. A round written with a snapshot of spend, Spend-record:, is compared with that snapshot's sums and limits, by --task and the check alike, so that CI, with no logs, and a later spend leave it as it was written (D-169).",
+          "description": "On the round that ends the task, what it spent past its budget with reserve, new input and output each, exactly as --task prints it, new input N of L, output N of L: the spend and the limit the tool computes, by the limits derived.task-budget gives, each number written one way, a whole number or a decimal with a point, such as 151.5; required past the limit and absent within it, by --task and the check alike. A round written with a snapshot of spend, Spend-record:, is compared with that snapshot's sums and limits, by --task and the check alike, so that CI, with no logs, and a later spend leave it as it was written (D-169). For a task of a goal past the goal's reserve, the goal's part follows, ; goal <goal>: new input N of L, output N of L; a goal itself, its own unit, is one sum against one set of limits and has the task's part alone, by the state of spend from the logs and by its snapshot alike (D-179).",
           "x-ont": "field.review-round.overspend",
           "type": "string"
         },
@@ -615,7 +615,7 @@
           "type": "string"
         },
         "goal": {
-          "description": "The goal the task is part of, on a line Goal: <goal>: its unit of budget where spend is counted from the logs. The unit of a task is the goal only when its statement names it so; a statement with no line is its own unit, with its own limits, and no error (D-178). The line is read from the statement file given; with no file given, as in CI and round.mjs record, from the task's own records that copy it, its kept brief, its records of done and its snapshots of spend, of any version, the latest that carries it, since the line belongs to the task and not to one version; with no line anywhere the task is its own unit. The configuration lists each goal's tasks under goals, its composition: a line that names a goal the configuration does not list, or a goal whose list does not hold the task, is an error of --task, round.mjs and done.mjs, and a record of done or a kept brief whose line is so is an error of the check; a task listed under two goals is an error. The commands of a goal, --task <goal>, the goal's record of done and the brief of its acceptance, count it whole by that composition, its tasks whose statements have no line included.",
+          "description": "The goal the task is part of, on a line Goal: <goal>: its unit of budget where spend is counted from the logs. The unit of a task is the goal only when its statement names it so; a statement with no line is its own unit, with its own limits, and no error (D-179). The line is read from the statement file given, its line or its absence; with no file given, as in CI and round.mjs record, from the records of the version that applies (derived.task-budget) that copy the statement's lines of the budget, the task's kept brief of that version, or else its latest record of done of it, or else its latest snapshot of spend of it, whose Unit: is the goal where it is not the task, by the record's line or its absence, so that a version with no line is its own unit whatever an older version named; only where no record of that version copies those lines, as for a version whose only record is the owner's approval, from the latest of the task's records of another version that carries a line; with no line there the task is its own unit (D-179). The configuration lists each goal's tasks under goals, its composition: a line that names a goal the configuration does not list, or a goal whose list does not hold the task, is an error of --task, round.mjs and done.mjs, and a record of done or a kept brief whose line is so is an error of the check; a task listed under two goals is an error. The commands of a goal, --task <goal>, the goal's record of done and the brief of its acceptance, count it whole by that composition, its tasks whose statements have no line included.",
           "x-ont": "field.task-statement.goal",
           "type": "string"
         }
@@ -674,7 +674,7 @@
           "type": "string"
         },
         "budget": {
-          "description": "The limits and the reserve of the version the record names, as approve.mjs copies them from the lines Budget-new-input:, Budget-output: and Budget-reserve: of its statement, as done.mjs does, each a number or none, so that a record of the approval is a record of that version for derived.task-budget; a record written before these lines carries none and reads as before (D-178).",
+          "description": "The limits and the reserve of the version the record names, as approve.mjs copies them from the lines Budget-new-input:, Budget-output: and Budget-reserve: of its statement, as done.mjs does, each a number or none, so that a record of the approval is a record of that version for derived.task-budget; a record written before these lines carries none and reads as before (D-179).",
           "x-ont": "field.owner-approval.budget",
           "type": "string"
         },
@@ -710,7 +710,7 @@
           "type": "string"
         },
         "budget": {
-          "description": "The statement's own limits and reserve, as done.mjs copies them from its lines Budget-new-input:, Budget-output: and Budget-reserve:, each a number or none; a reader given no file of that version reads its limits from them by derived.task-budget, and --task refuses the latest record of done of its statement's file's version whose limits or reserve are not the file's; a record of done of another version is not compared with the file. With them, the statement's goal, Goal:, where it names one, from which a reader given no file reads the scope of the budget, held to the configuration's goals (field.task-statement.goal, D-178). A record made before these lines carries none, and one made before the line of the reserve carries no reserve.",
+          "description": "The statement's own limits and reserve, as done.mjs copies them from its lines Budget-new-input:, Budget-output: and Budget-reserve:, each a number or none; a reader given no file of that version reads its limits from them by derived.task-budget, and --task refuses the latest record of done of its statement's file's version whose limits or reserve are not the file's; a record of done of another version is not compared with the file. With them, the statement's goal, Goal:, where it names one, from which a reader given no file reads the scope of the budget, held to the configuration's goals (field.task-statement.goal, D-179). A record made before these lines carries none, and one made before the line of the reserve carries no reserve.",
           "x-ont": "field.task-result.budget",
           "type": "string"
         },
@@ -1032,7 +1032,7 @@
       "type": "object",
       "properties": {
         "lines": {
-          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, from which a reader given no file reads the scope of the budget, held to the configuration's goals (field.task-statement.goal, D-178), Budget-new-input:, Budget-output: and Budget-reserve:, the statement's limits and reserve, each a number or none, the limits of the brief's version, which round.mjs record reads by derived.task-budget for that version, whatever version is approved in force, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, and Brief-time:, when the brief was given.",
+          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, from which a reader given no file reads the scope of the budget, held to the configuration's goals (field.task-statement.goal, D-179), Budget-new-input:, Budget-output: and Budget-reserve:, the statement's limits and reserve, each a number or none, the limits of the brief's version, which round.mjs record reads by derived.task-budget for that version, whatever version is approved in force, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, and Brief-time:, when the brief was given.",
           "x-ont": "field.round-brief.lines",
           "type": "string"
         },
