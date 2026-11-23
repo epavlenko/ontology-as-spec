@@ -158,7 +158,7 @@ The recorder of a reviewer's table checks that a row of a run given to a person 
 <!-- ont: -->
 ### The merge gate trusts the pull request's own workflow for its rights and names
 
-The full check runs the pull request's own workflow, so a pull request can declare wider rights for that workflow's token before the guard answers, or add a second workflow with the same job name (classes "read-only rights declared by the pull request" and "workflow provenance of the required checks"). Both need a pull request written to attack the gate; the guard still refuses the merge of a change to `.github/` without an approval, and a deliberate attack by an agent with write access is the limitation the owner accepted.
+The full check runs the pull request's own workflow, so a pull request can declare wider rights for that workflow's token before the guard answers, or add a second workflow with the same job name (classes "read-only rights declared by the pull request" and "workflow provenance of the required checks"). Both need a pull request written to attack the gate; the guard still refuses the merge of a change to `.github/` without an approval, and a deliberate attack by an agent with write access is the limitation the owner accepted. For the same reason a record of a probe of the gate names the pull request, its head, the check and its outcome and GitHub's answer, but not which commit each run checked out (class "proof records tied to what github evaluated"): that detail only guards against a forged record.
 
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet
