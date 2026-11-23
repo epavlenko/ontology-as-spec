@@ -48,16 +48,17 @@ export function readStatement(file) {
 // check reads; null where the configuration does not set spend.fromLogs. Where the environment gives no
 // logs, as in CI, the latest snapshot of spend of the task, with the inputs that are missing: a reader
 // with no logs compares what the writer saw.
-// goal is the scope of the budget where no statement is given: the goal the brief of the round or the
-// record of done names, which the writer read from the statement (D-172); a statement given names its own.
-export function spendOf({ cfg, task, statement = null, goal = null, inputs = null, env = process.env }) {
+// version is the version of the statement whose limits and goal apply (D-174): a round's writer gives its
+// brief's; given none, the version in force, as --task, --rounds and done.mjs read it (versionInForce).
+// ont: derived.task-budget, derived.log-spend
+export function spendOf({ cfg, task, statement = null, version, inputs = null, env = process.env }) {
   if (cfg.spend?.fromLogs !== true) return null;
   const { rounds, records } = inputs ?? readTaskInputs(cfg);
-  const limitsOf = (t, st) => {
-    const l = taskLimits({ statement: st, rounds, approvals: records.approvals, done: records.done, task: t, defaults: cfg.budget });
-    return { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version };
-  };
-  const sp = logSpend({ cfg, task, statement, goal, rounds, pending: pendingBriefs(cfg.base), limitsOf, approvedOf: (t) => approvedHash(rounds, t, null, records.approvals), readStatementFile: readStatement, env });
+  const pending = pendingBriefs(cfg.base);
+  const v = version !== undefined ? version : versionInForce({ rounds, approvals: records.approvals, task, statement, pending });
+  const l = versionLimits({ task, version: v, statement, pending, done: records.done, snapshots: records.snapshots, defaults: cfg.budget });
+  const limits = { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version };
+  const sp = logSpend({ cfg, task, goal: l.goal, rounds, pending, limits, approvedOf: (t) => approvedHash(rounds, t, null, records.approvals), readStatementFile: readStatement, env });
   if (sp?.missing?.length && !sp.errors?.length) {
     const snap = (records.snapshots ?? []).filter((x) => x.task === task).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1);
     if (snap) return { ...snapshotSpend(snap), missing: sp.missing };
@@ -79,39 +80,44 @@ export function snapshotOverspendProblems(end, snapshots = []) {
   return [];
 }
 
-// The goal of a task where no statement is given (D-172): the goal its kept brief names, which round.mjs
-// brief read from the statement, or else the latest record of done of the task that names one; null for
-// a task whose statement names none, as for a record made before the line.
-export function goalOf({ task, done = [], pending = [] }) {
-  const b = pending.find((x) => x.task === task && x.goal);
-  if (b) return b.goal;
-  return done.filter((d) => d.task === task).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1)?.goal ?? null;
+// The version of a task's statement whose limits apply where the reader reads the task as it stands
+// (derived.task-budget, D-174): the version of the approval in force; with none, the file given, the
+// version under review; with neither, the version of the task's kept brief, the round under way, or else
+// the version its latest round names. null for a task whose records name no version.
+export function versionInForce({ rounds = [], approvals = [], task, statement = null, pending = [] }) {
+  const approved = approvedHash(rounds, task, null, approvals);
+  if (approved) return approved;
+  if (statement?.hash) return statement.hash;
+  const kept = pending.find((b) => b.task === task && b.brief?.["Statement-hash"]);
+  if (kept) return kept.brief["Statement-hash"];
+  return rounds.filter((r) => r.task === task && r.statementHash).sort((a, b) => a.time.localeCompare(b.time)).at(-1)?.statementHash ?? null;
 }
 
-// The statement as a brief carries it (D-173): its version, its goal and its limits and reserve, for a
-// writer or a reader given no statement, which taskLimits reads as the file of that version; null for a
-// brief without the lines of the limits.
-export function briefStatement(b) {
-  if (!b || !b["Statement-hash"] || b["Budget-new-input"] === undefined) return null;
-  const n = (v) => (v === undefined || v === "none" || !/^\d+$/.test(v) ? null : Number(v));
-  return { hash: b["Statement-hash"], goal: b.Goal ?? null, budget: { newInput: n(b["Budget-new-input"]), output: n(b["Budget-output"]), reserve: reserveOf(b["Budget-reserve"]) }, doneWhen: null, carried: "brief" };
-}
-
-// The scope and the limits of a task where no statement is given (D-172, D-173): its kept brief, with the
-// version, the goal and the limits it carries; or else the goal of its latest record of done, whose limits
-// taskLimits reads; or else, with neither, its latest snapshot of spend, the goal its unit and the task's
-// limits and reserve with their version. { statement, goal }, either null.
-export function scopeOf({ task, done = [], pending = [], snapshots = [] }) {
-  const b = pending.find((x) => x.task === task);
-  const fromBrief = briefStatement(b?.brief);
-  if (fromBrief) return { statement: fromBrief, goal: fromBrief.goal };
-  const goal = goalOf({ task, done, pending });
-  if (b || done.some((d) => d.task === task)) return { statement: null, goal };
-  const snap = snapshots.filter((x) => x.task === task).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1);
-  if (!snap) return { statement: null, goal: null };
-  const l = snap.limits.task;
-  const g = snap.unit !== snap.task ? snap.unit : null;
-  return { statement: { hash: l.hash, goal: g, budget: { newInput: l.newInput, output: l.output, reserve: l.reserve }, doneWhen: null, carried: "snapshot" }, goal: g };
+// The limits, the reserve and the goal of one version of a task's statement (derived.task-budget, D-174):
+// the one function every reader asks, given the version that applies to what it reads. They are that
+// version's own lines, from the file of that version where it is given, or else as a record of that
+// version copies them: the task's kept brief that names the version, with its lines Budget- and Goal:, or
+// its latest record of done of the version that carries them; or else, where none holds the lines, the
+// limits and the unit of the task's latest snapshot of spend whose Task-statement-hash: is the version,
+// which its writer compared with. A record of another version gives nothing. Each limit and the reserve
+// the configuration's where none of these holds it, or the version holds none. from says where they came
+// from: statement, brief, done, snapshot or configuration.
+const byTimeFile = (a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file);
+const briefNumber = (v) => (v === undefined || v === "none" || !/^\d+$/.test(v) ? null : Number(v));
+export function versionLimits({ task, version, statement = null, pending = [], done = [], snapshots = [], defaults }) {
+  const of = (() => {
+    if (!version) return null;
+    if (statement?.hash === version) return { budget: statement.budget, goal: statement.goal ?? null, from: "statement" };
+    const b = pending.find((x) => x.task === task && x.brief?.["Statement-hash"] === version && x.brief["Budget-new-input"] !== undefined)?.brief;
+    if (b) return { budget: { newInput: briefNumber(b["Budget-new-input"]), output: briefNumber(b["Budget-output"]), reserve: reserveOf(b["Budget-reserve"]) }, goal: b.Goal ?? null, from: "brief" };
+    const d = done.filter((x) => x.task === task && x.statementHash === version && x.budget).sort(byTimeFile).at(-1);
+    if (d) return { budget: d.budget, goal: d.goal ?? null, from: "done" };
+    const s = snapshots.filter((x) => x.task === task && x.limits?.task?.hash === version).sort(byTimeFile).at(-1);
+    if (s) return { budget: s.limits.task, goal: s.unit !== s.task ? s.unit : null, from: "snapshot" };
+    return null;
+  })();
+  const own = of?.budget ?? {};
+  return { newInput: own.newInput ?? defaults?.newInput ?? null, output: own.output ?? defaults?.output ?? null, reserve: own.reserve ?? defaults?.reserve ?? null, version: version ?? null, goal: of?.goal ?? null, from: of?.from ?? "configuration" };
 }
 
 // The reserve of a statement or of a record of done (field.task-statement.budget, D-150): the multiplier
@@ -687,30 +693,14 @@ export function acceptanceProblems(rounds, done, approvals = []) {
 // The latest record of done of a task, whatever follows it.
 export const latestDone = (done, task) => done.filter((d) => d.task === task).sort((a, b) => a.time.localeCompare(b.time)).at(-1) ?? null;
 
-// The limits that apply to a task (derived.task-budget, D-147): the one function --task, --rounds, the
-// check and the text of an overspend all ask. They are those of the approval in force, of the version of
-// the statement it names: that version's file when it is the file given, as to --task; otherwise that
-// version's limits as the latest record of done of that version carries them. A record of done of
-// another version gives none: the limits of an older version are not the newer one's. With no approval
-// in force, the file given, the version under review. Each limit the configuration's where the
-// statement gives none, or where no record of its version carries them yet. The reserve is read the same
-// way, from the same place, as the limits (D-150): the statement's line Budget-reserve:, else the
-// configuration's budget.reserve, else none, which taskBudget reads as 1.
-export function taskLimits({ statement = null, rounds = [], approvals = [], done = [], task, defaults }) {
-  const version = approvedHash(rounds, task, null, approvals) ?? statement?.hash ?? null;
-  const own =
-    statement && statement.hash === version
-      ? statement.budget
-      : (latestDone(
-          done.filter((d) => d.statementHash === version),
-          task,
-        )?.budget ?? {});
-  return { newInput: own?.newInput ?? defaults?.newInput ?? null, output: own?.output ?? defaults?.output ?? null, reserve: own?.reserve ?? defaults?.reserve ?? null, version };
-}
-
 // A task's spend against its limits (derived.task-budget); null when no limit is set.
-export function taskBudget({ rounds, spend, done = [], approvals = [], task, defaults, statement }) {
-  const { version, reserve: given, ...limits } = taskLimits({ statement, rounds, approvals, done, task, defaults });
+// The limits are those of version, the version that applies to what the reader reads, or, given none, of
+// the version in force (versionInForce), by versionLimits (D-174); the reserve is read the same way, from
+// the same place, as the limits, or 1 where neither the version nor the configuration sets one (D-150).
+export function taskBudget({ rounds, spend, done = [], approvals = [], task, defaults, statement, version, pending = [], snapshots = [] }) {
+  const v = version !== undefined ? version : versionInForce({ rounds, approvals, task, statement, pending });
+  const { newInput, output, reserve: given } = versionLimits({ task, version: v, statement, pending, done, snapshots, defaults });
+  const limits = { newInput, output };
   if (limits.newInput === null && limits.output === null) return null;
   const reserve = given ?? 1;
   // The reserve as a fraction of whole numbers, num / den, from its decimal digits, so that the cap and
@@ -774,7 +764,7 @@ export const overspendText = (b) =>
 
 // What is wrong with the line Overspend: of the round that ends a task (field.review-round.overspend,
 // D-128, D-147): it is exactly overspendText of the task's budget when the spend is past the limit, and
-// absent otherwise. --task and the check compare it alike, the budget's limits given by taskLimits.
+// absent otherwise. --task and the check compare it alike, the budget's limits given by versionLimits.
 export function overspendProblems(end, b) {
   const line = end.overspend;
   const name = `${end.file}: the record of acceptance`;
@@ -883,8 +873,10 @@ const doneSay = (result, b) => {
 // spendNow: the state of spend from the logs, or from a snapshot, where the configuration counts spend from
 // the logs (D-169); budgetActions: false for --rounds, which shows the sums and names no action by the
 // budget, only --task, run before each step, does.
-export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false, head = null, spendNow = null, budgetActions = true }) {
-  const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement });
+// version, pending and snapshots: the version whose limits apply, as a round's writer gives its brief's,
+// and the kept briefs and snapshots of spend versionLimits reads them from (D-174).
+export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false, head = null, spendNow = null, budgetActions = true, version, pending = [], snapshots = [] }) {
+  const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement, version, pending, snapshots });
   const spent = spendNow?.used ? spendNow.exhausted : b?.exhausted;
   const unreadable = (statement?.wrong ?? []).length > 0;
   // The approved version of the file gives no command of done: no result can be recorded or accepted
@@ -954,8 +946,8 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
 // its one next action on a line of its own, NEXT; and the errors of its records that only --task can
 // see (derived.statement-state, rule.budget-before-next, derived.task-next). --rounds prints the same
 // lines, given no file and needFile false (D-152).
-export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true, head = null, spendNow = null, budgetActions = true, snapshots = [] }) {
-  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom, head, spendNow, budgetActions });
+export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true, head = null, spendNow = null, budgetActions = true, snapshots = [], pending = [] }) {
+  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom, head, spendNow, budgetActions, pending, snapshots });
   const b = next.budget;
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
   const { view } = next;

@@ -16,7 +16,7 @@ import { guard, localRecordNotes } from "../merge-gate.mjs";
 import { nextRound, parseRounds, stepPayoff } from "../review-rounds.mjs";
 import { sealState, sealed } from "../seal.mjs";
 import { logSpend, overspendOf, roundSpend, snapshotSpend } from "../spend.mjs";
-import { applyFixes, approvedHash, readStatement, readTaskInputs, sha256, snapshotOverspendProblems, spendOf, taskLimits, taskNext, taskState } from "../tasks.mjs";
+import { applyFixes, approvedHash, readStatement, readTaskInputs, sha256, snapshotOverspendProblems, spendOf, taskNext, taskState, versionInForce, versionLimits } from "../tasks.mjs";
 
 const TOP = fileURLToPath(new URL("../../../", import.meta.url));
 const TOOLS = join(TOP, "tools/ont-check");
@@ -121,14 +121,14 @@ function logs() {
 
 // The records and functions of a project, as the tool reads them.
 const inputsOf = (p) => readTaskInputs(p.config());
-const limitsFor = (cfg, inputs) => (t, st) => {
-  const l = taskLimits({ statement: st, rounds: inputs.rounds, approvals: inputs.records.approvals, done: inputs.records.done, task: t, defaults: cfg.budget });
-  return { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version };
-};
+// The limits and the goal of the version in force, as every reader asks them (D-174).
 const spendIn = (p, task, st, env) => {
   const cfg = p.config();
   const inputs = inputsOf(p);
-  return logSpend({ cfg, task, statement: st ? readStatement(st.file) : null, rounds: inputs.rounds, limitsOf: limitsFor(cfg, inputs), approvedOf: (t) => approvedHash(inputs.rounds, t, null, inputs.records.approvals), readStatementFile: readStatement, env });
+  const statement = st ? readStatement(st.file) : null;
+  const version = versionInForce({ rounds: inputs.rounds, approvals: inputs.records.approvals, task, statement });
+  const l = versionLimits({ task, version, statement, done: inputs.records.done, snapshots: inputs.records.snapshots, defaults: cfg.budget });
+  return logSpend({ cfg, task, goal: l.goal, rounds: inputs.rounds, limits: { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version }, approvedOf: (t) => approvedHash(inputs.rounds, t, null, inputs.records.approvals), readStatementFile: readStatement, env });
 };
 
 // A brief and the reviewer's reply to it: the brief's lines word for word, then the reply's own.
@@ -586,7 +586,7 @@ test("[check.spend-snapshot.goal-unit] a task of a goal counts in the goal and i
   // A task not listed in its goal, and a goal not listed, are errors.
   const v = statement({ goal: "g" });
   assert.match(spendIn(p, "v", v, L.env()).errors.join(";"), /does not list v among its tasks/);
-  assert.match(spendIn(p, "t", statement({ goal: "nogoal" }), L.env()).errors.join(";"), /lists no goal nogoal/);
+  assert.match(spendIn(p, "w", statement({ goal: "nogoal" }), L.env()).errors.join(";"), /lists no goal nogoal/);
   // A task with no goal is its own unit, from its first brief, the round of its statement written by the tool.
   const q = project({ fromLogs: true, goals: {} });
   const qs = statement();
@@ -703,6 +703,85 @@ test("[check.spend-snapshot.statement-round-limits] a round of the review of a s
   p.commit("the round");
   const after = p.tool("ont-check.mjs", ["--rounds"], env);
   assert.match(after.out, /^SPEND t: from the session logs since \S+: goal g new input \d+ of 20000000 × 1\.5 = 30000000, output \d+ of 9000000 × 1\.5 = 13500000; task t new input 400 of 3000000 × 1\.5 = 4500000, output 40 of 700000 × 1\.5 = 1050000$/m);
+});
+
+test("[check.spend-snapshot.revised-statement-limits] a revised statement reviewed and recorded with no statement while an earlier version is approved, then approved by that round, keeps its own limits: the snapshot names the revised version with them, and the rounds before any record of done count against them", () => {
+  const p = project({ fromLogs: true, goals: { g: ["t"] } });
+  // The configuration's limits, which no reader takes while a record of the version holds its own.
+  const cfg = JSON.parse(readFileSync(join(p.dir, "ont.config.json"), "utf8"));
+  p.put("ont.config.json", JSON.stringify({ ...cfg, budget: { newInput: 95000, output: 10000, reserve: 1.25 } }, null, 2));
+  const gst = statement({ budget: [20000000, 9000000] });
+  p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, iso(Date.now() - 120000)));
+  // Version A of the task's statement, approved in force, with limits of its own.
+  const a = statement({ goal: "g", budget: [1000000, 200000] });
+  p.put("reviews/rounds/20261101T095500Z-t-statement-1.md", cleanStatementRound("t", a.hash, iso(Date.now() - 60000)));
+  p.commit("the goal and version A approved");
+  const b = statement({ goal: "g", budget: [3000000, 700000], extra: "Revised.\n\n" });
+  const L = logs();
+  L.claudeSession("exec-1", [{ user: "work on t", time: iso(Date.now() - 1000) }]);
+  const env = L.env({ ONT_GOAL_STATEMENT: gst.file });
+  // The next action names the round of the new version; its brief carries B's limits.
+  const br = p.tool("round.mjs", ["brief", "t", "--step", "statement", "--statement", b.file], env);
+  assert.equal(br.code, 0, br.out);
+  assert.match(br.out, new RegExp(`^Statement-hash: ${b.hash}\nGoal: g\nBudget-new-input: 3000000\nBudget-output: 700000\nBudget-reserve: 1\\.5$`, "m"));
+  const lines = briefLines(br.out);
+  const soon = (s) => iso(Date.now() + s * 1000);
+  L.codexSession("rev-b", [{ user: `${lines}\n\nReview the statement of task t.`, time: soon(1) }, { input: 400, cached: 0, out: 40, time: soon(2) }]);
+  // Recorded as docs/parts/agent-rules.md gives it, with no statement, while A is approved in force.
+  const r = p.tool("round.mjs", ["record", "t", "--from", writeReply(lines, "By: gpt (OpenAI, Codex)")], env);
+  assert.equal(r.code, 0, r.out);
+  const round = readdirSync(join(p.dir, "reviews/rounds")).find((f) => f.includes("-t-statement-2"));
+  assert.ok(round, readdirSync(join(p.dir, "reviews/rounds")).join(", "));
+  const snap = readFileSync(join(p.dir, "reviews/rounds", round), "utf8").match(/^Spend-record: (\S+)$/m)[1];
+  const text = readFileSync(join(p.dir, "reviews/tasks", snap), "utf8");
+  assert.match(text, new RegExp(`^Task-statement-hash: ${b.hash}$`, "m"));
+  assert.match(text, /^Task-limit-new: 3000000$/m);
+  assert.match(text, /^Task-limit-out: 700000$/m);
+  assert.match(text, /^Task-reserve: 1\.5$/m);
+  assert.match(text, /^Unit: g$/m);
+  // The clean round approves B; no record of done is there; the brief is used.
+  p.commit("the round of B");
+  const inputs = inputsOf(p);
+  assert.equal(approvedHash(inputs.rounds, "t", null, inputs.records.approvals), b.hash);
+  assert.equal(inputs.records.done.length, 0);
+  const rounds = p.tool("ont-check.mjs", ["--rounds"], env);
+  assert.match(rounds.out, /^SPEND t: from the session logs since \S+: goal g new input \d+ of 20000000 × 1\.5 = 30000000, output \d+ of 9000000 × 1\.5 = 13500000; task t new input 400 of 3000000 × 1\.5 = 4500000, output 40 of 700000 × 1\.5 = 1050000$/m);
+  assert.match(rounds.out, /^BUDGET t: new input \d+ of 3000000 × 1\.5 = 4500000, output \d+ of 700000 × 1\.5 = 1050000/m);
+  // The task's lines name none of the configuration's limits.
+  assert.doesNotMatch(rounds.out.slice(rounds.out.indexOf("ROUNDS t ")), /95000|1\.25/);
+  // The next action, given B's file, reads the same limits.
+  const task = p.tool("ont-check.mjs", ["--task", "t", "--statement", b.file], env);
+  assert.match(task.out, /^SPEND t: from the session logs since \S+: .*task t new input 400 of 3000000 × 1\.5 = 4500000, output 40 of 700000 × 1\.5 = 1050000$/m);
+  assert.match(task.out, /^NEXT t: the executor works under version [0-9a-f]{12}, then records done/m);
+});
+
+test("[check.task-statement.limits-by-version] the limits of a version come from the records of that version alone: its file, its kept brief, its record of done or its snapshot of spend, and the configuration's where none holds them", () => {
+  const defaults = { newInput: 95000, output: 10000, reserve: 1.25 };
+  const H = (c) => c.repeat(64);
+  const statementOf = { hash: H("a"), budget: { newInput: 1, output: 2, reserve: 1.5 }, goal: "g" };
+  const pending = [{ task: "t", brief: { "Statement-hash": H("b"), Goal: "g", "Budget-new-input": "3", "Budget-output": "none", "Budget-reserve": "2" } }];
+  const done = [
+    { task: "t", file: "c.md", time: at(1), statementHash: H("c"), budget: { newInput: 5, output: 6, reserve: null }, goal: null },
+    { task: "t", file: "f.md", time: at(2), statementHash: H("f"), budget: { newInput: 99, output: 99, reserve: 3 }, goal: "other" },
+  ];
+  const snapshots = [{ task: "t", unit: "g", file: "d.md", time: at(3), limits: { task: { newInput: 7, output: 8, reserve: 1.5, hash: H("d") }, unit: {} } }];
+  const of = (version) => versionLimits({ task: "t", version, statement: statementOf, pending, done, snapshots, defaults });
+  assert.deepEqual(of(H("a")), { newInput: 1, output: 2, reserve: 1.5, version: H("a"), goal: "g", from: "statement" });
+  // A limit the version gives as none is the configuration's.
+  assert.deepEqual(of(H("b")), { newInput: 3, output: 10000, reserve: 2, version: H("b"), goal: "g", from: "brief" });
+  assert.deepEqual(of(H("c")), { newInput: 5, output: 6, reserve: 1.25, version: H("c"), goal: null, from: "done" });
+  assert.deepEqual(of(H("d")), { newInput: 7, output: 8, reserve: 1.5, version: H("d"), goal: "g", from: "snapshot" });
+  // A version no record holds: the configuration's, whatever other versions hold.
+  assert.deepEqual(of(H("e")), { newInput: 95000, output: 10000, reserve: 1.25, version: H("e"), goal: null, from: "configuration" });
+  // Records of another task give nothing.
+  assert.equal(versionLimits({ task: "u", version: H("c"), done, defaults }).from, "configuration");
+  // The version in force: the approval's, else the file's, else the kept brief's, else the latest round's.
+  const round = (hash, time, findings = []) => ({ task: "t", step: "statement-review", time, statementHash: hash, findings, file: `${time}.md` });
+  assert.equal(versionInForce({ rounds: [round(H("a"), at(1))], task: "t", statement: { hash: H("b") } }), H("a"));
+  assert.equal(versionInForce({ rounds: [round(H("a"), at(1), [{ cls: "x", weight: "important", ofChange: true, fixable: true }])], task: "t", statement: { hash: H("b") } }), H("b"));
+  assert.equal(versionInForce({ rounds: [round(H("a"), at(1), [{ cls: "x", weight: "important", ofChange: true, fixable: true }])], task: "t", pending }), H("b"));
+  assert.equal(versionInForce({ rounds: [round(H("a"), at(1), [{ cls: "x", weight: "important", ofChange: true, fixable: true }])], task: "t" }), H("a"));
+  assert.equal(versionInForce({ rounds: [], task: "t" }), null);
 });
 
 test("[check.spend-snapshot.overspend-by-snapshot] a round with findings past the reserve has no Overspend and the question follows; a clean acceptance past it names the snapshot's, which a later spend does not change", () => {

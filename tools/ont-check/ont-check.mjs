@@ -54,7 +54,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, scopeOf, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
+import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { localRecordNotes, recordDirs } from "./merge-gate.mjs";
 import { briefsDir, pendingBriefs } from "./briefs.mjs";
 import { sealed } from "./seal.mjs";
@@ -1536,7 +1536,9 @@ if (cfg.reviewRounds) {
   const tasksOf = [...new Set(rounds.map((r) => r.task))];
   const viewOf = (t) => taskView({ rounds, done: records.done, approvals: records.approvals, task: t });
   const head = workingHead();
-  const nextOf = (t) => taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, gatesFrom, head });
+  // The kept briefs and the snapshots of spend, from which the limits of a version are read (D-174).
+  const pending = pendingBriefs(cfg.base);
+  const nextOf = (t) => taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, gatesFrom, head, pending, snapshots: records.snapshots });
   // After the narrow round the record of done ends the task, and no round carries Overspend: (D-164).
   const ended = tasksOf.filter((t) => nextOf(t).branch === "done" && !nextOf(t).result?.fixes);
   report(
@@ -1545,7 +1547,8 @@ if (cfg.reviewRounds) {
       const end = viewOf(t).results.at(-1);
       // A round written with a snapshot of spend is compared with that snapshot, which CI reads with no logs (D-169).
       if (end.spendRecord) return snapshotOverspendProblems(end, records.snapshots);
-      return overspendProblems(end, taskBudget({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null }));
+      // Otherwise with the limits of the version the round names (D-174).
+      return overspendProblems(end, taskBudget({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null, version: end.statementHash ?? undefined, pending, snapshots: records.snapshots }));
     }),
   );
   // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
@@ -1556,13 +1559,12 @@ if (cfg.reviewRounds) {
     const inputs = { rounds, records };
     // The sums of a task where the logs or a snapshot give them; a task with neither says nothing of them.
     const shownSpend = (t) => {
-      // The scope of the budget from the task's statement, as its kept brief or its record of done names it,
-      // or else, before any, its latest snapshot of spend, with the task's limits (D-172, D-173).
-      const scope = scopeOf({ task: t, done: records.done, pending: pendingBriefs(cfg.base), snapshots: records.snapshots });
-      const sp = spendOf({ cfg, task: t, statement: scope.statement, goal: scope.goal, inputs });
+      // The goal and the limits of the version in force, as the records of that version carry them (D-174).
+      // ont: derived.task-budget
+      const sp = spendOf({ cfg, task: t, inputs });
       return sp && (sp.used || sp.errors?.length) ? sp : null;
     };
-    const stateOf = (t) => taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null, malformed, gatesFrom, needFile: false, head, spendNow: shownSpend(t), budgetActions: cfg.spend.fromLogs !== true, snapshots: records.snapshots }).lines;
+    const stateOf = (t) => taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null, malformed, gatesFrom, needFile: false, head, spendNow: shownSpend(t), budgetActions: cfg.spend.fromLogs !== true, snapshots: records.snapshots, pending }).lines;
     // The tokens of each round by its full identity: those of its snapshot of spend where it names one.
     const tokensOf = (r) => (r.spendRecord ? (records.snapshots.find((x) => x.file === r.spendRecord)?.sums.round ?? r.tokens) : r.tokens);
     console.log(renderRounds(rounds, { tasks: taskIds({ rounds, spend: records.spend, done: records.done, approvals: records.approvals }), stateOf, malformed, tokensOf }));
@@ -1579,7 +1581,7 @@ if (cfg.reviewRounds) {
     const statement = file ? readStatement(file) : null;
     // The spend from the session logs first, where the configuration counts it so (D-169).
     const spendNow = spendOf({ cfg, task, statement, inputs: { rounds, records } });
-    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement, malformed, gatesFrom, head, spendNow, snapshots: records.snapshots });
+    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement, malformed, gatesFrom, head, spendNow, snapshots: records.snapshots, pending });
     console.log(st.lines.join("\n"));
     report("task records that do not say what --task found", st.errors);
   }

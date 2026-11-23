@@ -229,13 +229,13 @@ export const reached = (used, cap, strict = false) => cap !== null && (strict ? 
 
 // The whole state of spend of a task (D-169): its unit, the start, the sums of the unit and of the task,
 // the limits each was compared with, and whether either is spent; null where the configuration does not
-// set spend.fromLogs; with missing, the inputs the environment does not give. limitsOf(task, statement)
-// gives the task's limits as derived.task-budget does; approvedOf(task) the version approved in force.
-export function logSpend({ cfg, task, statement, goal = null, rounds, pending = [], limitsOf, approvedOf, readStatementFile, env = process.env, sessions = null }) {
+// set spend.fromLogs; with missing, the inputs the environment does not give. goal and limits are the goal
+// and the task's limits and reserve of the version of its statement that applies, as derived.task-budget
+// gives them for that version (D-174); approvedOf(task) the version approved in force.
+export function logSpend({ cfg, task, goal = null, rounds, pending = [], limits, approvedOf, readStatementFile, env = process.env, sessions = null }) {
   if (cfg.spend?.fromLogs !== true) return null;
-  // The scope of the budget: the statement's goal, or, where no statement is given, the goal the brief or
-  // the record of done names (D-172).
-  const u = unitOf(cfg, task, statement ?? (goal ? { goal } : null));
+  // The scope of the budget: the goal of the version that applies (D-172, D-174).
+  const u = unitOf(cfg, task, goal ? { goal } : null);
   if (u.error) return { errors: [u.error], missing: [] };
   const members = [...new Set([...u.members, u.unit])];
   const missing = [];
@@ -257,7 +257,7 @@ export function logSpend({ cfg, task, statement, goal = null, rounds, pending = 
     }
   }
   if (missing.length || errors.length) return { unit: u.unit, goal: u.goal, missing, errors };
-  const taskLimits = limitsOf(task, statement);
+  const taskLimits = limits;
   if (!u.goal || u.isGoal) unitLimits = taskLimits;
   const start = unitStart(rounds, members, pending);
   const all = sessions ?? readSessions(env, start === null ? null : ms(start));

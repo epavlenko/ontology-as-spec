@@ -15,6 +15,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { pendingBriefs } from "./briefs.mjs";
 import { loadConfig } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
 import { TASK_NAME } from "./review-rounds.mjs";
@@ -53,7 +54,7 @@ if (spendNow?.missing?.length) refuse(`the spend cannot be counted: the environm
 // any refusal of done.mjs's own, so that it refuses with the action --task and --rounds give: an
 // unreadable record, a spent budget, an open gate, a statement under review or changed. Done is recorded
 // only when it is a step of the work on the result; a task done already does not stand for new work.
-const next = taskNext({ rounds, spend: records.spend, done: records.done, approvals, task, defaults: cfg.budget, statement, malformed, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, forWork: true, spendNow });
+const next = taskNext({ rounds, spend: records.spend, done: records.done, approvals, task, defaults: cfg.budget, statement, malformed, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, forWork: true, spendNow, pending: pendingBriefs(cfg.base), snapshots: records.snapshots });
 // Done is recorded only on an action of kind work, never by the name of a branch (D-152).
 if (next.kind === "correct" && malformed.length) refuse(`${next.say}: ${malformed.join("; ")}`);
 if (next.kind !== "work") refuse(`the task's next action is not work on the result: ${next.say}`);

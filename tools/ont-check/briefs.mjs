@@ -10,7 +10,7 @@ import { gitEnv } from "./lib.mjs";
 
 // The lines of a brief, in their order; Goal: only when the statement names one, the scope of the budget
 // round.mjs record takes from the brief (D-172), and the statement's limits and reserve, each a number or
-// none, which it takes with it (D-173); Done: only for a round of the review of the result.
+// none, which it takes with it (D-174); Done: only for a round of the review of the result.
 export const BRIEF_BUDGET = ["Budget-new-input", "Budget-output", "Budget-reserve"];
 export const BRIEF_FIELDS = ["Task", "Step", "Narrow", "Number", "Statement-hash", "Goal", ...BRIEF_BUDGET, "Commits", "Done", "Brief-time"];
 

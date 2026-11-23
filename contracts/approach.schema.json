@@ -705,7 +705,7 @@
           "type": "string"
         },
         "budget": {
-          "description": "The statement's own limits and reserve, as done.mjs copies them from its lines Budget-new-input:, Budget-output: and Budget-reserve:, each a number or none; the check and --rounds, given no statement, read the limits of the version the approval in force names from the latest record of done of that version, and --task refuses the latest record of done of its statement's file's version whose limits or reserve are not the file's; a record of done of another version is not compared with the file. With them, the statement's goal, Goal:, where it names one, which a reader given no statement, as --rounds, takes as the scope of the budget when no brief of the task is kept. A record made before these lines carries none, and one made before the line of the reserve carries no reserve.",
+          "description": "The statement's own limits and reserve, as done.mjs copies them from its lines Budget-new-input:, Budget-output: and Budget-reserve:, each a number or none; a reader given no file of that version reads its limits from them by derived.task-budget, and --task refuses the latest record of done of its statement's file's version whose limits or reserve are not the file's; a record of done of another version is not compared with the file. With them, the statement's goal, Goal:, where it names one, the scope of the budget derived.task-budget gives with that version's limits. A record made before these lines carries none, and one made before the line of the reserve carries no reserve.",
           "x-ont": "field.task-result.budget",
           "type": "string"
         },
@@ -1027,7 +1027,7 @@
       "type": "object",
       "properties": {
         "lines": {
-          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, the scope of the budget round.mjs record takes from the brief, Budget-new-input:, Budget-output: and Budget-reserve:, the statement's limits and reserve, each a number or none, which round.mjs record takes from the brief as it takes Goal:, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, and Brief-time:, when the brief was given.",
+          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, the scope of the budget round.mjs record takes from the brief, Budget-new-input:, Budget-output: and Budget-reserve:, the statement's limits and reserve, each a number or none, the limits of the brief's version, which round.mjs record reads by derived.task-budget for that version, whatever version is approved in force, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, and Brief-time:, when the brief was given.",
           "x-ont": "field.round-brief.lines",
           "type": "string"
         },
@@ -1091,7 +1091,7 @@
           "type": "string"
         },
         "limits": {
-          "description": "The limits and the reserve the sums were compared with, of the unit and of the task, with the versions of the approved statements they came from: Unit-limit-new:, Unit-limit-out:, Unit-reserve:, Unit-statement-hash:, the same with Task-, each a number or none.",
+          "description": "The limits and the reserve the sums were compared with, of the unit and of the task, with the versions of the statements they are of, the goal's approved version and, for the task, the version that applies to the writer, a round's brief's (derived.task-budget): Unit-limit-new:, Unit-limit-out:, Unit-reserve:, Unit-statement-hash:, the same with Task-, each a number or none.",
           "x-ont": "field.spend-snapshot.limits",
           "type": "string"
         },
