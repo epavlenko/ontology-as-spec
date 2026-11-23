@@ -2,7 +2,7 @@
 
 How each kind of change moves through the artifacts. The [agent rules](parts/agent-rules.md) table is the short form of this page.
 
-<!-- ont: ent.merge-gate@572acd, rule.main-through-gate@65a8ba, rule.ci-from-main@e2531a, inv.gate-change-approved@bf7d24, ent.gate-change@f99bb2, rule.merge-what-was-checked@4c1af0 -->
+<!-- ont: ent.merge-gate@572acd, rule.main-through-gate@65a8ba, rule.ci-from-main@e2531a, inv.gate-change-approved@650d37, ent.gate-change@f99bb2, rule.merge-what-was-checked@c0c76a -->
 ## Merging into main
 
 Main is changed only through a pull request that GitHub merges, by a merge commit, once two checks passed on its head and its branch contains main (D-158). The ruleset of main requires both by name and by the GitHub Actions app that reports them, and lets no one bypass it; its settings and the permissions of Actions are kept in `.github/merge-gate.json`, from which an agent creates the ruleset through the GitHub API (`node tools/ont-check/merge-gate.mjs ruleset` prints it).
@@ -10,12 +10,27 @@ Main is changed only through a pull request that GitHub merges, by a merge commi
 - **The full check**, `ont-check`, runs on `pull_request`: the check of the approach, the example and the templates, the guard of decisions against the pull request's base, which fails when that base is not found, and every test suite but the judged. It runs the pull request's code, so a pull request could weaken it by editing it.
 - **The guard**, `ont-gate-guard`, runs on `pull_request_target`, so its definition and code come from main. It fetches the pull request's commits as data, lists the paths the final diff changes and reads the records at its head; it runs nothing of the pull request. It refuses a change of a gate path, any file through which the full check could be weakened, that no record of a gate change approves: the record names the task, the approved version of its statement by its hash, the item of What to do that allows the change, the paths, and the commit that changed them, after which the pull request has only commits of records.
 
-The executor merges through the API with the merge method and the head's commit as the condition, after `merge-gate.mjs records-only <reviewed>..<head>` confirms that the head is past the commit the reviewer of the result checked only by commits of records under `reviews/`; an update of the branch with main changes the head and asks for that again.
+The executor merges through the API with the merge method and the head's commit as the condition, `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/merge -f merge_method=merge -f sha=<head>`, after `node tools/ont-check/merge-gate.mjs records-only --reviewed <reviewed> --head <head> --base <main>` confirms that the head is past the commit the reviewer of the result checked only by records under `reviews/`: outside them, the head's tree must be the reviewed commit merged with main as Git merges them, so a resolution that takes main's version of a reviewed file, or a merge that conflicts outside `reviews/`, is refused and needs a review of its own. An update of the branch with main changes the head and asks for that again. A Git command that fails, in the guard or here, is an error, never a diff without changes. The guard binds a record of a gate change to its commit: each path it lists changes between the merge base and that commit, the record is added by the commit whose one parent it is, and after it the head changes nothing outside `reviews/` but by merging main.
+
+<!-- ont: rule.gate-switched-on@7ec6ff -->
+### Switching the gate on
+
+After the merge of the task that brings the gate, the executor takes these steps in this order (D-161):
+
+1. Opens an ordinary pull request of the task's records alone, its rounds and verdicts, and confirms that both checks, `ont-check` and `ont-gate-guard`, pass on it under these names and from the GitHub Actions app.
+2. Reads back the ruleset and the Actions policy with `gh api` (`gh api repos/<owner>/<repo>/rulesets`, `gh api repos/<owner>/<repo>/actions/permissions`) and compares them with `.github/merge-gate.json`.
+3. Activates the rule: `node tools/ont-check/merge-gate.mjs ruleset | gh api -X POST repos/<owner>/<repo>/rulesets --input -`; the pull request of step 1 then shows that GitHub requires both checks.
+4. Makes the three refusal probes: a pull request whose check is broken on purpose, refused by `ont-check`; one that changes a gate path without an approval, refused by `ont-gate-guard`; one with both checks green, after which main moves on, refused for being behind, the record keeping GitHub's answer, which names the branch being behind and not a check.
+5. Reads the settings back again with `gh api`: a pull request required, and no bypass, administrators included.
+6. Records a gate proof of each probe in `reviews/tasks/`.
+7. Closes the probes' pull requests and deletes their branches.
+
+The positive proof is the merge of the pull request of the next task through the gate, after that task starts.
 
 <!-- ont: ent.gate-proof@402ba8, inv.gate-records-well-formed@2e7ada -->
 ### Proving the gate
 
-A gate is proven on GitHub after the merge of the task that brings it: a probe that the gate refuses, such as a pull request whose check is broken on purpose, and later an ordinary merge through it. Each is recorded as a gate proof in `reviews/tasks/`: the gate, refusal or pass, the probe and its result, the head and base of the pull request, the check, its run and the required check with their results, GitHub's answer to a refused attempt or the merge commit of a pass, and the time, in English with paths of the repository. The pull request of a probe is closed and its branch deleted. The check refuses a record of a gate change or of a gate proof that lacks a line its kind needs.
+A gate is proven on GitHub after the merge of the task that brings it: the probes the gate refuses, such as a pull request whose check is broken on purpose, and later an ordinary merge through it. Each is recorded as a gate proof in `reviews/tasks/`: the gate, refusal or pass, the probe and its result, the head and base of the pull request, the check, its run and the required check with their results, GitHub's answer to a refused attempt or the merge commit of a pass, and the time, in English with paths of the repository. The pull request of a probe is closed and its branch deleted. The check refuses a record of a gate change or of a gate proof that lacks a line its kind needs.
 
 <!-- ont: rule.early-pre-commit@1e697f -->
 ### The early hook

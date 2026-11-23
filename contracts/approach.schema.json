@@ -755,7 +755,7 @@
           "type": "string"
         },
         "guard": {
-          "description": "The workflow ont-gate-guard, run on pull_request_target, so that its definition and its code are main's: it fetches the pull request's commits as data, reads the paths the diff between the merge base of the event's base and its head changes and the records at that head, runs nothing of the pull request and writes none of it into the working tree; it has a read-only token and no secret, and runs again on each push.",
+          "description": "The workflow ont-gate-guard, run on pull_request_target, so that its definition and its code are main's: it fetches the pull request's commits as data, reads the paths the diff between the merge base of the event's base and its head changes and the records at that head, runs nothing of the pull request and writes none of it into the working tree; it has a read-only token and no secret, and runs again on each push. A Git command of it that fails is an error that refuses the pull request, never a diff or a history without changes.",
           "x-ont": "field.merge-gate.guard",
           "type": "string"
         },
@@ -814,7 +814,7 @@
           "type": "string"
         },
         "commit": {
-          "description": "The commit, in full, that makes the change; the record comes in the next commit, and after it the pull request has only commits of records.",
+          "description": "The commit, in full, at which the pull request's change of the paths the record lists is whole: each of them changes between the merge base and it; the record is added by the next commit, whose one parent it is, and after it the pull request changes nothing outside reviews/ but by merging main.",
           "x-ont": "field.gate-change.commit",
           "type": "string"
         },

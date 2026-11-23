@@ -366,6 +366,7 @@
     "rule.findings-filed",
     "rule.findings-mislead",
     "rule.form-follows-rows",
+    "rule.gate-switched-on",
     "rule.guard-from-acceptance",
     "rule.guide-runs-check",
     "rule.intact-is-not-run",

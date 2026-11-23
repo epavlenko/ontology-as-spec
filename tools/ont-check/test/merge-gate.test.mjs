@@ -10,7 +10,7 @@ import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "../lib.mjs";
 import { guard, isGatePath } from "../merge-gate.mjs";
-import { parseTaskRecords, sha256 } from "../tasks.mjs";
+import { parseTaskRecords, readTaskInputs, sha256 } from "../tasks.mjs";
 
 const TOP = fileURLToPath(new URL("../../../", import.meta.url));
 const TOOLS = join(TOP, "tools/ont-check");
@@ -168,7 +168,7 @@ test("[check.merge-gate.gate-path-unapproved] the guard refuses a change of a ga
 
   const later = run(pr([workflow, rec([".github/workflows/ont-check.yml"], A), ({ put }) => put("example/app/library.mjs", "export const lend = () => 2;\n")]));
   assert.equal(later.refused.length, 1);
-  assert.match(later.notes.join("\n"), /after commit [0-9a-f]{12} the pull request changes files outside reviews\/: [0-9a-f]{12} \(example\/app\/library\.mjs\)/);
+  assert.match(later.notes.join("\n"), /outside reviews\/ the head is not commit [0-9a-f]{12} merged with main: example\/app\/library\.mjs/);
 
   const deleted = run(pr([({ rm }) => rm("example/app/library.test.mjs")]));
   assert.deepEqual(deleted.refused.map((r) => r.path), ["example/app/library.test.mjs"]);
@@ -277,7 +277,8 @@ test("[check.merge-gate.records-only-since-review] the head may be past the revi
   const changed = commit("example/app/library.test.mjs", "// changed after the review\n");
   const bad = cli(["--reviewed", reviewed, "--head", changed, "--base", main]);
   assert.equal(bad.status, 1);
-  assert.match(bad.stdout, new RegExp(`${changed}: example/app/library\\.test\\.mjs`));
+  assert.match(bad.stdout, /outside reviews\/ the head is not the reviewed commit merged with the base: example\/app\/library\.test\.mjs/);
+  assert.match(bad.stdout, new RegExp(`  ${changed}$`, "m"));
   git("checkout", "-q", "main");
   const outside = cli(["--reviewed", changed, "--head", main]);
   assert.equal(outside.status, 1);
@@ -360,7 +361,7 @@ test("[check.merge-gate.ci-workflow-reported] a configuration without a CI workf
 const records = (files) => {
   const dir = temp("records-");
   for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text);
-  return parseTaskRecords(dir, { latinOnly: true });
+  return parseTaskRecords(dir, { latinOnly: true, before: new Set() });
 };
 const C40 = "a".repeat(40);
 
@@ -418,13 +419,13 @@ test("[check.gate-proof.read] records of a refusal and of a pass are read with t
   assert.equal(r.malformed.length, 6);
 });
 
-test("[check.owner-approval.english] where records are English only, an approval that quotes the owner in Cyrillic is refused and its transliteration is read", () => {
+test("[check.owner-approval.english] where records are English only from a start, an approval added after it that quotes the owner in Cyrillic is refused and its transliteration is read", () => {
   const approval = (source) => ["Record: approval", "Task: t", `Statement-hash: ${A}`, "By: owner", `Source: ${source}`, "Time: 2026-11-21T13:52:40Z", ""].join("\n");
   const r = records({ "a.md": approval('the owner\'s answer to question 1, "Да"'), "b.md": approval('the owner\'s answer to question 1, "Da" ("yes", transliterated from Russian)') });
   assert.deepEqual(r.malformed, ["a.md: line 5: the letter Д is not English text"]);
   assert.deepEqual(r.approvals.map((a) => a.file), ["b.md"]);
   // The repository's own records hold to it.
-  assert.deepEqual(parseTaskRecords(join(TOP, "reviews/tasks"), { latinOnly: true }).malformed, []);
+  assert.deepEqual(parseTaskRecords(join(TOP, "reviews/tasks"), { latinOnly: true, before: new Set() }).malformed, []);
 });
 
 test("[check.tool-copy.copy-verified-in-ci] the templates' step verifies a pinned copy, fails on an edited one, and is skipped with no pin", () => {
@@ -469,4 +470,220 @@ test("[check.ontology-tree.after-server-merge] the rules for agents give the ste
   assert.ok(at.every((i) => i >= 0), JSON.stringify(order.filter((_, i) => at[i] < 0)));
   assert.deepEqual([...at].sort((a, b) => a - b), at);
   assert.match(rule, /rule\.tree-after-server-merge/);
+});
+
+// The object file of a loose object of a repository, removed so that Git fails to read it.
+const dropObject = (repo, oid) => rmSync(join(repo, ".git/objects", oid.slice(0, 2), oid.slice(2)));
+
+test("[check.merge-gate.git-fails-closed] a Git command that fails is an error of the guard and of records-only, never an empty change", () => {
+  const { repo, git, pr, cfg, put } = gateRepo();
+  const p = pr([({ put }) => put(".github/workflows/ont-check.yml", "name: weakened\n")]);
+  dropObject(repo, git("rev-parse", `${p.head}:.github/workflows`));
+  const r = guard({ cfg: cfg(), base: p.base, head: p.head });
+  assert.ok(r.errors?.length, JSON.stringify(r));
+  assert.match(r.errors.join("\n"), /git [a-z-]+ .*failed/);
+  const cli = spawnSync("node", ["tools/ont-check/merge-gate.mjs", "guard", "--base", p.base, "--head", p.head], { cwd: repo, encoding: "utf8", env: GIT_ENV });
+  assert.equal(cli.status, 1, cli.stdout);
+  assert.doesNotMatch(cli.stdout, /GATE_OK/);
+
+  // A head past the reviewed commit by a commit whose tree is missing, then a commit of a record.
+  git("checkout", "-q", "-b", "task", p.base);
+  const reviewed = git("rev-parse", "HEAD");
+  put("docs/x/a.md", "a change after the review\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "a change");
+  const changed = git("rev-parse", "HEAD");
+  put("reviews/rounds/20261123T130000Z-t-result-1.md", "Task: t\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "a record");
+  const head = git("rev-parse", "HEAD");
+  dropObject(repo, git("rev-parse", `${changed}:docs/x`));
+  const ro = spawnSync("node", ["tools/ont-check/merge-gate.mjs", "records-only", "--reviewed", reviewed, "--head", head], { cwd: repo, encoding: "utf8", env: GIT_ENV });
+  assert.equal(ro.status, 1, ro.stdout);
+  assert.match(ro.stdout, /ERROR · git [a-z-]+ .*failed/);
+  assert.doesNotMatch(ro.stdout, /RECORDS_ONLY/);
+});
+
+test("[check.merge-gate.resolution-kept] records-only compares the head's tree with the reviewed commit merged with main, so a resolution that drops a reviewed change is refused", () => {
+  const { repo, git, put } = gateRepo();
+  const commit = (path, text, msg = path) => (put(path, text), git("add", "-A"), git("commit", "-q", "-m", msg), git("rev-parse", "HEAD"));
+  const cli = (args) => spawnSync("node", ["tools/ont-check/merge-gate.mjs", "records-only", ...args], { cwd: repo, encoding: "utf8", env: GIT_ENV });
+  const start = git("rev-parse", "HEAD");
+  git("checkout", "-q", "-b", "task");
+  const reviewed = commit("example/app/library.test.mjs", "// the reviewed test\n");
+  git("checkout", "-q", "main");
+  const main = commit("docs/other.md", "other\n");
+  // The branch is updated with main by a merge whose resolution takes main's version of the reviewed test.
+  git("checkout", "-q", "-b", "dropped", reviewed);
+  git("merge", "-q", "--no-commit", "--no-ff", "main");
+  git("checkout", "main", "--", "example/app/library.test.mjs");
+  git("commit", "-q", "--no-edit");
+  const dropped = cli(["--reviewed", reviewed, "--head", git("rev-parse", "HEAD"), "--base", main]);
+  assert.equal(dropped.status, 1, dropped.stdout);
+  assert.match(dropped.stdout, /the head is not the reviewed commit merged with the base: example\/app\/library\.test\.mjs/);
+  // A clean merge of main, then a record.
+  git("checkout", "-q", "-b", "clean", reviewed);
+  git("merge", "-q", "--no-edit", "main");
+  const clean = commit("reviews/rounds/20261123T130000Z-t-result-1.md", "Task: t\n");
+  const ok = cli(["--reviewed", reviewed, "--head", clean, "--base", main]);
+  assert.equal(ok.status, 0, ok.stdout);
+  assert.match(ok.stdout, /RECORDS_ONLY/);
+  // main changes the same test: the merge conflicts, and the resolution that keeps the branch's version is
+  // still a change no reviewer read.
+  git("checkout", "-q", "-b", "main2", main);
+  const main2 = commit("example/app/library.test.mjs", "// main's test\n");
+  git("checkout", "-q", "-b", "conflict", reviewed);
+  spawnSync("git", ["-C", repo, "merge", "-q", "--no-edit", "main2"], { env: GIT_ENV });
+  git("checkout", "--ours", "--", "example/app/library.test.mjs");
+  git("add", "-A");
+  git("commit", "-q", "--no-edit");
+  const conflict = cli(["--reviewed", reviewed, "--head", git("rev-parse", "HEAD"), "--base", main2]);
+  assert.equal(conflict.status, 1, conflict.stdout);
+  assert.match(conflict.stdout, /the reviewed commit and the base conflict outside reviews\/: example\/app\/library\.test\.mjs/);
+  // A head that does not contain the main it is given.
+  const behind = cli(["--reviewed", reviewed, "--head", reviewed, "--base", main]);
+  assert.equal(behind.status, 1, behind.stdout);
+  assert.match(behind.stdout, /the head [0-9a-f]{40} does not contain the base [0-9a-f]{40}/);
+  assert.ok(start);
+});
+
+test("[check.merge-gate.gate-change-bound] a record of a gate change approves only the commit it names: its paths, its next commit, and nothing but records and main after it", () => {
+  const { repo, git, put, base, cfg } = gateRepo();
+  const T = "example/app/library.test.mjs";
+  const W = ".github/workflows/ont-check.yml";
+  const P = "example/app/library.mjs";
+  const commit = (files, msg) => {
+    for (const [path, text] of Object.entries(files)) put(path, text);
+    git("add", "-A");
+    git("commit", "-q", "-m", msg);
+    return git("rev-parse", "HEAD");
+  };
+  const record = (named, paths) => ({ "reviews/tasks/20261123T110000Z-t-gate-change.md": CHANGE({ commit: named, paths }) });
+  const round = { "reviews/rounds/20261123T120000Z-t-result-1.md": "Task: t\n" };
+  let n = 0;
+  const branch = () => git("checkout", "-q", "-b", `bound${++n}`, base);
+  const run = () => guard({ cfg: cfg(), base, head: git("rev-parse", "HEAD") });
+
+  // A path the named commit does not change.
+  branch();
+  const c1 = commit({ [T]: "// a stronger test\n" }, "test");
+  commit(record(c1, [T, W]), "record");
+  const unchanged = run();
+  assert.deepEqual(unchanged.refused.map((r) => r.path), [T]);
+  assert.match(unchanged.notes.join("\n"), new RegExp(`approves nothing: .*${W.replace(/[./]/g, "\\$&")} does not change between the merge base and commit [0-9a-f]{12}`));
+
+  // A record added two commits after the commit it names.
+  branch();
+  const c2 = commit({ [T]: "// a stronger test\n" }, "test");
+  commit(round, "round");
+  commit(record(c2, [T]), "record");
+  const late = run();
+  assert.deepEqual(late.refused.map((r) => r.path), [T]);
+  assert.match(late.notes.join("\n"), /approves nothing: .*the record is not added by the commit right after commit [0-9a-f]{12}/);
+
+  // After the record, a merge of main whose resolution takes main's version of a product file.
+  git("checkout", "-q", "main");
+  const main = commit({ "docs/other.md": "other\n" }, "main goes on");
+  branch();
+  const c3 = commit({ [T]: "// a stronger test\n", [P]: "export const lend = () => 2;\n" }, "test and product");
+  commit(record(c3, [T]), "record");
+  git("merge", "-q", "--no-commit", "--no-ff", "main");
+  git("checkout", "main", "--", P);
+  git("commit", "-q", "--no-edit");
+  const resolved = guard({ cfg: cfg(), base: main, head: git("rev-parse", "HEAD") });
+  assert.deepEqual(resolved.refused.map((r) => r.path), [T]);
+  assert.match(resolved.notes.join("\n"), /outside reviews\/ the head is not commit [0-9a-f]{12} merged with main: example\/app\/library\.mjs/);
+
+  // A clean merge of main and a round after the record pass.
+  branch();
+  const c4 = commit({ [T]: "// a stronger test\n" }, "test");
+  commit(record(c4, [T]), "record");
+  git("merge", "-q", "--no-edit", "main");
+  commit(round, "round");
+  const ok = guard({ cfg: cfg(), base: main, head: git("rev-parse", "HEAD") });
+  assert.deepEqual(ok.refused, [], JSON.stringify(ok.notes));
+  assert.deepEqual(ok.approved, [{ path: T, by: ["20261123T110000Z-t-gate-change.md"] }]);
+  assert.ok(repo);
+});
+
+test("[check.owner-approval.english-after-start] where records are English only, a task record of an earlier kind is held to it only when added after taskRecords.latinAfter", () => {
+  const repo = temp("latin-after-");
+  const g = (...a) => {
+    const r = spawnSync("git", ["-C", repo, ...a], { encoding: "utf8", env: GIT_ENV });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout.trim();
+  };
+  const approval = (source) => ["Record: approval", "Task: t", `Statement-hash: ${A}`, "By: owner", `Source: ${source}`, "Time: 2026-11-21T13:52:40Z", ""].join("\n");
+  g("init", "-q", "-b", "main");
+  mkdirSync(join(repo, "reviews/rounds"), { recursive: true });
+  mkdirSync(join(repo, "reviews/tasks"), { recursive: true });
+  writeFileSync(join(repo, "reviews/rounds/.keep"), "");
+  writeFileSync(join(repo, "reviews/tasks/20261121T135240Z-t-approval.md"), approval('the owner\'s answer to question 1, "Да"'));
+  g("add", "-A");
+  g("commit", "-q", "-m", "an old record");
+  const start = g("rev-parse", "HEAD");
+  writeFileSync(join(repo, "reviews/tasks/20261123T100000Z-t-approval.md"), approval('the owner\'s answer to question 2, "Да"'));
+  const config = (extra) => {
+    writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ classes: { ent: "Entity" }, ontology: "ontology.md", reviewRounds: { dir: "reviews/rounds" }, taskRecords: { dir: "reviews/tasks", ...extra }, records: { latinOnly: true } }));
+    return readTaskInputs(loadConfig(join(repo, "ont.config.json")));
+  };
+  const held = config({ latinAfter: start });
+  assert.deepEqual(held.records.approvals.map((a) => a.file), ["20261121T135240Z-t-approval.md"]);
+  assert.deepEqual(held.records.malformed, ["20261123T100000Z-t-approval.md: line 5: the letter Д is not English text"]);
+  const none = config({});
+  assert.deepEqual(none.records.approvals.map((a) => a.file), ["20261121T135240Z-t-approval.md", "20261123T100000Z-t-approval.md"]);
+  assert.deepEqual(none.records.malformed, []);
+  writeFileSync(join(repo, "reviews/tasks/20261123T110000Z-t-gate-change.md"), CHANGE({ commit: C40, paths: ["package.json"], item: "пункт 2" }));
+  assert.match(config({}).records.malformed.join("\n"), /20261123T110000Z-t-gate-change\.md: line 4: the letter п is not English text/);
+  const missing = config({ latinAfter: "0".repeat(40) });
+  assert.match(missing.records.malformed.join("\n"), /the commit 0{40} that taskRecords\.latinAfter names is not a commit of this clone/);
+});
+
+// The steps the rules for agents and the lifecycle give, found in this order.
+const inOrder = (text, steps) => {
+  const at = [];
+  let from = 0;
+  for (const s of steps) {
+    const i = text.indexOf(s, from);
+    assert.ok(i >= 0, `${s} after ${steps[at.length - 1] ?? "the start"}`);
+    at.push(i);
+    from = i + s.length;
+  }
+};
+
+test("[check.merge-gate.switch-on-steps] the rules for agents and the lifecycle give the steps that switch the gate on, in their order", () => {
+  const rule = read("AGENTS.md").match(/^- \*\*Switch the gate on\.\*\*.*$/m)?.[0];
+  assert.ok(rule, "the rule is in AGENTS.md");
+  inOrder(rule, ["records alone", "`ont-check` and `ont-gate-guard`", "GitHub Actions app", "read back the ruleset and the Actions policy with `gh api`", "activate the rule", "merge-gate.mjs ruleset | gh api", "refused by `ont-check`", "refused by `ont-gate-guard`", "refused for being behind", "GitHub's answer", "read the settings back", "no bypass", "`gate-proof`", "close the probes' pull requests", "delete their branches", "merge of the next task's pull request"]);
+  assert.match(rule, /rule\.gate-switched-on/);
+  const page = read("docs/lifecycle.md");
+  const section = page.slice(page.indexOf("### Switching the gate on"), page.indexOf("### Proving the gate"));
+  assert.ok(section.length > 30, "the section is in the lifecycle");
+  inOrder(section, ["records alone", "`ont-check` and `ont-gate-guard`", "GitHub Actions app", "Reads back the ruleset and the Actions policy with `gh api`", "Activates the rule", "merge-gate.mjs ruleset | gh api", "refused by `ont-check`", "refused by `ont-gate-guard`", "refused for being behind", "GitHub's answer", "Reads the settings back", "no bypass", "gate proof", "Closes the probes' pull requests", "deletes their branches", "merge of the pull request of the next task"]);
+});
+
+test("[check.merge-gate.commands-run] the commands of merge-gate.mjs the rules, the lifecycle and the README give are read by the tool, and the workflows the README names exist", () => {
+  const head = spawnSync("git", ["-C", TOP, "rev-parse", "HEAD"], { encoding: "utf8", env: GIT_ENV }).stdout.trim();
+  const readme = read("tools/ont-check/README.md");
+  const commands = [];
+  for (const file of ["AGENTS.md", "docs/lifecycle.md"]) for (const m of read(file).matchAll(/`([^`]*merge-gate\.mjs (?:guard|records-only|ruleset)[^`]*)`/g)) commands.push([file, m[1]]);
+  for (const m of readme.matchAll(/^(node tools\/ont-check\/merge-gate\.mjs [^#\n]*)/gm)) commands.push(["tools/ont-check/README.md", m[1]]);
+  assert.ok(commands.filter(([, c]) => /records-only/.test(c)).length >= 3, JSON.stringify(commands));
+  for (const [file, text] of commands) {
+    const cmd = text
+      .split(" | ")[0]
+      .replace(/\[(--base [^\]]+)\]/g, "$1")
+      .replace(/\[--config [^\]]+\]/g, "")
+      .replace(/<[^>]+>|\bSHA\b/g, head)
+      .trim();
+    const argv = cmd.split(/\s+/);
+    if (argv[0] !== "node") argv.unshift("node");
+    argv[1] = argv[1].replace(/^(?:tools\/ont-check\/)?merge-gate\.mjs$/, "tools/ont-check/merge-gate.mjs");
+    const r = spawnSync(argv[0], argv.slice(1), { cwd: TOP, encoding: "utf8", env: GIT_ENV });
+    assert.equal(r.status, 0, `${file}: ${text}\n${r.stdout}`);
+    assert.doesNotMatch(r.stdout, /ERROR/, `${file}: ${text}`);
+  }
+  const workflows = [...readme.matchAll(/`(\.github\/workflows\/[^`]+)`/g)].map((m) => m[1]);
+  assert.ok(workflows.length >= 2);
+  for (const w of workflows) assert.ok(existsSync(join(TOP, w)), w);
 });

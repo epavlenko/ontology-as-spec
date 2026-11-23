@@ -1522,12 +1522,32 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: a new record beside the old one (the goal asks that the old one be corrected in place, before records are closed to edits); the rule for projects without the key (a project's rule of language is its own, D-151).
 - Concepts: `rule.records-english-in-repo`.
 
+### D-160 · Where records are English only, the task records of the earlier kinds are held to it only when added after the commit that brings the rule in
+
+- Date: 2026-11-23 · Status: accepted
+- Supersedes: D-159
+- Source: the statement of task enforcement-merge-gate, version 15, approved by its clean round 15: item 8, which corrects in place the one record of the owner's approval of round-rules that quoted him in Cyrillic, and its What not to do, which leaves the behaviour of the records of tasks as it is; the finding "legacy task-record validity changed outside scope" of round 1 of the review of its result is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. Starting the rule from a commit, as D-131 starts its rule from the commit that brings it in, and the key `taskRecords.latinAfter` are the thread's technical decisions there.
+- Decision: where the configuration sets `records.latinOnly`, a record of a gate change or of a gate proof holds Latin letters only and no path outside the repository, as a record of a round does; a record of the directory of task records of an earlier kind, spend, done or approval, is held to the same only when it is added after the commit the configuration names under `taskRecords.latinAfter`, the last commit before the one that brings this rule in, and one that commit holds reads as before (`rule.records-english-in-repo`). Without the key, the records of the earlier kinds read as before, so a project that takes the new tool is not refused its old records. A key that names no commit of the clone is an error of the records, never a reading without the rule. This repository names the commit before the fix of round 1.
+- Why: D-159 held every old record of an adopting project to the rule, a change of the behaviour of the records of tasks that the approved statement did not allow; item 8 allowed only the correction of one record in place. From the commit that brings the rule in, a record of approval quoting the owner in Cyrillic is still refused, which is why D-159 was written.
+- Rejected: D-159 as it stands (it changes the reading of every old record of every project that sets the key); a start by the time a record gives (a record carries its own time, while the commit that holds it is Git's).
+- Concepts: `rule.records-english-in-repo`.
+
+### D-161 · The gate is switched on after the merge of the task that brings it, by steps in a fixed order
+
+- Date: 2026-11-23 · Status: accepted
+- Source: the owner's answers to question 1037, "a" (the agent creates the rule of main through the GitHub API when the slice is ready), and to question 1044, "1044 - yes" (probes with pull requests in the public repository, each closed and its branch deleted, its outcome recorded) (translated from Russian), quoted in D-158; the statement of task enforcement-merge-gate, version 15, approved by its clean round 15, items 5 and 10. The finding "bootstrap and probe handoff incomplete" of round 1 of the review of its result is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. The order as written is the thread's technical decision there.
+- Decision: adds to D-158. After the merge of the task that brings the gate, the executor, in this order: opens an ordinary pull request of the task's records alone and confirms that both checks pass on it under their names and from the GitHub Actions app; reads back the ruleset and the permissions of Actions through `gh api` and compares them with the rule file; creates the ruleset active from it; makes the three probes GitHub must refuse, a pull request with a broken check refused by `ont-check`, one that changes a gate path without an approval refused by `ont-gate-guard`, and one whose checks are green and whose branch main then passes, refused for being behind, the record keeping GitHub's answer; reads the settings back again, a pull request required and no bypass; records a gate proof of each probe; closes the probes' pull requests and deletes their branches. The proof of a pass is the merge of the pull request of the next task through the gate (`rule.gate-switched-on`).
+- Why: D-158 named a preflight and probes without the steps between them, so an executor could switch the rule on before seeing the checks, prove a refusal by an earlier gate than the one probed, or leave the readback out.
+- Rejected: the steps left to the executor's judgement (the order is what makes each probe prove this gate).
+- Concepts: `rule.gate-switched-on`, `rule.main-through-gate`.
+
 ## Tentative
 
 ## Open questions
 
 ## History
 
+- 2026-11-23: D-160, which supersedes D-159, and D-161 accepted under the approved statement of task enforcement-merge-gate, after round 1 of the review of its result.
 - 2026-11-23: D-159 accepted under the approved statement of task enforcement-merge-gate, item 8.
 - 2026-11-23: D-158 accepted under the owner's answers to questions 1037, 1044, 1047 and 1058, in task enforcement-merge-gate.
 - 2026-11-22: D-154, D-155, D-156 and D-157 accepted under the owner's answers to questions 1040 and 1046; they supersede D-60, D-77, D-41 and D-78 whole.
