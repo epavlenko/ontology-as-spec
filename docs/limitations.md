@@ -196,6 +196,35 @@ Where a project sets `verdicts.require`, a fix after the narrow round that chang
 When a narrow round has findings but no verdict of acceptance and the acceptance is given again on the same result, the reader takes the new record as the last round and can lose the narrow round's findings from the next action (class "reissued acceptance drops the narrow-round findings"); it needs a reviewer who leaves the verdict of acceptance out, and the executor reads the narrow round's findings from its record. Where `verdicts.require` is set, a clean update with main after the record of done compares the head with that record's commit directly and reports a verdict of the one issue as missing (class "clean update from main invalidates verdicts in the fix range"); this repository reports it as information. The record of done named its commands and their results, not the rows of the catalogue a task changed (class "done omits the catalogue changes required for acceptance"); since D-166 it carries them, and whatever else the statement asks it to name, under `Evidence:`, which `done.mjs --evidence` writes (`field.task-result.evidence`). The faults of the tool among these cases are filed in [ticket 16](../issues/0016-faults-of-the-range-of-fixes.md), as `rule.findings-filed` routes a fault of the tool, rather than kept here (class "tool faults filed as limitations"). A record of a round of the review of a result says which of its findings the executor holds of the usual path, but the step each breaks only where its notes say it (class "usual-path triage without the step in the round record"); the record of done can name them in its evidence.
 
 <!-- ont: -->
+### Verdicts are stamped when they are recorded
+
+`--review --record` writes the verdicts of a reviewer's table with the commit and the stamps of the working tree when it runs, not of the moment the reviewer was given the change (class "verdicts still use the snapshot at recording time"). On the usual path the verdicts are recorded right after the review, and the commits in between hold only records of the process, which change no stamp; a verdict recorded after the code changed would carry the wrong snapshot. The executor records the verdicts before any further change of code.
+
+
+<!-- ont: -->
+### Spend of a task counts only the sessions given to it
+
+The tool sums spend from the session logs afresh, from the start of the goal. A task's spend is the sessions whose first message names it: the reviewers of its rounds and the agents it was handed to. The executor's own work in a session shared by several tasks is counted to the goal, where the hard stop is, not to a task; and a round recorded before the round writer has no spend of its own, so its payoff is not known (class "historical rounds still share an attribution key"). Spend counts from the unit's first brief of a round, or, for rounds before the round writer, from its first round, so the drafting of a statement before its first review is not counted. For the rounds before the round writer the count starts at the first round's record, after its reviewer has worked (class "the first legacy review drops out of the goal budget"); one review of the goal is left out. A fresh reader of a run guide is given only the section, not the task, so its session is not found as the task's or the goal's (class "blind review spend omitted from the goal total"); it is a short session, and only a change of a run guide asks for it. The snapshot of spend that the writer of a round commits with the round is a record of the process too; a change of it alone would read as a new result to the brief of the next round (class "round-generated spend counting as a new result"), which needs a record of done and a brief made before the fix. The goal's limit stops all its work whatever the shares say. So the executor's work in the goal's shared session can take a task past its own cap while the goal has room (class "shared executor work escapes the task cap"); the goal's cap still stops it.
+
+
+<!-- ont: -->
+### A late round recorded after a newer version is approved
+
+A reply of a reviewer that comes after a newer version of the statement was approved, and is recorded from its saved brief, makes a late record; the reader asks to move or remove it, which the rule that records are never changed after their commit forbids (class "delayed reply leaving an immutable record that blocks every task"). It needs a review that outlives a new version and an executor who records it anyway; the executor drops such a reply instead of recording it.
+
+
+<!-- ont: -->
+### A retried acceptance leaves the refused verdict in place
+
+When a round's acceptance is refused because it names another commit and the round is retried on the same result, the earlier committed verdict stays, since records are never changed after their commit, and the check still reports it (class "acceptance retry leaving CI red"). It needs a reviewer who names the wrong commit; the executor reads the reply's commit before recording it.
+
+
+<!-- ont: -->
+### The brief of a round takes the step it is given
+
+The writer of a round's brief checks that the next action is a round, but not that the step it is asked for, statement or result, is the one the next action names (class "brief can open the wrong review step"). It needs an executor who asks for the other step; the next action names the step, and the reply is recorded against it.
+
+<!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
