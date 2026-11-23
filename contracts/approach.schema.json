@@ -755,7 +755,7 @@
           "type": "string"
         },
         "guard": {
-          "description": "The workflow ont-gate-guard, run on pull_request_target, so that its definition and its code are main's: it fetches the pull request's commits as data, reads the paths the diff between the merge base of the event's base and its head changes and the records at that head, runs nothing of the pull request and writes none of it into the working tree; it has a read-only token and no secret, and runs again on each push. A Git command of it that fails is an error that refuses the pull request, never a diff or a history without changes.",
+          "description": "The workflow ont-gate-guard, run on pull_request_target, so that its definition and its code are main's: it fetches the pull request's commits as data, reads the paths the diff between the merge base of the event's base and its head changes and the records at that head, with the files at that head a filed finding may name (rule.findings-filed), so that a version is approved in force for it as for --task, runs nothing of the pull request and writes none of it into the working tree; it has a read-only token and no secret, and runs again on each push. A Git command of it that fails is an error that refuses the pull request, never a diff or a history without changes.",
           "x-ont": "field.merge-gate.guard",
           "type": "string"
         },

@@ -30,7 +30,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gitEnv, loadConfig } from "./lib.mjs";
-import { parseRounds } from "./review-rounds.mjs";
+import { LATER_DIR, LIMITATIONS_FILE, parseRounds } from "./review-rounds.mjs";
 import { approvedHash, fixesRange, parseTaskRecords } from "./tasks.mjs";
 
 // The directory of the records of the process: commits that change only files under it change no gate.
@@ -163,12 +163,15 @@ function unbound(top, { g, file, b, h, mb, children }) {
 }
 
 // The records of rounds and of tasks at a commit, read from Git's objects into tmp as data, never from the
-// working tree; a Git command that fails throws GitError.
+// working tree; a Git command that fails throws GitError. The files a filed finding may name, the
+// limitations and the tickets for later (rule.findings-filed), are copied from the same commit, and tmp is
+// the root they are looked up in, so that a round is clean for the guard as it is for --task.
 function recordsAt({ cfg, top, head, tmp }) {
   const rel = (d) => relative(top, d).split("\\").join("/");
   const roundsDir = cfg.reviewRounds ? filesAt(top, head, rel(cfg.reviewRounds.dir), tmp) : null;
   const tasksDir = cfg.taskRecords ? filesAt(top, head, rel(cfg.taskRecords.dir), tmp) : null;
-  const rounds = roundsDir && existsSync(roundsDir) ? parseRounds(roundsDir, { latinOnly: cfg.records.latinOnly, root: null, hashFrom: cfg.reviewRounds.gatesFrom ?? "" }).rounds : [];
+  if (roundsDir) for (const filed of [LIMITATIONS_FILE, LATER_DIR.replace(/\/$/, "")]) filesAt(top, head, filed, tmp);
+  const rounds = roundsDir && existsSync(roundsDir) ? parseRounds(roundsDir, { latinOnly: cfg.records.latinOnly, root: tmp, hashFrom: cfg.reviewRounds.gatesFrom ?? "" }).rounds : [];
   const records = tasksDir && existsSync(tasksDir) ? parseTaskRecords(tasksDir, { latinOnly: cfg.records.latinOnly }) : { gateChanges: [], approvals: [], done: [], malformed: [] };
   return { rounds, records, recordsPath: cfg.taskRecords ? rel(cfg.taskRecords.dir) : null };
 }

@@ -10,7 +10,7 @@ import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "../lib.mjs";
 import { guard, isGatePath } from "../merge-gate.mjs";
-import { parseTaskRecords, readTaskInputs, sha256 } from "../tasks.mjs";
+import { approvedHash, parseTaskRecords, readRoundRecords, readTaskInputs, sha256 } from "../tasks.mjs";
 
 const TOP = fileURLToPath(new URL("../../../", import.meta.url));
 const TOOLS = join(TOP, "tools/ont-check");
@@ -191,6 +191,45 @@ test("[check.merge-gate.gate-path-approved] a record of a gate change for the ap
   const r = guard({ cfg: cfg(), base: p.base, head: p.head });
   assert.deepEqual(r.refused, []);
   assert.deepEqual(r.approved, [{ path: "example/app/library.test.mjs", by: ["20261123T110000Z-t-gate-change.md"] }]);
+});
+
+test("[check.merge-gate.gate-path-approved] a version approved by a round whose one finding is filed for later is approved for the guard as for --task, and a ticket without the class approves nothing", () => {
+  const { git, put, pr, cfg } = gateRepo();
+  // Round 2 of the statement approves version B with its one finding filed in a ticket at the head.
+  const CLASS = "a filing the guard reads";
+  const filed = (ticket) => [
+    ({ put }) => {
+      put("issues/0001-a-filing.md", ticket);
+      put("reviews/rounds/20261123T103000Z-t-statement-2.md", [ROUND(B).replace("Number: 1", "Number: 2").replace("10:00:00Z", "10:30:00Z").trimEnd(), "Findings:", `- ${CLASS} · important · change · later · issues/0001-a-filing.md`, ""].join("\n"));
+    },
+    ({ put }) => put("example/app/library.test.mjs", "// a stronger test\n"),
+    ({ put, commits }) => put("reviews/tasks/20261123T110000Z-t-gate-change.md", CHANGE({ commit: commits.at(-1), paths: ["example/app/library.test.mjs"], hash: B })),
+  ];
+  // What --task reads as approved, from the working tree at the head.
+  const forTask = (p) => {
+    git("checkout", "-q", p.head);
+    try {
+      const c = cfg();
+      return approvedHash(readRoundRecords(c).rounds, "t", null, parseTaskRecords(c.taskRecords.dir, { latinOnly: true }).approvals);
+    } finally {
+      git("checkout", "-q", "main");
+    }
+  };
+
+  const held = pr(filed(`# ${CLASS}\n`));
+  assert.equal(forTask(held), B);
+  const r = guard({ cfg: cfg(), base: held.base, head: held.head });
+  assert.deepEqual(r.refused, [], r.notes.join("\n"));
+  assert.deepEqual(r.approved, [{ path: "example/app/library.test.mjs", by: ["20261123T110000Z-t-gate-change.md"] }]);
+
+  // The ticket is read from the head, not from the working tree: one in the working tree that holds the
+  // class does not make the head's filing right.
+  const wrong = pr(filed("# another class\n"));
+  put("issues/0001-a-filing.md", `# ${CLASS}\n`);
+  const refused = guard({ cfg: cfg(), base: wrong.base, head: wrong.head });
+  assert.deepEqual(refused.refused, [{ path: "example/app/library.test.mjs", why: "no record of a gate change of the pull request approves it" }]);
+  assert.match(refused.notes.join("\n"), /version [0-9a-f]{12} of the statement of t is not approved in force \([0-9a-f]{12} is\)/);
+  assert.equal(refused.notes.join("\n").match(/\(([0-9a-f]{12}) is\)/)[1], A.slice(0, 12));
 });
 
 test("[check.merge-gate.guard-runs-nothing] main's guard refuses a head that replaces the guard, runs nothing of it and leaves the clone as it was", () => {
