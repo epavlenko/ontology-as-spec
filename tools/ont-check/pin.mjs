@@ -10,8 +10,11 @@
 // leaves for the project to remove or to list as its own. verify fails on a file the pin names that is missing or changed, and on a
 // file in the copy's directory that the pin does not name. The pin is upstream.json in the copy's
 // directory unless --pin names another file. Files a project keeps in that directory on purpose are
-// listed under "own" in the pin: update leaves them and verify skips them.
-// ont: ent.tool-copy, field.tool-copy.pin, edge.tool-copy.last-decision, inv.copy-matches-pin, action.update-copy
+// listed under "own" in the pin: update leaves them and verify skips them. update also writes copy.json
+// in the copy's directory, naming the commit it copied from, and lists it as the project's own: the
+// copied files stay the commit's, and --review links the guides of the approach's checks of run at that
+// commit (D-155). Run the pin.mjs of the version the copy is updated to, with --ref from its clone.
+// ont: ent.tool-copy, field.tool-copy.pin, field.tool-copy.copy-info, edge.tool-copy.last-decision, inv.copy-matches-pin, action.update-copy
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
@@ -21,6 +24,7 @@ import { gitEnv } from "./lib.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TOOL = "tools/ont-check/";
+const COPY_INFO = "copy.json";
 const argv = process.argv.slice(2);
 const [mode] = argv;
 const value = (flag) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
@@ -31,9 +35,9 @@ const posix = (p) => p.split(sep).join("/");
 // Every file under a directory, by its path relative to it, with "/" between parts.
 const walk = (d) =>
   existsSync(d) ? readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [posix(relative(dir, join(d, e.name)))])) : [];
-// The files of the directory that belong to neither the copy nor the pin: the pin itself, and the
-// project's own files the pin lists.
-const outside = (pin) => new Set([posix(relative(dir, pinFile)), ...(pin?.own ?? [])]);
+// The files of the directory that belong to neither the copy nor the pin: the pin itself, copy.json,
+// which update writes, and the project's own files the pin lists.
+const outside = (pin) => new Set([posix(relative(dir, pinFile)), COPY_INFO, ...(pin?.own ?? [])]);
 
 if (mode === "verify") {
   if (!existsSync(pinFile)) {
@@ -112,8 +116,9 @@ if (mode === "verify") {
     date: git("log", "-1", "--format=%cs", commit).toString().trim(),
     protocol,
     files,
-    ...(old?.own?.length ? { own: old.own } : {}),
+    own: [...new Set([...(old?.own ?? []), COPY_INFO])],
   };
+  writeFileSync(join(dir, COPY_INFO), `${JSON.stringify({ about: "The commit of the approach this copy of the tool came from, written by pin.mjs update.", commit }, null, 2)}\n`);
   mkdirSync(dirname(pinFile), { recursive: true });
   writeFileSync(pinFile, `${JSON.stringify(pin, null, 2)}\n`);
   console.log(`\nThe copy in ${relative(process.cwd(), dir) || "."} is at ${commit.slice(0, 7)} of ${pin.date}, protocol ${protocol}.`);

@@ -18,7 +18,7 @@ The ontology is the source of the code, and a model writes it. Two runs write di
 <!-- ont: inv.test-does-what-check-says@2b7515 -->
 ### A tag says what a test implements, not that it does
 
-An invariant such as "an item is on at most one open loan" is written in prose, and the check catalogue gives the case with data that proves it. A test names the check in a tag, and the check requires such a test for every automatic check of implemented concepts. It cannot see whether the test actually does what the check says: a test tagged `[check.item.one-open-loan]` that asserts nothing passes. Manual checks are run by a person or an agent; a project may record each run (`manualRuns` in the configuration of the tool, D-78), and the check then lists manual checks without a current run, but it cannot see whether a recorded run was done as its guide says. `--mutate` (D-102) changes the forms one line at a time: a test of a check written against a system must fail on the oracle with every change its check's trace fails on, or it is reported as empty; a test that calls the code directly, not through a system, is not run there, and a change no trace fails on is only listed, since some changes alter nothing that can be observed. On the example it lists 21 of 95 changes; among them, a member at the borrow limit refused one loan early, `open > limit` turned into `open >= limit`, which no check of the example's catalogue tells apart. The checks of the tool count what a project's files register and run, not what they mean: an adapter that answers for the code instead of calling it, or a divergence whose stated effect accepts everything, passes them, and the reviewer of the change reads those two files (`concept.code-adapter`, D-101).
+An invariant such as "an item is on at most one open loan" is written in prose, and the check catalogue gives the case with data that proves it. A test names the check in a tag, and the check requires such a test for every automatic check of implemented concepts. It cannot see whether the test actually does what the check says: a test tagged `[check.item.one-open-loan]` that asserts nothing passes. Checks of review are given a verdict by a reviewer, and checks of run carried out by an agent or a person; a project may record each verdict (`verdicts` in the configuration of the tool, D-157), and the check then lists the checks of review and run without a current record, but it cannot see whether a recorded run was done as its guide says. `--mutate` (D-102) changes the forms one line at a time: a test of a check written against a system must fail on the oracle with every change its check's trace fails on, or it is reported as empty; a test that calls the code directly, not through a system, is not run there, and a change no trace fails on is only listed, since some changes alter nothing that can be observed. On the example it lists 21 of 95 changes; among them, a member at the borrow limit refused one loan early, `open > limit` turned into `open >= limit`, which no check of the example's catalogue tells apart. The checks of the tool count what a project's files register and run, not what they mean: an adapter that answers for the code instead of calling it, or a divergence whose stated effect accepts everything, passes them, and the reviewer of the change reads those two files (`concept.code-adapter`, D-101).
 
 <!-- ont: inv.no-restated-definition@21be03 -->
 ### Notes can still restate a definition
@@ -80,10 +80,10 @@ The tool looks up the file a filed finding names, and the class it holds, in the
 
 `--task` prints a line `REPORT` with the marks of half the limit and the limit that the spend has passed, each run it is given. It keeps no record of which marks were reported: the executor sends the owner one report with every mark not yet reported, and the tool does not see that it was sent, nor stops when it was not (D-152).
 
-<!-- ont: rule.records-english-in-repo@6e97a3 -->
+<!-- ont: rule.records-english-in-repo@09514b -->
 ### Records refuse a path strictly
 
-A record of a run or of a round may name no path outside the repository, and the check finds one without reading Markdown. After a line's web URLs and HTML end tags are dropped, it refuses a prefix that names something on a machine anywhere in the line (`/home/`, `/Users/`, `/tmp/`, `~/`, a drive such as `C:/`, `\\server`, `file:`, `mailto:`), an absolute path or a URL of another scheme where no letter or digit stands before it, and any `..` next to a slash. So a path inside the repository written with `..`, such as `docs/../README.md`, or one after a combining mark, is refused too, and is written from the repository's root instead. A web URL is taken up to a comma or a bracket, so one with a comma in it is cut there (D-151).
+A verdict record or a record of a round may name no path outside the repository, and the check finds one without reading Markdown. After a line's web URLs and HTML end tags are dropped, it refuses a prefix that names something on a machine anywhere in the line (`/home/`, `/Users/`, `/tmp/`, `~/`, a drive such as `C:/`, `\\server`, `file:`, `mailto:`), an absolute path or a URL of another scheme where no letter or digit stands before it, and any `..` next to a slash. So a path inside the repository written with `..`, such as `docs/../README.md`, or one after a combining mark, is refused too, and is written from the repository's root instead. A web URL is taken up to a comma or a bracket, so one with a comma in it is cut there (D-151).
 
 <!-- ont: inv.accepted-never-edited@a7c76a, rule.guard-from-acceptance@beced5 -->
 ### The decision guard compares text with one earlier commit
@@ -129,6 +129,50 @@ The vocabulary of types is checked where contracts are generated: a project with
 ### The oracle runs what its language can say
 
 The forms restate the rows in a small language of records, actions, refusals and days. What the language cannot say stays in prose: screens (views are not in the oracle), the real calendar, errors of reading a state file, lists of references, and processes about text and files, such as parsing a page or comparing a commit. Most rules of the approach itself are of the second kind: they are about pages and commits, and the check's code, not the oracle, runs them. A form also restates its row: where the two disagree the row is the meaning (D-73), and the check sees only that the form's names are defined, not that it says what the row says; a trace that fails, or a reviewer, finds that.
+
+<!-- ont: ent.manual-run@1f6ae3 -->
+### A legacy record of a run carries as a reviewer's verdict
+
+Records of runs written before the split of manual checks into review and run name no performer, and the tool reads every such record as a reviewer's verdict, which a later review may carry (class "run handoff during the migration"). A record a person or an agent wrote by hand for a run outside a review is read the same way. It is still a verdict on the same check, at the same stamp, with no file it read changed since; the case is rare, as records were written by the reviewer's table.
+
+<!-- ont: ent.manual-run@1f6ae3 -->
+### A guide link falls back to main without a known pin
+
+The link `--review` prints for the run guide of a bundled check points at the commit the project's pin file records, found through `releases.pin` or at its default place. A project that keeps its pin elsewhere and configures no releases would get a link to the guide on main, which may be newer than its pinned tool (class "bundled run guides for pinned projects"). Review found that this is the documented way to update a pin, so it is not left as a limitation: the pin command writes the approach's commit into the copied bundle, and the link uses it wherever the pin file lives (task enforcement-review-run).
+
+<!-- ont: ent.manual-run@1f6ae3 -->
+### The verifier of a pin does not check the information about the copy
+
+The pin command writes the commit of the approach into a file of information about the copy, listed among the pin's own files, and `--review` builds the links to run guides from it. `pin.mjs verify` compares only the copied files, so a commit of an upgrade that leaves that file out, or a file edited by hand to another commit, still verifies, and the links then point at another version of the guides (class "pin verification without guide metadata"). The pin command writes the file together with the copy, so the case needs a partial commit or a hand edit.
+
+<!-- ont: field.tool-copy.copy-info@cd7554 -->
+### The pin writes its file of information over a project's own file of that name
+
+`pin.mjs` writes the file of information about the copy, `copy.json`, into the tool's directory on every update. A project that already keeps a file of its own by that name there, even listed among the pin's own files, loses it to the update (class "project file overwritten by the pin"). The name is the tool's; a project that needs such a file keeps it elsewhere.
+
+<!-- ont: action.record-verdicts@dd6ebf -->
+### The recorder takes some cells its reader refuses
+
+The recorder of a reviewer's table checks that a row of a run given to a person has evidence, but a cell of only spaces in backticks passes it, and the record then fails the check when it is read (class "recorder accepts evidence its reader treats as empty"). A row whose verdict is misspelt with a doubled hyphen, such as `not--run`, is not read as a row at all, so a duplicate or an unlisted check written that way is dropped instead of refused (class "malformed verdict row bypasses validation"). Both need a cell or a spelling no reviewer writes by habit, and the check of the records catches the first.
+
+<!-- ont: -->
+## Kinds of checks the approach does not run yet
+
+A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
+
+- **Fuzzing.** Random and broken input, to find crashes and holes in the code that reads it. It matters where a product reads data it does not control: forms, files, an API, and the records and tables this tool parses.
+- **Performance testing**: load, stress, soak and spike. How fast the product answers and how it holds up as users and data grow.
+- **Dynamic security testing and penetration testing.** Attacks on the running system, by a tool, a person or an agent. The reviewer reads a change for security problems, but nothing attacks the product.
+- **Calibration of a judge.** Whether the model that judges a judged check agrees with people on a sample of its verdicts.
+- **Exploratory testing.** A search, by a person or an agent, for what no check was written for. The catalogue proves only the checks it holds; a blind derivation from the ontology comes closest, and it is bounded by the ontology.
+- **Usability testing.** Whether people, or agents that simulate them, reach their goal in the product.
+- **Red teaming.** Deliberate attacks on a product that uses a model: getting round its rules, leaking data, instructions hidden in data. The suite of attacks on the process of the approach is red teaming of the approach itself.
+- **Smoke tests.** Whether the system starts at all after a build or a deployment.
+- **Canary releases.** A new version on a small share of the traffic, its metrics compared with the old one.
+- **Synthetic monitoring.** Scenarios run on a schedule against the product in production.
+- **Observation of real users**: metrics of real use, service levels, evaluations of a model's answers on real traffic.
+
+The approach ends at a release. The last five begin after it, and the approach has no stage after a release yet.
 
 <!-- ont: -->
 ## Open questions

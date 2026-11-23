@@ -705,10 +705,11 @@ export const notTraced = (md) =>
 
 // ont: inv.trace-per-check
 // A check may go without a trace only when the oracle cannot run it: it sits in a section of views
-// (a section of the ontology whose rows are all views), its proof is manual, or it covers the error
+// (a section of the ontology whose rows are all views), its proof is review or run (or the earlier manual), or it covers the error
 // outcome (an error of the implementation, such as an unreadable file). A check of an entity that
 // merely names a view is still run.
-export const mayGoUntraced = (c, viewSections) => viewSections.has(c.section) || c.proof === "manual" || c.covers.includes("error");
+// A check of review or run has no test (D-154).
+export const mayGoUntraced = (c, viewSections) => viewSections.has(c.section) || ["review", "run", "manual"].includes(c.proof) || c.covers.includes("error");
 export const viewSectionsOf = (rows) => {
   const by = new Map();
   for (const r of rows) by.set(sectionKey(r.heading), [...(by.get(sectionKey(r.heading)) ?? []), r.id]);

@@ -41,7 +41,7 @@ node --test 'example/app/*.test.mjs' 'example/e2e/*.test.mjs'
 
 `--gap` with a ticket lists what is left of the slice: its concepts that are still target, with their checks; its automatic checks that have no test; the checks on its `Checks:` line that wait for a concept outside the slice; and the known divergences that name only its concepts. It exits 1 until nothing is left. Only the `Checks:` line lists the checks of the slice; a check named under out of scope is not one of them. A divergence that also names concepts outside the slice is shown apart and does not count: the slice that covers all of its concepts closes it.
 
-Passing tests then mean the slice's checks hold as far as each test does what its check says, and the tool cannot see that. The reviewer reads the new tests next to their checks, and runs the slice's manual checks or reports them as not run.
+Passing tests then mean the slice's checks hold as far as each test does what its check says, and the tool cannot see that. The reviewer reads the new tests next to their checks, gives the slice's checks of review a verdict, and carries out its checks of run by their guide or reports them as not run.
 
 Pre-authorized lines answer in advance the permissions an agent would otherwise stop and ask for: committing, opening a pull request, driving a browser. A missing line means the repository default.
 
@@ -97,7 +97,7 @@ The same reasoning favors writing the description well before implementation sta
 <!-- ont: rule.slice-one-change@8c5fb0 -->
 ## Slices and control tests
 
-A slice is one change a reviewer can read, with its own evidence (`rule.slice-one-change`). `--next` proposes the ready targets of one ontology section and what they depend on, and a section can hold three concepts or twenty. When the proposal is more than one change, split it along its dependencies and build first the part the rest depends on; the rest stays in the gap, and `--next` offers it again. No number of concepts marks the limit, since one concept can take a day and five can take an hour; the reviewer is the judge, which is why the check is manual.
+A slice is one change a reviewer can read, with its own evidence (`rule.slice-one-change`). `--next` proposes the ready targets of one ontology section and what they depend on, and a section can hold three concepts or twenty. When the proposal is more than one change, split it along its dependencies and build first the part the rest depends on; the rest stays in the gap, and `--next` offers it again. No number of concepts marks the limit, since one concept can take a day and five can take an hour; the reviewer is the judge, which is why the check is one of review.
 
 Order the slices by what everything else depends on, and close each with a test that would expose a wrong foundation. A typical first stage is the one whose mistakes would poison everything after it: a classification, a routing decision, a data import. Its control test runs a realistic, deliberately messy input through the real code and scores the result against expectations, with a recorded baseline. Later stages may not start until the control test of the stage they build on passes.
 

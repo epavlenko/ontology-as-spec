@@ -68,6 +68,15 @@
         "view"
       ],
       "scope": "all"
+    },
+    {
+      "name": "verify",
+      "dir": "verify",
+      "cover": [],
+      "checks": [
+        "run"
+      ],
+      "scope": "all"
     }
   ],
   "references": [

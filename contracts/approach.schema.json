@@ -322,12 +322,13 @@
           "type": "string"
         },
         "proof": {
-          "description": "auto when a test implements it, judged when a test runs it and a model judges the output against its THEN, manual when only a person or an agent with the product can. auto and judged checks are automatic.",
+          "description": "auto when a test implements it, judged when a test runs it and a model judges the output against its THEN, review when a reviewer of another provider gives it a verdict reading the change before merge, run when an agent runs it on the working product, in the mockup or blind, or a person where the project chooses so. auto and judged checks are automatic; review and run have no test, and a record of a verdict says who carried each out.",
           "x-ont": "field.check.proof",
           "enum": [
             "auto",
             "judged",
-            "manual"
+            "review",
+            "run"
           ]
         },
         "concepts": {
@@ -349,29 +350,29 @@
       ]
     },
     "manual-run": {
-      "title": "Manual run",
-      "description": "A record that a manual check was run on a change: one file in the directory the configuration names under manualRuns.",
+      "title": "Verdict record",
+      "description": "A record of a verdict on a check of review or run: one file in the directory the configuration names under verdicts.",
       "x-ont": "ent.manual-run",
       "type": "object",
       "properties": {
         "time": {
-          "description": "When the check ran, in UTC to the second; it orders the runs of a check.",
+          "description": "When the verdict was given, in UTC to the second; it orders the records of a check.",
           "x-ont": "field.manual-run.time",
           "type": "string",
           "format": "date-time"
         },
         "commit": {
-          "description": "The commit or the range of commits the check ran on.",
+          "description": "The commit or the range of commits the verdict was given on.",
           "x-ont": "field.manual-run.commit",
           "type": "string"
         },
         "stamp": {
-          "description": "The stamp of the check's case and its concepts when it ran, as --review prints it.",
+          "description": "The stamp of the check's case, its proof and its concepts when the verdict was given, as --review prints it.",
           "x-ont": "field.manual-run.stamp",
           "type": "string"
         },
         "verdict": {
-          "description": "What the run found; not-run and not-applicable say why the check was not carried out.",
+          "description": "What the verdict found; not-run and not-applicable say why the check was not carried out.",
           "x-ont": "field.manual-run.verdict",
           "enum": [
             "pass",
@@ -381,9 +382,19 @@
           ]
         },
         "by": {
-          "description": "Who ran it: a person, or a model and its provider.",
+          "description": "Who gave the verdict: the reviewer, a model and its provider, or a person; one value for every record of a review.",
           "x-ont": "field.manual-run.by",
           "type": "string"
+        },
+        "performer": {
+          "description": "Who carried the check out, on a pass or a fail only: agent by default, person when the project gave the run to a person and the reviewer passes the result on, whose name is then in the evidence. A record without it is read as before.",
+          "x-ont": "field.manual-run.performer",
+          "enum": [
+            "code",
+            "model",
+            "agent",
+            "person"
+          ]
         },
         "evidence": {
           "description": "Where the evidence is, outside the repository.",
@@ -391,7 +402,7 @@
           "type": "string"
         },
         "check": {
-          "description": "The check that ran, from the project's catalogue or the approach's.",
+          "description": "The check the verdict is on, from the project's catalogue or the approach's.",
           "x-ont": "edge.manual-run.check",
           "type": "string",
           "x-ont-ref": "ent.check"
@@ -943,7 +954,7 @@
           ]
         },
         "checks": {
-          "description": "The proofs whose checks the set must name in its anchors, such as manual for a run guide.",
+          "description": "The proofs whose checks the set must name in its anchors, run for a run guide; the earlier manual asks for the checks of run and those whose proof is still manual.",
           "x-ont": "field.doc-set.checks",
           "type": "string"
         },
@@ -1038,6 +1049,11 @@
           "x-ont": "field.tool-copy.pin",
           "type": "string"
         },
+        "copyInfo": {
+          "description": "A file in the copy's directory, copy.json, that pin.mjs update writes and lists as the project's own in the pin, naming the commit of the approach the copy came from; the copied files are not changed.",
+          "x-ont": "field.tool-copy.copy-info",
+          "type": "string"
+        },
         "approachClone": {
           "description": "The local clone of the approach that a clone of the project names in its own Git configuration, git config --local ont.approachClone <path>, to learn of releases without the network.",
           "x-ont": "field.tool-copy.approach-clone",
@@ -1052,6 +1068,7 @@
       },
       "required": [
         "pin",
+        "copyInfo",
         "lastDecision"
       ]
     },

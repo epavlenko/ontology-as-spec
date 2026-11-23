@@ -152,8 +152,11 @@ export const stampOf = (id, ONT, rows, checkById, notes = new Map()) => {
     const said = (notes.get(row?.heading) ?? []).filter((l) => l.includes(`\`${id}\``));
     return hash([ONT[id].name, row?.type ?? "", ONT[id].def, ...said].join("|"));
   }
+  // The proof review is written as the earlier manual, so that the rename alone stales nothing; run is
+  // written as itself, so a move between review and run changes the stamp (D-157).
+  // ont: field.manual-run.stamp
   const c = checkById.get(id);
-  return c ? hash([c.concepts.join(","), c.given, c.when, c.then, c.proof].join("|")) : null;
+  return c ? hash([c.concepts.join(","), c.given, c.when, c.then, c.proof === "review" ? "manual" : c.proof].join("|")) : null;
 };
 
 // Rewrites every anchor with the current stamps: what a person runs after rereading the sections.

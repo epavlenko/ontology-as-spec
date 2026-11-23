@@ -27,7 +27,7 @@ DRIFT: 2
 <!-- ont: inv.references-defined@060f13, inv.concept-referenced@b457ed, inv.concept-tried@739910, inv.ontology-connected@423c04 -->
 ## Reference
 
-Every automatic check in the [reference](../reference.md) is something this script, or the guard, verifies; each one is implemented by a test in `tools/ont-check/test/` that carries its ID. Every manual check is something it cannot verify, and a reviewer does instead. The checks that run across artifacts are under [Concept](../reference.md#concept): every ID used anywhere is defined, every concept is referred to, the ontology is one graph by ID ([part 1](glossary-and-ids.md#one-graph)), and, as information, every concept has been tried by a mockup element, a ticket or code.
+Every automatic check in the [reference](../reference.md) is something this script, or the guard, verifies; each one is implemented by a test in `tools/ont-check/test/` that carries its ID. Every check of review or run is something it cannot verify: a reviewer of another provider gives a check of review its verdict reading the change, and an agent carries a check of run out on the working product. The checks that run across artifacts are under [Concept](../reference.md#concept): every ID used anywhere is defined, every concept is referred to, the ontology is one graph by ID ([part 1](glossary-and-ids.md#one-graph)), and, as information, every concept has been tried by a mockup element, a ticket or code.
 
 Three flags print reports on top of the check. `--coverage` shows, for each implemented concept, how many checks name it and which suites prove it. `--decisions` lists every entry of the decision log as in force, tentative or superseded by what, and which later entries name it. `--gap` lists the work left by entity: target concepts with their checks, automatic checks without a test and the known divergences; given a ticket, it narrows to the ticket's slice and exits 1 until the slice is done.
 
@@ -35,7 +35,7 @@ The "both directions" part matters. Checking only that references resolve catche
 
 A separate script, `guard-decisions.mjs`, checks history rather than state: it refuses an edit or removal of an accepted decision entry since an earlier commit ([part 2](decision-log.md#the-guard)).
 
-What the script cannot see, beyond the manual checks, is meaning and code behavior. It does not know whether a definition is right, and code that contradicts the ontology where no test looks passes. [Limitations](../limitations.md) lists these with possible remedies.
+What the script cannot see, beyond the checks of review and run, is meaning and code behavior. It does not know whether a definition is right, and code that contradicts the ontology where no test looks passes. [Limitations](../limitations.md) lists these with possible remedies.
 
 <!-- ont: inv.references-defined@060f13, inv.tooltips-generated@b5fdb9 -->
 ## Design choices
