@@ -44,8 +44,9 @@ export function timeAfter(...times) {
   return now();
 }
 
-// The time a record says it was written, its line Time:, or null.
-export const recordTime = (text) => text.match(/^Time:[ \t]*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\s*$/m)?.[1] ?? null;
+// The time a record says it was written, its line Time:, or, for a record of the executor's spend written
+// before the logs, which has none, its line End:; null when it gives neither.
+export const recordTime = (text) => (text.match(/^Time:[ \t]*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\s*$/m) ?? text.match(/^End:[ \t]*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\s*$/m))?.[1] ?? null;
 
 // Writes a sealed record into dir, never over another: the name is name(i) for the first free i from 1.
 export function writeSealed(dir, name, body) {
