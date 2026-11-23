@@ -14,6 +14,7 @@ Copy what you need, replace the placeholder concepts (`ent.thing`, `field.thing.
 | `mockup/ontology-map.md`               | UI-to-ontology map (part 4)                                     |
 | `contracts/ontology.schema.json`       | contracts generated from the field types (part 1)               |
 | `help/thing.md`, `help/terms.md`       | a help page anchored to concepts, and the generated terms page (part 9) |
+| `verify/close.md`                     | a run guide: how an agent carries out a check of run, with the step of the fresh reader (parts 6 and 9) |
 | `ont.config.json`                      | configuration of the check (part 5)                             |
 | `checks.md`                            | check catalogue: what must hold, for any implementation (part 6) |
 | `agents-section.md`                    | the section to paste into `AGENTS.md` (part 7)                  |

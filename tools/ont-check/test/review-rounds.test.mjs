@@ -426,7 +426,7 @@ test("[check.manual-run.record-verdicts] one record for each new verdict, none f
   assert.match(r.records[0].file, /^20261120T120000Z-check\.a-[a-z]{4}\.md$/);
   assert.equal(
     r.records[0].text,
-    "Check: check.a\nTime: 2026-11-20T12:00:00Z\nCommit: abc123\nStamp: s-check.a\nVerdict: pass\nBy: a model of a provider\nEvidence: notes outside\n",
+    "Check: check.a\nTime: 2026-11-20T12:00:00Z\nCommit: abc123\nStamp: s-check.a\nVerdict: pass\nBy: a model of a provider\nPerformer: agent\nEvidence: notes outside\n",
   );
 });
 

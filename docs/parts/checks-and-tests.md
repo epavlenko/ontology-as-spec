@@ -18,6 +18,8 @@ A catalogue of checks: what must hold, stated in the product's own terms, so tha
 test("[check.loan.renew-while-held] renewal is refused while someone waits for the title", () => { … });
 ```
 
+The proof says who or what holds the check: `auto` when a test implements it; `judged` when a test runs the product and a model judges the output; `review` when a reviewer of another provider gives it a verdict reading the change before merge; `run` when an agent carries it out on the working product, in the mockup or blind, by a run guide, or a person where the project chooses so. `auto` and `judged` are automatic. `review` and `run` have no test, and the record of each verdict says who carried the check out. The earlier proof `manual`, which said "done by a person" while most such checks are a reviewer's reading, is read as before until a later decision retires it: the tool lists each such check and says to write `review` or `run` (D-154).
+
 The catalogue has one section per entity, in the order of the ontology, and a check's ID names its section. The same check can be implemented by a unit test of the code that applies the rule and by an end-to-end test through the interface. If the product is rewritten in another language or moves from a command line to the web, the catalogue does not change; the tests are written again against it.
 
 <!-- ont: ent.check@d0dcbc -->
@@ -35,11 +37,11 @@ A project made with the approach is checked twice. The tool checks the ontology 
 
 The two meet in this repository. The tool is the approach's product, so its own tests are the product layer of the tool, and the checks they implement are the ontology layer of every other project.
 
-<!-- ont: ent.test@af89b6, inv.test-names-known-checks@1384c7, inv.test-only-implemented@059c2e, inv.no-manual-tested@46671b, rule.validator-test-breaks@b4a061 -->
+<!-- ont: ent.test@af89b6, inv.test-names-known-checks@1384c7, inv.test-only-implemented@059c2e, inv.no-manual-tested@b09f5d, rule.validator-test-breaks@b4a061 -->
 
 ## Tests that name checks
 
-A test starts its title with the IDs of the checks it implements, in square brackets. The tag is plain text in the title, so it works with any test runner and shows up in its output. A test may also name a concept directly, `[field.loan.renewals]`, for something that is not a product check, such as comparing the code's constants with the generated contract.
+A test starts its title with the IDs of the checks it implements, in square brackets. The tag is plain text in the title, so it works with any test runner and shows up in its output. A test may also name a concept directly, `[field.loan.renewals]`, for something that is not a product check, such as comparing the code's constants with the generated contract. A check of review or run has no test, the project's or one of the approach's, and the tool fails on a test or a suite that names one; the approach's comparison with the oracle, which a project's test registers by its tag, is the one exception (D-103).
 
 The tool reads tags anywhere in a test file, not only in titles, because it cannot parse the syntax of every test framework. A string in a fixture that looks like a tag counts as one. When a fixture must contain an invalid tag, build the string from parts, as the tool's own tests do.
 
@@ -63,12 +65,12 @@ The names and the split are the project's; these three are common. Unit tests ru
 
 The suites themselves, how to run them and what they cost, belong to the team's process and its agent instructions, not to the ontology. A different team could test the same product with different suites, and neither the ontology nor the catalogue would change.
 
-`ont-check.mjs --coverage` prints what proves each implemented concept: how many checks name it, how many of them are manual, and which suites prove it.
+`ont-check.mjs --coverage` prints what proves each implemented concept: how many checks name it, how many of them are of review and of run, and which suites prove it.
 
 ```text
 | concept                  | checks       | unit | end-to-end |
 | ------------------------ | ------------ | ---- | ---------- |
-| `derived.overdue`        | 2 (1 manual) | yes  |            |
+| `derived.overdue`        | 2 (1 run)    | yes  |            |
 | `action.renew`           | 3            | yes  | yes        |
 | `edge.loan.item`         |              |      |            |
 ```
@@ -79,7 +81,7 @@ The suites themselves, how to run them and what they cost, belong to the team's 
 
 Classes say which suite proves a kind of concept. A suite may also name checks it must implement, which covers what classes cannot: a key scenario that runs through several actions must be proven end to end as a whole, not action by action. The configuration lists them on the suite, `"checks": ["check.loan.renew-while-held"]`, and the check fails on a named check of implemented concepts that none of the suite's tests implements, on one the catalogue does not have, and on a manual one, which has no test.
 
-<!-- ont: inv.judged-check-tested@39910a, rule.judge-sees-the-check@2d7cba, rule.verdict-kept@10793d -->
+<!-- ont: inv.judged-check-tested@39910a, rule.judge-sees-the-check@2d7cba, rule.verdict-kept@8e493e -->
 
 ## Checks a model judges
 
@@ -121,29 +123,31 @@ More checks are not better. Two checks whose cases differ only in the data, anot
 
 Whether the catalogue suffices is tested by deriving blind. The owner writes cases the catalogue does not hold as judged checks in a file outside the repository, with the answer the owner expects as their THEN. A model gets the ontology, the catalogue and a case's GIVEN and WHEN, and nothing else, through `blindPrompt` in `judge.mjs`, and says what should happen; `judge` compares its answer with the owner's. A match means the case follows from what is written. A mismatch means a check is missing, or that the owner does not know the answer either, which is an open question. A reviewer, who sees the code, cannot run this test: it needs a reader who has not seen how the product is built.
 
-<!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@03fc5e, inv.section-keys-match@f8649b, inv.check-well-formed@aa846c, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@652d50, rule.manual-evidence-kept@7a3782, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@ca73cc -->
+<!-- ont: inv.check-ids-unique@31d42a, inv.check-in-its-section@03fc5e, inv.section-keys-match@f8649b, inv.check-well-formed@bf51db, inv.auto-check-tested@5246eb, rule.check-in-product-terms@e5b72b, rule.unreachable-reported@a515e3, rule.manual-evidence-kept@a1eca3, inv.test-does-what-check-says@2b7515, rule.chosen-value-checked@ca73cc -->
 
 ## Reference
 
 The fields of a check, a test and a test suite, their rules and the checks that hold them are in the reference: [Check](../reference.md#check), [Test](../reference.md#test) and [Test suite](../reference.md#test-suite). A check's ID has the form `check.<section>.<name>`. The section is the key of the catalogue heading: the code span in it when there is one, ``## Préstamo `loan` ``, and otherwise the heading's Latin letters and digits in lowercase, joined by hyphens. A heading with other letters, accented ones included, therefore needs a code span, and the ontology's section of the same entity carries the same key; the tool fails when a catalogue key names no ontology section, or two ontology sections share one. Its cases use concrete data from a fixed sample and the product's words, never a function, a command or a selector.
 
-The tool reads tags; the test command runs the tests. So the tool cannot tell whether the tests pass, whether a tagged test does what its check says, or whether anyone ran a manual check. A manual check that could not be run is reported as not run, and the evidence of those that ran is kept outside the repository, named by check and date.
+The tool reads tags; the test command runs the tests. So the tool cannot tell whether the tests pass, whether a tagged test does what its check says, or whether anyone gave a check of review or run its verdict. A check of review or run that could not be carried out is reported as not run, and the evidence of those that were is kept outside the repository, named by check and date.
 
 A value that a decision chose, or a target that is a requirement on the product, is held by an automatic check; without one, a later edit can move the product away from what was decided while every test passes. A model whose results inform people, such as a business model, is different. Its assumptions are held by a snapshot of its base scenario: a check that records what the default values produce, so that an unintended change fails and an intended one updates the snapshot together with an entry in the log ([part 2](decision-log.md#reference)). No check requires the model to reach its goal. Whether it does is what the model is for, and a test that demands it would turn an honest gap into a failure that tuning the assumptions makes go away.
 
-<!-- ont: rule.guide-runs-check@eb28c9 -->
+<!-- ont: rule.guide-runs-check@58dd54 -->
 
-## Running manual checks
+## Carrying out checks of run
 
-A manual check is run by a person or an agent in the product, and the catalogue says what they should see, in the product's terms. How to get there is a different kind of knowledge: where to start, the steps and what shows after each one, what to keep as evidence, and the traps where a run gets lost, such as content that loads late or a notice that covers a button. For an automatic check that knowledge is the test. For a manual check it lives in a run guide, a doc set whose sections anchor the checks they explain ([part 9](documentation.md#how-it-is-written)). A section names its check by ID and does not restate GIVEN, WHEN or THEN, so the catalogue stays the one place that says what must hold; when a check's case changes, its stamp lists the section to reread.
+A check of review is a reading of the change: the reviewer of another provider reads the diff with the check's case and gives its verdict before merge ([part 7](agent-rules.md#an-independent-critic)). A check of run is carried out on the working product, in the mockup or blind, by an agent, or by a person where the project chooses so, and the catalogue says what should be seen, in the product's terms. How to get there is a different kind of knowledge: where to start, the steps and what shows after each one, what to keep as evidence, and the traps where a run gets lost, such as content that loads late or a notice that covers a button. For an automatic check that knowledge is the test. For a check of run it lives in a run guide, a doc set whose sections anchor the checks they explain ([part 9](documentation.md#how-it-is-written)). A section names its check by ID and does not restate GIVEN, WHEN or THEN, so the catalogue stays the one place that says what must hold; when a check's case changes, its stamp lists the section to reread.
 
-A doc set that lists `"checks": ["manual"]` must name every manual check of implemented concepts, so a manual check without a way to run it fails the check at the moment an automatic check without a test would. The evidence of a run is kept outside the repository, named by the check's ID and the date; the guide says what to keep.
+Some cases need someone who has not seen something: a reader of the ontology who has not seen the code, a user who has not read the rules. The reviewer has seen everything, so the section of such a check gives a step of a fresh reader: the reviewer gives a fresh reader, a model without context, only what the case lets it see, takes its result, and gives the verdict on that result (`rule.guide-runs-check`, D-156).
 
-<!-- ont: ent.manual-run@893f59, derived.current-run@7b78f8, rule.run-recorded@2b45ff, inv.manual-checks-run@51da97, inv.manual-runs-well-formed@91b660, rule.records-english-in-repo@6e97a3 -->
+A doc set that lists `"checks": ["run"]` must name every check of run of implemented concepts, so a check of run without a way to carry it out fails the check at the moment an automatic check without a test would. A set that still lists the earlier `["manual"]` asks for the checks of run and for those whose proof is still `manual`, and the tool says to write `["run"]`. The evidence of a run is kept outside the repository, named by the check's ID and the date; the guide says what to keep. The approach's own checks of run have their guide in [`docs/run-guide.md`](../run-guide.md); `--review` in a project links each of them to its section at the commit the project's copy of the tool came from (D-155).
 
-## Records of runs
+<!-- ont: ent.manual-run@1f6ae3, derived.current-run@6104ff, rule.run-recorded@23e83d, inv.manual-checks-run@a05fc2, inv.manual-runs-well-formed@3b1f50, rule.records-english-in-repo@09514b -->
 
-A run of a manual check leaves a record: one short file in the directory the configuration names, `"manualRuns": { "dir": "verify/runs" }`, named by its time in UTC, the check and a short random suffix, so that two branches never write the same file.
+## Verdict records
+
+A verdict on a check of review or run leaves a record: one short file in the directory the configuration names, `"verdicts": { "dir": "verify/runs" }`, named by its time in UTC, the check and a short random suffix, so that two branches never write the same file. The key was `manualRuns`; the tool reads it as `verdicts` and says to rename it, and a configuration with both is an error (D-157).
 
 ```
 Check: check.loan.overdue-in-real-time
@@ -152,20 +156,23 @@ Commit: 3ca577b
 Stamp: 6b1f0c2e
 Verdict: pass
 By: gpt-6.1-sol, OpenAI
+Performer: agent
 Evidence: https://example.org/runs/2026-11-05-overdue
 ```
 
-The record is not the evidence. It may sit in the repository, where CI sees it, and it links to the evidence, which stays outside. The stamp covers the check's case and the stamps of its concepts, and `--review` prints it for each check, so a record goes stale the moment the check or one of its concepts changes, as a doc section does. The reviewer of a change writes a record for each verdict it gives.
+`By:` names who gave the verdict, one value for every record of a review; `Performer:` names who carried the check out, one of `code`, `model`, `agent` and `person`, on a pass or a fail only, since no one carried out a `not-run`. The reviewer's table names `person` where the project gave the run to a person and the reviewer passes on the result; the person's name is then in the evidence. A record with a performer on a `not-run` or a `not-applicable`, or with `person` and no evidence, cannot be read, and `--record` refuses such a row. A record without the line, written before it, is read as before. The IDs of the record keep the word manual of their first name, `ent.manual-run` and its fields, since what they name did not change.
 
-A check's current run is its latest pass or fail, by time, whose stamp is the check's stamp now; a record of `not-run` or `not-applicable` says why the check was not carried out and is not a run. The tool lists the manual checks of implemented concepts that have no current run, as information, or as an error when the configuration sets `"require": true`. A check whose current run failed is listed as information either way: the key asks that the checks are run, and whether a failure blocks a merge is the reviewer's verdict on the change. A record the tool cannot read, or two records with the same check, time and author, fail the check. A record of a check that the Retired IDs table retires is read as history: it is no current run of any check, and the records stay as they were written (D-152).
+The record is not the evidence. It may sit in the repository, where CI sees it, and it links to the evidence, which stays outside. The stamp covers the check's case, its proof and the stamps of its concepts, and `--review` prints it for each check, so a record goes stale the moment the check or one of its concepts changes, as a doc section does. In the stamp `review` is written as the earlier `manual`, so the rename alone stales no verdict, while `run` is written as itself: a check that became a run needs a new verdict, its way of being checked having changed. A check of run of the approach adds the hash of its guide's section, so that an edit of the guide stales its verdict once the project updates its copy. The reviewer of a change writes a record for each verdict it gives.
 
-A record sits in the repository, so it holds what anyone with a clone can read: no path outside the repository, a record of a run as much as a record of a round of review, and, where the configuration sets `records.latinOnly`, as a project whose rule is English only does, Latin letters only. An absolute path such as `/home/…` or `/tmp/…`, a path that leaves the repository by `..`, and, with the key set, a letter of a script other than Latin fail the check, which names the file and the line; `--record` refuses a table of verdicts with one and writes nothing. A URL of the web, http or https, is allowed; a `file:` URL is a path outside the repository. What stays outside, such as a reviewer's log or a task's statement kept in private notes, is named in words, such as "the reviewer's log, kept outside the repository".
+A check's current record is its latest pass or fail, by time, whose stamp is the check's stamp now; a record of `not-run` or `not-applicable` says why the check was not carried out and is not current. The tool lists the checks of review and run of implemented concepts that have no current record, and those still `manual`, as information, or as an error when the configuration sets `"require": true`. A check whose current record failed is listed as information either way: the key asks that the checks get a verdict, and whether a failure blocks a merge is the reviewer's verdict on the change. A record the tool cannot read, or two records with the same check, time and author, fail the check. A record of a check that the Retired IDs table retires is read as history: it is no current record of any check, and the records stay as they were written (D-152).
+
+A record sits in the repository, so it holds what anyone with a clone can read: no path outside the repository, a verdict record as much as a record of a round of review, and, where the configuration sets `records.latinOnly`, as a project whose rule is English only does, Latin letters only. An absolute path such as `/home/…` or `/tmp/…`, a path that leaves the repository by `..`, and, with the key set, a letter of a script other than Latin fail the check, which names the file and the line; `--record` refuses a table of verdicts with one and writes nothing. A URL of the web, http or https, is allowed; a `file:` URL is a path outside the repository. What stays outside, such as a reviewer's log or a task's statement kept in private notes, is named in words, such as "the reviewer's log, kept outside the repository".
 
 <!-- ont: rule.check-in-product-terms@e5b72b, inv.test-does-what-check-says@2b7515 -->
 ## How it fails in practice
 
 - **Checks written after the code**, copied from what the tests already do. They then describe the implementation, not the product. Write them from the ontology, before the ticket starts.
-- **Manual as a way out.** A check marked `manual` because its test is hard to write, not impossible. Review every manual check: could a suite with a controlled clock or a test double do it?
+- **Review or run as a way out.** A check marked `review` or `run` because its test is hard to write, not impossible. Review every such check: could a suite with a controlled clock or a test double do it?
 - **Tags added to old tests wholesale** to satisfy the check. A tag is a claim that the test implements the check. Read the test before tagging it.
 
 <!-- ont: -->
@@ -176,4 +183,4 @@ Earlier versions kept a verification map: a directory of scenario files, one per
 <!-- ont: -->
 ## In the example
 
-[`example/checks.md`](../../example/checks.md): twenty-two checks, two of them manual, for every invariant, rule, hook and action, including the hold queue that is not built yet. The manual check of a built concept has a run guide, [`example/verify/overdue.md`](../../example/verify/overdue.md). Two test suites implement the automatic ones: unit tests in [`example/app/library.test.mjs`](../../example/app/library.test.mjs) and end-to-end tests in [`example/e2e/cli.test.mjs`](../../example/e2e/cli.test.mjs), which run the command line front end as a separate process.
+[`example/checks.md`](../../example/checks.md): forty checks, two of them of run, for every invariant, rule, hook and action, including the hold queue that is not built yet. Each check of run has a section of a run guide: [`example/verify/overdue.md`](../../example/verify/overdue.md) for the loan that becomes overdue on its own, [`example/verify/refusal.md`](../../example/verify/refusal.md) for the message of a refusal at the desk, with the step of the fresh reader. Two test suites implement the automatic ones: unit tests in [`example/app/library.test.mjs`](../../example/app/library.test.mjs) and end-to-end tests in [`example/e2e/cli.test.mjs`](../../example/e2e/cli.test.mjs), which run the command line front end as a separate process.

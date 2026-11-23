@@ -1,25 +1,36 @@
-// Records of manual runs (D-78): one file per run of a manual check, in the directory the configuration
-// names under manualRuns. A record says which check ran, when, on which commit, with which stamp and
-// verdict, by whom, and where the evidence is; the evidence itself stays outside the repository
-// (rule.manual-evidence-kept).
-// ont: ent.manual-run, rule.records-english-in-repo, edge.manual-run.check, field.manual-run.time, field.manual-run.commit, field.manual-run.stamp, field.manual-run.verdict, field.manual-run.by, field.manual-run.evidence, derived.current-run
+// Verdict records (D-157): one file per verdict on a check of review or run, in the directory the
+// configuration names under verdicts (earlier manualRuns). A record says which check got the verdict,
+// when, on which commit, with which stamp and verdict, who gave it, who carried the check out, and where
+// the evidence is; the evidence itself stays outside the repository (rule.manual-evidence-kept).
+// ont: ent.manual-run, rule.records-english-in-repo, edge.manual-run.check, field.manual-run.time, field.manual-run.commit, field.manual-run.stamp, field.manual-run.verdict, field.manual-run.by, field.manual-run.performer, field.manual-run.evidence, derived.current-run
 import { createHash } from "node:crypto";
 import { basename } from "node:path";
 import { listFiles, read } from "./lib.mjs";
 import { stampOf } from "./docs.mjs";
 
 export const VERDICTS = ["pass", "fail", "not-run", "not-applicable"];
+// Who carried a check out (D-157), given on a pass or a fail only.
+export const PERFORMERS = ["code", "model", "agent", "person"];
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 // A time is real when it reads back as itself: 2026-99-99T99:99:99Z has the shape and is no time.
 const realTime = (t) => TIME.test(t ?? "") && !Number.isNaN(Date.parse(t)) && new Date(t).toISOString().replace(".000Z", "Z") === t;
 const NAME = /^(\d{8}T\d{6}Z)-(check\.[a-z0-9.-]+)-[a-z0-9]{4}\.md$/;
 const compact = (t) => (t ?? "").replace(/[-:]/g, "");
 
-// The stamp of a run covers the check's case and the stamps of its concepts, so that a change to either
-// makes the run no longer current, as a changed definition makes a doc section stale (D-23).
+// The stamp of a record covers the check's case, its proof and the stamps of its concepts, so that a
+// change to any makes the record no longer current, as a changed definition makes a doc section stale
+// (D-23, D-157). A check of the approach in a project has no row here: a check of review keeps the stamp
+// of its case and the IDs of its concepts, as before, and a check of run adds its proof and the hash of
+// its guide's section, so that an edit of the guide stales its verdict once the copy is updated.
 export const runStamp = (c, ONT, rows, checkById, notes) =>
   createHash("sha256")
-    .update([stampOf(c.id, ONT, rows, checkById, notes) ?? `${c.given}|${c.when}|${c.then}`, ...c.concepts.map((x) => stampOf(x, ONT, rows, checkById, notes) ?? x)].join("|"))
+    .update(
+      [
+        stampOf(c.id, ONT, rows, checkById, notes) ??
+          (c.proof === "run" ? `${c.given}|${c.when}|${c.then}|run|${c.guide?.hash ?? ""}` : `${c.given}|${c.when}|${c.then}`),
+        ...c.concepts.map((x) => stampOf(x, ONT, rows, checkById, notes) ?? x),
+      ].join("|"),
+    )
     .digest("hex")
     .slice(0, 8);
 
@@ -92,7 +103,7 @@ export function parseRuns(dir, known, opts = {}) {
     const text = read(f);
     const pairs = text
       .split("\n")
-      .map((l) => l.match(/^(Check|Time|Commit|Stamp|Verdict|By|Evidence):\s*(.*?)\s*$/))
+      .map((l) => l.match(/^(Check|Time|Commit|Stamp|Verdict|By|Performer|Evidence):\s*(.*?)\s*$/))
       .filter(Boolean)
       .map((m) => [m[1].toLowerCase(), m[2].replace(/^`|`$/g, "")]);
     const fields = Object.fromEntries(pairs);
@@ -107,6 +118,11 @@ export function parseRuns(dir, known, opts = {}) {
       !fields.commit && "no commit",
       !fields.stamp && "no stamp",
       !fields.by && "no author",
+      fields.performer !== undefined && !PERFORMERS.includes(fields.performer) && `performer ${fields.performer || "(none)"} is not one of ${PERFORMERS.join(", ")}`,
+      // No one carried out a not-run or a not-applicable; a person who did is named in the evidence (D-157).
+      // ont: inv.manual-runs-well-formed
+      fields.performer !== undefined && VERDICTS.includes(fields.verdict) && fields.verdict !== "pass" && fields.verdict !== "fail" && `a performer is given on a pass or a fail only, not on ${fields.verdict}`,
+      fields.performer === "person" && !fields.evidence && "performer person without the evidence that names the person",
       !named && "the name is not <UTC time>-<check>-<4 characters>.md, such as 20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md",
       named && (named[2] !== fields.check || named[1] !== compact(fields.time)) && "the name does not match the record's check and time",
       ...outsideRecord(text, 1, opts),
@@ -133,21 +149,27 @@ export const currentRun = (runs, id, stamp) =>
     .at(-1);
 
 // The records of a review, from the reviewer's table of verdicts (D-100). A row reads
-// | check.id | verdict | evidence |, where the verdict is one of VERDICTS or `carried`, and a carried
+// | check.id | verdict | evidence |, or | check.id | verdict | evidence | performer | where the project gave
+// the run to someone else than the agent (D-157), where the verdict is one of VERDICTS, written with a
+// hyphen as a record writes it or with a space as the skill says it, `not run`, or `carried`; a pipe of
+// Markdown escaped in a cell, \|, is part of the cell; and a carried
 // verdict gives the file of the record it carries and, after " · ", the files the reviewer read for it,
 // none of which may have changed since the record's commit (D-95); a `By:` line names the reviewer. A record is written for each new verdict and none for a carried one. The table is refused
 // whole when a check is not listed, is given twice, a listed check has neither, a carried record is
 // not of its check or not at its stamp now, or the check of errors in code is carried.
 // ont: action.record-verdicts
 const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
+// A cell of a row: anything but a pipe, an escaped one included; read without its escapes and backticks.
+const CELL = String.raw`(?:\\.|[^|\\])*?`;
+const cell = (x) => (x ?? "").replace(/\\\|/g, "|").replace(/^`|`$/g, "");
 export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], source = "the table", latinOnly = false }) {
   // The reviewer is named on the By: line itself; a value on the next line is no value (D-151).
   const by = text.match(/^By:[ \t]*(\S.*?)[ \t]*$/m)?.[1];
   const lines = text.split("\n");
   const rows = lines
-    .map((l) => l.match(/^\|\s*`?(check\.[a-z0-9.-]+)`?\s*\|\s*([a-z-]+)\s*\|\s*(.*?)\s*\|\s*$/))
+    .map((l) => l.match(new RegExp(`^\\|\\s*\`?(check\\.[a-z0-9.-]+)\`?\\s*\\|\\s*([a-z]+(?:[ -][a-z]+)?)\\s*\\|\\s*(${CELL})\\s*\\|(?:\\s*(${CELL})\\s*\\|)?\\s*$`)))
     .filter(Boolean)
-    .map((m) => ({ check: m[1], verdict: m[2], evidence: m[3].replace(/^`|`$/g, "") }));
+    .map((m) => ({ check: m[1], verdict: m[2].replace(" ", "-"), evidence: cell(m[3]), performer: cell(m[4]) }));
   const problems = [];
   if (!by) problems.push("no By: line naming the reviewer");
   // What the records would hold, the By: line and the rows, is read as a record is (D-151).
@@ -163,6 +185,10 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
       problems.push(`${r.check}: not a check the review lists`);
       continue;
     }
+    // Who carried the check out, on a pass or a fail only: no one carried out a not-run (D-157).
+    if (r.performer && !PERFORMERS.includes(r.performer)) problems.push(`${r.check}: performer ${r.performer} is not one of ${PERFORMERS.join(", ")}`);
+    else if (r.performer && r.verdict !== "pass" && r.verdict !== "fail") problems.push(`${r.check}: a performer is given on a pass or a fail only, not on ${r.verdict}`);
+    else if (r.performer === "person" && !r.evidence) problems.push(`${r.check}: performer person without the evidence that names the person`);
     if (r.verdict === "carried") {
       if (r.check === CODE_CHECK) problems.push(`${r.check}: the check of errors in code reads every new diff and is never carried`);
       const [file, read = ""] = r.evidence.split("·").map((x) => x.trim());
@@ -190,7 +216,7 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
       const tail = createHash("sha256").update(`${r.check}|${time}|${by}`).digest("hex").replace(/[^a-z]/g, "").slice(0, 4).padEnd(4, "x");
       return {
         file: `${compact(time)}-${r.check}-${tail}.md`,
-        text: [`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${r.verdict}`, `By: ${by}`, ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), ""].join("\n"),
+        text: [`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${r.verdict}`, `By: ${by}`, ...(r.verdict === "pass" || r.verdict === "fail" ? [`Performer: ${r.performer || "agent"}`] : []), ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), ""].join("\n"),
       };
     });
   return { problems, records, carried: rows.length - records.length };

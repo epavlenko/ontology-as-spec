@@ -20,7 +20,7 @@
   "agentInstructions": ["AGENTS.md"],
   "code": [{ "dir": "app", "match": "^(?!.*\\.test\\.mjs$).*\\.mjs$" }],
   "codeNames": { "owner": true },
-  "manualRuns": { "dir": "verify/runs" },
+  "verdicts": { "dir": "verify/runs" },
   "releases": { "dir": "releases", "pin": "../tools/ont-check/approach.json" },
   "decisions": {
     "file": "decisions.md",
@@ -116,7 +116,7 @@
       "dir": "verify",
       "cover": [],
       "checks": [
-        "manual"
+        "run"
       ],
       "scope": "implemented"
     }

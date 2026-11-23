@@ -69,6 +69,17 @@ node tools/ontology-as-spec/pin.mjs verify --pin tools/ontology-as-spec.upstream
 
 The update copies the tool of the clone's `HEAD`, or of `--ref`, without its tests and with the approach's LICENSE, deletes the files the approach removed since the old pin, and writes the pin: the commit, its date, the last decision of the approach and the hash of every file. It lists the decisions since the old pin, which the project reads and carries into its own rules, and the files in the directory that no pin names, which it leaves in place. The verification runs with the check, and fails on a file that is missing or changed and on any file in the directory that the pin does not name. A note the project keeps beside the copy is listed under `own` in the pin.
 
+The update also writes `copy.json` in the copy's directory, naming the commit it copied from, and lists it under `own`: the copied files stay the commit's, so the verification passes at once, and `--review` links each check of run of the approach to its section of the [run guide](run-guide.md) at that commit, wherever the pin lives (D-155).
+
+<!-- ont: rule.tool-before-files@9d5ec3, field.tool-copy.copy-info@cd7554 -->
+### Moving to a new format
+
+When the approach changes a format, as when the proof `manual` became `review` and `run` and the key `manualRuns` became `verdicts` (D-154, D-157), the new version of the tool reads the earlier format as before, names what to move, and keeps reading it until a decision retires that reading; an older tool does not read the new format. So a project updates in this order (`rule.tool-before-files`):
+
+1. Update the copy with the `pin.mjs` of the version you update to, the one of its clone, or of its copy with `--ref`, not the copy you have: an older `pin.mjs` does not write what the new version expects, such as `copy.json`.
+2. Run the check. It passes on the earlier files and lists what to move: checks whose proof is `manual`, a doc set that lists `["manual"]`, the key `manualRuns`. A run guide that lists `["manual"]` still asks for a section of every earlier manual check, so the first update loses none.
+3. Move the files: each check `manual` becomes `review`, when a reviewer gives the verdict reading the change, or `run`, when an agent carries it out on the product, with its section in a run guide; the guide's set lists `["run"]`; the key becomes `verdicts`. A check that became `run` needs a new verdict, since its stamp changed; a check that became `review` keeps its records.
+
 The copy's README describes every file of the tool, every flag a script reads and every key of the configuration, which the loader lists in a table and reads through a guard that refuses any other; a test of the approach fails when one is missing, so a project can learn from the README alone what the copy it took can do.
 
 <!-- ont: ent.protocol-release@1658b5, inv.release-tagged@b9f60e, action.release-protocol@7efb0e, derived.newer-releases@55e02f, field.tool-copy.approach-clone@23b84e, edge.protocol-release.changes@29d6cb, field.protocol-release.version@8478cc, field.protocol-release.verified@39bde7, field.protocol-release.date@10466a -->
