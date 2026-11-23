@@ -1,4 +1,5 @@
 // Rounds of review (D-99, D-152) and the records of a review from the reviewer's table (D-100).
+import { sealed } from "../seal.mjs";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -424,9 +425,10 @@ test("[check.manual-run.record-verdicts] one record for each new verdict, none f
   assert.equal(r.records.length, 1);
   assert.equal(r.carried, 1);
   assert.match(r.records[0].file, /^20261120T120000Z-check\.a-[a-z]{4}\.md$/);
+  // The record is sealed and says it is the reviewer's (D-167, D-171).
   assert.equal(
     r.records[0].text,
-    "Check: check.a\nTime: 2026-11-20T12:00:00Z\nCommit: abc123\nStamp: s-check.a\nVerdict: pass\nBy: a model of a provider\nPerformer: agent\nEvidence: notes outside\n",
+    sealed("Check: check.a\nTime: 2026-11-20T12:00:00Z\nCommit: abc123\nStamp: s-check.a\nVerdict: pass\nBy: a model of a provider\nPerformer: agent\nEvidence: notes outside\nOrigin: review\n"),
   );
 });
 

@@ -54,7 +54,14 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
+import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
+import { localRecordNotes, recordDirs } from "./merge-gate.mjs";
+import { briefsDir } from "./briefs.mjs";
+import { sealed } from "./seal.mjs";
+import { PERFORMERS, outsideRecord as outsideRecordText } from "./manual-runs.mjs";
+const outsideRecordOf = (text) => outsideRecordText(text, 1, { latinOnly: true });
+import { createHash } from "node:crypto";
+import { readFileSync, rmSync } from "node:fs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1308,6 +1315,22 @@ function fixesRanges() {
 function workingHead() {
   return spawnSync("git", ["-C", cfg.base, "rev-parse", "--verify", "--quiet", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() || null;
 }
+// What changed outside the directories of records of the process since a commit, in a commit or in the
+// working copy, untracked files included (D-171): a record of a run outside a review is current, and is
+// carried by --review, only while this is empty. A commit the clone lacks has changed everything; null is
+// "nothing changed", a list the paths, ["(the commit ...)"] when it cannot be compared.
+function runChanged(commit) {
+  const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim();
+  if (!top) return ["(not in a Git repository)"];
+  const c = String(commit ?? "");
+  if (!/^[0-9a-f]{7,40}$/.test(c) || spawnSync("git", ["-C", top, "cat-file", "-e", `${c}^{commit}`], { env: gitEnv() }).status !== 0) return [`(the commit ${c || "none"} is not a commit of this clone)`];
+  const not = recordDirs(cfg, top).map((d) => `:!${d}`);
+  const diff = spawnSync("git", ["-C", top, "diff", "--no-renames", "--name-only", c, "--", ".", ...not], { encoding: "utf8", env: gitEnv() });
+  const other = spawnSync("git", ["-C", top, "ls-files", "--others", "--exclude-standard", "--", ".", ...not], { encoding: "utf8", env: gitEnv() });
+  if (diff.status !== 0 || other.status !== 0) return [`(the commit ${c} cannot be compared)`];
+  const paths = [...new Set([...diff.stdout.split("\n"), ...other.stdout.split("\n")].filter(Boolean))];
+  return paths.length ? paths : null;
+}
 if (cfg.manualRuns) {
   // A run of a check the Retired IDs table retires is read as history and is never current (D-152).
   const known = new Set([...checkById.keys(), ...(approach?.checks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
@@ -1318,6 +1341,9 @@ if (cfg.manualRuns) {
   // A verdict record proves what it proves without its commit (D-145): one this clone lacks is information.
   report("verdict records whose commit this clone does not have (what a verdict proves does not rest on it)", resolveRecords(runsTop, { runs }).notes, false, 10);
   report("verdict records that two files claim (same check, time and author)", ambiguous);
+  // Seals and the records of HEAD, as information: the guard alone refuses a merge for them (D-167).
+  // ont: inv.record-sealed, inv.records-immutable
+  report("records of the process with no valid seal after seals start, or changed in the working tree (the guard refuses them)", localRecordNotes(cfg), false, 10);
   const due = checks.filter((c) => untested(c.proof) && c.concepts.some((x) => implemented.has(x)));
   // A record given in the range of fixes after a narrow round stays current when a fix of the range changed
   // its check's stamp (rule.fixes-held-by-tests, D-165): the ranges are those fixesRange gives, each ended
@@ -1329,7 +1355,7 @@ if (cfg.manualRuns) {
     if (!heldCache.has(run.file)) heldCache.set(run.file, ranges.some((rg) => heldByFixes(runsTop, rg, run.commit, recordDirs)));
     return heldCache.get(run.file);
   };
-  const current = new Map(due.map((c) => [c.id, currentRun(runs, c.id, stampFor(c), held)]));
+  const current = new Map(due.map((c) => [c.id, currentRun(runs, c.id, stampFor(c), held, (run) => !runChanged(run.commit))]));
   report(
     "checks of review or run of implemented concepts with no current record",
     due.filter((c) => !current.get(c.id)).map((c) => c.id),
@@ -1372,6 +1398,15 @@ if (flag("--review") > 0) {
   for (const rg of fixesRanges().filter((x) => x.from && fullOf(x.from) && fullOf(x.from) === fullOf(base)))
     console.log(`ISSUE ${rg.task}: the diff from ${base} is the diff of the fixes after the narrow round ${rg.narrow.file}, up to ${rg.end ? rg.end.slice(0, 12) : "the working tree"}: one issue of verdicts, not a round; its findings of the usual path are fixed with a test with no new issue, its rare ones filed (rule.fixes-held-by-tests)`);
   console.log(renderReview(r, base, cfg.base, stampFor, guideOf));
+  // The records of runs outside a review the reviewer may carry as its verdicts (D-171).
+  if (cfg.manualRuns) {
+    const known = new Set([...checkById.keys(), ...(approach?.checks ?? []).map((c) => c.id)]);
+    const { runs } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
+    for (const c of [...r.project, ...r.approach]) {
+      const run = currentRun(runs.filter((x) => x.origin === "run"), c.id, stampFor(c), () => false, (x) => !runChanged(x.commit));
+      if (run) console.log(`CARRY ${c.id}: ${run.file}, a run outside a review on ${run.commit} with nothing changed outside the records since: the reviewer may carry it, "| ${c.id} | carried | ${run.file} |"`);
+    }
+  }
   // --record <table>: the records of the review, written from the reviewer's table (D-100).
   // ont: action.record-verdicts
   if (flag("--record") > 0) {
@@ -1400,7 +1435,13 @@ if (flag("--review") > 0) {
       if (diff.status !== 0) return files;
       return [...new Set([...noSnapshot, ...diff.stdout.split("\n").filter(Boolean)])];
     };
-    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, source: table, latinOnly: cfg.records.latinOnly });
+    // A record of a run outside a review is carried only when nothing outside the records changed since its
+    // commit, committed or in the working copy (D-171).
+    const runFresh = (run) => {
+      const changed = runChanged(run.commit);
+      return changed ? `${changed.join(", ")} changed outside the records since its commit ${run.commit}` : null;
+    };
+    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly });
     if (res.problems.length) {
       fail(`the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`, 1);
     }
@@ -1408,6 +1449,57 @@ if (flag("--review") > 0) {
     mkdirSync(cfg.manualRuns.dir, { recursive: true });
     for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text);
     console.log(`RECORDED ${res.records.length} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
+  }
+}
+// --run-start <check> and --run-record <check>: a run of a check of run outside a review, in two steps
+// (D-171). --run-start keeps HEAD in the Git directory and refuses a working copy that differs from it
+// outside the directories of records; --run-record refuses when anything outside them changed since that
+// HEAD, in a commit or in the working copy, and writes the verdict record of the run, Origin: run, on that
+// commit, with its seal, the check's stamp now, who carried it out and who gave the verdict.
+// ont: action.start-run, action.record-run, field.manual-run.origin, derived.current-run
+if (flag("--run-start") > 0 || flag("--run-record") > 0) {
+  const starting = flag("--run-start") > 0;
+  const id = process.argv[flag(starting ? "--run-start" : "--run-record") + 1];
+  if (!cfg.manualRuns) fail("--run-start and --run-record need verdicts in the configuration: the directory of the records", 2);
+  const c = checkById.get(id) ?? (approach?.checks ?? []).find((x) => x.id === id);
+  if (!c) fail(`--run-${starting ? "start" : "record"} needs a check of the catalogue or of the approach: ${id ?? "(none)"} is none`, 2);
+  if (c.proof !== "run") fail(`${id} is not a check of run (its proof is ${c.proof}): a check of review is given its verdict by a reviewer`, 2);
+  const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim();
+  const dir = briefsDir(cfg.base);
+  if (!top || !dir) fail("a run outside a review needs a Git repository", 2);
+  const runsDir = join(dirname(dir), "ont-runs");
+  const keep = join(runsDir, `${id}.json`);
+  const head = spawnSync("git", ["-C", top, "rev-parse", "--verify", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout.trim();
+  if (starting) {
+    const changed = runChanged(head);
+    if (changed) fail(`the working copy differs from HEAD outside the records (${changed.join(", ")}): a run is made on a committed state; commit or set aside the change first`, 1);
+    mkdirSync(runsDir, { recursive: true });
+    writeFileSync(keep, JSON.stringify({ check: id, head, time: new Date().toISOString().replace(/\.\d{3}Z$/, "Z") }));
+    console.log(`RUN ${id}: started on ${head.slice(0, 12)}; carry the check out by its guide, then record it with --run-record ${id} --verdict pass|fail --performer ${PERFORMERS.join("|")} --by <who gave the verdict> --evidence <where the evidence is>`);
+  } else {
+    if (!existsSync(keep)) fail(`no run of ${id} was started in this working copy: run --run-start ${id} before the run`, 1);
+    const start = JSON.parse(readFileSync(keep, "utf8"));
+    const changed = runChanged(start.head);
+    if (changed) fail(`since --run-start on ${start.head.slice(0, 12)} the files ${changed.join(", ")} changed outside the records: the run is not of one state; start it again`, 1);
+    const arg = (f) => (flag(f) > 0 ? process.argv[flag(f) + 1] : undefined);
+    const [verdict, performer, by, evidence] = [arg("--verdict"), arg("--performer"), arg("--by"), arg("--evidence")];
+    const wrong = [
+      !["pass", "fail"].includes(verdict) && `--verdict ${verdict ?? "(none)"} is not pass or fail: a run carried out gives one of them`,
+      !PERFORMERS.includes(performer) && `--performer ${performer ?? "(none)"} is not one of ${PERFORMERS.join(", ")}`,
+      !by && "--by names no one who gave the verdict",
+      !evidence && "--evidence names no place of the evidence",
+    ].filter(Boolean);
+    if (wrong.length) fail(`no record of the run written: ${wrong.join("; ")}`, 1);
+    const time = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+    const body = [`Check: ${id}`, `Time: ${time}`, `Commit: ${start.head}`, `Stamp: ${stampFor(c)}`, `Verdict: ${verdict}`, `By: ${by}`, `Performer: ${performer}`, `Evidence: ${evidence}`, "Origin: run", ""].join("\n");
+    const outside = cfg.records.latinOnly ? outsideRecordOf(body) : [];
+    if (outside.length) fail(`no record of the run written: ${outside.join("; ")}`, 1);
+    const tail = createHash("sha256").update(`${id}|${time}|${by}`).digest("hex").replace(/[^a-z]/g, "").slice(0, 4).padEnd(4, "x");
+    const file = `${time.replace(/[-:]/g, "")}-${id}-${tail}.md`;
+    mkdirSync(cfg.manualRuns.dir, { recursive: true });
+    writeFileSync(join(cfg.manualRuns.dir, file), sealed(body), { flag: "wx" });
+    rmSync(keep, { force: true });
+    console.log(`RECORDED the run of ${id} on ${start.head.slice(0, 12)}, ${verdict}, in ${relative(cfg.base, join(cfg.manualRuns.dir, file))}`);
   }
 }
 // Flags that only another flag gives a meaning to (D-129).
@@ -1451,14 +1543,26 @@ if (cfg.reviewRounds) {
     "records of acceptance whose line Overspend: is not the tool's",
     ended.flatMap((t) => {
       const end = viewOf(t).results.at(-1);
+      // A round written with a snapshot of spend is compared with that snapshot, which CI reads with no logs (D-169).
+      if (end.spendRecord) return snapshotOverspendProblems(end, records.snapshots);
       return overspendProblems(end, taskBudget({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null }));
     }),
   );
   // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
   // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
   if (flag("--rounds") > 0) {
-    const stateOf = (t) => taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null, malformed, gatesFrom, needFile: false, head }).lines;
-    console.log(renderRounds(rounds, { tasks: taskIds({ rounds, spend: records.spend, done: records.done, approvals: records.approvals }), stateOf, malformed }));
+    // Where spend is counted from the logs, --rounds shows the sums of spend and names no action by the
+    // budget: only --task does (D-169); a project that does not count it so reads as before.
+    const inputs = { rounds, records };
+    // The sums of a task where the logs or a snapshot give them; a task with neither says nothing of them.
+    const shownSpend = (t) => {
+      const sp = spendOf({ cfg, task: t, inputs });
+      return sp && (sp.used || sp.errors?.length) ? sp : null;
+    };
+    const stateOf = (t) => taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null, malformed, gatesFrom, needFile: false, head, spendNow: shownSpend(t), budgetActions: cfg.spend.fromLogs !== true, snapshots: records.snapshots }).lines;
+    // The tokens of each round by its full identity: those of its snapshot of spend where it names one.
+    const tokensOf = (r) => (r.spendRecord ? (records.snapshots.find((x) => x.file === r.spendRecord)?.sums.round ?? r.tokens) : r.tokens);
+    console.log(renderRounds(rounds, { tasks: taskIds({ rounds, spend: records.spend, done: records.done, approvals: records.approvals }), stateOf, malformed, tokensOf }));
   }
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
   // budget (D-152, D-108), with the marks of the budget it has passed.
@@ -1469,7 +1573,10 @@ if (cfg.reviewRounds) {
     if (!task || task.startsWith("--") || (flag("--statement") > 0 && (!file || !existsSync(file)))) {
       fail("--task needs a task, and --statement an existing file", 2);
     }
-    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement: file ? readStatement(file) : null, malformed, gatesFrom, head });
+    const statement = file ? readStatement(file) : null;
+    // The spend from the session logs first, where the configuration counts it so (D-169).
+    const spendNow = spendOf({ cfg, task, statement, inputs: { rounds, records } });
+    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement, malformed, gatesFrom, head, spendNow, snapshots: records.snapshots });
     console.log(st.lines.join("\n"));
     report("task records that do not say what --task found", st.errors);
   }

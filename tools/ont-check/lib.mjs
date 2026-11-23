@@ -172,7 +172,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "verdicts.dir", "verdicts.require", "records.latinOnly", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "mergeGate.paths", "mergeGate.rules", "ci.workflow", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "verdicts.dir", "verdicts.require", "records.latinOnly", "records.sealsFrom", "spend.fromLogs", "goals", "statements.todoHeadings", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "mergeGate.paths", "mergeGate.rules", "mergeGate.codes", "ci.workflow", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
@@ -188,7 +188,7 @@ export const CONFIG_KEYS = [
 const KEY_PATHS = new Set(
   CONFIG_KEYS.flatMap((k) => k.split(".").map((_, i, a) => a.slice(0, i + 1).join("."))).flatMap((k) => [k, k.replace(/\[\]$/, "")]),
 );
-const FREE_KEYS = new Set(["classes"]);
+const FREE_KEYS = new Set(["classes", "goals", "mergeGate.codes"]);
 // The configuration as the loader may read it: an object or a list of it refuses a key that CONFIG_KEYS
 // does not list, by whatever way the key is reached — a property, its descriptor, `in`, or the list of
 // keys, which shows only the listed ones; values are returned as they are, objects in them guarded too.
@@ -277,7 +277,19 @@ export function loadConfig(configPath, text) {
     // concepts needs a current record (D-157); kept as cfg.manualRuns, the name of its IDs.
     // Whether records of runs and rounds hold Latin letters only: a project's rule of language, such as
     // this repository's English only (D-03, D-151), not the approach's.
-    records: { latinOnly: raw.records?.latinOnly === true },
+    // sealsFrom: where it is set at the base of a pull request, the guard requires a seal of every record
+    // of the process written after the commit that brought the key into main (D-167).
+    records: { latinOnly: raw.records?.latinOnly === true, sealsFrom: raw.records?.sealsFrom === true },
+    // Spend counted from the session logs, and the goals with their tasks, the units of a budget (D-169).
+    spend: { fromLogs: raw.spend?.fromLogs === true },
+    goals: (() => {
+      const g = raw.goals ?? {};
+      for (const [k, v] of Object.entries(g)) if (!Array.isArray(v) || v.some((t) => typeof t !== "string")) throw new Error(`goals.${k} is not a list of tasks (D-169)`);
+      return Object.fromEntries(Object.entries(g).map(([k, v]) => [k, [...v]]));
+    })(),
+    // The headings of the section What to do of a task's statement, whose numbered items a record of a gate
+    // change names (D-170); "What to do" by default.
+    statements: { todoHeadings: [...(raw.statements?.todoHeadings ?? ["What to do"])] },
     // The key was manualRuns; it is read as verdicts, and both at once are an error (D-157).
     manualRuns: (() => {
       if (raw.manualRuns && raw.verdicts) throw new Error("the configuration sets both manualRuns and verdicts: keep verdicts, the name of manualRuns since D-157");
@@ -302,7 +314,9 @@ export function loadConfig(configPath, text) {
     // The merge gate on the server (D-158): the gate paths, which the guard holds, as paths from the root of
     // the repository, and the rule file of the ruleset of main and the permissions of Actions.
     // ont: field.merge-gate.gate-paths, field.merge-gate.rule-file, field.merge-gate.ci-workflow
-    mergeGate: raw.mergeGate && { paths: [...(raw.mergeGate.paths ?? [])], rules: at(raw.mergeGate.rules) },
+    // codes: for each task whose gate a gate proof probes, the codes of the guard that refuse by its rules
+    // (D-170).
+    mergeGate: raw.mergeGate && { paths: [...(raw.mergeGate.paths ?? [])], rules: at(raw.mergeGate.rules), codes: Object.fromEntries(Object.entries(raw.mergeGate.codes ?? {}).map(([k, v]) => [k, [...v]])) },
     // The workflow file of the project's full check in CI (D-158); a configuration without it is reported.
     ci: raw.ci && { workflow: at(raw.ci.workflow) },
     // The approach's own releases (D-109): the file of their entries, in the approach's repository only.

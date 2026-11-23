@@ -138,7 +138,18 @@
       "example/judged/",
       "example/app/adapter.mjs"
     ],
-    "rules": ".github/merge-gate.json"
+    "rules": ".github/merge-gate.json",
+    "codes": {
+      "enforcement-merge-gate": [
+        "GATE_PATH_UNAPPROVED"
+      ],
+      "enforcement-tool-records": [
+        "SEAL_MISSING",
+        "SEAL_WRONG",
+        "RECORD_CHANGED",
+        "RECORD_REMOVED"
+      ]
+    }
   },
   "ci": {
     "workflow": ".github/workflows/ont-check.yml"
@@ -147,6 +158,29 @@
     "file": "releases.md"
   },
   "records": {
-    "latinOnly": true
+    "latinOnly": true,
+    "sealsFrom": true
+  },
+  "spend": {
+    "fromLogs": true
+  },
+  "goals": {
+    "enforcement": [
+      "enforcement-review-run",
+      "enforcement-merge-gate",
+      "enforcement-tool-records",
+      "enforcement-task-state",
+      "enforcement-verdicts-tests",
+      "enforcement-config-release",
+      "enforcement-prose",
+      "enforcement-process-page",
+      "enforcement-after-condition"
+    ]
+  },
+  "statements": {
+    "todoHeadings": [
+      "What to do",
+      "\u0427\u0442\u043e \u0441\u0434\u0435\u043b\u0430\u0442\u044c"
+    ]
   }
 }

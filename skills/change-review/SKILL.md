@@ -125,7 +125,7 @@ Evidence such as screenshots or data stays outside the repository; the record on
 <!-- ont: ent.review-round@21a841, rule.round-recorded@649657, derived.next-round@324b74, rule.rounds-converge@fe1007, rule.findings-filed@a0eba5 -->
 ## 5. Record the round
 
-If the configuration has `reviewRounds`, the author writes a record of each round of review in that directory, one file per round, and `ont-check --rounds` says what follows it:
+If the configuration has `reviewRounds`, no one writes the record of a round by hand (D-168). The author gives you the lines `round.mjs brief` printed at the top of your brief, `Task:`, `Step:`, `Narrow:`, `Number:`, `Statement-hash:`, `Commits:`, for a result `Done:`, and `Brief-time:`. Begin your reply with those lines word for word, then `By: <your model and provider>`; on a review of a result, `Condition: holds` or `Condition: not yet`, and `Acceptance: pass`, or `Acceptance: fail` with a line `- <class> · important | nit · change | before` under it for each item not met; then your findings on merging as the rows of a table, `| <class> | important or nit | change or before |`. The author records it with `round.mjs record`, which refuses a reply that does not begin with the brief, adds the author's triage of each finding and writes the record with its seal in that directory, one file per round, and `ont-check --rounds` says what follows it:
 
 ```
 Task: <the task, named the same in every round>
@@ -134,7 +134,9 @@ Narrow: true | false
 Number: <the round's number in its step, full and narrow rounds counted apart>
 Time: <UTC time to the second>
 Commits: <the commits reviewed>
+Done: <the record of done reviewed, on a review of the result>
 By: <the reviewer's model and provider>
+Brief-time: <when the brief was given>
 Tokens-new: <if known>
 Tokens-cached: <if known>
 Tokens-out: <if known>

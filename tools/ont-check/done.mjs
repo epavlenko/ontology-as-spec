@@ -11,14 +11,15 @@
 // After the narrow round that follows a confirmed condition, the record of done ends the range of fixes
 // (rule.fixes-held-by-tests, D-164): its commit is the end fixesRange gives, and it comes after the
 // commit the narrow round reviewed.
-// ont: action.record-done, ent.task-result, field.task-result.evidence, inv.acceptance-after-done, rule.work-under-approval, rule.fixes-held-by-tests
+// ont: rule.records-by-tool, field.process-record.seal, action.record-done, ent.task-result, field.task-result.evidence, inv.acceptance-after-done, rule.work-under-approval, rule.fixes-held-by-tests
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadConfig } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
 import { TASK_NAME } from "./review-rounds.mjs";
-import { approvedHash, budgetLines, fixesRange, gitEnv, readStatement, readTaskInputs, runAtCommit, taskNext } from "./tasks.mjs";
+import { sealed, timeAfter } from "./seal.mjs";
+import { approvedHash, budgetLines, fixesRange, gitEnv, readStatement, readTaskInputs, runAtCommit, spendOf, taskNext } from "./tasks.mjs";
 
 const argv = process.argv.slice(2);
 const value = (flag) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
@@ -38,14 +39,21 @@ const statement = readStatement(file);
 // The records of rounds are read as the check reads them; one that cannot be read blocks every task, so
 // that an approval it would have withdrawn is never taken for one in force (D-152).
 // Every record is read as the check reads it, by readTaskInputs, the commits records name resolved too.
-const { rounds, malformed, records } = readTaskInputs(cfg);
+const inputs = readTaskInputs(cfg);
+const { rounds, malformed, records } = inputs;
 // The owner's approvals count as the check counts them (D-121).
 const { approvals } = records;
+// The spend first, from the session logs where the configuration counts it so (D-169): without the inputs
+// no record of done is written, and a spent reserve of the goal or of the task refuses it below, by the
+// task's next action. A project without spend.fromLogs writes done as before.
+const spendNow = spendOf({ cfg, task, statement, inputs });
+if (spendNow?.errors?.length) refuse(spendNow.errors.join("; "));
+if (spendNow?.missing?.length) refuse(`the spend cannot be counted: the environment does not give ${spendNow.missing.join("; ")}`);
 // The task's one next action, as --task gives it (derived.task-next, D-152), asked for new work, before
 // any refusal of done.mjs's own, so that it refuses with the action --task and --rounds give: an
 // unreadable record, a spent budget, an open gate, a statement under review or changed. Done is recorded
 // only when it is a step of the work on the result; a task done already does not stand for new work.
-const next = taskNext({ rounds, spend: records.spend, done: records.done, approvals, task, defaults: cfg.budget, statement, malformed, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, forWork: true });
+const next = taskNext({ rounds, spend: records.spend, done: records.done, approvals, task, defaults: cfg.budget, statement, malformed, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, forWork: true, spendNow });
 // Done is recorded only on an action of kind work, never by the name of a branch (D-152).
 if (next.kind === "correct" && malformed.length) refuse(`${next.say}: ${malformed.join("; ")}`);
 if (next.kind !== "work") refuse(`the task's next action is not work on the result: ${next.say}`);
@@ -93,7 +101,8 @@ if (failed.length) {
   for (const f of failed) console.log(`FAIL ${f.command}\n${f.output.split("\n").slice(-15).join("\n")}`);
   refuse(`${failed.length} of ${run.results.length} commands of done failed on ${commit.slice(0, 7)}`);
 }
-const time = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+// After the approval in force and every round of the task, never in the same second (D-167).
+const time = timeAfter(...approvals.filter((a) => a.task === task).map((a) => a.time), ...rounds.filter((r) => r.task === task).map((r) => r.time));
 mkdirSync(cfg.taskRecords.dir, { recursive: true });
 // The statement's limits go into the record, for the check and --rounds, which read no statement (D-147).
 const text = [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${statement.hash}`, ...budgetLines(statement.budget), `Time: ${time}`, `Checks:`, ...run.results.map((r) => `- ${r.command} · ${r.result}`), ...(evidence.length ? ["Evidence:", ...evidence] : []), ""].join("\n");
@@ -102,7 +111,8 @@ let name;
 for (let i = 1; ; i++) {
   name = `${time.replaceAll(/[-:]/g, "")}-${task}-done${i > 1 ? `-${i}` : ""}.md`;
   try {
-    writeFileSync(join(cfg.taskRecords.dir, name), text, { flag: "wx" });
+    // With its seal (D-167).
+    writeFileSync(join(cfg.taskRecords.dir, name), sealed(text), { flag: "wx" });
     break;
   } catch (e) {
     if (e.code !== "EEXIST") refuse(`the record was not written: ${e.message}`);
