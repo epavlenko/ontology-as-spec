@@ -14,13 +14,16 @@
 // the head, name the path and are bound to the commit they name: their paths change up to it, the record
 // is added by its child, and outside reviews/ the head is that commit merged with main.
 // records-only passes when --reviewed is in --head, --head contains --base, and outside reviews/ the tree
-// of --head is the tree of --reviewed merged with --base as Git merges them (D-158).
+// of --head is the tree of --reviewed merged with --base as Git merges them (D-165). After the narrow round
+// that follows a confirmed condition, the commit it compares with is the one of the record of done that
+// ends the range of fixes, which the records at --head give by tasks.mjs fixesRange, the one function that
+// reads the range; without that record, --reviewed (rule.fixes-held-by-tests).
 // Both fail closed: a Git command that fails is an error, never a diff or a history without changes.
 // ruleset prints the ruleset of the rule file (mergeGate.rules) as the GitHub API takes it.
 // switch-on prints the steps that switch the gate on after the merge of the task that brings it, in their
 // order, each with its calls of gh api, from the rule file (rule.gate-switched-on, D-163).
 // ont: ent.merge-gate, field.merge-gate.guard, field.merge-gate.gate-paths, field.merge-gate.rule-file, edge.merge-gate.changes
-// ont: rule.ci-from-main, inv.gate-change-approved, rule.merge-what-was-checked, rule.main-through-gate, rule.gate-switched-on
+// ont: rule.ci-from-main, inv.gate-change-approved, rule.merge-what-was-checked, rule.main-through-gate, rule.gate-switched-on, rule.fixes-held-by-tests
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -28,7 +31,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gitEnv, loadConfig } from "./lib.mjs";
 import { parseRounds } from "./review-rounds.mjs";
-import { approvedHash, parseTaskRecords } from "./tasks.mjs";
+import { approvedHash, fixesRange, parseTaskRecords } from "./tasks.mjs";
 
 // The directory of the records of the process: commits that change only files under it change no gate.
 export const RECORDS_DIR = "reviews/";
@@ -159,6 +162,41 @@ function unbound(top, { g, file, b, h, mb, children }) {
   return why;
 }
 
+// The records of rounds and of tasks at a commit, read from Git's objects into tmp as data, never from the
+// working tree; a Git command that fails throws GitError.
+function recordsAt({ cfg, top, head, tmp }) {
+  const rel = (d) => relative(top, d).split("\\").join("/");
+  const roundsDir = cfg.reviewRounds ? filesAt(top, head, rel(cfg.reviewRounds.dir), tmp) : null;
+  const tasksDir = cfg.taskRecords ? filesAt(top, head, rel(cfg.taskRecords.dir), tmp) : null;
+  const rounds = roundsDir && existsSync(roundsDir) ? parseRounds(roundsDir, { latinOnly: cfg.records.latinOnly, root: null, hashFrom: cfg.reviewRounds.gatesFrom ?? "" }).rounds : [];
+  const records = tasksDir && existsSync(tasksDir) ? parseTaskRecords(tasksDir, { latinOnly: cfg.records.latinOnly }) : { gateChanges: [], approvals: [], done: [], malformed: [] };
+  return { rounds, records, recordsPath: cfg.taskRecords ? rel(cfg.taskRecords.dir) : null };
+}
+
+// What records-only compares the head with (rule.fixes-held-by-tests, D-165): after the narrow round whose
+// commit is the reviewed one, whose verdict of acceptance holds, the commit of the record of done that ends
+// its range of fixes, read from the records at the head; otherwise the reviewed commit itself.
+export function comparedWith({ cfg, top, reviewed, head }) {
+  if (!cfg.reviewRounds || !cfg.taskRecords) return { commit: reviewed, range: null };
+  const tmp = mkdtempSync(join(tmpdir(), "ont-records-only-"));
+  try {
+    const at = recordsAt({ cfg, top, head, tmp });
+    if (at.errors) return { errors: at.errors };
+    const r = full(top, reviewed);
+    const tasks = [...new Set(at.rounds.map((x) => x.task))];
+    const range = tasks
+      .map((task) => fixesRange({ rounds: at.rounds, done: at.records.done ?? [], approvals: at.records.approvals ?? [], task, head }))
+      .find((x) => x?.done && x.acceptance === "held" && x.from && full(top, x.from) === r);
+    if (!range) return { commit: reviewed, range: null };
+    const end = full(top, range.done.commit);
+    if (!end) return { errors: [`the record of done ${range.done.file} names commit ${range.done.commit}, which is not a commit of this clone`] };
+    if (!isAncestor(top, r, end)) return { errors: [`the record of done ${range.done.file} is of commit ${end}, which does not contain the reviewed commit ${r}`] };
+    return { commit: end, range };
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // The guard: what the pull request from base to head changes among the gate paths, and which of those
 // changes no record of a gate change approves, with the reason. A Git command that fails is an error.
 export function guard({ cfg, base, head }) {
@@ -176,12 +214,9 @@ export function guard({ cfg, base, head }) {
     const gated = changed.filter((p) => isGatePath(p, cfg.mergeGate.paths));
     if (!gated.length) return { changed, gated, approved: [], refused: [], notes: [] };
     // The records at the head, read from Git's objects as data.
-    const rel = (d) => relative(top, d).split("\\").join("/");
-    const roundsDir = cfg.reviewRounds ? filesAt(top, h, rel(cfg.reviewRounds.dir), tmp) : null;
-    const tasksDir = cfg.taskRecords ? filesAt(top, h, rel(cfg.taskRecords.dir), tmp) : null;
-    const rounds = roundsDir && existsSync(roundsDir) ? parseRounds(roundsDir, { latinOnly: cfg.records.latinOnly, root: null, hashFrom: cfg.reviewRounds.gatesFrom ?? "" }).rounds : [];
-    const records = tasksDir && existsSync(tasksDir) ? parseTaskRecords(tasksDir, { latinOnly: cfg.records.latinOnly }) : { gateChanges: [], approvals: [], malformed: [] };
-    const recordsPath = cfg.taskRecords ? rel(cfg.taskRecords.dir) : null;
+    const at = recordsAt({ cfg, top, head: h, tmp });
+    if (at.errors) return { errors: at.errors };
+    const { rounds, records, recordsPath } = at;
     // The commits of the pull request by their parents, so that the commit right after a named one is found.
     const children = new Map();
     for (const line of must(top, "rev-list", "--parents", h, `^${b}`).split("\n").filter(Boolean)) {
@@ -361,9 +396,19 @@ function main(argv) {
     const [reviewed, head, base] = [value("--reviewed"), value("--head"), value("--base")];
     const bad = [["reviewed", reviewed], ["head", head], ...(base !== undefined ? [["base", base]] : [])].filter(([, c]) => !top || !isCommit(top, c));
     if (bad.length) return say(bad.map(([k, c]) => `ERROR · the ${k} commit ${c ?? "(none)"} is not a commit of this clone`)), 1;
-    const r = recordsOnly({ top, reviewed, head, base: base ?? null });
-    if (r.errors.length) return say([`ERROR · ${r.errors[0]}`, ...r.errors.slice(1)]), 1;
-    return say([`RECORDS_ONLY: outside ${RECORDS_DIR} the head is the reviewed commit${base ? " merged with the base" : ""}; it is past it by records alone`]), 0;
+    let against;
+    try {
+      against = comparedWith({ cfg, top, reviewed, head });
+      if (!against.errors && against.range && !isAncestor(top, reviewed, head)) return say([`ERROR · the reviewed commit ${reviewed} is not in the head ${head}: the head is not past what was reviewed`]), 1;
+    } catch (e) {
+      if (e instanceof GitError) return say([`ERROR · ${e.message}`]), 1;
+      throw e;
+    }
+    if (against.errors) return say(against.errors.map((e) => `ERROR · ${e}`)), 1;
+    const what = against.range ? `the commit of the record of done ${against.range.done.file}, which ends the range of fixes after the narrow round ${against.range.narrow.file} (rule.fixes-held-by-tests)` : "the reviewed commit";
+    const r = recordsOnly({ top, reviewed: against.commit, head, base: base ?? null });
+    if (r.errors.length) return say([`ERROR · ${r.errors[0].replace("the head is not the reviewed commit", `the head is not ${what}`)}`, ...r.errors.slice(1)]), 1;
+    return say([`RECORDS_ONLY: outside ${RECORDS_DIR} the head is ${what}${base ? " merged with the base" : ""}; it is past it by records alone`]), 0;
   }
   if (mode === "ruleset") {
     if (!cfg.mergeGate?.rules) return say([`ERROR · the configuration ${cfg.file} names no mergeGate.rules`]), 1;

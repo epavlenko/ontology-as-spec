@@ -92,7 +92,7 @@ Required, and checked by the tool: the check that holds the snapshot is automati
 
 Recommended: each change of an assumption is a short decision entry about its topic, tentative when an agent chose the values, and no check requires the model to reach its goal.
 
-<!-- ont: rule.code-reviewed-for-errors@3dbf61 -->
+<!-- ont: rule.code-reviewed-for-errors@e80716 -->
 
 ## Code
 

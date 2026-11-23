@@ -612,6 +612,36 @@ test("[check.merge-gate.resolution-kept] records-only compares the head's tree w
   assert.equal(behind.status, 1, behind.stdout);
   assert.match(behind.stdout, /the head [0-9a-f]{40} does not contain the base [0-9a-f]{40}/);
   assert.ok(start);
+  // After a narrow round that follows a confirmed condition (rule.fixes-held-by-tests, D-165): the narrow
+  // round reviewed the reviewed commit, and a fix of the test follows it. With no record of done after it
+  // the head is compared with the reviewed commit and refused; the record of done on the fix ends the
+  // range of fixes, and the head, updated with main by a clean merge and with records after it, is
+  // compared with that record's commit merged with main, and passes.
+  git("checkout", "-q", "-b", "fixes", reviewed);
+  const rec = (path, lines) => put(path, [...lines, ""].join("\n"));
+  const done = (name, at, time) => rec(`reviews/tasks/${name}`, ["Record: done", "Task: t", `Commit: ${at}`, `Statement-hash: ${A}`, `Time: ${time}`, "Checks:", "- npm test · pass"]);
+  done("20261123T110000Z-t-done.md", reviewed, "2026-11-23T11:00:00Z");
+  rec("reviews/rounds/20261123T120000Z-t-result-1.md", ["Task: t", "Step: result-review", "Number: 1", "Time: 2026-11-23T12:00:00Z", "By: a model (a provider)", `Commits: ${reviewed.slice(0, 7)}`, `Statement-hash: ${A}`, "Condition: holds", "Findings:", "- a · important · change · fixable · t.test.mjs", "Acceptance: clean"]);
+  rec("reviews/rounds/20261123T130000Z-t-result-narrow-1.md", ["Task: t", "Step: result-review", "Narrow: true", "Number: 1", "Time: 2026-11-23T13:00:00Z", "By: a model (a provider)", `Commits: ${reviewed.slice(0, 7)}`, `Statement-hash: ${A}`, "Findings:", "- b · important · change · fixable · t.test.mjs", "Acceptance: clean"]);
+  git("add", "-A");
+  git("commit", "-q", "-m", "the rounds");
+  const fix = commit("example/app/library.test.mjs", "// the fixed test\n", "the fix");
+  const noDone = cli(["--reviewed", reviewed, "--head", fix]);
+  assert.equal(noDone.status, 1, noDone.stdout);
+  assert.match(noDone.stdout, /the head is not the reviewed commit: example\/app\/library\.test\.mjs/);
+  done("20261123T140000Z-t-done.md", fix, "2026-11-23T14:00:00Z");
+  git("add", "-A");
+  git("commit", "-q", "-m", "done");
+  git("merge", "-q", "--no-edit", "main");
+  const after = commit("reviews/notes.md", "a record of the process\n", "a record after the end of the range");
+  const kept = cli(["--reviewed", reviewed, "--head", after, "--base", main]);
+  assert.equal(kept.status, 0, kept.stdout);
+  assert.match(kept.stdout, /^RECORDS_ONLY: outside reviews\/ the head is the commit of the record of done 20261123T140000Z-t-done\.md, which ends the range of fixes after the narrow round 20261123T130000Z-t-result-narrow-1\.md \(rule\.fixes-held-by-tests\) merged with the base/);
+  // A change outside the records after the record of done is past the range, and refused.
+  const past = commit("example/app/library.test.mjs", "// a change after done\n", "past the range");
+  const refused = cli(["--reviewed", reviewed, "--head", past, "--base", main]);
+  assert.equal(refused.status, 1, refused.stdout);
+  assert.match(refused.stdout, /example\/app\/library\.test\.mjs/);
 });
 
 test("[check.merge-gate.gate-change-bound] a record of a gate change approves only the commit it names: its paths, its next commit, and nothing but records and main after it", () => {

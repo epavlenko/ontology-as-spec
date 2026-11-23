@@ -1717,11 +1717,13 @@ function readers(h, budget = null, { skipDone = false, args = null } = {}) {
 }
 const ENDS = /^NEXT t: done/;
 const NARROW = /^NEXT t: the reviewer confirmed the goal's condition in r\d+\.md: narrow round 1, the one round after it/;
-// The owner's question names the round after C and why it did not end the step.
-const GATE_OF = (why) => new RegExp(`a question to the owner: the reviewer confirmed the goal's condition and the one round after it did not end the step; only his approval of a version lets rounds go on \\(r2\\.md: ${why}`);
-const LEFT = "findings left: other 0\\)";
-const NO_ACCEPTANCE = "no verdict of acceptance\\)";
-const REFUSED = "the verdict of acceptance is refused: the record of done d0\\.md is of commit [0-9a-f]{7}, not of the commit the round reviewed";
+// After the round after C that did not end the step, neither a question nor a round (D-164): its fixes held
+// by tests, or, with no verdict of acceptance or one refused, that verdict again on the same result.
+const FIXES = /^NEXT t: the reviewer confirmed the goal's condition in r1\.md and r2\.md is the one round after it: fix its findings of the usual path with tests, get one issue of verdicts on the diff of the fixes \(--review [0-9a-f]{7} --record\), fix the findings of the usual path of that issue with tests, then record done with done\.mjs; no round and no question follow \(rule\.fixes-held-by-tests\)$/;
+const AGAIN = (why) => new RegExp(`^NEXT t: r2\\.md, the one round after the confirmed condition in r1\\.md, ${why}: its reviewer gives it (again )?on the same result, recorded after it as the narrow round's; no new round \\(rule\\.fixes-held-by-tests\\)$`);
+const NO_ACCEPTANCE = "has no verdict of acceptance";
+const REFUSED = "has a verdict of acceptance the tool refuses \\(the record of done d0\\.md is of commit [0-9a-f]{7}, not of the commit the round reviewed, [0-9a-f]{7}\\)";
+const MERGE = /^NEXT t: done: the record of done d1\.md ends the range of fixes after r2\.md, whose verdict of acceptance holds: merge \(rule\.fixes-held-by-tests\)$/;
 // The cases of the branch condition confirmed, each on its side of its boundary, with the case of
 // derived.next-round its rounds fall under.
 const CONDITION_CASES = {
@@ -1733,10 +1735,10 @@ const CONDITION_CASES = {
   "C, acceptance refused": { rounds: [resultV(1, { condition: true, commits: CB.slice(0, 7) })], next: NARROW, doneMjs: 0 },
   "after C, narrow, nothing left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, extra: BEFORE })], next: ENDS, doneMjs: 0 },
   "after C, full, nothing left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(2)], next: ENDS, doneMjs: 0 },
-  "after C, a finding left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, found: 1, prefix: "other" })], next: GATE_OF(LEFT), doneMjs: 1 },
-  "after C, no acceptance": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(2, { acceptance: undefined })], next: GATE_OF(NO_ACCEPTANCE), doneMjs: 1 },
-  "after C, acceptance refused": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, commits: CB.slice(0, 7) })], next: GATE_OF(REFUSED), doneMjs: 1 },
-  "after C, Condition: holds again": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, condition: true, found: 1, prefix: "other" })], next: GATE_OF(LEFT), doneMjs: 1 },
+  "after C, a finding left": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, found: 1, prefix: "other" })], next: FIXES, doneMjs: 0 },
+  "after C, no acceptance": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(2, { acceptance: undefined })], next: AGAIN(NO_ACCEPTANCE), doneMjs: 0 },
+  "after C, acceptance refused": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, commits: CB.slice(0, 7) })], next: AGAIN(REFUSED), doneMjs: 0 },
+  "after C, Condition: holds again": { rounds: [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, condition: true, found: 1, prefix: "other" })], next: FIXES, doneMjs: 0 },
 };
 
 test("[check.review-round.condition-branch] --task, --rounds, the check and done.mjs give each case of the condition confirmed alike", () => {
@@ -1765,16 +1767,21 @@ test("[check.review-round.condition-branch] --task, --rounds, the check and done
   }
 });
 
-test("[check.review-round.condition-gate] the gate after the round after C holds over the task, a reviewer's approval of a new version too, until the owner's approval; an open gate comes first; both ends by C at the budget's limit end the task", () => {
-  const failed = CONDITION_CASES["after C, a finding left"].rounds;
+test("[check.review-round.condition-gate] after C only a finding not fixable and a spent budget are questions: the gate holds over the task, a reviewer's approval of a new version too, until the owner's approval; an open gate comes first; both ends by C at the budget's limit end the task", () => {
+  // (e) A finding not fixable in the narrow round after C is the question to the owner.
+  const failed = [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, found: 1, fix: "not fixable", prefix: "nf" })];
+  const GATE = /^NEXT t: a question to the owner: a finding cannot be fixed without changing what the owner decided, and only his approval of a version answers it \(r2\.md\)$/;
+  const gate = readers({ rounds: failed });
+  for (const l of gate.next) assert.match(l, GATE, gate.out);
+  assert.equal(gate.done, 1, gate.doneOut);
+  assert.match(gate.doneOut, /a finding cannot be fixed/);
   const W_TEXT = "version W\nDone-when: true\n";
   const W = sha256(W_TEXT);
   // A clean round of the statement approves W, a record of done of W and a clean acceptance of it.
   const approvedW = { step: "statement-review", number: 2, time: T(20), hash: W };
   const reviewer = readers({ rounds: [...failed, approvedW, { ...resultV(3), time: T(22), hash: W }], done: [{ time: T(21), hash: W, command: "true" }] });
-  for (const l of reviewer.next) assert.match(l, GATE_OF(LEFT), reviewer.out);
+  for (const l of reviewer.next) assert.match(l, GATE, reviewer.out);
   assert.equal(reviewer.done, 1, reviewer.doneOut);
-  assert.match(reviewer.doneOut, GATE_OF(LEFT));
   // The owner's approval of V closes it: work goes on.
   const owner = readers({ rounds: failed, approvals: [{ hash: V, time: T(20) }] });
   for (const l of owner.next) assert.doesNotMatch(l, /a question to the owner/, owner.out);
@@ -1792,7 +1799,43 @@ test("[check.review-round.condition-gate] the gate after the round after C holds
     for (const l of r.next) assert.match(l, /^NEXT t: done, with an overspend/, `${name}: ${r.out}`);
     assert.match(r.out, /does not name the overspend|Overspend: is not the tool's/, name);
   }
-  // Past the budget, the round after C that does not end the step is the budget question.
+  // (zh) Past the budget, the round after C that does not end the step is the budget question, and done.mjs
+  // refuses; within it, the same round is the fixes, never a question.
   const over = readers({ rounds: [resultV(1, { condition: true, found: 1, tokens: [500, 0, 10] }), resultV(1, { narrow: true, found: 1, prefix: "other" })] }, budget);
-  for (const l of over.next) assert.match(l, /the budget is exhausted: a question to the owner/, over.out);
+  for (const l of over.next) assert.match(l, /^NEXT t: the budget is exhausted: a question to the owner$/, over.out);
+  assert.equal(over.done, 1, over.doneOut);
+  const within = readers({ rounds: [resultV(1, { condition: true, found: 1, tokens: [50, 0, 10] }), resultV(1, { narrow: true, found: 1, prefix: "other" })] }, budget);
+  for (const l of within.next) assert.match(l, FIXES, within.out);
+});
+
+// The path after the narrow round (rule.fixes-held-by-tests, D-164), items (a), (b), (v), (g) and (d) of item 3 of the
+// statement of task enforcement-after-condition, its letters transliterated; (e) and (zh) are in condition-gate: what --task, --rounds, the check and done.mjs give.
+test("[check.review-round.fixes-after-narrow] after C and the narrow round, its findings are fixed with tests and recorded done, then the merge; with no verdict of acceptance that verdict first, never the merge", () => {
+  const C1 = resultV(1, { condition: true, found: 1 });
+  const ACCEPTANCE_FINDING = ["- item 3 not done · important · change · fixable · t.test.mjs"];
+  for (const [name, h, next, doneMjs] of [
+    // (a) Findings of the usual path in the narrow round, its acceptance holding: the fixes, then done.
+    ["(a) findings of the usual path", { rounds: [C1, resultV(1, { narrow: true, found: 2, prefix: "other" })] }, FIXES, 0],
+    // (b) Only a finding of acceptance: the same.
+    ["(b) only a finding of acceptance", { rounds: [C1, resultV(1, { narrow: true, acceptance: ACCEPTANCE_FINDING })] }, FIXES, 0],
+    // (v) A clean narrow round with a clean acceptance: done, the merge.
+    ["(v) a clean narrow round", { rounds: [C1, resultV(1, { narrow: true })] }, /^NEXT t: done: the last round and its acceptance are clean$/, 0],
+    // (g) No verdict of acceptance: that verdict, never the merge.
+    ["(g) no verdict of acceptance", { rounds: [C1, resultV(1, { narrow: true, found: 1, prefix: "other", acceptance: undefined })] }, AGAIN(NO_ACCEPTANCE), 0],
+    // (d) A record of done on a later commit after the narrow round: done, the merge.
+    ["(d) done after the narrow round", { rounds: [C1, resultV(1, { narrow: true, found: 1, prefix: "other" })], done: [{ time: T(17), hash: V, command: "true", commit: CC }] }, MERGE, 0],
+  ]) {
+    const r = readers(h);
+    assert.equal(r.next.length, 2, `${name}: ${r.out}`);
+    assert.equal(r.next[0], r.next[1], `${name}: --task and --rounds disagree`);
+    assert.match(r.next[0], next, `${name}: ${r.out}`);
+    assert.doesNotMatch(r.next[0], /a question to the owner|(narrow|full) round \d/, name);
+    if (name.startsWith("(g)")) assert.doesNotMatch(r.next[0], /done:|merge/, name);
+    // The check passes: no verdict of acceptance is refused on the path.
+    assert.equal(r.status, 0, `${name}, the check: ${r.out}`);
+    assert.equal(r.done, doneMjs, `${name}, done.mjs: ${r.doneOut}`);
+    assert.match(r.doneOut, /^DONE t: 1 commands passed on [0-9a-f]{7}/, name);
+    // done.mjs, on a commit after the narrow round's, says that its record ends the range of fixes.
+    if (next === FIXES) assert.match(r.doneOut, /^RANGE t: this record of done ends the range of fixes after the narrow round r2\.md, from [0-9a-f]{7} to [0-9a-f]{12} \(rule\.fixes-held-by-tests\)$/m, name);
+  }
 });

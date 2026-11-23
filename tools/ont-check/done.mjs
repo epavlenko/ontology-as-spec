@@ -4,13 +4,16 @@
 // statement's version and when every command passed.
 //   node tools/ont-check/done.mjs <task> --statement FILE [--config ont.config.json] [--commit REF]
 // The commands are the statement's lines "Done-when:", run from the directory of the configuration.
-// ont: action.record-done, ent.task-result, inv.acceptance-after-done, rule.work-under-approval
+// After the narrow round that follows a confirmed condition, the record of done ends the range of fixes
+// (rule.fixes-held-by-tests, D-164): its commit is the end fixesRange gives, and it comes after the
+// commit the narrow round reviewed.
+// ont: action.record-done, ent.task-result, inv.acceptance-after-done, rule.work-under-approval, rule.fixes-held-by-tests
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadConfig } from "./lib.mjs";
 import { TASK_NAME } from "./review-rounds.mjs";
-import { approvedHash, budgetLines, gitEnv, readStatement, readTaskInputs, runAtCommit, taskNext } from "./tasks.mjs";
+import { approvedHash, budgetLines, fixesRange, gitEnv, readStatement, readTaskInputs, runAtCommit, taskNext } from "./tasks.mjs";
 
 const argv = process.argv.slice(2);
 const value = (flag) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
@@ -57,6 +60,11 @@ const git = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8
 const top = git("rev-parse", "--show-toplevel").stdout.trim();
 const commit = git("rev-parse", "--verify", `${value("--commit") ?? "HEAD"}^{commit}`).stdout.trim();
 if (!commit) refuse(`no commit ${value("--commit") ?? "HEAD"}`);
+// The range of fixes ends at the commit done is recorded on, by the one function that gives it: a record of
+// done after the narrow round is of a commit after the one that round reviewed.
+const range = fixesRange({ rounds, done: records.done, approvals, task, head: commit, statement });
+if (range?.from && !range.done && git("merge-base", "--is-ancestor", range.from, commit).status !== 0)
+  refuse(`after the narrow round ${range.narrow.file}, done is recorded on the last commit of its fixes, after the commit it reviewed, ${range.from}; ${commit.slice(0, 7)} is not after it`);
 const run = runAtCommit({ top, commit, dir: relative(top, cfg.base), commands: statement.doneWhen });
 if (run.error) refuse(run.error);
 const failed = run.results.filter((r) => r.result !== "pass");
@@ -80,3 +88,5 @@ for (let i = 1; ; i++) {
   }
 }
 console.log(`DONE ${task}: ${run.results.length} commands passed on ${commit.slice(0, 7)}; recorded in ${relative(process.cwd(), join(cfg.taskRecords.dir, name))}`);
+if (range?.from && !range.done && range.acceptance === "held" && !commit.startsWith(range.from))
+  console.log(`RANGE ${task}: this record of done ends the range of fixes after the narrow round ${range.narrow.file}, from ${range.from} to ${commit.slice(0, 12)} (rule.fixes-held-by-tests)`);
