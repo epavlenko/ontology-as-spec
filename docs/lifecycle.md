@@ -2,6 +2,36 @@
 
 How each kind of change moves through the artifacts. The [agent rules](parts/agent-rules.md) table is the short form of this page.
 
+<!-- ont: ent.merge-gate@572acd, rule.main-through-gate@65a8ba, rule.ci-from-main@e2531a, inv.gate-change-approved@bf7d24, ent.gate-change@f99bb2, rule.merge-what-was-checked@4c1af0 -->
+## Merging into main
+
+Main is changed only through a pull request that GitHub merges, by a merge commit, once two checks passed on its head and its branch contains main (D-158). The ruleset of main requires both by name and by the GitHub Actions app that reports them, and lets no one bypass it; its settings and the permissions of Actions are kept in `.github/merge-gate.json`, from which an agent creates the ruleset through the GitHub API (`node tools/ont-check/merge-gate.mjs ruleset` prints it).
+
+- **The full check**, `ont-check`, runs on `pull_request`: the check of the approach, the example and the templates, the guard of decisions against the pull request's base, which fails when that base is not found, and every test suite but the judged. It runs the pull request's code, so a pull request could weaken it by editing it.
+- **The guard**, `ont-gate-guard`, runs on `pull_request_target`, so its definition and code come from main. It fetches the pull request's commits as data, lists the paths the final diff changes and reads the records at its head; it runs nothing of the pull request. It refuses a change of a gate path, any file through which the full check could be weakened, that no record of a gate change approves: the record names the task, the approved version of its statement by its hash, the item of What to do that allows the change, the paths, and the commit that changed them, after which the pull request has only commits of records.
+
+The executor merges through the API with the merge method and the head's commit as the condition, after `merge-gate.mjs records-only <reviewed>..<head>` confirms that the head is past the commit the reviewer of the result checked only by commits of records under `reviews/`; an update of the branch with main changes the head and asks for that again.
+
+<!-- ont: ent.gate-proof@402ba8, inv.gate-records-well-formed@2e7ada -->
+### Proving the gate
+
+A gate is proven on GitHub after the merge of the task that brings it: a probe that the gate refuses, such as a pull request whose check is broken on purpose, and later an ordinary merge through it. Each is recorded as a gate proof in `reviews/tasks/`: the gate, refusal or pass, the probe and its result, the head and base of the pull request, the check, its run and the required check with their results, GitHub's answer to a refused attempt or the merge commit of a pass, and the time, in English with paths of the repository. The pull request of a probe is closed and its branch deleted. The check refuses a record of a gate change or of a gate proof that lacks a line its kind needs.
+
+<!-- ont: rule.early-pre-commit@1e697f -->
+### The early hook
+
+`npm install` sets the clone's hooks to `.githooks/`; its pre-commit hook runs the check and the guard of decisions on the content of the commit, its index, whatever paths it changes. It is an early signal, not a gate: `--no-verify` and a clone without hooks skip it, and only the checks on the server hold a merge.
+
+<!-- ont: rule.tree-after-server-merge@2794d3 -->
+### The tree after a merge on the server
+
+A merge made on GitHub runs no hook in any clone, so the executor brings the clone that serves the ontology tree to it: in that clone, on main, or in a temporary worktree of main when the clone is on another branch, it confirms that `git config --path ont.treeOut` gives an absolute path, runs `git pull --ff-only`, confirms that HEAD is the merge commit on `origin/main`, runs `node tools/ont-check/gen-tree.mjs --stale`, and when the tree is stale `--refresh` and `--stale` again. Since `--stale` says nothing of a fresh tree, it then confirms that the page's footer, `built from`, names the merge commit.
+
+<!-- ont: rule.copy-verified-in-ci@1eddb8, inv.ci-workflow-present@9cc80d -->
+### A project's CI
+
+The templates give a project the workflow of its full check, `templates/.github/workflows/ont-check.yml`. The project copies it to `.github/workflows/` and writes in its directory of the tool, its configuration, its test command and, when its copy of the tool is pinned, the pin `pin.mjs` wrote, inside the copy's directory or outside it; the workflow then runs `pin.mjs verify --pin` first, so that an edited copy turns the check red. The project's configuration names the workflow under `ci.workflow`; the check reports a configuration that names none, and fails when the file it names is missing.
+
 <!-- ont: action.add-concept@3509fd, inv.ontology-connected@423c04, rule.form-follows-rows@8006af, ent.trace@eb1f36 -->
 ## A new concept
 

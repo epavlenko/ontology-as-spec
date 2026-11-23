@@ -155,12 +155,12 @@ The pin command writes the commit of the approach into a file of information abo
 
 The recorder of a reviewer's table checks that a row of a run given to a person has evidence, but a cell of only spaces in backticks passes it, and the record then fails the check when it is read (class "recorder accepts evidence its reader treats as empty"). A row whose verdict is misspelt with a doubled hyphen, such as `not--run`, is not read as a row at all, so a duplicate or an unlisted check written that way is dropped instead of refused (class "malformed verdict row bypasses validation"). Both need a cell or a spelling no reviewer writes by habit, and the check of the records catches the first.
 
-<!-- ont: -->
+<!-- ont: ent.merge-gate@572acd, rule.ci-from-main@e2531a, ent.gate-proof@402ba8 -->
 ### The merge gate trusts the pull request's own workflow for its rights and names
 
 The full check runs the pull request's own workflow, so a pull request can declare wider rights for that workflow's token before the guard answers, or add a second workflow with the same job name (classes "read-only rights declared by the pull request" and "workflow provenance of the required checks"). Both need a pull request written to attack the gate; the guard still refuses the merge of a change to `.github/` without an approval, and a deliberate attack by an agent with write access is the limitation the owner accepted. For the same reason a record of a probe of the gate names the pull request, its head, the check and its outcome and GitHub's answer, but not which commit each run checked out (class "proof records tied to what github evaluated"): that detail only guards against a forged record.
 
-<!-- ont: -->
+<!-- ont: rule.copy-verified-in-ci@1eddb8, ent.merge-gate@572acd -->
 ### An adopting project gets the full check, and the guard only as an option
 
 The templates give a project a copy of the full check's workflow, which runs the project's own check and test command. How a project sets up its suites, its system tests, the guard, the policy of events and the rule on main is a later task of the goal, which checks a project made from the templates end to end; until then a project sets them up by hand. The guard is meant as an option for a project with records of tasks and rounds; a project without them has the full check only, and an update of its pinned tool is then not guarded (class "first protected pin upgrade of an adopting project"). Two classes filed here at first, "ci suite list behind the project configuration" and "owner record lookup without task records", are of the usual path and are given to that later task rather than accepted.
