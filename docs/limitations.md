@@ -166,6 +166,11 @@ The full check runs the pull request's own workflow, so a pull request can decla
 The templates give a project a copy of the full check's workflow, which runs the project's own check and test command. How a project sets up its suites, its system tests, the guard, the policy of events and the rule on main is a later task of the goal, which checks a project made from the templates end to end; until then a project sets them up by hand. The guard is meant as an option for a project with records of tasks and rounds; a project without them has the full check only, and an update of its pinned tool is then not guarded (class "first protected pin upgrade of an adopting project"). Two classes filed here at first, "ci suite list behind the project configuration" and "owner record lookup without task records", are of the usual path and are given to that later task rather than accepted.
 
 <!-- ont: -->
+### Four rare cases of the merge gate
+
+The review of the merge gate's result found four cases that need a pull request written to attack the gate or an unusual repository, and they are accepted for now. The full check runs npm in the pull request's checkout, so a root npm configuration added by the pull request could change how its commands run without touching a gate path (class "full check accepting execution settings outside the gate paths"); it is the same deliberate attack by an agent with write access that the owner accepted. The early hook checks the working tree, not the index, in a repository with no commit yet (class "initial commit checking the working tree"). The reader of a probe record accepts a few malformed kinds (class "gate-proof kind validation incomplete"); the records are written by the executor until the tool writes them. The trusted guard uses actions by their major tags rather than by commit (class "trusted guard using mutable action references").
+
+<!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
