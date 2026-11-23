@@ -1,0 +1,52 @@
+{
+  "ruleset": {
+    "name": "main",
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": {
+      "ref_name": {
+        "include": ["refs/heads/main"],
+        "exclude": []
+      }
+    },
+    "rules": [
+      { "type": "deletion" },
+      { "type": "non_fast_forward" },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "required_approving_review_count": 0,
+          "dismiss_stale_reviews_on_push": false,
+          "require_code_owner_review": false,
+          "require_last_push_approval": false,
+          "required_review_thread_resolution": false,
+          "allowed_merge_methods": ["merge"]
+        }
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "strict_required_status_checks_policy": true,
+          "do_not_enforce_on_create": false,
+          "required_status_checks": [
+            { "context": "ont-check", "integration_id": 15368 },
+            { "context": "ont-gate-guard", "integration_id": 15368 }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": {
+    "permissions": { "enabled": true, "allowed_actions": "all" },
+    "workflow": { "default_workflow_permissions": "read", "can_approve_pull_request_reviews": false },
+    "policies": [
+      {
+        "name": "ont-gate-guard on pull_request_target",
+        "enforcement": "active",
+        "conditions": { "workflow_path": { "include": [".github/workflows/ont-gate-guard.yml"], "exclude": [] } },
+        "rules": [{ "type": "restrict_action_events", "parameters": { "allowed_events": ["pull_request_target"] } }]
+      }
+    ]
+  }
+}

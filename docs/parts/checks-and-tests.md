@@ -143,7 +143,7 @@ Some cases need someone who has not seen something: a reader of the ontology who
 
 A doc set that lists `"checks": ["run"]` must name every check of run of implemented concepts, so a check of run without a way to carry it out fails the check at the moment an automatic check without a test would. A set that still lists the earlier `["manual"]` asks for the checks of run and for those whose proof is still `manual`, and the tool says to write `["run"]`. The evidence of a run is kept outside the repository, named by the check's ID and the date; the guide says what to keep. The approach's own checks of run have their guide in [`docs/run-guide.md`](../run-guide.md); `--review` in a project links each of them to its section at the commit the project's copy of the tool came from (D-155).
 
-<!-- ont: ent.manual-run@1f6ae3, derived.current-run@6104ff, rule.run-recorded@23e83d, inv.manual-checks-run@a05fc2, inv.manual-runs-well-formed@3b1f50, rule.records-english-in-repo@09514b -->
+<!-- ont: ent.manual-run@1f6ae3, derived.current-run@6104ff, rule.run-recorded@23e83d, inv.manual-checks-run@a05fc2, inv.manual-runs-well-formed@3b1f50, rule.records-english-in-repo@a01d0a -->
 
 ## Verdict records
 

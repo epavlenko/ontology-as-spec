@@ -12,7 +12,7 @@
 //   and the later entries that name it.
 // --run also runs every trace of the catalogue on the oracle (D-93) and prints each check's result.
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
 import {
@@ -1455,6 +1455,11 @@ if (cfg.protocolReleases) {
   report("releases of the protocol that do not hold", top ? protocolReleaseProblems(top, relative(top, cfg.protocolReleases.file).split("\\").join("/")).problems : ["not in a Git repository"]);
 }
 // The pin is the one the configuration names under releases, or upstream.json in the copy's directory.
+// The workflow of the project's full check in CI (D-158): a configuration that names none is reported,
+// since the check then runs only where someone runs it; one that names a file that is not there fails.
+// ont: inv.ci-workflow-present, field.merge-gate.ci-workflow
+if (!cfg.ci?.workflow) console.log("info · no CI workflow is named (ci.workflow): the check runs only where someone runs it; the templates give one");
+else if (!existsSync(cfg.ci.workflow) || !statSync(cfg.ci.workflow).isFile()) fail(`the CI workflow ${relative(process.cwd(), cfg.ci.workflow)} that ci.workflow names is not a file`);
 const copyPin = [cfg.releases?.pin, join(dirname(fileURLToPath(import.meta.url)), "upstream.json")].find((f) => f && existsSync(f));
 const pin = copyPin ? (() => { try { return JSON.parse(read(copyPin)); } catch { return null; } })() : null;
 if (pin?.commit) {

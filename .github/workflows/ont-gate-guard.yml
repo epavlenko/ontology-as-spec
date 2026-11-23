@@ -1,0 +1,37 @@
+# The guard of the merge gate (D-158): a required check of the ruleset of main. pull_request_target runs
+# this file and the guard's code as main has them, never as the pull request does. The pull request is
+# fetched as data, its commits by the event's own values, and nothing of it is checked out or run: the
+# guard reads the paths the diff changes and the records at the head from Git's objects.
+# ont: field.merge-gate.guard, rule.ci-from-main
+name: ont-gate-guard
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  ont-gate-guard:
+    name: ont-gate-guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Fetch the pull request's commits as data
+        env:
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git fetch --no-tags --quiet "https://github.com/$REPO" "$HEAD_SHA" "$BASE_SHA"
+      - name: Gate paths changed only with an approval
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node tools/ont-check/merge-gate.mjs guard --base "$BASE_SHA" --head "$HEAD_SHA"

@@ -258,6 +258,7 @@ What must hold for the approach, whatever implements it. The automatic checks ar
 | --- | --- | --- | --- | --- | --- |
 | `check.owner-approval.after-findings` | `ent.owner-approval`, `derived.approval`, `edge.owner-approval.statement`, `field.owner-approval.task`, `field.owner-approval.by`, `field.owner-approval.source`, `field.owner-approval.time`, `rule.work-under-approval` | rounds of the review of a statement whose last found two findings, then a record of the owner's approval of the file's version; then a later round with findings | `--task` runs with the file, then `done.mjs` | after the approval work may start, approved by the owner, and `done.mjs` records done; after the later round no approval is in force | auto |
 | `check.owner-approval.needs-source` | `inv.owner-approval-sourced`, `field.owner-approval.source`, `field.owner-approval.by` | after rounds with findings, a record of the owner's approval without `Source:`, and one by an agent | the check runs with `--task` | each record is refused as one that cannot be read, the check fails, and work is not allowed | auto |
+| `check.owner-approval.english` | `rule.records-english-in-repo`, `ent.owner-approval` | in a project that sets `records.latinOnly`, a record of the owner's approval whose source quotes him in Cyrillic, and the same record with the quote transliterated | the check runs | the first is refused naming the letter and its line, and the second is read | auto |
 
 ## Task result
 

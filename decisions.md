@@ -1513,12 +1513,22 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: gates by local hooks alone (skipped by `--no-verify` and by a clone without hooks); the full check run from main on the pull request's code by `pull_request_target` (it would run the pull request's code with the rights of main); a squash or a rebase as the method of merge (the commit the reviewer accepted would not stay an ancestor of main); required checks by name alone (a status of another app under the same name would count).
 - Concepts: `ent.merge-gate`, `field.merge-gate.full-check`, `field.merge-gate.guard`, `field.merge-gate.gate-paths`, `field.merge-gate.rule-file`, `field.merge-gate.ci-workflow`, `edge.merge-gate.changes`, `rule.main-through-gate`, `rule.ci-from-main`, `rule.merge-what-was-checked`, `rule.early-pre-commit`, `inv.gate-change-approved`, `inv.ci-workflow-present`, `ent.gate-change`, `field.gate-change.task`, `field.gate-change.item`, `field.gate-change.paths`, `field.gate-change.commit`, `field.gate-change.time`, `edge.gate-change.statement`, `inv.gate-records-well-formed`, `ent.gate-proof`, `field.gate-proof.kind`, `field.gate-proof.probe`, `field.gate-proof.result`, `field.gate-proof.refused-by`, `field.gate-proof.head`, `field.gate-proof.base`, `field.gate-proof.check`, `field.gate-proof.run`, `field.gate-proof.required`, `field.gate-proof.answer`, `field.gate-proof.merge`, `field.gate-proof.time`, `edge.gate-proof.gate`, `rule.copy-verified-in-ci`, `rule.tree-after-server-merge`.
 
+### D-159 · Where records are English only, every record of the directory of task records is held to it
+
+- Date: 2026-11-23 · Status: accepted
+- Source: the statement of task enforcement-merge-gate, version 15, approved by its clean round 15, item 8, which corrects in place the record of the owner's approval of round-rules that quoted him in Cyrillic, under the goal enforcement and the owner's answer to question 1035, "a"; holding every record of tasks to the rule, so that such a record is refused rather than corrected by hand again, is the thread's technical decision there (`rule.strongest-step`).
+- Decision: where the configuration sets `records.latinOnly`, a record of the directory of task records, of any kind, spend, done, approval, gate change or gate proof, holds Latin letters only and no path outside the repository, as a record of a round does; one that does not is an error of the records (`rule.records-english-in-repo`). A configuration without the key reads the records as before.
+- Why: the rule held the records of rounds and of verdicts, while the record of an approval of round-rules carried the owner's words in Cyrillic and nothing refused it.
+- Rejected: a new record beside the old one (the goal asks that the old one be corrected in place, before records are closed to edits); the rule for projects without the key (a project's rule of language is its own, D-151).
+- Concepts: `rule.records-english-in-repo`.
+
 ## Tentative
 
 ## Open questions
 
 ## History
 
+- 2026-11-23: D-159 accepted under the approved statement of task enforcement-merge-gate, item 8.
 - 2026-11-23: D-158 accepted under the owner's answers to questions 1037, 1044, 1047 and 1058, in task enforcement-merge-gate.
 - 2026-11-22: D-154, D-155, D-156 and D-157 accepted under the owner's answers to questions 1040 and 1046; they supersede D-60, D-77, D-41 and D-78 whole.
 - 2026-11-22: D-153 accepted by the owner ("1032 a": merge as it is, the finding of round 5 of the review of the result, a restatement of the action on stagnation in four texts, filed as ticket 11).

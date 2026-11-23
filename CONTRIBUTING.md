@@ -30,7 +30,7 @@ npm run generate   # tooltips, contracts, reference pages and the approach's IDs
 npm test           # the check on the approach, the example and the templates, the decision guard, and all tests
 ```
 
-`npm test` prints `ONT_OK` three times and `GUARD_OK`, and every test passes; after `format` and `generate`, nothing is left to commit. To run the check and the guard on every commit, enable the hook once: `git config core.hooksPath .githooks`.
+`npm test` prints `ONT_OK` three times and `GUARD_OK`, and every test passes; after `format` and `generate`, nothing is left to commit. `npm install` enables the hooks once per clone, setting `core.hooksPath` to `.githooks`, so that the check and the guard run on the content of every commit; they are an early signal, and the checks `ont-check` and `ont-gate-guard` on GitHub hold the merge of a pull request ([Merging into main](docs/lifecycle.md#merging-into-main)).
 
 ## License of contributions
 

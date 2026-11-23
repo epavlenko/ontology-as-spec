@@ -8,6 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
+import { outsideRecord } from "./manual-runs.mjs";
 import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, conditionGatesIn, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
@@ -61,7 +62,7 @@ export const budgetLines = (budget) => BUDGET_ALL.map(([k, name]) => `${name}: $
 // A late record (lateRecords) is given to no reader: it is in malformed, which blocks every task.
 export function readTaskInputs(cfg) {
   const { rounds: parsedRounds, malformed: unreadable, top } = readRoundRecords(cfg);
-  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
+  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir, { latinOnly: cfg.records.latinOnly }) : { spend: [], done: [], approvals: [], gateChanges: [], gateProofs: [], malformed: [] };
   const late = lateRecords({ rounds: parsedRounds, done: parsed.done, approvals: parsed.approvals, gatesFrom: cfg.reviewRounds.gatesFrom ?? null });
   const kept = (x) => !late.some((l) => l.record === x);
   const malformed = [...unreadable, ...late.map((l) => l.text)];
@@ -84,11 +85,17 @@ export function lateRecords({ rounds, done = [], approvals = [], gatesFrom = nul
   });
 }
 
-// Records of done, of spend and of the owner's approval, with what is wrong with each.
-export function parseTaskRecords(dir) {
+// Records of done, of spend, of the owner's approval, of a gate change and of a gate proof, with what is
+// wrong with each. opts.latinOnly is the configuration's records.latinOnly: where it is set, a record
+// holds only English text and paths of the repository, as a record of a round does (D-151, D-158).
+// ont: ent.gate-change, field.gate-change.task, field.gate-change.item, field.gate-change.paths, field.gate-change.commit, field.gate-change.time, edge.gate-change.statement, inv.gate-records-well-formed
+// ont: ent.gate-proof, field.gate-proof.kind, field.gate-proof.probe, field.gate-proof.result, field.gate-proof.refused-by, field.gate-proof.head, field.gate-proof.base, field.gate-proof.check, field.gate-proof.run, field.gate-proof.required, field.gate-proof.answer, field.gate-proof.merge, field.gate-proof.time, edge.gate-proof.gate
+export function parseTaskRecords(dir, { latinOnly = false } = {}) {
   const spend = [];
   const done = [];
   const approvals = [];
+  const gateChanges = [];
+  const gateProofs = [];
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
     const text = read(f);
@@ -108,6 +115,7 @@ export function parseTaskRecords(dir) {
         !realTime(end) && `end ${end ?? "(none)"} is not a UTC time to the second`,
         realTime(start) && realTime(end) && start > end && `start ${start} is after its end ${end}`,
         ...counts.filter(([, v]) => v !== null && !/^\d+$/.test(v)).map(([k, v]) => `${k.toLowerCase()} ${v} is not a whole number`),
+        ...outsideOf(text, latinOnly),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
@@ -135,6 +143,7 @@ export function parseTaskRecords(dir) {
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
         !checks.length && "no checks",
         ...checks.filter((c) => !c.command || !["pass", "fail"].includes(c.result)).map((c) => `check ${c.command ?? ""} has no result pass or fail`),
+        ...outsideOf(text, latinOnly),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
@@ -154,12 +163,90 @@ export function parseTaskRecords(dir) {
         by !== "owner" && `by ${by ?? "(none)"}, not by owner: only the owner's approval is recorded so`,
         !source && "no source: the owner's words or answer it rests on, with the date",
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
+        ...outsideOf(text, latinOnly),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else approvals.push({ file: name, task, statementHash: hash, by, source, time });
-    } else malformed.push(`${name}: Record ${kind ?? "(none)"} is not spend, done or approval`);
+    } else if (kind === "gate-change") {
+      const g = gateChangeOf(text, name, { latinOnly });
+      if (g.wrong.length) malformed.push(`${name}: ${g.wrong.join("; ")}`);
+      else gateChanges.push(g.record);
+    } else if (kind === "gate-proof") {
+      const g = gateProofOf(text, name, { latinOnly });
+      if (g.wrong.length) malformed.push(`${name}: ${g.wrong.join("; ")}`);
+      else gateProofs.push(g.record);
+    } else malformed.push(`${name}: Record ${kind ?? "(none)"} is not spend, done, approval, gate-change or gate-proof`);
   }
-  return { spend, done, approvals, malformed };
+  return { spend, done, approvals, gateChanges, gateProofs, malformed };
+}
+
+const FULL_COMMIT = /^[0-9a-f]{40}$/;
+const lineOf = (text, name) => text.match(new RegExp(`^${name}:[ \\t]*(.*?)\\s*$`, "m"))?.[1] ?? null;
+// A path of the repository as a record names it: relative, with "/" between parts, no part "." or "..".
+const repoPath = (p) => Boolean(p) && !p.startsWith("/") && !p.includes("\\") && p.split("/").every((part) => part && part !== "." && part !== "..");
+// The text of a record outside the repository's language or tree, where the configuration asks for it.
+const outsideOf = (text, latinOnly) => (latinOnly ? outsideRecord(text, 1, { latinOnly }) : []);
+
+// A record of a gate change (D-158): a pull request's change of gate paths, the work of a task under the
+// approved version of its statement, named by the item of What to do that allows it, the paths and the
+// commit that made it; the file is <time>-<task>-gate-change.md.
+export function gateChangeOf(text, name, { latinOnly = false } = {}) {
+  const [task, hash, item, commit, time] = ["Task", "Statement-hash", "Item", "Commit", "Time"].map((k) => lineOf(text, k));
+  const paths = (blockLines(text, "Paths") ?? []).map((l) => l.replace(/^-\s*/, "").replace(/^`(.*)`$/, "$1").trim());
+  const wrong = [
+    !task && "no task",
+    task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
+    task && TASK_NAME.test(task) && !new RegExp(`^\\d{8}T\\d{6}Z-${task}-gate-change\\.md$`).test(name) && `the file is not named <time>-${task}-gate-change.md`,
+    !SHA256.test(hash ?? "") && `statement hash ${hash ?? "(none)"} is not a SHA-256`,
+    !item && "no item of What to do that allows the change",
+    !FULL_COMMIT.test(commit ?? "") && `commit ${commit ?? "(none)"} is not a full commit`,
+    !paths.length && "no paths",
+    ...paths.filter((p) => !repoPath(p)).map((p) => `path ${p || "(empty)"} is not a path of the repository`),
+    !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
+    ...outsideOf(text, latinOnly),
+  ].filter(Boolean);
+  return { wrong, record: { file: name, task, statementHash: hash, item, paths, commit, time } };
+}
+
+// A record of a gate proof (D-158): a live probe of a gate on GitHub, a refusal or a pass, of a pull
+// request or of a push; the file is <time>-<task>-gate-proof.md, by the task whose gate it probes.
+export const PROOF_KINDS = { refusal: "refused", pass: "merged" };
+export function gateProofOf(text, name, { latinOnly = false } = {}) {
+  const f = Object.fromEntries(["Gate", "Kind", "Probe", "Result", "Refused-by", "Head", "Base", "Check", "Run", "Required", "Answer", "Merge", "Time"].map((k) => [k, lineOf(text, k)]));
+  const pr = f.Probe?.match(/^pr (\d+)$/);
+  const push = f.Probe?.match(/^push (\S+)$/);
+  const pair = (v) => /^\S.* · \S+$/.test(v ?? "");
+  const runOk = /^\d+ · https:\/\/\S+$/.test(f.Run ?? "");
+  const results = ["refused", "merged", "pushed"];
+  const wrong = [
+    !f.Gate && "no gate: the task whose gate was probed",
+    f.Gate && !TASK_NAME.test(f.Gate) && `gate ${f.Gate} is not lower-case letters, digits and hyphens`,
+    f.Gate && TASK_NAME.test(f.Gate) && !new RegExp(`^\\d{8}T\\d{6}Z-${f.Gate}-gate-proof\\.md$`).test(name) && `the file is not named <time>-${f.Gate}-gate-proof.md`,
+    !(f.Kind in PROOF_KINDS) && `kind ${f.Kind ?? "(none)"} is not refusal or pass`,
+    !pr && !push && `probe ${f.Probe ?? "(none)"} is not "pr <number>" or "push <ref>"`,
+    !results.includes(f.Result) && `result ${f.Result ?? "(none)"} is not refused, merged or pushed`,
+    f.Kind === "refusal" && f.Result && f.Result !== "refused" && `result ${f.Result} disagrees with the kind refusal`,
+    f.Kind === "pass" && f.Result && f.Result === "refused" && `result refused disagrees with the kind pass`,
+    f.Kind === "refusal" && !f["Refused-by"] && "a refusal names no check or rule that refused it",
+    f.Kind === "refusal" && !f.Answer && "a refusal has no answer of GitHub",
+    f.Kind === "pass" && !FULL_COMMIT.test(f.Merge ?? "") && `a pass has no merge commit in full (${f.Merge ?? "none"})`,
+    ...(pr
+      ? [
+          !FULL_COMMIT.test(f.Head ?? "") && `head ${f.Head ?? "(none)"} is not a full commit`,
+          !FULL_COMMIT.test(f.Base ?? "") && `base ${f.Base ?? "(none)"} is not a full commit`,
+          !pair(f.Check) && `check ${f.Check ?? "(none)"} is not "<name> · <result>"`,
+          !runOk && `run ${f.Run ?? "(none)"} is not "<number> · <address>"`,
+          !pair(f.Required) && `required ${f.Required ?? "(none)"} is not "<name> · <result>"`,
+        ]
+      : []),
+    !realTime(f.Time) && `time ${f.Time ?? "(none)"} is not a UTC time to the second`,
+    ...outsideOf(text, latinOnly),
+  ].filter(Boolean);
+  const record = {
+    file: name, gate: f.Gate, kind: f.Kind, probe: f.Probe, result: f.Result, refusedBy: f["Refused-by"], head: f.Head, base: f.Base,
+    check: f.Check, run: f.Run, required: f.Required, answer: f.Answer, merge: f.Merge, time: f.Time,
+  };
+  return { wrong, record };
 }
 
 // The records whose commits do not resolve in the repository (inv.named-commits-resolve, D-145, D-148),

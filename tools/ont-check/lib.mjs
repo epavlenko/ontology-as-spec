@@ -172,7 +172,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "verdicts.dir", "verdicts.require", "records.latinOnly", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "verdicts.dir", "verdicts.require", "records.latinOnly", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "mergeGate.paths", "mergeGate.rules", "ci.workflow", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
@@ -299,6 +299,12 @@ export function loadConfig(configPath, text) {
     },
     // Records of a task's done and of the executor's spend, one file each (D-107, D-108).
     taskRecords: raw.taskRecords && { dir: at(raw.taskRecords.dir) },
+    // The merge gate on the server (D-158): the gate paths, which the guard holds, as paths from the root of
+    // the repository, and the rule file of the ruleset of main and the permissions of Actions.
+    // ont: field.merge-gate.gate-paths, field.merge-gate.rule-file, field.merge-gate.ci-workflow
+    mergeGate: raw.mergeGate && { paths: [...(raw.mergeGate.paths ?? [])], rules: at(raw.mergeGate.rules) },
+    // The workflow file of the project's full check in CI (D-158); a configuration without it is reported.
+    ci: raw.ci && { workflow: at(raw.ci.workflow) },
     // The approach's own releases (D-109): the file of their entries, in the approach's repository only.
     protocolReleases: raw.protocolReleases && { file: at(raw.protocolReleases.file ?? "releases.md") },
     // A product's releases and deployments, one file each, and the pin of the protocol whose hash a
