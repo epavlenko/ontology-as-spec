@@ -55,6 +55,7 @@ import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { renderRounds } from "./review-rounds.mjs";
 import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
+import { goalLineProblem } from "./spend.mjs";
 import { localRecordNotes, recordDirs } from "./merge-gate.mjs";
 import { briefsDir, pendingBriefs } from "./briefs.mjs";
 import { sealed } from "./seal.mjs";
@@ -1527,6 +1528,14 @@ if (cfg.reviewRounds) {
   report("rounds of review whose commits this clone does not have (no acceptance of the latest record of done rests on them)", resolved.notes, false, 10);
   report("contributions recorded twice over intervals that overlap", overlaps(rounds, records.spend));
   report("verdicts of acceptance refused", acceptanceProblems(rounds, records.done, records.approvals));
+  // A line Goal: of a record of done or of a kept brief is held to agree with the configuration's goals,
+  // which alone give the goal a task is counted with (D-176).
+  // ont: field.task-statement.goal, field.task-result.budget, field.round-brief.lines
+  if (cfg.spend?.fromLogs === true)
+    report("records whose line Goal: is not the goal the configuration lists the task under", [
+      ...records.done.filter((d) => d.goal).map((d) => goalLineProblem(cfg, d.task, { line: d.goal, of: `${d.file}: the record of done` })),
+      ...pendingBriefs(cfg.base).filter((b) => b.brief?.Goal).map((b) => goalLineProblem(cfg, b.task, { line: b.brief.Goal, of: `the kept brief of ${b.task}, ${b.step}` })),
+    ].filter(Boolean));
   // The round that ends a task names its overspend as the tool computes it: required past the
   // configuration's limits, and every spend it names the one the tool sums (D-128); --task, with the
   // statement's own limits, compares the whole line.

@@ -35,7 +35,7 @@ A mockup shows a state: overdue, reserved, suspended. It cannot show a loan beco
 
 The check confirms that the files named in the table exist and which of them name the concept in an `ont:` comment, not that they implement it. For the classes that tests must cover, a tagged test is required as well. For the other classes, a row is a claim that a reviewer confirms.
 
-<!-- ont: field.task-statement.budget@86d641, derived.task-budget@5163b5 -->
+<!-- ont: field.task-statement.budget@86d641, derived.task-budget@134a01 -->
 ### A task's reserve is read with two decimal digits
 
 A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at most two digits after the point, so the cap of a task's budget is exact. The configuration is JSON, and its parser rounds a long fraction to a number before the tool reads it, so a value that rounds to two digits passes the check. A record of done that `done.mjs` itself wrote before the rule, with a reserve of three digits such as `1.125`, is refused by the check even beside a later, correct one. If the approved statement still gives that reserve, correct the statement and have the corrected version approved first; then remove the old record, record done again, and give again in a new round the acceptance given for it. An `Overspend:` line in the earlier text is refused and written again. Each arises from a configuration edited by hand or a record the earlier tool wrote (D-150).

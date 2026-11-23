@@ -13,7 +13,10 @@
 // the option chosen and the English translation of the owner's words from --english, marked "translated
 // from Russian"; the original stays in the registry. A record of a gate closes the gate; whether it
 // approves the version is read by --task as an approval until a later task of the goal tells them apart.
-// ont: action.record-approval, field.owner-approval.kind, field.owner-approval.question, field.owner-approval.round, inv.owner-approval-sourced, rule.records-by-tool
+// The record carries the statement's limits and reserve, Budget-new-input:, Budget-output: and
+// Budget-reserve:, as done.mjs writes them, so that it is a record of the version it names for the limits
+// by version (D-176).
+// ont: action.record-approval, field.owner-approval.budget, field.owner-approval.kind, field.owner-approval.question, field.owner-approval.round, inv.owner-approval-sourced, rule.records-by-tool
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
@@ -22,7 +25,7 @@ import { loadConfig } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
 import { TASK_NAME } from "./review-rounds.mjs";
 import { writeSealed } from "./seal.mjs";
-import { readStatement, readTaskInputs } from "./tasks.mjs";
+import { budgetLines, readStatement, readTaskInputs } from "./tasks.mjs";
 
 export const REGISTRY_ENV = "ONT_REGISTRY_CMD";
 const MEANS = { approval: ["approve"], gate: ["approve", "answer"] };
@@ -53,6 +56,8 @@ function main(argv) {
   const file = value("--statement");
   if (!file || !existsSync(file)) return refuse("give the statement with --statement FILE");
   const statement = readStatement(file);
+  // A line of the budget the tool cannot read would be carried as none (D-150, D-176).
+  if (statement.wrong.length) return refuse(`the statement's ${statement.wrong.join("; ")}`);
   const n = value("--question");
   if (!/^\d+$/.test(n ?? "")) return refuse("give the number of the question with --question N");
   const kind = value("--kind");
@@ -86,6 +91,8 @@ function main(argv) {
     `Kind: ${kind}`,
     `Task: ${task}`,
     `Statement-hash: ${statement.hash}`,
+    // The limits and the reserve of the version it approves (field.owner-approval.budget, D-176).
+    ...budgetLines(statement.budget),
     "By: owner",
     `Question: ${n}`,
     ...(round ? [`Round: ${round}`] : []),

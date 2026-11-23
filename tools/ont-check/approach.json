@@ -211,6 +211,7 @@
     "field.ontology-tree.built-from",
     "field.ontology-tree.place",
     "field.other-word.word",
+    "field.owner-approval.budget",
     "field.owner-approval.by",
     "field.owner-approval.kind",
     "field.owner-approval.question",

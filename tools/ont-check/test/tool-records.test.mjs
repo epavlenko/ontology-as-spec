@@ -16,7 +16,7 @@ import { guard, localRecordNotes } from "../merge-gate.mjs";
 import { nextRound, parseRounds, stepPayoff } from "../review-rounds.mjs";
 import { sealState, sealed } from "../seal.mjs";
 import { logSpend, overspendOf, roundSpend, snapshotSpend } from "../spend.mjs";
-import { applyFixes, approvedHash, readStatement, readTaskInputs, sha256, snapshotOverspendProblems, spendOf, taskNext, taskState, versionInForce, versionLimits } from "../tasks.mjs";
+import { applyFixes, approvedHash, goalLinesOf, readStatement, readTaskInputs, sha256, snapshotOverspendProblems, spendOf, taskNext, taskState, versionInForce, versionLimits } from "../tasks.mjs";
 
 const TOP = fileURLToPath(new URL("../../../", import.meta.url));
 const TOOLS = join(TOP, "tools/ont-check");
@@ -121,14 +121,15 @@ function logs() {
 
 // The records and functions of a project, as the tool reads them.
 const inputsOf = (p) => readTaskInputs(p.config());
-// The limits and the goal of the version in force, as every reader asks them (D-174).
+// The limits of the version in force, as every reader asks them (D-174), and the lines Goal: held to agree
+// with the configuration's goals, which give the goal (D-176).
 const spendIn = (p, task, st, env) => {
   const cfg = p.config();
   const inputs = inputsOf(p);
   const statement = st ? readStatement(st.file) : null;
   const version = versionInForce({ rounds: inputs.rounds, approvals: inputs.records.approvals, task, statement });
-  const l = versionLimits({ task, version, statement, done: inputs.records.done, snapshots: inputs.records.snapshots, defaults: cfg.budget });
-  return logSpend({ cfg, task, goal: l.goal, rounds: inputs.rounds, limits: { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version }, approvedOf: (t) => approvedHash(inputs.rounds, t, null, inputs.records.approvals), readStatementFile: readStatement, env });
+  const l = versionLimits({ task, version, statement, done: inputs.records.done, approvals: inputs.records.approvals, snapshots: inputs.records.snapshots, defaults: cfg.budget });
+  return logSpend({ cfg, task, goalLines: goalLinesOf({ statement, limits: l }), rounds: inputs.rounds, limits: { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version }, approvedOf: (t) => approvedHash(inputs.rounds, t, null, inputs.records.approvals), readStatementFile: readStatement, env });
 };
 
 // A brief and the reviewer's reply to it: the brief's lines word for word, then the reply's own.
@@ -790,6 +791,92 @@ test("[check.spend-snapshot.revised-statement-stop] a revised statement whose ow
   assert.match(refused.out, /^ERROR · no brief written: .*the budget is exhausted: a question to the owner \(the reserve of the task t is spent\)/m);
 });
 
+test("[check.spend-snapshot.approval-only-record] the owner's approval written by approve.mjs is the only record of the approved version, and a revised version is read before any record of done: --task and round.mjs brief count the goal against the approved version's limits and both stop past the goal's reserve; an approval written before its limits reads as before, the goal still counted", () => {
+  // A task t of goal g whose version A has a finding not fixable, which only the owner's approval answers.
+  const setup = () => {
+    const p = project({ fromLogs: true, goals: { g: ["t"] } });
+    const gst = statement({ budget: [1000, 1000] });
+    p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, at(-10)));
+    const a = statement({ goal: "g", budget: [1000000, 200000] });
+    p.put("reviews/rounds/20261101T100000Z-t-statement-1.md", ["Task: t", "Step: statement-review", "Number: 1", `Time: ${at(0)}`, "By: m (p)", `Statement-hash: ${a.hash}`, "Findings:", "- a choice · important · change · not fixable", ""].join("\n"));
+    p.commit("the goal approved, version A reviewed");
+    return { p, gst, a };
+  };
+  // A spend past the goal's reserve, 1000 × 1.5, and well within A's.
+  const L = logs();
+  L.claudeSession("exec-1", [{ user: "the goal g", time: at(-5) }, { msg: "e1", time: at(5), new: 2000, out: 1 }]);
+  const { p, gst, a } = setup();
+  const env = L.env({ ONT_GOAL_STATEMENT: gst.file });
+  const cmd = registry({ 7: { question: `Approve task t, version ${a.hash.slice(0, 12)}?`, options: [{ key: "a", meaning: "approve" }], answer: { by: "owner", date: "2026-11-23", option: "a" } } });
+  const ok = p.tool("approve.mjs", ["t", "--statement", a.file, "--english", writeFile("approve it"), "--question", "7", "--kind", "approval"], { ONT_REGISTRY_CMD: cmd });
+  assert.equal(ok.code, 0, ok.out);
+  const approvalFile = readdirSync(join(p.dir, "reviews/tasks")).find((f) => f.endsWith("-t-approval.md"));
+  const approvalText = readFileSync(join(p.dir, "reviews/tasks", approvalFile), "utf8");
+  // The record of the approval carries A's limits and reserve.
+  assert.match(approvalText, /^Budget-new-input: 1000000\nBudget-output: 200000\nBudget-reserve: 1\.5$/m);
+  p.commit("A approved by the owner");
+  const inputs = inputsOf(p);
+  assert.deepEqual(inputs.records.malformed, []);
+  assert.equal(inputs.records.done.length, 0);
+  assert.equal(approvedHash(inputs.rounds, "t", null, inputs.records.approvals), a.hash);
+  // Version B, revised, with the same goal; no record of done and no kept brief of either version.
+  const b = statement({ goal: "g", budget: [1000000, 200000], extra: "Revised.\n\n" });
+  const task = p.tool("ont-check.mjs", ["--task", "t", "--statement", b.file], env);
+  assert.match(task.out, /^SPEND t: from the session logs since \S+: goal g new input 2000 of 1000 × 1\.5 = 1500, output 1 of 1000 × 1\.5 = 1500; task t new input 0 of 1000000 × 1\.5 = 1500000, output 0 of 200000 × 1\.5 = 300000; past the reserve$/m);
+  assert.match(task.out, /^NEXT t: the budget is exhausted: a question to the owner \(the reserve of the goal g is spent\)$/m);
+  const refused = p.tool("round.mjs", ["brief", "t", "--step", "statement", "--statement", b.file], env);
+  assert.notEqual(refused.code, 0, refused.out);
+  assert.match(refused.out, /^ERROR · no brief written: .*the budget is exhausted: a question to the owner \(the reserve of the goal g is spent\)/m);
+  // An approval written before the record carried limits: the configuration's limits, none here, and the goal still counted.
+  const q = setup();
+  q.p.put("reviews/tasks/20261101T110000Z-t-approval.md", ["Record: approval", "Kind: approval", "Task: t", `Statement-hash: ${q.a.hash}`, "By: owner", "Question: 7", 'Source: question 7, answered 2026-11-01, option a: "approve it" (translated from Russian)', `Time: ${at(60)}`, ""].join("\n"));
+  q.p.commit("A approved before the lines");
+  const old = inputsOf(q.p);
+  assert.deepEqual(old.records.malformed, []);
+  assert.equal(old.records.approvals[0].budget, null);
+  const qb = statement({ goal: "g", budget: [1000000, 200000], extra: "Revised.\n\n" });
+  const qenv = L.env({ ONT_GOAL_STATEMENT: q.gst.file });
+  const before = q.p.tool("ont-check.mjs", ["--task", "t", "--statement", qb.file], qenv);
+  assert.match(before.out, /^SPEND t: from the session logs since \S+: goal g new input 2000 of 1000 × 1\.5 = 1500, output 1 of 1000 × 1\.5 = 1500; task t new input 0, no limit, output 0, no limit; past the reserve$/m);
+  assert.match(before.out, /^NEXT t: the budget is exhausted: a question to the owner \(the reserve of the goal g is spent\)$/m);
+  assert.match(q.p.tool("round.mjs", ["brief", "t", "--step", "statement", "--statement", qb.file], qenv).out, /^ERROR · no brief written: .*the reserve of the goal g is spent/m);
+});
+
+test("[check.spend-snapshot.goal-agrees] the goal is the one the configuration lists the task under: a line Goal: that names another goal, a statement of a listed task with no line, and a goal named for a task listed under none are errors of --task, round.mjs brief and done.mjs; a record of done whose line disagrees is an error of the check", () => {
+  const p = project({ fromLogs: true, goals: { g: ["t"], h: ["x"] } });
+  const gst = statement({ budget: [100000, 100000] });
+  p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, at(-10)));
+  const st = statement({ goal: "g" });
+  p.put("reviews/rounds/20261101T100000Z-t-statement-1.md", cleanStatementRound("t", st.hash, at(0)));
+  const work = p.commit("approved");
+  const L = logs();
+  L.claudeSession("exec-1", [{ user: "the goal g", time: at(-5) }, { msg: "e1", time: at(1), new: 10, out: 1 }]);
+  const env = L.env({ ONT_GOAL_STATEMENT: gst.file });
+  // The line agrees: the spend is the goal's.
+  assert.equal(spendIn(p, "t", st, env).unit, "g");
+  const cases = [
+    [statement({ goal: "h", extra: "Another goal.\n\n" }), "t", /the statement names the goal h on Goal:, and the configuration lists t under the goal g/],
+    [statement({ extra: "No goal.\n\n" }), "t", /the statement names no goal on Goal:, and the configuration lists t under the goal g/],
+    [statement({ goal: "g", extra: "Not listed.\n\n" }), "w", /the statement names the goal g on Goal:, and the configuration does not list w among its tasks/],
+  ];
+  for (const [s, task, why] of cases) {
+    assert.match(spendIn(p, task, s, env).errors.join(";"), why);
+    const t = p.tool("ont-check.mjs", ["--task", task, "--statement", s.file], env);
+    assert.notEqual(t.code, 0, t.out);
+    assert.match(t.out, why);
+    assert.match(p.tool("round.mjs", ["brief", task, "--step", "statement", "--statement", s.file], env).out, new RegExp(`^ERROR · no brief written: .*${why.source}`, "m"));
+    assert.match(p.tool("done.mjs", [task, "--statement", s.file], env).out, new RegExp(`no record of done written: .*${why.source}`));
+  }
+  // A record of done of t whose line names another goal: the full check names it.
+  const time = at(30);
+  p.put(`reviews/tasks/${time.replace(/[-:]/g, "")}-t-done.md`, ["Record: done", "Task: t", `Commit: ${work}`, `Statement-hash: ${st.hash}`, "Budget-new-input: 1000", "Budget-output: 1000", "Budget-reserve: 1.5", "Goal: h", `Time: ${time}`, "Checks:", "- true · pass", ""].join("\n"));
+  p.commit("done naming another goal");
+  const check = p.tool("ont-check.mjs", [], env);
+  assert.notEqual(check.code, 0, check.out);
+  assert.match(check.out, /records whose line Goal: is not the goal the configuration lists the task under/);
+  assert.match(check.out, /-t-done\.md: the record of done names the goal h on Goal:, and the configuration lists t under the goal g/);
+});
+
 test("[check.spend-snapshot.snapshot-of-version] with no logs, no kept brief and no record of done of the version in force, a reader takes only a snapshot of spend of that version: after the approval of a newer version with no snapshot of it, --rounds shows none of the older version's limits as the newer one's", () => {
   const p = project({ fromLogs: true, goals: {} });
   const cfg = JSON.parse(readFileSync(join(p.dir, "ont.config.json"), "utf8"));
@@ -829,7 +916,7 @@ test("[check.spend-snapshot.snapshot-of-version] with no logs, no kept brief and
   assert.equal(spendOf({ cfg: p.config(), task: "t", version: a.hash, inputs, env: {} }).fromSnapshot, snap);
 });
 
-test("[check.task-statement.limits-by-version] the limits of a version come from the records of that version alone: its file, its kept brief, its record of done or its snapshot of spend, and the configuration's where none holds them", () => {
+test("[check.task-statement.limits-by-version] the limits of a version come from the records of that version alone: its file, its kept brief, its record of done, the owner's approval or its snapshot of spend, and the configuration's where none holds them; the line Goal: a record carries is given apart, never as the scope", () => {
   const defaults = { newInput: 95000, output: 10000, reserve: 1.25 };
   const H = (c) => c.repeat(64);
   const statementOf = { hash: H("a"), budget: { newInput: 1, output: 2, reserve: 1.5 }, goal: "g" };
@@ -839,14 +926,25 @@ test("[check.task-statement.limits-by-version] the limits of a version come from
     { task: "t", file: "f.md", time: at(2), statementHash: H("f"), budget: { newInput: 99, output: 99, reserve: 3 }, goal: "other" },
   ];
   const snapshots = [{ task: "t", unit: "g", file: "d.md", time: at(3), limits: { task: { newInput: 7, output: 8, reserve: 1.5, hash: H("d") }, unit: {} } }];
-  const of = (version) => versionLimits({ task: "t", version, statement: statementOf, pending, done, snapshots, defaults });
-  assert.deepEqual(of(H("a")), { newInput: 1, output: 2, reserve: 1.5, version: H("a"), goal: "g", from: "statement" });
+  // The owner's approval of version 1 with its limits (D-176), and one of version 2 written before them.
+  const approvals = [
+    { task: "t", file: "1.md", time: at(4), statementHash: H("1"), budget: { newInput: 11, output: 12, reserve: 1.5 } },
+    { task: "t", file: "2.md", time: at(5), statementHash: H("2"), budget: null },
+  ];
+  const of = (version) => versionLimits({ task: "t", version, statement: statementOf, pending, done, approvals, snapshots, defaults });
+  assert.deepEqual(of(H("a")), { newInput: 1, output: 2, reserve: 1.5, version: H("a"), goalLine: "g", from: "statement" });
   // A limit the version gives as none is the configuration's.
-  assert.deepEqual(of(H("b")), { newInput: 3, output: 10000, reserve: 2, version: H("b"), goal: "g", from: "brief" });
-  assert.deepEqual(of(H("c")), { newInput: 5, output: 6, reserve: 1.25, version: H("c"), goal: null, from: "done" });
-  assert.deepEqual(of(H("d")), { newInput: 7, output: 8, reserve: 1.5, version: H("d"), goal: "g", from: "snapshot" });
+  assert.deepEqual(of(H("b")), { newInput: 3, output: 10000, reserve: 2, version: H("b"), goalLine: "g", from: "brief" });
+  assert.deepEqual(of(H("c")), { newInput: 5, output: 6, reserve: 1.25, version: H("c"), goalLine: null, from: "done", file: "c.md" });
+  assert.deepEqual(of(H("1")), { newInput: 11, output: 12, reserve: 1.5, version: H("1"), goalLine: null, from: "approval", file: "1.md" });
+  // A snapshot's unit is not a line Goal:: the goal is the configuration's (D-176).
+  assert.deepEqual(of(H("d")), { newInput: 7, output: 8, reserve: 1.5, version: H("d"), goalLine: null, from: "snapshot", file: "d.md" });
+  // An approval written before its limits reads as before: the configuration's.
+  assert.deepEqual(of(H("2")), { newInput: 95000, output: 10000, reserve: 1.25, version: H("2"), goalLine: null, from: "configuration" });
   // A version no record holds: the configuration's, whatever other versions hold.
-  assert.deepEqual(of(H("e")), { newInput: 95000, output: 10000, reserve: 1.25, version: H("e"), goal: null, from: "configuration" });
+  assert.deepEqual(of(H("e")), { newInput: 95000, output: 10000, reserve: 1.25, version: H("e"), goalLine: null, from: "configuration" });
+  // The record of done f names another goal on Goal:: it is held to agree, given apart, never the scope.
+  assert.deepEqual(goalLinesOf({ limits: of(H("f")) }), [{ line: "other", of: "the record of done f.md" }]);
   // Records of another task give nothing.
   assert.equal(versionLimits({ task: "u", version: H("c"), done, defaults }).from, "configuration");
   // The version in force: the approval's, else the file's, else the kept brief's, else the latest round's.
@@ -993,7 +1091,7 @@ function registry(entries) {
   return `${process.execPath} ${join(d, "registry.mjs")}`;
 }
 
-test("[check.owner-approval.by-registry] no answer, an answer of another version, a gate with no round and an option that does not approve are refused; an approval and an answer to a gate are written from the registry", () => {
+test("[check.owner-approval.by-registry] no answer, an answer of another version, a gate with no round and an option that does not approve are refused; an approval and an answer to a gate are written from the registry, with the limits and the reserve of the version", () => {
   const p = project({ fromLogs: false });
   const st = statement();
   p.put("reviews/rounds/20261101T100000Z-t-statement-1.md", ["Task: t", "Step: statement-review", "Number: 1", `Time: ${at(0)}`, "By: m (p)", `Statement-hash: ${st.hash}`, "Findings:", "- a choice · important · change · not fixable", ""].join("\n"));
@@ -1023,6 +1121,9 @@ test("[check.owner-approval.by-registry] no answer, an answer of another version
   assert.deepEqual(inputs.records.malformed, []);
   const [a, g] = inputs.records.approvals.sort((x, y) => x.kind.localeCompare(y.kind));
   assert.equal(a.kind, "approval");
+  // Each record carries the limits and the reserve of the version it names (field.owner-approval.budget).
+  assert.deepEqual(a.budget, { newInput: 1000, output: 1000, reserve: 1.5 });
+  assert.deepEqual(g.budget, { newInput: 1000, output: 1000, reserve: 1.5 });
   assert.equal(a.source, 'question 4, answered 2026-11-22, option a: "yes, approve it" (translated from Russian)');
   assert.equal(g.kind, "gate");
   assert.equal(g.round, "20261101T100000Z-t-statement-1.md");

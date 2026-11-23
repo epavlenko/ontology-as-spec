@@ -7,8 +7,9 @@
 // ONT_CLAUDE_LOGS and ONT_CODEX_LOGS, each one or more directories separated as PATH separates them; the
 // sessions of the executor of the unit, ONT_EXECUTOR_SESSIONS, IDs separated by commas or white space; and,
 // for a task of a goal, the goal's statement, ONT_GOAL_STATEMENT, whose version must be approved in force.
-// The unit of the budget is the goal a statement names on its line Goal:, whose tasks the configuration
-// lists under goals, or else the task itself. The unit starts at its first brief of a round, or, for the
+// The unit of the budget is the goal the configuration lists the task under in goals, for every version of
+// its statement, or else the task itself; a line Goal: of a statement, a brief or a record of done is held
+// to agree with goals and is no source of the goal (D-176). The unit starts at its first brief of a round, or, for the
 // rounds before the writers, at its first record of a round of the review of its statement; the logs are
 // read whole and the events after the start counted. An event is a message of Claude, once by its ID, or a
 // record token_count of Codex, whose part is the difference of its running totals with the record before it
@@ -193,16 +194,39 @@ export function roundSpend(sessions, brief) {
   return { found: true, sum, sessions: parts.map((p) => p.s) };
 }
 
-// The unit of the budget of a task (D-169): the goal its statement names, which the configuration lists
-// with its tasks under goals, the goal itself when the task is one, or the task.
-export function unitOf(cfg, task, statement) {
+// The unit of the budget of a task (D-169, D-176): the goal the configuration lists it under in goals,
+// whatever version of its statement is read, the goal itself when the task is one, or else the task; a
+// task listed under two goals is an error.
+export function goalOf(cfg, task) {
   const goals = cfg.goals ?? {};
   if (Object.hasOwn(goals, task)) return { unit: task, goal: true, members: [...goals[task]], isGoal: true };
-  const g = statement?.goal ?? null;
-  if (!g) return { unit: task, goal: false, members: [task] };
-  if (!Object.hasOwn(goals, g)) return { error: `the statement names the goal ${g} on Goal:, and the configuration lists no goal ${g} under goals` };
-  if (!goals[g].includes(task)) return { error: `the statement names the goal ${g} on Goal:, and the configuration does not list ${task} among its tasks` };
-  return { unit: g, goal: true, members: [...goals[g]] };
+  const under = Object.keys(goals).filter((g) => goals[g].includes(task));
+  if (under.length > 1) return { error: `the configuration lists ${task} under more than one goal, ${under.join(", ")}` };
+  if (!under.length) return { unit: task, goal: false, members: [task] };
+  return { unit: under[0], goal: true, members: [...goals[under[0]]] };
+}
+
+// What is wrong with a line Goal: against the configuration's goals (D-176), or null: line is the goal the
+// line names, or null where the text has none; of names the text, a statement, a kept brief or a record of
+// done; required, for a statement given, makes a missing line of a task listed under a goal an error, so
+// that the unit is still the goal the statement names (field.task-statement.goal).
+export function goalLineProblem(cfg, task, { line = null, of = "the statement", required = false } = {}) {
+  const u = goalOf(cfg, task);
+  if (u.error || u.isGoal) return null;
+  const goals = cfg.goals ?? {};
+  if (line === null || line === undefined) return required && u.goal ? `${of} names no goal on Goal:, and the configuration lists ${task} under the goal ${u.unit}` : null;
+  if (!Object.hasOwn(goals, line)) return `${of} names the goal ${line} on Goal:, and the configuration lists no goal ${line} under goals`;
+  if (!u.goal) return `${of} names the goal ${line} on Goal:, and the configuration does not list ${task} among its tasks`;
+  if (line !== u.unit) return `${of} names the goal ${line} on Goal:, and the configuration lists ${task} under the goal ${u.unit}`;
+  return null;
+}
+
+// The unit of a task with the lines Goal: held to agree with it (D-176): lines are { line, of, required }.
+export function unitOf(cfg, task, lines = []) {
+  const u = goalOf(cfg, task);
+  if (u.error) return u;
+  const wrong = lines.map((l) => goalLineProblem(cfg, task, l)).filter(Boolean);
+  return wrong.length ? { error: wrong.join("; ") } : u;
 }
 
 // The start of a unit: the earliest time of a brief of a round of any of its tasks or of the goal itself,
@@ -229,13 +253,14 @@ export const reached = (used, cap, strict = false) => cap !== null && (strict ? 
 
 // The whole state of spend of a task (D-169): its unit, the start, the sums of the unit and of the task,
 // the limits each was compared with, and whether either is spent; null where the configuration does not
-// set spend.fromLogs; with missing, the inputs the environment does not give. goal and limits are the goal
-// and the task's limits and reserve of the version of its statement that applies, as derived.task-budget
-// gives them for that version (D-174); approvedOf(task) the version approved in force.
-export function logSpend({ cfg, task, goal = null, rounds, pending = [], limits, approvedOf, readStatementFile, env = process.env, sessions = null }) {
+// set spend.fromLogs; with missing, the inputs the environment does not give. limits are the task's limits
+// and reserve of the version of its statement that applies, as derived.task-budget gives them for that
+// version (D-174); goalLines the lines Goal: of the statement given and of the record of that version, held
+// to agree with goals (D-176); approvedOf(task) the version approved in force.
+export function logSpend({ cfg, task, goalLines = [], rounds, pending = [], limits, approvedOf, readStatementFile, env = process.env, sessions = null }) {
   if (cfg.spend?.fromLogs !== true) return null;
-  // The scope of the budget: the goal of the version that applies (D-172, D-174).
-  const u = unitOf(cfg, task, goal ? { goal } : null);
+  // The scope of the budget: the goal the configuration lists the task under, whatever version (D-176).
+  const u = unitOf(cfg, task, goalLines);
   if (u.error) return { errors: [u.error], missing: [] };
   const members = [...new Set([...u.members, u.unit])];
   const missing = [];
