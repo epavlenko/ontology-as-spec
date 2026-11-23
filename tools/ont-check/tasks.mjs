@@ -91,7 +91,7 @@ export function lateRecords({ rounds, done = [], approvals = [], gatesFrom = nul
 // round does (D-151, D-158); a record of spend, of done or of approval is read as before, with no rule of
 // language (D-162).
 // ont: ent.gate-change, field.gate-change.task, field.gate-change.item, field.gate-change.paths, field.gate-change.commit, field.gate-change.time, edge.gate-change.statement, inv.gate-records-well-formed
-// ont: ent.gate-proof, field.gate-proof.kind, field.gate-proof.probe, field.gate-proof.result, field.gate-proof.refused-by, field.gate-proof.head, field.gate-proof.base, field.gate-proof.check, field.gate-proof.run, field.gate-proof.required, field.gate-proof.answer, field.gate-proof.merge, field.gate-proof.time, edge.gate-proof.gate
+// ont: ent.gate-proof, field.gate-proof.kind, field.gate-proof.probe, field.gate-proof.result, field.gate-proof.refused-by, field.gate-proof.head, field.gate-proof.base, field.gate-proof.main-after, field.gate-proof.check, field.gate-proof.run, field.gate-proof.required, field.gate-proof.answer, field.gate-proof.merge, field.gate-proof.time, edge.gate-proof.gate
 export function parseTaskRecords(dir, { latinOnly = false } = {}) {
   const spend = [];
   const done = [];
@@ -211,10 +211,13 @@ export function gateChangeOf(text, name, { latinOnly = false } = {}) {
 // request or of a push; the file is <time>-<task>-gate-proof.md, by the task whose gate it probes. The
 // result agrees with the kind: a refusal, of a pull request or of a push, was refused, and a pass is an
 // ordinary merge through the gate, of a pull request, merged. A kind is one of the two by its own name,
-// never by a name every object inherits, such as constructor.
+// never by a name every object inherits, such as constructor. A refusal for being behind, whose
+// Refused-by names the branch up to date with main, out of date or behind, keeps the base read before
+// main moved on and the tip of main after, Main-after, as two commits: a base equal to the tip was read
+// after main moved on.
 export const PROOF_KINDS = { refusal: "refused", pass: "merged" };
 export function gateProofOf(text, name, { latinOnly = false } = {}) {
-  const f = Object.fromEntries(["Gate", "Kind", "Probe", "Result", "Refused-by", "Head", "Base", "Check", "Run", "Required", "Answer", "Merge", "Time"].map((k) => [k, lineOf(text, k)]));
+  const f = Object.fromEntries(["Gate", "Kind", "Probe", "Result", "Refused-by", "Head", "Base", "Main-after", "Check", "Run", "Required", "Answer", "Merge", "Time"].map((k) => [k, lineOf(text, k)]));
   const pr = f.Probe?.match(/^pr (\d+)$/);
   const push = f.Probe?.match(/^push (\S+)$/);
   const pair = (v) => /^\S.* · \S+$/.test(v ?? "");
@@ -223,6 +226,7 @@ export function gateProofOf(text, name, { latinOnly = false } = {}) {
   const kind = Object.hasOwn(PROOF_KINDS, f.Kind ?? "") ? f.Kind : null;
   const probe = pr ? "pr" : push ? "push" : null;
   const expected = kind ? PROOF_KINDS[kind] : null;
+  const behind = f.Kind === "refusal" && /up to date|out of date|\bbehind\b/i.test(f["Refused-by"] ?? "");
   const wrong = [
     !f.Gate && "no gate: the task whose gate was probed",
     f.Gate && !TASK_NAME.test(f.Gate) && `gate ${f.Gate} is not lower-case letters, digits and hyphens`,
@@ -234,6 +238,10 @@ export function gateProofOf(text, name, { latinOnly = false } = {}) {
     kind === "pass" && probe === "push" && "a pass is a merge of a pull request, not a push",
     f.Kind === "refusal" && !f["Refused-by"] && "a refusal names no check or rule that refused it",
     f.Kind === "refusal" && !f.Answer && "a refusal has no answer of GitHub",
+    behind && !f["Main-after"] && "a refusal for being behind has no Main-after: the tip of main read after it moved on",
+    f["Main-after"] && !behind && "Main-after is the tip of main of a refusal for being behind, and this record is none",
+    f["Main-after"] && !FULL_COMMIT.test(f["Main-after"]) && `main-after ${f["Main-after"]} is not a full commit`,
+    behind && f["Main-after"] && f.Base === f["Main-after"] && "the base is the tip of main after it moved on: it was read after main moved, not before",
     f.Kind === "pass" && !FULL_COMMIT.test(f.Merge ?? "") && `a pass has no merge commit in full (${f.Merge ?? "none"})`,
     ...(pr
       ? [
@@ -248,7 +256,7 @@ export function gateProofOf(text, name, { latinOnly = false } = {}) {
     ...outsideOf(text, latinOnly),
   ].filter(Boolean);
   const record = {
-    file: name, gate: f.Gate, kind: f.Kind, probe: f.Probe, result: f.Result, refusedBy: f["Refused-by"], head: f.Head, base: f.Base,
+    file: name, gate: f.Gate, kind: f.Kind, probe: f.Probe, result: f.Result, refusedBy: f["Refused-by"], head: f.Head, base: f.Base, mainAfter: f["Main-after"],
     check: f.Check, run: f.Run, required: f.Required, answer: f.Answer, merge: f.Merge, time: f.Time,
   };
   return { wrong, record };

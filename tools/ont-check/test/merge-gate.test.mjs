@@ -444,6 +444,31 @@ test("[check.gate-proof.read] records of a refusal and of a pass are read with t
   assert.equal(r.malformed.length, 10);
 });
 
+const BEHIND = PROOF(["Kind: refusal", "Result: refused", "Refused-by: the branch up to date with main", "Answer: Head branch is out of date with the base branch.", ...PR_LINES.map((l) => l.replace("failure", "success")), `Main-after: ${"e".repeat(40)}`]);
+
+test("[check.gate-proof.read] a refusal for being behind keeps the base read before main moved on and the tip of main after, as two commits, and one without the earlier base is refused", () => {
+  const name = (i) => `20261124T10010${i}Z-enforcement-merge-gate-gate-proof.md`;
+  const r = records({
+    [name(0)]: BEHIND,
+    [name(1)]: BEHIND.replace(/^Main-after: .*\n/m, ""),
+    [name(2)]: BEHIND.replace(/^Base: .*\n/m, ""),
+    [name(3)]: BEHIND.replace(`Base: ${"c".repeat(40)}`, `Base: ${"e".repeat(40)}`),
+    [name(4)]: BEHIND.replace(`Main-after: ${"e".repeat(40)}`, "Main-after: main"),
+    [name(5)]: REFUSAL.replace("Time:", `Main-after: ${"e".repeat(40)}\nTime:`),
+  });
+  assert.deepEqual(
+    r.gateProofs.map((p) => [p.file, p.refusedBy, p.head, p.base, p.mainAfter]),
+    [[name(0), "the branch up to date with main", "b".repeat(40), "c".repeat(40), "e".repeat(40)]],
+  );
+  const m = r.malformed.join("\n");
+  assert.match(m, new RegExp(`${name(1)}: a refusal for being behind has no Main-after`));
+  assert.match(m, new RegExp(`${name(2)}: base \\(none\\) is not a full commit`));
+  assert.match(m, new RegExp(`${name(3)}: the base is the tip of main after it moved on: it was read after main moved`));
+  assert.match(m, new RegExp(`${name(4)}: main-after main is not a full commit`));
+  assert.match(m, new RegExp(`${name(5)}: Main-after is the tip of main of a refusal for being behind, and this record is none`));
+  assert.equal(r.malformed.length, 5);
+});
+
 test("[check.owner-approval.read-as-before] where records are English only, the records of spend, of done and of approval are read as before, and only the records of a gate change and of a gate proof are held to it", () => {
   const approval = ["Record: approval", "Task: t", `Statement-hash: ${A}`, "By: owner", 'Source: the owner\'s answer to question 1, "Да"', "Time: 2026-11-21T13:52:40Z", ""].join("\n");
   const spend = ["Record: spend", "Task: t", "Contribution: сессия · s1", "Start: 2026-11-21T10:00:00Z", "End: 2026-11-21T10:30:00Z", "Tokens-new: 10", ""].join("\n");
@@ -686,8 +711,17 @@ test("[check.merge-gate.switch-on-steps] switch-on prints the steps that switch 
   assert.deepEqual(JSON.parse(body[1]), rules.actions.policies[0]);
   assert.ok(rules.actions.policies[0].rules[0].parameters.allowed_events.includes("pull_request_target"));
   assert.deepEqual(rules.actions.policies[0].conditions.workflow_path.include, [".github/workflows/ont-gate-guard.yml"]);
-  for (const call of ["gh api repos/owner/repo/actions/policies", "gh api repos/owner/repo/actions/permissions", "gh api repos/owner/repo/actions/permissions/workflow"]) assert.ok(readback.includes(`$ ${call}\n`), call);
-  assert.match(readback, /enforcement active, workflows \.github\/workflows\/ont-gate-guard\.yml, events pull_request_target/);
+  // Each policy is read back by its own call, found by its name in the list, since the list gives summaries.
+  const p0 = rules.actions.policies[0];
+  inOrder(readback, [
+    "the list gives summaries, and only the call of the policy gives its conditions and its rules to compare",
+    `$ gh api repos/owner/repo/actions/policies --jq '.policies[] | select(.name == "${p0.name}") | .id'`,
+    "$ gh api repos/owner/repo/actions/policies/<id> --jq '{name, enforcement, conditions, rules: [.rules[] | {type, parameters}]}'",
+    "$ gh api repos/owner/repo/actions/permissions\n",
+    "$ gh api repos/owner/repo/actions/permissions/workflow\n",
+  ]);
+  assert.ok(!/^ {3}\$ gh api repos\/owner\/repo\/actions\/policies$/m.test(readback), "no readback by the list alone");
+  assert.match(readback, /enforcement active, workflows \.github\/workflows\/ont-gate-guard\.yml, excluded \[\], rules restrict_action_events, events pull_request_target/);
   assert.match(readback, /A difference stops here/);
   // The preflight: both checks, under their names and from their app, read on its head.
   for (const c of rules.ruleset.rules.find((x) => x.type === "required_status_checks").parameters.required_status_checks) assert.ok(preflight.includes(`${c.context} · success · app ${c.integration_id}`), c.context);
@@ -697,8 +731,10 @@ test("[check.merge-gate.switch-on-steps] switch-on prints the steps that switch 
   // The readback of the ruleset, compared with the rule file.
   for (const want of ["enforcement active on refs/heads/main", "a pull request required, merged by merge alone", "the required checks ont-check from app 15368 and ont-gate-guard from app 15368", "strict, the branch up to date with main, true", "no bypass, bypass actors []", "A difference stops here"]) assert.ok(ruleset.includes(want), want);
   assert.match(ruleset, /\$ gh api repos\/owner\/repo\/rulesets\/<id> --jq/);
-  inOrder(probes, ["refused by ont-check", "refused by ont-gate-guard", "refused for being behind", "GitHub's answer naming the branch out of date", "$ gh api -X PUT repos/owner/repo/pulls/<n>/merge -f merge_method=merge -f sha=<head>"]);
-  inOrder(proofs, ["reviews/tasks/<time>-<task>-gate-proof.md", "Kind: refusal", "Answer", "The first holds the preflight observation", "Preflight: pr <n>"]);
+  // Probe 3: its base and head before main moves on, the tip of main after, then the attempt.
+  inOrder(probes, ["refused by ont-check", "refused by ont-gate-guard", "(3)", "before main moves on, read its head and its base", "gh api repos/owner/repo/pulls/<n> --jq '[.head.sha, .base.sha] | @tsv'", "then main moves on", "then read the tip of main", "gh api repos/owner/repo/commits/main --jq .sha", "refused for being behind", "GitHub's answer naming the branch out of date", "$ gh api -X PUT repos/owner/repo/pulls/<n>/merge -f merge_method=merge -f sha=<head>"]);
+  inOrder(proofs, ["reviews/tasks/<time>-<task>-gate-proof.md", "Kind: refusal", "Answer", "read in step 6 before the attempt, never read again here", "The first holds the preflight observation", "Preflight: pr <n>", "The third", "Base the base kept before main moved on", "Main-after the tip of main read after it moved"]);
+  assert.doesNotMatch(proofs, /\$ gh api repos\/owner\/repo\/pulls\/<n> --jq/, "the proofs read no base again");
   inOrder(close, ["$ gh api -X PATCH repos/owner/repo/pulls/<n> -f state=closed", "$ gh api -X DELETE repos/owner/repo/git/refs/heads/<branch>"]);
   assert.match(r.stdout, /The proof of a pass is the merge of the next task's pull request through the gate/);
   // A rule file with no policy that allows the event gives no steps.
