@@ -176,9 +176,9 @@ The templates give a project a copy of the full check's workflow, which runs the
 After the narrow round, the acceptance of the result is the narrow round's verdict together with a later record of done. The rule on missing commits keeps an error for a clean acceptance given after the latest record of done and treats other rounds as information, so a clone that lacks the start commit the narrow round names reads that round without an error (class "missing-commit decision excludes the narrow round that now supplies acceptance"). It needs a clone with the record of done but not the narrow round's start commit; the check of the repository that has both is unchanged.
 
 <!-- ont: -->
-### Spend before the tool wrote records is one baseline
+### Spend of a task counts only the sessions given to it
 
-The spend of a goal before its records were written by the tool is entered once, as a baseline record with the time it covers up to; after that time the tool sums the session logs afresh. The rounds and tasks of that earlier time are not given their own spend, so the payoff of a round recorded before the baseline is not known (class "historical rounds still share an attribution key"). A round recorded after the baseline has its spend from the logs.
+The tool sums spend from the session logs afresh, from the start of the goal. A task's spend is the sessions whose first message names it: the reviewers of its rounds and the agents it was handed to. The executor's own work in a session shared by several tasks is counted to the goal, where the hard stop is, not to a task; and a round recorded before the round writer has no spend of its own, so its payoff is not known (class "historical rounds still share an attribution key"). The goal's limit stops all its work whatever the shares say.
 
 <!-- ont: -->
 ### Required verdicts and the fixes after the narrow round
