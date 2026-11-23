@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, relative } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
 import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, conditionGatesIn, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
@@ -62,7 +62,9 @@ export const budgetLines = (budget) => BUDGET_ALL.map(([k, name]) => `${name}: $
 // A late record (lateRecords) is given to no reader: it is in malformed, which blocks every task.
 export function readTaskInputs(cfg) {
   const { rounds: parsedRounds, malformed: unreadable, top } = readRoundRecords(cfg);
-  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir, { latinOnly: cfg.records.latinOnly }) : { spend: [], done: [], approvals: [], gateChanges: [], gateProofs: [], malformed: [] };
+  const before = cfg.taskRecords ? recordsBefore(cfg, top) : { names: null, errors: [] };
+  const own = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir, { latinOnly: cfg.records.latinOnly, before: before.names }) : { spend: [], done: [], approvals: [], gateChanges: [], gateProofs: [], malformed: [] };
+  const parsed = { ...own, malformed: [...before.errors, ...own.malformed] };
   const late = lateRecords({ rounds: parsedRounds, done: parsed.done, approvals: parsed.approvals, gatesFrom: cfg.reviewRounds.gatesFrom ?? null });
   const kept = (x) => !late.some((l) => l.record === x);
   const malformed = [...unreadable, ...late.map((l) => l.text)];
@@ -85,12 +87,31 @@ export function lateRecords({ rounds, done = [], approvals = [], gatesFrom = nul
   });
 }
 
+// The task records that the commit named by taskRecords.latinAfter holds, by their paths in the directory
+// of task records (D-160): those of the earlier kinds read as before. names is null without the key; a key
+// that names no commit of the clone, or a Git command that fails, is an error, and then every record is
+// held, never read without the rule.
+export function recordsBefore(cfg, top) {
+  const at = cfg.taskRecords?.latinAfter ?? null;
+  if (!at) return { names: null, errors: [] };
+  const missing = { names: new Set(), errors: [`the commit ${at} that taskRecords.latinAfter names is not a commit of this clone (D-160)`] };
+  if (!top || spawnSync("git", ["-C", top, "cat-file", "-e", `${at}^{commit}`], { env: gitEnv() }).status !== 0) return missing;
+  const dir = relative(top, cfg.taskRecords.dir).split("\\").join("/");
+  const args = ["ls-tree", "-r", "-z", "--full-tree", "--name-only", at, "--", dir];
+  const r = spawnSync("git", ["-C", top, ...args], { encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 28 });
+  if (r.status !== 0) return { names: new Set(), errors: [`git ${args.join(" ")} failed: ${(r.stderr ?? "").trim().split("\n")[0]}`] };
+  return { names: new Set(r.stdout.split("\0").filter(Boolean).map((p) => p.slice(dir.length + 1))), errors: [] };
+}
+
 // Records of done, of spend, of the owner's approval, of a gate change and of a gate proof, with what is
-// wrong with each. opts.latinOnly is the configuration's records.latinOnly: where it is set, a record
-// holds only English text and paths of the repository, as a record of a round does (D-151, D-158).
+// wrong with each. opts.latinOnly is the configuration's records.latinOnly: where it is set, a record of
+// a gate change or of a gate proof holds only English text and paths of the repository, as a record of a
+// round does (D-151, D-158), and so does a record of spend, of done or of approval whose path in dir is
+// not in opts.before, the records the commit named by taskRecords.latinAfter holds; with opts.before null,
+// no key, those read as before (D-160).
 // ont: ent.gate-change, field.gate-change.task, field.gate-change.item, field.gate-change.paths, field.gate-change.commit, field.gate-change.time, edge.gate-change.statement, inv.gate-records-well-formed
 // ont: ent.gate-proof, field.gate-proof.kind, field.gate-proof.probe, field.gate-proof.result, field.gate-proof.refused-by, field.gate-proof.head, field.gate-proof.base, field.gate-proof.check, field.gate-proof.run, field.gate-proof.required, field.gate-proof.answer, field.gate-proof.merge, field.gate-proof.time, edge.gate-proof.gate
-export function parseTaskRecords(dir, { latinOnly = false } = {}) {
+export function parseTaskRecords(dir, { latinOnly = false, before = null } = {}) {
   const spend = [];
   const done = [];
   const approvals = [];
@@ -101,6 +122,8 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
     const text = read(f);
     const field = (name) => text.match(new RegExp(`^${name}:[ \\t]*(.*?)\\s*$`, "m"))?.[1] ?? null;
     const name = basename(f);
+    // A record of an earlier kind is held to the rule of language only when added after the start (D-160).
+    const held = latinOnly && before !== null && !before.has(relative(dir, f).split("\\").join("/"));
     const kind = field("Record");
     const task = field("Task");
     if (kind === "spend") {
@@ -115,7 +138,7 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         !realTime(end) && `end ${end ?? "(none)"} is not a UTC time to the second`,
         realTime(start) && realTime(end) && start > end && `start ${start} is after its end ${end}`,
         ...counts.filter(([, v]) => v !== null && !/^\d+$/.test(v)).map(([k, v]) => `${k.toLowerCase()} ${v} is not a whole number`),
-        ...outsideOf(text, latinOnly),
+        ...outsideOf(text, held),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
@@ -143,7 +166,7 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
         !checks.length && "no checks",
         ...checks.filter((c) => !c.command || !["pass", "fail"].includes(c.result)).map((c) => `check ${c.command ?? ""} has no result pass or fail`),
-        ...outsideOf(text, latinOnly),
+        ...outsideOf(text, held),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
@@ -163,7 +186,7 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         by !== "owner" && `by ${by ?? "(none)"}, not by owner: only the owner's approval is recorded so`,
         !source && "no source: the owner's words or answer it rests on, with the date",
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
-        ...outsideOf(text, latinOnly),
+        ...outsideOf(text, held),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else approvals.push({ file: name, task, statementHash: hash, by, source, time });

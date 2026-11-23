@@ -112,7 +112,7 @@ test("[check.tool-copy.options-documented] a configuration with every key of the
       verdicts: { dir: "runs", require: true },
       records: { latinOnly: true },
       reviewRounds: { dir: "rounds", gatesFrom: "2026-11-21T09:35:15Z" },
-      taskRecords: { dir: "tasks" },
+      taskRecords: { dir: "tasks", latinAfter: "a".repeat(40) },
       mergeGate: { paths: [".github/"], rules: ".github/merge-gate.json" },
       ci: { workflow: ".github/workflows/ont-check.yml" },
       protocolReleases: { file: "releases.md" },
