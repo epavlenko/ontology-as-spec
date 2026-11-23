@@ -176,6 +176,11 @@ The templates give a project a copy of the full check's workflow, which runs the
 After the narrow round, the acceptance of the result is the narrow round's verdict together with a later record of done. The rule on missing commits keeps an error for a clean acceptance given after the latest record of done and treats other rounds as information, so a clone that lacks the start commit the narrow round names reads that round without an error (class "missing-commit decision excludes the narrow round that now supplies acceptance"). It needs a clone with the record of done but not the narrow round's start commit; the check of the repository that has both is unchanged.
 
 <!-- ont: -->
+### Spend before the tool wrote records is one baseline
+
+The spend of a goal before its records were written by the tool is entered once, as a baseline record with the time it covers up to; after that time the tool sums the session logs afresh. The rounds and tasks of that earlier time are not given their own spend, so the payoff of a round recorded before the baseline is not known (class "historical rounds still share an attribution key"). A round recorded after the baseline has its spend from the logs.
+
+<!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
