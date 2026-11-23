@@ -161,6 +161,11 @@ The recorder of a reviewer's table checks that a row of a run given to a person 
 The full check runs the pull request's own workflow, so a pull request can declare wider rights for that workflow's token before the guard answers, or add a second workflow with the same job name (classes "read-only rights declared by the pull request" and "workflow provenance of the required checks"). Both need a pull request written to attack the gate; the guard still refuses the merge of a change to `.github/` without an approval, and a deliberate attack by an agent with write access is the limitation the owner accepted. For the same reason a record of a probe of the gate names the pull request, its head, the check and its outcome and GitHub's answer, but not which commit each run checked out (class "proof records tied to what github evaluated"): that detail only guards against a forged record.
 
 <!-- ont: -->
+### An adopting project gets the full check, and the guard only as an option
+
+The templates give a project the workflow of the full check, which it copies and fills in with the suites it runs. The guard that refuses a change of the gate paths without an approval is in the templates as an option the project turns on by the documented steps; its approvals come from the project's own records of tasks or a record by the project's owner, and a project without either does not turn it on (classes "first protected pin upgrade of an adopting project" and "owner record lookup without task records"). The list of suites in the copied workflow is the project's to keep in step with its configuration; a suite added to the configuration and not to the workflow is not run by CI (class "ci suite list behind the project configuration").
+
+<!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
