@@ -52,9 +52,9 @@ export function readStatement(file) {
 // configuration's where no record of it holds them, never a snapshot of another version (D-175).
 // version is the version of the statement whose limits apply (D-174): round.mjs record gives its brief's;
 // given none, the version in force, as --task, round.mjs brief, --rounds and done.mjs read it (versionInForce,
-// D-175). The goal is the one the configuration lists the task under in goals, whatever version (D-176): the
+// D-175). The goal is the one the configuration lists the task under in goals, whatever version (D-177): the
 // line Goal: of the statement given, and of the record of the version that gives its limits, is held to
-// agree with it, and a disagreement is an error.
+// agree with it where it is there, and a disagreement is an error; a missing line is none.
 // ont: derived.task-budget, derived.log-spend
 export function spendOf({ cfg, task, statement = null, version, inputs = null, env = process.env }) {
   if (cfg.spend?.fromLogs !== true) return null;
@@ -86,11 +86,11 @@ export function snapshotOverspendProblems(end, snapshots = []) {
   return [];
 }
 
-// The lines Goal: a reader holds to agree with the configuration's goals (D-176): the statement given, whose
-// missing line is an error for a task of a goal, and the record of the version that gave its limits, a kept
-// brief or a record of done, whose line is checked only where it names one.
+// The lines Goal: a reader holds to agree with the configuration's goals (D-177): the statement given, and
+// the record of the version that gave its limits, a kept brief or a record of done, each checked only where
+// it names one; a statement with no line is counted with the goal goals lists the task under, with no error.
 export function goalLinesOf({ statement = null, limits = null }) {
-  const lines = statement ? [{ line: statement.goal ?? null, of: "the statement", required: true }] : [];
+  const lines = statement ? [{ line: statement.goal ?? null, of: "the statement" }] : [];
   if (limits && limits.goalLine && ["brief", "done"].includes(limits.from) && !(statement && limits.version === statement.hash))
     lines.push({ line: limits.goalLine, of: limits.from === "brief" ? `the kept brief of version ${limits.version.slice(0, 12)}` : `the record of done ${limits.file}` });
   return lines;

@@ -842,7 +842,7 @@ test("[check.spend-snapshot.approval-only-record] the owner's approval written b
   assert.match(q.p.tool("round.mjs", ["brief", "t", "--step", "statement", "--statement", qb.file], qenv).out, /^ERROR · no brief written: .*the reserve of the goal g is spent/m);
 });
 
-test("[check.spend-snapshot.goal-agrees] the goal is the one the configuration lists the task under: a line Goal: that names another goal, a statement of a listed task with no line, and a goal named for a task listed under none are errors of --task, round.mjs brief and done.mjs; a record of done whose line disagrees is an error of the check", () => {
+test("[check.spend-snapshot.goal-agrees] the goal is the one the configuration lists the task under: a line Goal: that names another goal and a goal named for a task listed under none are errors of --task, round.mjs brief and done.mjs; a statement of a listed task with no line is no error and is counted with the goal; a record of done whose line disagrees is an error of the check", () => {
   const p = project({ fromLogs: true, goals: { g: ["t"], h: ["x"] } });
   const gst = statement({ budget: [100000, 100000] });
   p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, at(-10)));
@@ -856,7 +856,6 @@ test("[check.spend-snapshot.goal-agrees] the goal is the one the configuration l
   assert.equal(spendIn(p, "t", st, env).unit, "g");
   const cases = [
     [statement({ goal: "h", extra: "Another goal.\n\n" }), "t", /the statement names the goal h on Goal:, and the configuration lists t under the goal g/],
-    [statement({ extra: "No goal.\n\n" }), "t", /the statement names no goal on Goal:, and the configuration lists t under the goal g/],
     [statement({ goal: "g", extra: "Not listed.\n\n" }), "w", /the statement names the goal g on Goal:, and the configuration does not list w among its tasks/],
   ];
   for (const [s, task, why] of cases) {
@@ -867,6 +866,20 @@ test("[check.spend-snapshot.goal-agrees] the goal is the one the configuration l
     assert.match(p.tool("round.mjs", ["brief", task, "--step", "statement", "--statement", s.file], env).out, new RegExp(`^ERROR · no brief written: .*${why.source}`, "m"));
     assert.match(p.tool("done.mjs", [task, "--statement", s.file], env).out, new RegExp(`no record of done written: .*${why.source}`));
   }
+  // A statement of t with no line Goal:, as the approved statements of tasks merged before the line: no
+  // error, and the spend is the goal's (D-177).
+  const none = statement({ extra: "No goal.\n\n" });
+  const sp = spendIn(p, "t", none, env);
+  assert.deepEqual(sp.errors ?? [], []);
+  assert.equal(sp.unit, "g");
+  const plain = p.tool("ont-check.mjs", ["--task", "t", "--statement", none.file], env);
+  assert.equal(plain.code, 0, plain.out);
+  assert.doesNotMatch(plain.out, /ERROR|Goal:/, plain.out);
+  assert.match(plain.out, /^SPEND t: from the session logs since \S+: goal g /m);
+  // round.mjs brief takes the statement with no line too: the brief is written, with no line Goal:.
+  const br = p.tool("round.mjs", ["brief", "t", "--step", "statement", "--statement", none.file], env);
+  assert.equal(br.code, 0, br.out);
+  assert.doesNotMatch(br.out, /^Goal:/m, br.out);
   // A record of done of t whose line names another goal: the full check names it.
   const time = at(30);
   p.put(`reviews/tasks/${time.replace(/[-:]/g, "")}-t-done.md`, ["Record: done", "Task: t", `Commit: ${work}`, `Statement-hash: ${st.hash}`, "Budget-new-input: 1000", "Budget-output: 1000", "Budget-reserve: 1.5", "Goal: h", `Time: ${time}`, "Checks:", "- true · pass", ""].join("\n"));

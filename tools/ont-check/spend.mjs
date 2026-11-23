@@ -9,9 +9,9 @@
 // for a task of a goal, the goal's statement, ONT_GOAL_STATEMENT, whose version must be approved in force.
 // The unit of the budget is the goal the configuration lists the task under in goals, for every version of
 // its statement, or else the task itself; a line Goal: of a statement, a brief or a record of done is held
-// to agree with goals and is no source of the goal (D-176). The unit starts at its first brief of a round, or, for the
-// rounds before the writers, at its first record of a round of the review of its statement; the logs are
-// read whole and the events after the start counted. An event is a message of Claude, once by its ID, or a
+// to agree with goals where it is there and is no source of the goal (D-177). The unit starts at its first
+// brief of a round, or, for the rounds before the writers, at its first record of a round of the review of
+// its statement; the logs are read whole and the events after the start counted. An event is a message of Claude, once by its ID, or a
 // record token_count of Codex, whose part is the difference of its running totals with the record before it
 // in the same session; each gives new input, cached input and output. The spend of the unit is the events
 // after its start in the executor's sessions and in the sessions whose first message names the unit or one
@@ -206,22 +206,22 @@ export function goalOf(cfg, task) {
   return { unit: under[0], goal: true, members: [...goals[under[0]]] };
 }
 
-// What is wrong with a line Goal: against the configuration's goals (D-176), or null: line is the goal the
+// What is wrong with a line Goal: against the configuration's goals (D-177), or null: line is the goal the
 // line names, or null where the text has none; of names the text, a statement, a kept brief or a record of
-// done; required, for a statement given, makes a missing line of a task listed under a goal an error, so
-// that the unit is still the goal the statement names (field.task-statement.goal).
-export function goalLineProblem(cfg, task, { line = null, of = "the statement", required = false } = {}) {
+// done. A text with no line is never wrong: the goal comes from goals alone, and the task is counted with
+// the goal goals lists it under (field.task-statement.goal).
+export function goalLineProblem(cfg, task, { line = null, of = "the statement" } = {}) {
   const u = goalOf(cfg, task);
   if (u.error || u.isGoal) return null;
   const goals = cfg.goals ?? {};
-  if (line === null || line === undefined) return required && u.goal ? `${of} names no goal on Goal:, and the configuration lists ${task} under the goal ${u.unit}` : null;
+  if (line === null || line === undefined) return null;
   if (!Object.hasOwn(goals, line)) return `${of} names the goal ${line} on Goal:, and the configuration lists no goal ${line} under goals`;
   if (!u.goal) return `${of} names the goal ${line} on Goal:, and the configuration does not list ${task} among its tasks`;
   if (line !== u.unit) return `${of} names the goal ${line} on Goal:, and the configuration lists ${task} under the goal ${u.unit}`;
   return null;
 }
 
-// The unit of a task with the lines Goal: held to agree with it (D-176): lines are { line, of, required }.
+// The unit of a task with the lines Goal: held to agree with it (D-177): lines are { line, of }.
 export function unitOf(cfg, task, lines = []) {
   const u = goalOf(cfg, task);
   if (u.error) return u;

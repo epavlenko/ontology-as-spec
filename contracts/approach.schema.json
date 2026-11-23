@@ -615,7 +615,7 @@
           "type": "string"
         },
         "goal": {
-          "description": "The goal the task is part of, on a line Goal: <goal>: its unit of budget where spend is counted from the logs. The configuration lists the goal's tasks under goals, and that list alone says which goal a task is counted with, whatever version of the statement is read (D-176); the line is held to agree with it: a line that names another goal, or a goal where the configuration lists the task under none, and, for a task the configuration lists under a goal, a statement given with no line, are errors of --task, round.mjs and done.mjs, and a record of done or a kept brief whose line disagrees is an error of the check.",
+          "description": "The goal the task is part of, on a line Goal: <goal>: its unit of budget where spend is counted from the logs. The configuration lists the goal's tasks under goals, and that list alone says which goal a task is counted with, whatever version of the statement is read (D-177); the line, where it is there, is held to agree with it: a line that names another goal, or a goal where the configuration lists the task under none, is an error of --task, round.mjs and done.mjs, and a record of done or a kept brief whose line disagrees is an error of the check. A statement with no line is counted with the goal the configuration lists the task under, with no error.",
           "x-ont": "field.task-statement.goal",
           "type": "string"
         }
