@@ -797,7 +797,7 @@
       "guide": {
         "path": "docs/run-guide.md",
         "anchor": "one-mockup-that-runs-without-a-build",
-        "hash": "43c9b6329a8b"
+        "hash": "91c402c16ac9"
       }
     },
     {
@@ -824,7 +824,7 @@
       "guide": {
         "path": "docs/run-guide.md",
         "anchor": "an-element-does-what-its-label-says",
-        "hash": "148c8d4e1f14"
+        "hash": "0ed033ef5aa8"
       }
     },
     {
@@ -951,7 +951,7 @@
       "guide": {
         "path": "docs/run-guide.md",
         "anchor": "deriving-a-case-blind",
-        "hash": "d66e8ca8b96b"
+        "hash": "c597c9369823"
       }
     },
     {
@@ -1280,7 +1280,7 @@
       "guide": {
         "path": "docs/run-guide.md",
         "anchor": "a-section-of-a-run-guide-lets-a-fresh-reader-run-its-check",
-        "hash": "06ced127de53"
+        "hash": "7ac97c091f47"
       }
     },
     {
@@ -1329,7 +1329,7 @@
       "guide": {
         "path": "docs/run-guide.md",
         "anchor": "a-release-verified-before-it-is-trusted",
-        "hash": "d376d85ee089"
+        "hash": "7434cb48adfa"
       }
     },
     {
