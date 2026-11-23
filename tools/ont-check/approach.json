@@ -163,6 +163,7 @@
     "field.gate-proof.check",
     "field.gate-proof.head",
     "field.gate-proof.kind",
+    "field.gate-proof.main-after",
     "field.gate-proof.merge",
     "field.gate-proof.probe",
     "field.gate-proof.refused-by",

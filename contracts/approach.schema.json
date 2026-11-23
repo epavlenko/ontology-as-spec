@@ -879,8 +879,13 @@
           "type": "string"
         },
         "base": {
-          "description": "For a pull request, the commit of main it was based on, in full.",
+          "description": "For a pull request, the commit of main it was based on when its checks ran, in full; for a refusal for being behind, read before main moves on.",
           "x-ont": "field.gate-proof.base",
+          "type": "string"
+        },
+        "mainAfter": {
+          "description": "For a refusal for being behind, the commit main moved on to, read after it moved, in full; it is not the base.",
+          "x-ont": "field.gate-proof.main-after",
           "type": "string"
         },
         "check": {
