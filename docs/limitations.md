@@ -186,6 +186,11 @@ The tool sums spend from the session logs afresh, from the start of the goal. A 
 Where a project sets `verdicts.require`, a fix after the narrow round that changes the stamp of a check can be refused by the pre-commit check before the fix is in the range of fixes the exception covers (class "required verdicts still block the first fix commit"). This repository does not set `verdicts.require`; a project that does commits such a fix with the check of required verdicts reported and not refused, or gives the one verdict pass first.
 
 <!-- ont: -->
+### A late round recorded after a newer version is approved
+
+A reply of a reviewer that comes after a newer version of the statement was approved, and is recorded from its saved brief, makes a late record; the reader asks to move or remove it, which the rule that records are never changed after their commit forbids (class "delayed reply leaving an immutable record that blocks every task"). It needs a review that outlives a new version and an executor who records it anyway; the executor drops such a reply instead of recording it.
+
+<!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
