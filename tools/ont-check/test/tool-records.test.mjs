@@ -1013,6 +1013,39 @@ test("[check.spend-snapshot.overspend-by-snapshot] a round with findings past th
   assert.equal(check.code, 0, check.out);
 });
 
+test("[check.spend-snapshot.done-names-goal-overspend] a clean acceptance recorded past the goal's reserve while the task is within its own: --task names on NEXT the goal's overspend to report and the merge, from the logs and, with no logs, from the round's snapshot; --rounds names no action by the budget", () => {
+  const goals = { g: ["t"] };
+  const { p, st } = approved({ fromLogs: true, goal: "g", goals, budget: [100000, 100000] });
+  const gst = statement({ budget: [100, 100] });
+  p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, at(-10)));
+  doneRecord(p, p.git("rev-parse", "HEAD"), st, at(10));
+  p.commit("the goal approved, done");
+  const L = logs();
+  L.claudeSession("exec-1", [{ user: "the goal g", time: at(-5) }]);
+  const env = L.env({ ONT_GOAL_STATEMENT: gst.file });
+  // Briefed within the reserve; the round's own spend passes the goal's, 100 × 1.5, and not the task's.
+  const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file], env);
+  assert.equal(b.code, 0, b.out);
+  const lines = briefLines(b.out);
+  const soon = (s) => iso(Date.now() + s * 1000);
+  L.codexSession("rev-t", [{ user: `${lines}\n\nReview the result of task t.`, time: soon(1) }, { input: 1000, cached: 0, out: 100, time: soon(2) }]);
+  const r = p.tool("round.mjs", ["record", "t", "--from", writeReply(lines, "By: m\nCondition: holds\nAcceptance: pass")], env);
+  assert.equal(r.code, 0, r.out);
+  p.commit("the round");
+  const end = inputsOf(p).rounds.find((x) => x.step === "result-review");
+  assert.equal(end.overspend, "goal g: new input 1000 of 150, output 100 of 150");
+  const said = /^NEXT t: done, with an overspend: goal g: new input 1000 of 150, output 100 of 150; report it to the owner, and the last round and its acceptance are clean: merge \(rule\.ready-after-clean-round\)$/m;
+  const task = p.tool("ont-check.mjs", ["--task", "t", "--statement", st.file], env);
+  assert.equal(task.code, 0, task.out);
+  assert.match(task.out, said);
+  // With no logs, as in CI: the snapshot the round names gives the same overspend.
+  const ci = p.tool("ont-check.mjs", ["--task", "t", "--statement", st.file], {});
+  assert.match(ci.out, said);
+  // --rounds names no action by the budget: the merge alone.
+  const rounds = p.tool("ont-check.mjs", ["--rounds"], env);
+  assert.match(rounds.out, /^NEXT t: done: the last round and its acceptance are clean: merge/m);
+});
+
 test("[check.spend-snapshot.no-logs-project] a project that does not count spend from the logs records done with no logs, with its seal", () => {
   const { p, st } = approved({ fromLogs: false });
   const r = p.tool("done.mjs", ["t", "--statement", st.file]);

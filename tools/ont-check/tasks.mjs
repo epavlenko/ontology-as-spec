@@ -901,14 +901,25 @@ export const NO_FILE = "give --statement <file> to compare the version it names 
 // ont: derived.task-next, rule.ready-after-clean-round
 const CLEAN_DONE = "done: the last round and its acceptance are clean: merge (rule.ready-after-clean-round)";
 // The action of the branch done: the merge, and past the budget its overspend reported with it, never in
-// its place (derived.task-next, rule.ready-after-clean-round).
-const doneSay = (result, b) => {
+// its place (derived.task-next, rule.ready-after-clean-round). over is the text of the overspend, or null.
+const doneSay = (result, over) => {
   const merge = result.fixes ? result.say : CLEAN_DONE.replace(/^done: /, "");
-  return b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner, and ${merge}` : `done: ${merge}`;
+  return over ? `done, with an overspend: ${over}; report it to the owner, and ${merge}` : `done: ${merge}`;
 };
+// The overspend the branch done reports, by the state of spend the budget question reads (D-169): where
+// spend is counted from the logs, spendNow, the sums of the goal and of the task; with none given, the
+// snapshot of spend the round that ends the task names, which its writer and the check compare its line
+// Overspend: with; or else the task's budget summed from the records (derived.task-next).
+export function doneOverspend({ b, spendNow = null, end = null, snapshots = [] }) {
+  if (spendNow?.used) return overspendOf(spendNow);
+  const snap = end?.spendRecord ? snapshots.find((x) => x.file === end.spendRecord) : null;
+  if (snap) return overspendOf(snapshotSpend(snap));
+  return b?.over ? overspendText(b) : null;
+}
 // spendNow: the state of spend from the logs, or from a snapshot, where the configuration counts spend from
 // the logs (D-169); budgetActions: false for --rounds, which shows the sums and names no action by the
-// budget, only --task, run before each step, does.
+// budget, neither the question nor the overspend to report on the branch done; only --task, run before
+// each step, does.
 // version, pending and snapshots: the version whose limits apply, as a round's writer gives its brief's,
 // and the kept briefs and snapshots of spend versionLimits reads them from (D-174).
 export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false, head = null, spendNow = null, budgetActions = true, version, pending = [], snapshots = [] }) {
@@ -942,7 +953,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
     done: () =>
       !forWork &&
       (window ? view.results.length && (!needFile || statement?.hash === window.hash) : rr.length) &&
-      result?.next === "clean" && doneSay(result, b),
+      result?.next === "clean" && doneSay(result, budgetActions ? doneOverspend({ b, spendNow, end: view.results.at(-1), snapshots }) : null),
     "budget question": () =>
       unreadable
         ? `a line of the statement's budget cannot be read: a question to the owner, with no next round (${statement.wrong.join("; ")})`
