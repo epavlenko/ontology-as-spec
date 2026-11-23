@@ -180,12 +180,12 @@ The check that only records follow the reviewed commit, and the same check after
 
 After the narrow round that follows a confirmed condition, the tool gives the range of fixes and reads it, but it does not record that the one issue of verdicts on the diff of the fixes was given, nor that each finding of the usual path of the narrow round and of that issue is closed by a test, nor that the test runs (`rule.fixes-held-by-tests`). The task enforcement-verdicts-tests of the goal makes them items the tool checks; until then the executor names each fix's test when he reports the task done, and the reviewer of the merge reads them. A verdict given in the range, or its commit, is current when a fix of the range changed its stamp, whatever fix it was: the tool cannot tell a fix of a finding from another change in the range. The task that the record of done after the narrow round ends carries no line `Overspend:`, since no round ends it; `--task` still says the overspend, and the executor reports it. A record of done after the one that ends the range, of a later commit, does not move the end of the range: the merge is refused for a change after it, which needs a review of its own.
 
-<!-- ont: -->
+<!-- ont: inv.named-commits-resolve@ba7f87, rule.fixes-held-by-tests@4d76f6 -->
 ### A narrow round that supplies the acceptance is read without its missing commits
 
 After the narrow round, the acceptance of the result is the narrow round's verdict together with a later record of done. The rule on missing commits keeps an error for a clean acceptance given after the latest record of done and treats other rounds as information, so a clone that lacks the start commit the narrow round names reads that round without an error (class "missing-commit decision excludes the narrow round that now supplies acceptance"). It needs a clone with the record of done but not the narrow round's start commit; the check of the repository that has both is unchanged.
 
-<!-- ont: -->
+<!-- ont: derived.current-run@15f782, rule.fixes-held-by-tests@4d76f6 -->
 ### Required verdicts and the fixes after the narrow round
 
 Where a project sets `verdicts.require`, a fix after the narrow round that changes the stamp of a check can be refused by the pre-commit check before the fix is in the range of fixes the exception covers (class "required verdicts still block the first fix commit"). This repository does not set `verdicts.require`; a project that does commits such a fix with the check of required verdicts reported and not refused, or gives the one verdict pass first.
@@ -195,7 +195,7 @@ Where a project sets `verdicts.require`, a fix after the narrow round that chang
 
 When a narrow round has findings but no verdict of acceptance and the acceptance is given again on the same result, the reader takes the new record as the last round and can lose the narrow round's findings from the next action (class "reissued acceptance drops the narrow-round findings"); it needs a reviewer who leaves the verdict of acceptance out, and the executor reads the narrow round's findings from its record. Where `verdicts.require` is set, a clean update with main after the record of done compares the head with that record's commit directly and reports a verdict of the one issue as missing (class "clean update from main invalidates verdicts in the fix range"); this repository reports it as information. The record of done names its commands and their results, not the rows of the catalogue a task changed; the result's review reads them from the diff (class "done omits the catalogue changes required for acceptance").
 
-<!-- ont: rule.fixes-held-by-tests -->
+<!-- ont: rule.fixes-held-by-tests@4d76f6 -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.

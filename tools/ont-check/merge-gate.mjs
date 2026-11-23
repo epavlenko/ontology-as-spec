@@ -143,7 +143,9 @@ function filesAt(top, commit, dir, into) {
 
 // Why a record of a gate change the pull request adds approves nothing, or [] when it is bound to the
 // commit it names (inv.gate-change-approved, field.gate-change.commit): the commit is in the head and not
-// in the base, each path the record lists changes between the main it was based on and it, the record is
+// in the base, it is the last commit of the pull request that changes a path outside reviews/, by its own
+// diff from its first parent, with none after it but a merge doing so, never a later commit of records
+// alone, each path the record lists changes between the main it was based on and it, the record is
 // added by a commit whose one parent it is, and outside reviews/ the head is that commit merged with the
 // main the head contains.
 function unbound(top, { g, file, b, h, mb, children }) {
@@ -155,6 +157,14 @@ function unbound(top, { g, file, b, h, mb, children }) {
   const made = new Set(own ? changedBetween(top, own, g.commit) : []);
   for (const p of g.paths) if (!made.has(p)) why.push(`${p} does not change between the merge base and commit ${short}`);
   const commit = full(top, g.commit);
+  const parents = must(top, "rev-list", "--parents", "-n", "1", commit).trim().split(" ").slice(1);
+  const ownDiff = parents.length ? changedBetween(top, parents[0], commit) : lines0(must(top, "ls-tree", "-r", "-z", "--name-only", commit));
+  if (!outside(ownDiff).length) why.push(`commit ${short} changes nothing outside ${RECORDS_DIR}: the record names a commit of records alone, not the last commit of the pull request outside ${RECORDS_DIR}`);
+  const laterOutside = must(top, "rev-list", "--no-merges", h, `^${commit}`, `^${b}`)
+    .split("\n")
+    .filter(Boolean)
+    .filter((c) => outside(changedBetween(top, `${c}^`, c)).length);
+  if (laterOutside.length) why.push(`commit ${short} is not the last commit of the pull request outside ${RECORDS_DIR}: ${laterOutside.map((c) => c.slice(0, 12)).join(", ")} after it change paths outside ${RECORDS_DIR}`);
   if (holds(top, commit, file) || !(children.get(commit) ?? []).some((c) => holds(top, c, file))) why.push(`the record is not added by the commit right after commit ${short}, whose one parent it is`);
   const after = pastByRecords(top, { commit, head: h, base: mb });
   if (after.conflicts.length) why.push(`commit ${short} and main conflict outside ${RECORDS_DIR}: ${after.conflicts.join(", ")}`);

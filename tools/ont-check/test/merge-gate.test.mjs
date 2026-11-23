@@ -683,7 +683,7 @@ test("[check.merge-gate.resolution-kept] records-only compares the head's tree w
   assert.match(refused.stdout, /example\/app\/library\.test\.mjs/);
 });
 
-test("[check.merge-gate.gate-change-bound] a record of a gate change approves only the commit it names: its paths, its next commit, and nothing but records and main after it", () => {
+test("[check.merge-gate.gate-change-bound] a record of a gate change approves only the commit it names: the last outside reviews/, its paths, its next commit, and nothing but records and main after it", () => {
   const { repo, git, put, base, cfg } = gateRepo();
   const T = "example/app/library.test.mjs";
   const W = ".github/workflows/ont-check.yml";
@@ -716,6 +716,26 @@ test("[check.merge-gate.gate-change-bound] a record of a gate change approves on
   const late = run();
   assert.deepEqual(late.refused.map((r) => r.path), [T]);
   assert.match(late.notes.join("\n"), /approves nothing: .*the record is not added by the commit right after commit [0-9a-f]{12}/);
+
+  // A record that names a later commit of records alone, a record of done, rather than the last commit
+  // outside reviews/.
+  const done = { "reviews/tasks/20261123T105000Z-t-done.md": "Record: done\n" };
+  branch();
+  commit({ [T]: "// a stronger test\n" }, "test");
+  const d1 = commit(done, "done");
+  commit(record(d1, [T]), "record");
+  const recordsAlone = run();
+  assert.deepEqual(recordsAlone.refused.map((r) => r.path), [T]);
+  assert.match(recordsAlone.notes.join("\n"), /approves nothing: .*commit [0-9a-f]{12} changes nothing outside reviews\/: the record names a commit of records alone/);
+
+  // A record that names the last commit outside reviews/, added right after it, and a record of done after it.
+  branch();
+  const c5 = commit({ [T]: "// a stronger test\n" }, "test");
+  commit(record(c5, [T]), "record");
+  commit(done, "done");
+  const last = run();
+  assert.deepEqual(last.refused, [], JSON.stringify(last.notes));
+  assert.deepEqual(last.approved, [{ path: T, by: ["20261123T110000Z-t-gate-change.md"] }]);
 
   // After the record, a merge of main whose resolution takes main's version of a product file.
   git("checkout", "-q", "main");
