@@ -230,6 +230,11 @@ When a round's acceptance is refused because it names another commit and the rou
 The writer of a round's brief checks that the next action is a round, but not that the step it is asked for, statement or result, is the one the next action names (class "brief can open the wrong review step"). It needs an executor who asks for the other step; the next action names the step, and the reply is recorded against it.
 
 <!-- ont: -->
+### The rules of this repository's agents are longer than one screen
+
+The Rules section of `AGENTS.md` has grown past one screen with the rules of the merge gate and of the records written by the tool (class "Agent rules exceed the one-screen check"); each row still names its command or file, and the rules of the process are explained in `docs/parts/agent-rules.md`.
+
+<!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
