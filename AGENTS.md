@@ -12,7 +12,7 @@ This repository describes an approach to product development: product meaning ke
 - `ontology.md` and `checks.md` describe the approach with itself: its concepts, rules and checks. `ont.config.json` checks them; the tests in `tools/ont-check/test/` implement the checks.
 - `decisions.md` records decisions about this repository.
 
-<!-- ont: rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@8f811c, rule.unconfirmed-tentative@f4a9a4, rule.question-as-tentative@7c4575, rule.one-choice@c773d8, rule.commit-finished-work@8ad234, rule.strongest-step@4002fd, rule.findings-mislead@0229fa, rule.agent-rule-source@695801, rule.departure-by-entry@4fa94e, rule.work-under-approval@619f52, rule.budget-before-next@0de81e, rule.acceptance-against-approved@cd1e90, rule.main-through-gate@65a8ba, inv.gate-change-approved@e3880c, rule.merge-what-was-checked@4ce98e, rule.tree-after-server-merge@2794d3, rule.gate-switched-on@2e2b00 -->
+<!-- ont: rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@8f811c, rule.unconfirmed-tentative@f4a9a4, rule.question-as-tentative@7c4575, rule.one-choice@c773d8, rule.commit-finished-work@8ad234, rule.strongest-step@4002fd, rule.findings-mislead@0229fa, rule.agent-rule-source@695801, rule.departure-by-entry@4fa94e, rule.work-under-approval@619f52, rule.budget-before-next@bcf7bc, rule.acceptance-against-approved@cd1e90, rule.main-through-gate@65a8ba, inv.gate-change-approved@e3880c, rule.merge-what-was-checked@4ce98e, rule.tree-after-server-merge@2794d3, rule.gate-switched-on@2e2b00 -->
 ## Rules
 
 - **English only** (D-03).

@@ -7,9 +7,9 @@
 // ONT_CLAUDE_LOGS and ONT_CODEX_LOGS, each one or more directories separated as PATH separates them; the
 // sessions of the executor of the unit, ONT_EXECUTOR_SESSIONS, IDs separated by commas or white space; and,
 // for a task of a goal, the goal's statement, ONT_GOAL_STATEMENT, whose version must be approved in force.
-// The unit of the budget is the goal the configuration lists the task under in goals, for every version of
-// its statement, or else the task itself; a line Goal: of a statement, a brief or a record of done is held
-// to agree with goals where it is there and is no source of the goal (D-177). The unit starts at its first
+// The unit of the budget is the goal the task's line Goal: names, read from the statement given or else from
+// the task's own records that copy it, or else the task itself; goals is the composition of a goal, which
+// a line must name the task in, and by which a goal's own commands count it whole (D-178). The unit starts at its first
 // brief of a round, or, for the rounds before the writers, at its first record of a round of the review of
 // its statement; the logs are read whole and the events after the start counted. An event is a message of Claude, once by its ID, or a
 // record token_count of Codex, whose part is the difference of its running totals with the record before it
@@ -194,39 +194,28 @@ export function roundSpend(sessions, brief) {
   return { found: true, sum, sessions: parts.map((p) => p.s) };
 }
 
-// The unit of the budget of a task (D-169, D-176): the goal the configuration lists it under in goals,
-// whatever version of its statement is read, the goal itself when the task is one, or else the task; a
-// task listed under two goals is an error.
-export function goalOf(cfg, task) {
+// The unit of the budget of a task (field.task-statement.goal, D-178): the goal its line Goal: names, line,
+// where the task has one, or else the task itself, with no error; a goal itself is its own unit, whose
+// members are the tasks goals lists under it, those whose statements have no line included. goals is the
+// composition: a line that names a goal goals does not list, or one whose list does not hold the task, is
+// an error, and so is a task listed under two goals. of names the text the line is read from, a statement,
+// a kept brief, a record of done or a snapshot of spend.
+export function goalOf(cfg, task, { line = null, of = "the statement" } = {}) {
   const goals = cfg.goals ?? {};
   if (Object.hasOwn(goals, task)) return { unit: task, goal: true, members: [...goals[task]], isGoal: true };
   const under = Object.keys(goals).filter((g) => goals[g].includes(task));
   if (under.length > 1) return { error: `the configuration lists ${task} under more than one goal, ${under.join(", ")}` };
-  if (!under.length) return { unit: task, goal: false, members: [task] };
-  return { unit: under[0], goal: true, members: [...goals[under[0]]] };
+  if (line === null || line === undefined) return { unit: task, goal: false, members: [task] };
+  if (!Object.hasOwn(goals, line)) return { error: `${of} names the goal ${line} on Goal:, and the configuration lists no goal ${line} under goals` };
+  if (!goals[line].includes(task)) return { error: `${of} names the goal ${line} on Goal:, and the configuration does not list ${task} among its tasks` };
+  return { unit: line, goal: true, members: [...goals[line]] };
 }
 
-// What is wrong with a line Goal: against the configuration's goals (D-177), or null: line is the goal the
-// line names, or null where the text has none; of names the text, a statement, a kept brief or a record of
-// done. A text with no line is never wrong: the goal comes from goals alone, and the task is counted with
-// the goal goals lists it under (field.task-statement.goal).
+// What is wrong with a line Goal: against the configuration's goals (D-178), or null: line is the goal the
+// line names, or null where the text has none, which is never wrong; of names the text.
 export function goalLineProblem(cfg, task, { line = null, of = "the statement" } = {}) {
-  const u = goalOf(cfg, task);
-  if (u.error || u.isGoal) return null;
-  const goals = cfg.goals ?? {};
   if (line === null || line === undefined) return null;
-  if (!Object.hasOwn(goals, line)) return `${of} names the goal ${line} on Goal:, and the configuration lists no goal ${line} under goals`;
-  if (!u.goal) return `${of} names the goal ${line} on Goal:, and the configuration does not list ${task} among its tasks`;
-  if (line !== u.unit) return `${of} names the goal ${line} on Goal:, and the configuration lists ${task} under the goal ${u.unit}`;
-  return null;
-}
-
-// The unit of a task with the lines Goal: held to agree with it (D-177): lines are { line, of }.
-export function unitOf(cfg, task, lines = []) {
-  const u = goalOf(cfg, task);
-  if (u.error) return u;
-  const wrong = lines.map((l) => goalLineProblem(cfg, task, l)).filter(Boolean);
-  return wrong.length ? { error: wrong.join("; ") } : u;
+  return goalOf(cfg, task, { line, of }).error ?? null;
 }
 
 // The start of a unit: the earliest time of a brief of a round of any of its tasks or of the goal itself,
@@ -255,12 +244,12 @@ export const reached = (used, cap, strict = false) => cap !== null && (strict ? 
 // the limits each was compared with, and whether either is spent; null where the configuration does not
 // set spend.fromLogs; with missing, the inputs the environment does not give. limits are the task's limits
 // and reserve of the version of its statement that applies, as derived.task-budget gives them for that
-// version (D-174); goalLines the lines Goal: of the statement given and of the record of that version, held
-// to agree with goals (D-176); approvedOf(task) the version approved in force.
-export function logSpend({ cfg, task, goalLines = [], rounds, pending = [], limits, approvedOf, readStatementFile, env = process.env, sessions = null }) {
+// version (D-174); goalLine the task's line Goal:, { line, of }, as goalLineOf of tasks.mjs reads it from the
+// statement given or else from the task's records (D-178); approvedOf(task) the version approved in force.
+export function logSpend({ cfg, task, goalLine = {}, rounds, pending = [], limits, approvedOf, readStatementFile, env = process.env, sessions = null }) {
   if (cfg.spend?.fromLogs !== true) return null;
-  // The scope of the budget: the goal the configuration lists the task under, whatever version (D-176).
-  const u = unitOf(cfg, task, goalLines);
+  // The scope of the budget: the goal the task's line Goal: names, or else the task (D-178).
+  const u = goalOf(cfg, task, goalLine);
   if (u.error) return { errors: [u.error], missing: [] };
   const members = [...new Set([...u.members, u.unit])];
   const missing = [];
