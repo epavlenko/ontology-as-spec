@@ -1,6 +1,6 @@
 # #14 Filing a finding after the reviewed commit blocks the merge
 
-Findings of rounds 23 and 25 of the review of the statement of task enforcement-after-condition, class "filing-only commits still invalidate verdicts", and of round 28, class "a narrow round with only filed findings still blocks the merge", filed as `later`: they concern every round of the review of a result, not only the path after the narrow round.
+Findings of rounds 23 and 25 of the review of the statement of task enforcement-after-condition, class "filing-only commits still invalidate verdicts", and of round 28, class "a narrow round with only filed findings still blocks the merge", and of round 14 of the review of the statement of task enforcement-tool-records, class "recording example verdicts blocks the merge check" (the example keeps its verdicts in `example/verify/runs/`, outside `reviews/`), filed as `later`: they concern every round of the review of a result, not only the path after the narrow round.
 
 ## Slice
 
