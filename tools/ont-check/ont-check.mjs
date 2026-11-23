@@ -1300,8 +1300,13 @@ const stampFor = (c) => runStamp(c, ONT, rows, checkById, notes);
 function fixesRanges() {
   if (!cfg.reviewRounds) return [];
   const { rounds, records } = readTaskInputs(cfg);
-  const head = spawnSync("git", ["-C", cfg.base, "rev-parse", "--verify", "--quiet", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() || null;
+  const head = workingHead();
   return [...new Set(rounds.map((r) => r.task))].map((task) => fixesRange({ rounds, done: records.done, approvals: records.approvals, task, head })).filter(Boolean);
+}
+// The working copy's HEAD, or null outside Git: the end of a range of fixes before its record of done that
+// the verdicts, --task, --rounds and the check all give fixesRange (rule.fixes-held-by-tests).
+function workingHead() {
+  return spawnSync("git", ["-C", cfg.base, "rev-parse", "--verify", "--quiet", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() || null;
 }
 if (cfg.manualRuns) {
   // A run of a check the Retired IDs table retires is read as history and is never current (D-152).
@@ -1438,7 +1443,8 @@ if (cfg.reviewRounds) {
   // Every task's records of the result are read through its task view (D-152).
   const tasksOf = [...new Set(rounds.map((r) => r.task))];
   const viewOf = (t) => taskView({ rounds, done: records.done, approvals: records.approvals, task: t });
-  const nextOf = (t) => taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, gatesFrom });
+  const head = workingHead();
+  const nextOf = (t) => taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, gatesFrom, head });
   // After the narrow round the record of done ends the task, and no round carries Overspend: (D-164).
   const ended = tasksOf.filter((t) => nextOf(t).branch === "done" && !nextOf(t).result?.fixes);
   report(
@@ -1451,7 +1457,7 @@ if (cfg.reviewRounds) {
   // The next round of each step with the budget of its task, by the configuration's limits (D-119), by
   // the function --task uses, a verdict of acceptance that does not hold refused in both (D-123).
   if (flag("--rounds") > 0) {
-    const stateOf = (t) => taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null, malformed, gatesFrom, needFile: false }).lines;
+    const stateOf = (t) => taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null, malformed, gatesFrom, needFile: false, head }).lines;
     console.log(renderRounds(rounds, { tasks: taskIds({ rounds, spend: records.spend, done: records.done, approvals: records.approvals }), stateOf, malformed }));
   }
   // --task <task> [--statement <file>]: what the task needs next, its statement, its result and its
@@ -1463,7 +1469,7 @@ if (cfg.reviewRounds) {
     if (!task || task.startsWith("--") || (flag("--statement") > 0 && (!file || !existsSync(file)))) {
       fail("--task needs a task, and --statement an existing file", 2);
     }
-    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement: file ? readStatement(file) : null, malformed, gatesFrom });
+    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement: file ? readStatement(file) : null, malformed, gatesFrom, head });
     console.log(st.lines.join("\n"));
     report("task records that do not say what --task found", st.errors);
   }

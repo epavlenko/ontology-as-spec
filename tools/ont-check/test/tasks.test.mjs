@@ -1865,9 +1865,14 @@ test("[check.review-round.condition-gate] after C only a finding not fixable and
     ["after C", [resultV(1, { condition: true, found: 1, tokens: [500, 0, 10] }), resultV(1, { narrow: true })]],
   ]) {
     const r = readers({ rounds }, budget);
-    for (const l of r.next) assert.match(l, /^NEXT t: done, with an overspend/, `${name}: ${r.out}`);
+    // The overspend is reported with the merge, never in its place (derived.task-next).
+    for (const l of r.next) assert.match(l, /^NEXT t: done, with an overspend: new input 500 of 100, output 10 of 100; report it to the owner, and the last round and its acceptance are clean: merge \(rule\.ready-after-clean-round\)$/, `${name}: ${r.out}`);
     assert.match(r.out, /does not name the overspend|Overspend: is not the tool's/, name);
   }
+  // The range of fixes closed past the budget by the record of done after the narrow round: the merge too.
+  const closed = readers({ rounds: [resultV(1, { condition: true, found: 1, tokens: [500, 0, 10] }), resultV(1, { narrow: true, found: 1, prefix: "other" })], done: [{ time: T(17), hash: V, command: "true", commit: CC }] }, budget, { skipDone: true });
+  assert.equal(closed.next.length, 2, closed.out);
+  for (const l of closed.next) assert.match(l, /^NEXT t: done, with an overspend: new input 500 of 100, output 10 of 100; report it to the owner, and the record of done d1\.md ends the range of fixes after r2\.md, whose verdict of acceptance holds: merge \(rule\.fixes-held-by-tests\)$/, closed.out);
   // (zh) Past the budget, the round after C that does not end the step is the budget question, and done.mjs
   // refuses; within it, the same round is the fixes, never a question.
   const over = readers({ rounds: [resultV(1, { condition: true, found: 1, tokens: [500, 0, 10] }), resultV(1, { narrow: true, found: 1, prefix: "other" })] }, budget);
@@ -1875,6 +1880,29 @@ test("[check.review-round.condition-gate] after C only a finding not fixable and
   assert.equal(over.done, 1, over.doneOut);
   const within = readers({ rounds: [resultV(1, { condition: true, found: 1, tokens: [50, 0, 10] }), resultV(1, { narrow: true, found: 1, prefix: "other" })] }, budget);
   for (const l of within.next) assert.match(l, FIXES, within.out);
+});
+
+// Every reader of the range of fixes gives it the same end before done (item 0 of the statement of task
+// enforcement-after-condition): --task and --rounds, through taskState, the working copy's HEAD, as the
+// verdicts do; once a record of done ends the range, its commit, whatever HEAD is.
+test("[check.review-round.fixes-after-narrow] --task and --rounds end the range of fixes at the HEAD they are given before done, and at the record of done after it", () => {
+  const C1 = resultV(1, { condition: true, found: 1 });
+  const narrow = resultV(1, { narrow: true, found: 1, prefix: "other" });
+  const of = (h, head, needFile) => {
+    const sc = scenario({ rounds: [approvedV, ...h.rounds], done: [doneV, ...(h.done ?? [])] });
+    rmSync(sc.dir, { recursive: true, force: true });
+    const statement = needFile ? { hash: V, doneWhen: ["true"], budget: { newInput: null, output: null } } : null;
+    return taskState({ rounds: sc.rounds, spend: sc.records.spend, done: sc.records.done, approvals: sc.records.approvals, task: "t", defaults: { newInput: null, output: null, reserve: null }, statement, needFile, head }).next.result.fixes;
+  };
+  for (const needFile of [true, false]) {
+    const reader = needFile ? "--task" : "--rounds";
+    const open = of({ rounds: [C1, narrow] }, CB, needFile);
+    assert.equal(open?.from, CA.slice(0, 7), reader);
+    assert.equal(open.done, null, reader);
+    assert.equal(open.end, CB, `${reader}: the end before done is the HEAD given`);
+    const ended = of({ rounds: [C1, narrow], done: [{ time: T(17), hash: V, command: "true", commit: CC }] }, CB, needFile);
+    assert.equal(ended.end, ended.done.commit, `${reader}: the record of done ends the range`);
+  }
 });
 
 // The path after the narrow round (rule.fixes-held-by-tests, D-164), items (a), (b), (v), (g) and (d) of item 3 of the

@@ -621,7 +621,7 @@ export function overspendProblems(end, b) {
 // (D-121); a verdict of acceptance holds only for the latest record of done (D-128).
 // The owner's last record of approval for the task ends both steps (D-152): the rounds before it are not
 // read by the branches of derived.next-round, so a question it answered is lifted.
-export function stepNext({ rounds, done = [], approvals = [], task, step, statement = null, gatesFrom = null }) {
+export function stepNext({ rounds, done = [], approvals = [], task, step, statement = null, gatesFrom = null, head = null }) {
   const all = ofTask(rounds, task, step);
   // The owner's last approval closes gates and starts the comparison of the statement's rounds; the
   // review of the result starts at its version window, which that approval may have opened (D-152).
@@ -635,8 +635,9 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   // An open gate holds the whole task, both steps, until the owner's newer approval (D-152).
   const gates = openGatesBy({ rounds, done, approvals, task, gatesFrom });
   const held = (r) => !acceptanceWhy(r, rounds, done, null, { approvals });
-  // The range of fixes after the narrow round, by the one function that reads it (D-164).
-  const fixes = step === "result-review" ? fixesRange({ rounds, done, approvals, task, statement }) : null;
+  // The range of fixes after the narrow round, by the one function that reads it (D-164), its end before
+  // done head, the working copy's HEAD, as for every other reader of it.
+  const fixes = step === "result-review" ? fixesRange({ rounds, done, approvals, task, statement, head }) : null;
   const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, fixes, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
   if (gates.notFixable.length) return go();
   if (step === "statement-review") {
@@ -692,6 +693,8 @@ export const TASK_BRANCHES = ["unreadable record", "done", "budget question", "o
 // The kind of the action of each branch but the step, whose kind its result gives (taskNext).
 export const TASK_KINDS = { "unreadable record": "correct", done: "done", "budget question": "question", "open gate": "question", "no review": "review", "under review": "review", "no version": "correct", changed: "review" };
 export const NO_FILE = "give --statement <file> to compare the version it names with the file";
+// head: the working copy's HEAD, or for done.mjs the commit it records done on, the end of the range of
+// fixes before its record of done (rule.fixes-held-by-tests).
 // needFile: the caller, --task or done.mjs, compares the version with a statement's file; --rounds and the
 // check do not. gatesFrom: the configuration's reviewRounds.gatesFrom.
 // forWork: done.mjs, which asks for new work on the result, so the branch done does not stand for it: a
@@ -701,7 +704,13 @@ export const NO_FILE = "give --statement <file> to compare the version it names 
 // of done (rule.ready-after-clean-round, D-164).
 // ont: derived.task-next, rule.ready-after-clean-round
 const CLEAN_DONE = "done: the last round and its acceptance are clean: merge (rule.ready-after-clean-round)";
-export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false }) {
+// The action of the branch done: the merge, and past the budget its overspend reported with it, never in
+// its place (derived.task-next, rule.ready-after-clean-round).
+const doneSay = (result, b) => {
+  const merge = result.fixes ? result.say : CLEAN_DONE.replace(/^done: /, "");
+  return b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner, and ${merge}` : `done: ${merge}`;
+};
+export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false, head = null }) {
   const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement });
   const unreadable = (statement?.wrong ?? []).length > 0;
   // The approved version of the file gives no command of done: no result can be recorded or accepted
@@ -714,7 +723,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const rr = ofTask(rounds, task, "result-review");
   // A task none of whose records names a version has no statement branches: its rounds read as they did.
   const versioned = byVersion({ rounds, done, approvals, task });
-  const step = (name) => stepNext({ rounds, done, approvals, task, step: name, statement, gatesFrom });
+  const step = (name) => stepNext({ rounds, done, approvals, task, step: name, statement, gatesFrom, head });
   const fileOk = !statement || statement.hash === approvedNow;
   const result = approvedNow ? step("result-review") : !versioned ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;
   const gatesBy = openGatesBy({ rounds, done, approvals, task, gatesFrom });
@@ -731,7 +740,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
     done: () =>
       !forWork &&
       (window ? view.results.length && (!needFile || statement?.hash === window.hash) : rr.length) &&
-      result?.next === "clean" && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : result.fixes ? `done: ${result.say}` : CLEAN_DONE),
+      result?.next === "clean" && doneSay(result, b),
     "budget question": () =>
       unreadable
         ? `a line of the statement's budget cannot be read: a question to the owner, with no next round (${statement.wrong.join("; ")})`
@@ -771,8 +780,8 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
 // its one next action on a line of its own, NEXT; and the errors of its records that only --task can
 // see (derived.statement-state, rule.budget-before-next, derived.task-next). --rounds prints the same
 // lines, given no file and needFile false (D-152).
-export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true }) {
-  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom });
+export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true, head = null }) {
+  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom, head });
   const b = next.budget;
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
   const { view } = next;
