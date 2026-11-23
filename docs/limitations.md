@@ -178,7 +178,7 @@ After the narrow round, the acceptance of the result is the narrow round's verdi
 <!-- ont: -->
 ### Spend of a task counts only the sessions given to it
 
-The tool sums spend from the session logs afresh, from the start of the goal. A task's spend is the sessions whose first message names it: the reviewers of its rounds and the agents it was handed to. The executor's own work in a session shared by several tasks is counted to the goal, where the hard stop is, not to a task; and a round recorded before the round writer has no spend of its own, so its payoff is not known (class "historical rounds still share an attribution key"). Spend counts from the unit's first brief of a round, or, for rounds before the round writer, from its first round, so the drafting of a statement before its first review is not counted. The goal's limit stops all its work whatever the shares say. So the executor's work in the goal's shared session can take a task past its own cap while the goal has room (class "shared executor work escapes the task cap"); the goal's cap still stops it.
+The tool sums spend from the session logs afresh, from the start of the goal. A task's spend is the sessions whose first message names it: the reviewers of its rounds and the agents it was handed to. The executor's own work in a session shared by several tasks is counted to the goal, where the hard stop is, not to a task; and a round recorded before the round writer has no spend of its own, so its payoff is not known (class "historical rounds still share an attribution key"). Spend counts from the unit's first brief of a round, or, for rounds before the round writer, from its first round, so the drafting of a statement before its first review is not counted. For the rounds before the round writer the count starts at the first round's record, after its reviewer has worked (class "the first legacy review drops out of the goal budget"); one review of the goal is left out. The goal's limit stops all its work whatever the shares say. So the executor's work in the goal's shared session can take a task past its own cap while the goal has room (class "shared executor work escapes the task cap"); the goal's cap still stops it.
 
 <!-- ont: -->
 ### Required verdicts and the fixes after the narrow round
@@ -194,6 +194,11 @@ A reply of a reviewer that comes after a newer version of the statement was appr
 ### A retried acceptance leaves the refused verdict in place
 
 When a round's acceptance is refused because it names another commit and the round is retried on the same result, the earlier committed verdict stays, since records are never changed after their commit, and the check still reports it (class "acceptance retry leaving CI red"). It needs a reviewer who names the wrong commit; the executor reads the reply's commit before recording it.
+
+<!-- ont: -->
+### The brief of a round takes the step it is given
+
+The writer of a round's brief checks that the next action is a round, but not that the step it is asked for, statement or result, is the one the next action names (class "brief can open the wrong review step"). It needs an executor who asks for the other step; the next action names the step, and the reply is recorded against it.
 
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet
