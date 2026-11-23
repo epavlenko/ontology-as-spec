@@ -705,7 +705,7 @@
           "type": "string"
         },
         "budget": {
-          "description": "The statement's own limits and reserve, as done.mjs copies them from its lines Budget-new-input:, Budget-output: and Budget-reserve:, each a number or none; the check and --rounds, given no statement, read the limits of the version the approval in force names from the latest record of done of that version, and --task refuses the latest record of done of its statement's file's version whose limits or reserve are not the file's; a record of done of another version is not compared with the file. A record made before these lines carries none, and one made before the line of the reserve carries no reserve.",
+          "description": "The statement's own limits and reserve, as done.mjs copies them from its lines Budget-new-input:, Budget-output: and Budget-reserve:, each a number or none; the check and --rounds, given no statement, read the limits of the version the approval in force names from the latest record of done of that version, and --task refuses the latest record of done of its statement's file's version whose limits or reserve are not the file's; a record of done of another version is not compared with the file. With them, the statement's goal, Goal:, where it names one, which a reader given no statement, as --rounds, takes as the scope of the budget when no brief of the task is kept. A record made before these lines carries none, and one made before the line of the reserve carries no reserve.",
           "x-ont": "field.task-result.budget",
           "type": "string"
         },
@@ -1027,7 +1027,7 @@
       "type": "object",
       "properties": {
         "lines": {
-          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, and Brief-time:, when the brief was given.",
+          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, the scope of the budget round.mjs record takes from the brief, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, and Brief-time:, when the brief was given.",
           "x-ont": "field.round-brief.lines",
           "type": "string"
         },

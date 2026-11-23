@@ -231,9 +231,11 @@ export const reached = (used, cap, strict = false) => cap !== null && (strict ? 
 // the limits each was compared with, and whether either is spent; null where the configuration does not
 // set spend.fromLogs; with missing, the inputs the environment does not give. limitsOf(task, statement)
 // gives the task's limits as derived.task-budget does; approvedOf(task) the version approved in force.
-export function logSpend({ cfg, task, statement, rounds, pending = [], limitsOf, approvedOf, readStatementFile, env = process.env, sessions = null }) {
+export function logSpend({ cfg, task, statement, goal = null, rounds, pending = [], limitsOf, approvedOf, readStatementFile, env = process.env, sessions = null }) {
   if (cfg.spend?.fromLogs !== true) return null;
-  const u = unitOf(cfg, task, statement);
+  // The scope of the budget: the statement's goal, or, where no statement is given, the goal the brief or
+  // the record of done names (D-172).
+  const u = unitOf(cfg, task, statement ?? (goal ? { goal } : null));
   if (u.error) return { errors: [u.error], missing: [] };
   const members = [...new Set([...u.members, u.unit])];
   const missing = [];

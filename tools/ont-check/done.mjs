@@ -104,8 +104,9 @@ if (failed.length) {
 // After the approval in force and every round of the task, never in the same second (D-167).
 const time = timeAfter(...approvals.filter((a) => a.task === task).map((a) => a.time), ...rounds.filter((r) => r.task === task).map((r) => r.time));
 mkdirSync(cfg.taskRecords.dir, { recursive: true });
-// The statement's limits go into the record, for the check and --rounds, which read no statement (D-147).
-const text = [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${statement.hash}`, ...budgetLines(statement.budget), `Time: ${time}`, `Checks:`, ...run.results.map((r) => `- ${r.command} · ${r.result}`), ...(evidence.length ? ["Evidence:", ...evidence] : []), ""].join("\n");
+// The statement's limits go into the record, for the check and --rounds, which read no statement (D-147),
+// and its goal, the scope of the budget they read (D-172).
+const text = [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${statement.hash}`, ...budgetLines(statement.budget), ...(statement.goal ? [`Goal: ${statement.goal}`] : []), `Time: ${time}`, `Checks:`, ...run.results.map((r) => `- ${r.command} · ${r.result}`), ...(evidence.length ? ["Evidence:", ...evidence] : []), ""].join("\n");
 // A record is never written over another: two records of one second take the next free name.
 let name;
 for (let i = 1; ; i++) {

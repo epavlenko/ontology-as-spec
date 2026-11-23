@@ -1720,12 +1720,23 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: a list of the files the run read (it can leave out an input); a run on uncommitted changes (no commit holds what was run).
 - Concepts: `ent.manual-run`, `field.manual-run.origin`, `action.start-run`, `action.record-run`, `derived.current-run`, `action.record-verdicts`, `inv.manual-runs-well-formed`.
 
+### D-172 · The brief and the record of done carry the goal, and the round writer reads the reply the review skill asks for
+
+- Date: 2026-11-23 · Status: accepted
+- Source: the approved statement of task enforcement-tool-records, version 14 (a60f13206d30), items 4 and 5, the writers of rounds and the spend by the unit of a goal, under the owner's answer to question 1036, option a (D-168, D-169); the findings of the usual path of round 1 of the review of its result, `reviews/rounds/20261123T191705Z-enforcement-tool-records-result-1.md`. The lines and the reading of the reply are the thread's technical choices.
+- Decision: adds to D-168 and D-169. `round.mjs brief` writes the statement's goal on a line `Goal:` of the brief, after `Statement-hash:`, where the statement names one (`field.round-brief.lines`), and `done.mjs` on a line `Goal:` of the record of done (`field.task-result.budget`). `round.mjs record` takes the scope of the budget from the brief, so a task of a goal recorded with no statement keeps its goal, and refuses a statement given of another version than the brief's. `--rounds`, given no statement, takes the goal from the kept brief of the task, or else from its latest record of done that names one.
+  - The reviewer's reply is the one `skills/change-review/SKILL.md` asks for: `Acceptance: clean`, or `Acceptance: refused` with its reason on the line and a line `- <class> · important | nit · change | before` under it for each item not met; the findings on merging as the rows of the table of findings, `| class | weight | origin | path | fixability | evidence |`, of which `round.mjs record` reads the first three cells, the others being the reviewer's advice that the executor's triage decides; a row of three cells, `Acceptance: pass` and `Acceptance: fail` are read as before. A class is matched to the triage whatever its case and recorded as the triage spells it.
+- Why: the record of a round of a task of a goal, run as the agent rules gave it, with no statement, counted the task as its own unit, its snapshot charging the executor's shared session to the task and leaving out the goal's reserve; and a reviewer following the brief and the skill gave a reply the writer refused, while the skill asked for two forms in two steps.
+- Rejected: requiring `--statement` on the record (a step of the usual path the executor can leave out, which loses the scope again); the goal read from the configuration's list of goals alone (a task may be listed in no goal while its statement names one, an error the writer must report); the acceptance findings taken from the reason's prose (a class must be named the same in later rounds).
+- Concepts: `field.round-brief.lines`, `field.task-result.budget`, `action.record-round`, `derived.log-spend`, `field.task-statement.goal`, `field.spend-snapshot.unit`, `rule.executor-triage`.
+
 ## Tentative
 
 ## Open questions
 
 ## History
 
+- 2026-11-23: D-172, which adds to D-168 and D-169, accepted under the approved statement of task enforcement-tool-records, version 14, items 4 and 5, after round 1 of the review of its result.
 - 2026-11-23: D-167, D-168, D-169, D-170, which supersedes D-121, and D-171 accepted under the approved statement of task enforcement-tool-records, version 14, items 1 to 6, by the owner's answer to question 1036, a.
 - 2026-11-23: D-166, which adds to D-162 for the evidence of a record of done, accepted under the approved statement of task enforcement-after-condition, version 28, item 2, after round 3 of the review of its result.
 - 2026-11-23: D-164, which supersedes D-117, D-119, D-123, D-128, D-148 and D-153, and D-165, which supersedes D-94, D-95, D-155, D-157 and D-158, accepted under the approved statement of task enforcement-after-condition, version 28, item 1, by the owner's answer "1020 b" and his words of 2026-11-23. They were D-162 and D-163 on the branch of that task, and its records name them so; renumbered at its merge with task enforcement-merge-gate, whose D-162 and D-163 were accepted first.

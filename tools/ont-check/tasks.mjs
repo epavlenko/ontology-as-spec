@@ -48,14 +48,16 @@ export function readStatement(file) {
 // check reads; null where the configuration does not set spend.fromLogs. Where the environment gives no
 // logs, as in CI, the latest snapshot of spend of the task, with the inputs that are missing: a reader
 // with no logs compares what the writer saw.
-export function spendOf({ cfg, task, statement = null, inputs = null, env = process.env }) {
+// goal is the scope of the budget where no statement is given: the goal the brief of the round or the
+// record of done names, which the writer read from the statement (D-172); a statement given names its own.
+export function spendOf({ cfg, task, statement = null, goal = null, inputs = null, env = process.env }) {
   if (cfg.spend?.fromLogs !== true) return null;
   const { rounds, records } = inputs ?? readTaskInputs(cfg);
   const limitsOf = (t, st) => {
     const l = taskLimits({ statement: st, rounds, approvals: records.approvals, done: records.done, task: t, defaults: cfg.budget });
     return { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version };
   };
-  const sp = logSpend({ cfg, task, statement, rounds, pending: pendingBriefs(cfg.base), limitsOf, approvedOf: (t) => approvedHash(rounds, t, null, records.approvals), readStatementFile: readStatement, env });
+  const sp = logSpend({ cfg, task, statement, goal, rounds, pending: pendingBriefs(cfg.base), limitsOf, approvedOf: (t) => approvedHash(rounds, t, null, records.approvals), readStatementFile: readStatement, env });
   if (sp?.missing?.length && !sp.errors?.length) {
     const snap = (records.snapshots ?? []).filter((x) => x.task === task).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1);
     if (snap) return { ...snapshotSpend(snap), missing: sp.missing };
@@ -75,6 +77,15 @@ export function snapshotOverspendProblems(end, snapshots = []) {
   if (want && end.overspend !== want) return [`${name} names the overspend as "${end.overspend}", not as its snapshot gives it, "${want}"`];
   if (!want && end.overspend) return [`${name} names an overspend, "${end.overspend}", where its snapshot gives none`];
   return [];
+}
+
+// The goal of a task where no statement is given (D-172): the goal its kept brief names, which round.mjs
+// brief read from the statement, or else the latest record of done of the task that names one; null for
+// a task whose statement names none, as for a record made before the line.
+export function goalOf({ task, done = [], pending = [] }) {
+  const b = pending.find((x) => x.task === task && x.goal);
+  if (b) return b.goal;
+  return done.filter((d) => d.task === task).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1)?.goal ?? null;
 }
 
 // The reserve of a statement or of a record of done (field.task-statement.budget, D-150): the multiplier
@@ -199,7 +210,11 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         // A record made before the lines existed carries no limits: budget is null (D-147); one made
         // before the line of the reserve carries none, as one whose statement gives none (D-150).
         const budget = given.length ? { ...Object.fromEntries(limits.map(([k, , v]) => [k, v === "none" ? null : Number(v)])), reserve: reserveOf(reserveLine) } : null;
-        done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence });
+        // The goal the statement names on Goal:, the scope of the budget a reader given no statement takes
+        // from the record (D-172); a record made before the line names none.
+        const goal = field("Goal");
+        if (goal !== null && !TASK_NAME.test(goal)) malformed.push(`${name}: goal ${goal} is not lower-case letters, digits and hyphens`);
+        else done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence, goal });
       }
     } else if (kind === "approval") {
       // The owner's approval of a version of a statement (D-121): valid only by the owner and with the

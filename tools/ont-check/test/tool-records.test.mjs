@@ -132,7 +132,7 @@ const spendIn = (p, task, st, env) => {
 };
 
 // A brief and the reviewer's reply to it: the brief's lines word for word, then the reply's own.
-const briefLines = (out) => out.split("\n").filter((l) => /^(Task|Step|Narrow|Number|Statement-hash|Commits|Done|Brief-time): /.test(l)).join("\n");
+const briefLines = (out) => out.split("\n").filter((l) => /^(Task|Step|Narrow|Number|Statement-hash|Goal|Commits|Done|Brief-time): /.test(l)).join("\n");
 const writeReply = (lines, rest) => {
   const f = join(temp("ont-reply-"), "reply.md");
   writeFileSync(f, `${lines}\n${rest}\n`);
@@ -426,6 +426,62 @@ test("[check.round-brief.record-written] a reply that begins with the brief's li
   assert.ok(inputs.records.snapshots.some((s) => s.file === snap && s.round === file && s.sums.round.new === 900));
   assert.match(q.p.tool("round.mjs", ["record", "t", "--from", writeReply(lines, "By: m")], L.env()).out, /no brief of a round of t is kept/);
 });
+// The reply of round 1 of the review of the result of task enforcement-tool-records, reduced to its lines
+// of verdicts, findings and acceptance, as its reviewer wrote them (D-172).
+const ROUND1_VERDICTS = [
+  "| Check | Verdict | Evidence or reason |",
+  "| --- | --- | --- |",
+  "| `check.concept.code-from-ontology` | fail | `ontology.md:472` defines goal-scoped spend. The documented recording call can save a task-only snapshot for a goal member at `tools/ont-check/round.mjs:259`. |",
+];
+const ROUND1_FINDINGS = [
+  "| Class | Weight | Origin | Path | Fixability | Evidence |",
+  "| --- | --- | --- | --- | --- | --- |",
+  "| Goal budget scope lost when recording a round | important | change | usual path. After `NEXT` calls for a result round, brief it with the approved goal-member statement, then record the returned reply with the command in the agent rules. | fixable | `docs/parts/agent-rules.md:155` gives the call without `--statement`. `tools/ont-check/round.mjs:259` then passes `null` to spend calculation and `tools/ont-check/spend.mjs:201` treats the member as a standalone task. The snapshot can charge the shared executor session to the task and omit the goal reserve. `--rounds` loses the same scope at `tools/ont-check/ont-check.mjs:1559`. The brief and done paths do pass the statement. |",
+  "| Goal acceptance disagrees with its own overspend snapshot | important | change | usual path. Record an already-briefed clean acceptance of the goal when the review takes it past reserve, then run the full check. | fixable | `tools/ont-check/spend.mjs:200` identifies the goal itself as a goal. The writer emits a task part and a goal part at `:297`. The snapshot reader drops the goal part when `Unit` equals `Task` at `:306`. A direct comparison produced different strings for the same snapshot, which the full check refuses at `tools/ont-check/tasks.mjs:75`. |",
+  "| Run freshness checks only endpoint content | important | change | rare history. A file outside the record directories is committed after a run starts, then restored before recording or review. | fixable | `tools/ont-check/ont-check.mjs:1328` compares the start commit directly to the working tree. It misses intervening committed changes that cancel out. The same helper governs `--run-record`, current verdicts in the full check, and review carryover. |",
+  "| Record history omits merge additions and file modes | important | change | rare history. A record is first introduced by merge resolution, or its file mode changes later in the PR while its blob stays the same. | fixable | `tools/ont-check/merge-gate.mjs:255` collects additions with a path-limited log that omits merge diffs by default. The first-add comparison at `:262` checks blob IDs alone. The base-record comparison at `:243` separately sees mode changes. |",
+  "| Gate proof does not corroborate the merge refusal | important | change | rare history. The required check is red, but the saved GitHub response reports a different reason for refusing that merge attempt. | fixable | `tools/ont-check/gate-record.mjs:123` accepts any response with a message unless it says `merged: true`. The check log and other required check conclusions are verified separately at `:117` and `:121`. The response is never tied to the required check that the resulting proof credits. |",
+  "| Usual-path test omits the gate-proof writer | important | change | usual path. Run the required `npm test` before recording done and rely on the usual-path test to prove the writers' records pass both checks. | fixable | The proof test at `tools/ont-check/test/tool-records.test.mjs:803` checks output and parsing in isolation. The usual-path test at `:868` takes a gate-change record through the guard and full check but never takes a writer-produced gate proof through them. Its fixture also leaves `goals` empty at `:820`, so it misses the scope loss in this repository's goal-member path. |",
+  "| Rollout diagnostics predict the wrong guard result | nit | change | usual path. Run the full check on the transition PR after writing the seven gate-change records in the format that `main` still reads. | fixable | `tools/ont-check/merge-gate.mjs:295` derives the diagnostic cutoff from the branch's `HEAD` and `:309` says the guard refuses these records. The base has no seal key and its guard accepts all seven. The full check still passes. |",
+  "| Audit dispositions are missing | nit | change | usual path. Hand off the enforcement goal after checking which task-two audit rows have evidence and which wait for a later gate. | fixable | `docs/limitations.md:81` gives the required budget-report delivery limitation, and `tools/ont-check/test/tool-records.test.mjs:612` distinguishes payoff by round identity. The audit allocation still shows the ten original gaps without an explicit disposition for rows waiting on later tasks. The reader deferral at `tools/ont-check/approve.mjs:14` also leaves the follow-up task unnamed. |",
+  "| Catalogue uses invocation syntax for behavioral cases | nit | change | rare history. This affects catalogue review rather than execution of the approved workflow. | fixable | `checks.md:187`, `:266`, and `:332` use command names in the cases despite the check at `checks.md:153`. |",
+  "| Agent rules exceed the one-screen check | nit | before | rare history. The check fails on prose length. The current workflow still has the commands it needs. | fixable | The Rules section starts at `AGENTS.md:21` and already exceeded one screen on `main`. |",
+];
+const ROUND1_ACCEPTANCE = "Acceptance: refused. The documented round-recording step can save incorrect goal-budget evidence, and the writer can produce a clean goal acceptance that the full check rejects against its own snapshot. The approved writer and test requirements also have the gaps listed above.";
+
+test("[check.round-brief.skill-reply] the reply the change-review skill asks for, Acceptance: refused with its reason and the findings under it and the table of findings of six columns, is recorded, its classes as the triage spells them; refused with no finding under it is refused", () => {
+  const { p, st } = approved();
+  const c1 = p.git("rev-parse", "HEAD");
+  doneRecord(p, c1, st, at(10));
+  p.commit("done");
+  const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+  assert.equal(b.code, 0, b.out);
+  const lines = briefLines(b.out);
+  const accFindings = ["- round recording with the wrong goal-budget evidence · important · change", "- writer and test requirements of items 4 and 7 · important · change"];
+  const reply = (acc) => writeReply(lines, ["By: gpt-6.2-sol (OpenAI, Codex)", "", ...ROUND1_VERDICTS, "", ...ROUND1_FINDINGS, "", ...acc, "Condition: not yet", "Verdict: fix first"].join("\n"));
+  const classes = ROUND1_FINDINGS.slice(2).map((r) => r.split("|")[1].trim());
+  assert.equal(classes.length, 10);
+  const lower = (c) => c[0].toLowerCase() + c.slice(1);
+  const triage = writeFile([...classes.map((c) => `${lower(c)} · usual path: the executor records the round`), "round recording with the wrong goal-budget evidence · usual path: the executor records the round", "writer and test requirements of items 4 and 7 · usual path: npm test before done", ""].join("\n"));
+  // Refused with its reason alone: the writer asks for the findings under it, and writes nothing.
+  const bare = p.tool("round.mjs", ["record", "t", "--from", reply([ROUND1_ACCEPTANCE]), "--triage", triage]);
+  assert.equal(bare.code, 1, bare.out);
+  assert.match(bare.out, /Acceptance: refused with no finding under it/);
+  const r = p.tool("round.mjs", ["record", "t", "--from", reply([ROUND1_ACCEPTANCE, ...accFindings]), "--triage", triage]);
+  assert.equal(r.code, 0, r.out);
+  const file = readdirSync(join(p.dir, "reviews/rounds")).find((f) => f.includes("-t-result-1"));
+  const text = readFileSync(join(p.dir, "reviews/rounds", file), "utf8");
+  assert.match(text, /^- goal budget scope lost when recording a round · important · change · fixable$/m);
+  assert.match(text, /^- agent rules exceed the one-screen check · nit · before · fixable$/m);
+  assert.match(text, /^Acceptance:\n- round recording with the wrong goal-budget evidence · important · change · fixable\n- writer and test requirements of items 4 and 7 · important · change · fixable$/m);
+  const inputs = inputsOf(p);
+  assert.deepEqual(inputs.malformed, []);
+  const round = inputs.rounds.find((x) => x.file === file);
+  assert.equal(round.findings.length, 10);
+  assert.deepEqual(round.acceptance.findings.map((f) => f.cls), ["round recording with the wrong goal-budget evidence", "writer and test requirements of items 4 and 7"]);
+  // No row of the table of verdicts is read as a finding.
+  assert.ok(round.findings.every((f) => !f.cls.startsWith("check.")));
+});
 // The ticket a finding is filed in, holding its class.
 function p_issue(p) {
   p.put("issues/0001-rare.md", "# 1 rare\n\na rare case\n");
@@ -554,6 +610,53 @@ test("[check.spend-snapshot.budget-stops] past the goal's reserve within the tas
   assert.ok(r.lines.some((l) => /^SPEND t: from the session logs .*goal g new input 500 of 100 × 1.5 = 150/.test(l)), r.lines.join("\n"));
   assert.match(p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file], env).out, /the reserve of the goal g is spent/);
   assert.match(p.tool("done.mjs", ["t", "--statement", st.file], env).out, /no record of done written: .*budget is exhausted/);
+});
+
+test("[check.spend-snapshot.goal-kept-on-record] a task of a goal briefed and recorded as the agent rules give the commands keeps its goal: the snapshot has the goal's part and reserve, and --rounds counts the goal from the brief and from the record of done", () => {
+  const goals = { g: ["t"] };
+  const { p, st } = approved({ fromLogs: true, goal: "g", goals, budget: [100000, 100000] });
+  const gst = statement({ budget: [200000, 300000] });
+  p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, at(-10)));
+  p.commit("the goal approved");
+  const L = logs();
+  L.claudeSession("exec-1", [{ user: "the goal g", time: at(-5) }, { msg: "e1", time: at(1), new: 500, out: 50 }]);
+  const env = L.env({ ONT_GOAL_STATEMENT: gst.file });
+  const done = p.tool("done.mjs", ["t", "--statement", st.file], env);
+  assert.equal(done.code, 0, done.out);
+  const doneFile = readdirSync(join(p.dir, "reviews/tasks")).find((f) => f.endsWith("-t-done.md"));
+  assert.match(readFileSync(join(p.dir, "reviews/tasks", doneFile), "utf8"), /^Goal: g$/m);
+  p.commit("done");
+  const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file], env);
+  assert.equal(b.code, 0, b.out);
+  assert.match(b.out, /^Goal: g$/m);
+  const lines = briefLines(b.out);
+  const soon = (s) => iso(Date.now() + s * 1000);
+  L.codexSession("rev-t", [{ user: `${lines}\n\nReview the result of task t.`, time: soon(1) }, { input: 700, cached: 0, out: 70, time: soon(2) }]);
+  // While the brief is kept, --rounds reads the goal from it.
+  const kept = p.tool("ont-check.mjs", ["--rounds"], env);
+  assert.match(kept.out, /^SPEND t: from the session logs since \S+: goal g new input \d+ of 200000 × 1\.5 = 300000/m);
+  // A statement given of another version than the brief's is refused.
+  const other = statement({ goal: "g", budget: [100000, 100000], extra: "Another version.\n\n" });
+  assert.match(p.tool("round.mjs", ["record", "t", "--from", writeReply(lines, "By: gpt (OpenAI, Codex)\nCondition: holds\nAcceptance: clean"), "--statement", other.file], env).out, /no record written: the statement .* is version [0-9a-f]{12}, and the brief's is [0-9a-f]{12}/);
+  // The record as docs/parts/agent-rules.md gives it, with no statement.
+  const r = p.tool("round.mjs", ["record", "t", "--from", writeReply(lines, "By: gpt (OpenAI, Codex)\nCondition: holds\nAcceptance: clean")], env);
+  assert.equal(r.code, 0, r.out);
+  const round = readdirSync(join(p.dir, "reviews/rounds")).find((f) => f.includes("-t-result-1"));
+  const snap = readFileSync(join(p.dir, "reviews/rounds", round), "utf8").match(/^Spend-record: (\S+)$/m)[1];
+  const text = readFileSync(join(p.dir, "reviews/tasks", snap), "utf8");
+  assert.match(text, /^Unit: g$/m);
+  assert.match(text, /^Unit-limit-new: 200000$/m);
+  assert.match(text, /^Unit-limit-out: 300000$/m);
+  assert.match(text, /^Unit-reserve: 1\.5$/m);
+  assert.match(text, new RegExp(`^Unit-statement-hash: ${gst.hash}$`, "m"));
+  assert.match(text, /^Task-limit-new: 100000$/m);
+  // The executor's shared session counts for the goal, not for the task.
+  assert.match(text, /^Unit-new: 1200$/m);
+  assert.match(text, /^Task-new: 700$/m);
+  // After the record, the brief is gone: --rounds reads the goal from the record of done.
+  p.commit("the round");
+  const after = p.tool("ont-check.mjs", ["--rounds"], env);
+  assert.match(after.out, /^SPEND t: from the session logs since \S+: goal g new input 1200 of 200000 × 1\.5 = 300000/m);
 });
 
 test("[check.spend-snapshot.overspend-by-snapshot] a round with findings past the reserve has no Overspend and the question follows; a clean acceptance past it names the snapshot's, which a later spend does not change", () => {
@@ -815,9 +918,13 @@ test("[check.gate-proof.writer] a refusal whose check passed, holds another gate
 
 // ── The usual path ────────────────────────────────────────────────────────────────────────────────
 
-test("[check.process-record.usual-path] rounds, a verdict, done, the owner's approval and answer to a gate, spend and gate records written by the tool pass the guard and the full check", () => {
-  // Main with the key of seals, merged in, so that every record of the pull request needs its seal.
-  const p = project({ fromLogs: true, goals: {} });
+test("[check.process-record.usual-path] rounds, a verdict, done, the owner's approval and answer to a gate, spend, a gate change and a gate proof written by the tool for a task of a goal pass the guard and the full check", () => {
+  // Main with the key of seals, merged in, so that every record of the pull request needs its seal; the task
+  // t is a task of the goal g, whose statement is approved on main, as in this repository.
+  const p = project({ fromLogs: true, goals: { g: ["t"] } });
+  const gst = statement({ budget: [20000000, 20000000] });
+  p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, iso(Date.now() - 60000)));
+  p.commit("the goal approved");
   p.git("checkout", "-q", "-b", "key");
   const c = JSON.parse(readFileSync(join(p.dir, "ont.config.json"), "utf8"));
   c.records.sealsFrom = true;
@@ -827,10 +934,10 @@ test("[check.process-record.usual-path] rounds, a verdict, done, the owner's app
   p.git("merge", "-q", "--no-ff", "-m", "merge the key", "key");
   const base = p.git("rev-parse", "HEAD");
   p.git("checkout", "-q", "-b", "task");
-  const st = statement({ budget: [10000000, 10000000] });
+  const st = statement({ goal: "g", budget: [10000000, 10000000] });
   const L = logs();
   L.claudeSession("exec-1", [{ user: "work on t", time: iso(Date.now() - 1000) }]);
-  const env = L.env();
+  const env = L.env({ ONT_GOAL_STATEMENT: gst.file });
   const soon = (s) => iso(Date.now() + s * 1000);
   // A round of the statement with a finding of a choice not fixable, by the writer, then the owner's
   // answer to its gate and his approval, from the registry.
@@ -863,8 +970,17 @@ test("[check.process-record.usual-path] rounds, a verdict, done, the owner's app
   assert.equal(rb.code, 0, rb.out);
   const rl = briefLines(rb.out);
   L.codexSession("rev-r", [{ user: rl, time: soon(3) }, { input: 200, cached: 0, out: 20, time: soon(4) }]);
-  const rres = p.tool("round.mjs", ["record", "t", "--from", writeReply(rl, "By: m (p)\nCondition: holds\nAcceptance: pass")], env);
+  const rres = p.tool("round.mjs", ["record", "t", "--from", writeReply(rl, "By: m (p)\nCondition: holds\nAcceptance: clean")], env);
   assert.equal(rres.code, 0, rres.out);
+  // Every snapshot of the task is of its goal, with the goal's part and reserve.
+  const snaps = readdirSync(join(p.dir, "reviews/tasks")).filter((f) => f.includes("-t-spend-snapshot"));
+  assert.equal(snaps.length, 2);
+  for (const f of snaps) {
+    const text = readFileSync(join(p.dir, "reviews/tasks", f), "utf8");
+    assert.match(text, /^Unit: g$/m, f);
+    assert.match(text, /^Unit-limit-new: 20000000$/m, f);
+    assert.match(text, /^Unit-reserve: 1\.5$/m, f);
+  }
   // The gate change on the last commit outside the records, then the records.
   const gc = p.tool("gate-record.mjs", ["change", "t", "--statement", st.file, "--clause", "1", "--paths", "tools/ont-check/extra.mjs", "--base", base]);
   assert.equal(gc.code, 0, gc.out);
@@ -880,4 +996,27 @@ test("[check.process-record.usual-path] rounds, a verdict, done, the owner's app
   assert.doesNotMatch(check.out, /records of the process with no valid seal/);
   const task = p.tool("ont-check.mjs", ["--task", "t", "--statement", st.file], env);
   assert.match(task.out, /^NEXT t: done: the last round and its acceptance are clean: merge/m);
+  // After the merge, the proof of the gate t, by the writer, in the pull request after it.
+  p.git("checkout", "-q", "main");
+  p.git("merge", "-q", "--no-ff", "-m", "merge the task", "task");
+  const merged = p.git("rev-parse", "HEAD");
+  p.git("checkout", "-q", "-b", "next");
+  const H = "a".repeat(40);
+  const gh = ghStub({
+    "pulls/7": { head: { sha: H }, base: { sha: merged }, merged: false },
+    "check-runs": { check_runs: [{ name: "ont-gate-guard", conclusion: "failure", id: 11 }, { name: "ont-check", conclusion: "success", id: 12 }] },
+    "actions/runs": { workflow_runs: [{ name: "ont-gate-guard", id: 99, html_url: "https://github.com/o/r/actions/runs/99" }] },
+    "jobs/11/logs": "CODE SEAL_MISSING\nGATE_REFUSED",
+  });
+  const response = writeFile(JSON.stringify({ message: "Repository rule violations found. Required status check \"ont-gate-guard\" is failing." }));
+  const proof = p.tool("gate-record.mjs", ["proof", "t", "--gate", "t", "--check", "ont-gate-guard", "--pr", "7", "--kind", "refusal", "--repo", "o/r", "--response", response], { ONT_GH_CMD: gh });
+  assert.equal(proof.code, 0, proof.out);
+  const proofHead = p.commit("the proof");
+  const pg = guard({ cfg: p.config(), base: merged, head: proofHead });
+  assert.deepEqual(pg.records, []);
+  assert.deepEqual(pg.refused, []);
+  const after = p.tool("ont-check.mjs", []);
+  assert.equal(after.code, 0, after.out);
+  assert.doesNotMatch(after.out, /records of the process with no valid seal/);
+  assert.equal(inputsOf(p).records.gateProofs.length, 1);
 });

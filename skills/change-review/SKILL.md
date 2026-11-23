@@ -89,12 +89,17 @@ Checks: <n> of the project, <m> of the approach
 | ----- | ------- | ------------------ |
 | check.loan.renew-explained | fail | help/borrowing.md:12 says renewal is always possible; THEN expects the reason it is refused |
 
-Findings:
-- <what misleads or breaks, file:line, the check or rule> · usual | rare
+| Class | Weight | Origin | Path | Fixability | Evidence |
+| ----- | ------ | ------ | ---- | ---------- | -------- |
+| <class of problem> | important or nit | change or before | usual: <the step it breaks> or rare | fixable or not fixable | <what misleads or breaks, file:line, the check or rule> |
 
+Acceptance: clean | refused: <why>   (a review of the result only)
+- <class> · important | nit · change | before   (under refused, one line for each item not met)
 Condition: holds | not yet   (a review of the result only)
 Verdict: ready to merge | fix first | cannot tell (with what is missing)
 ```
+
+The findings are the rows of the table of findings, one finding a row, in its six columns: its class, its weight, `change` when it is of this change or `before` when it was there before it, your mark `usual` with the step or `rare`, whether it can be fixed, and its evidence. On a review of the result the verdict of acceptance is `Acceptance: clean`, or `Acceptance: refused` with why on the same line and, directly under it, a line for each item of the approved statement the result does not meet; a refusal with no line under it cannot be recorded.
 
 `ready to merge` only when no check fails and no finding of this change remains. A check that already failed on the base and that the change does not touch is an earlier problem: report it, and do not let it block. A `not run` check does not block on its own, but say who has to run it before the merge. A verdict given in an earlier round of the same change still counts while the stamp `--review` prints for its check is the stamp it was given at and the commits since change none of the files you read for it. Give a new verdict to the checks whose stamp or files changed, and always read the new diff for errors and security. The one exception is the range of fixes after the narrow round that follows a confirmed condition, as step 5 says (`rule.fixes-held-by-tests`, D-164, D-165): there a fail or a finding of the usual path of the one issue of verdicts on the diff of the fixes holds no merge once the author fixed it with a test, the verdicts of that issue count though the files you read for them change by those fixes, and you read the diff of the fixes for errors and security once, in that issue, not again on each later fix.
 
@@ -125,7 +130,7 @@ Evidence such as screenshots or data stays outside the repository; the record on
 <!-- ont: ent.review-round@21a841, rule.round-recorded@649657, derived.next-round@324b74, rule.rounds-converge@fe1007, rule.findings-filed@a0eba5 -->
 ## 5. Record the round
 
-If the configuration has `reviewRounds`, no one writes the record of a round by hand (D-168). The author gives you the lines `round.mjs brief` printed at the top of your brief, `Task:`, `Step:`, `Narrow:`, `Number:`, `Statement-hash:`, `Commits:`, for a result `Done:`, and `Brief-time:`. Begin your reply with those lines word for word, then `By: <your model and provider>`; on a review of a result, `Condition: holds` or `Condition: not yet`, and `Acceptance: pass`, or `Acceptance: fail` with a line `- <class> · important | nit · change | before` under it for each item not met; then your findings on merging as the rows of a table, `| <class> | important or nit | change or before |`. The author records it with `round.mjs record`, which refuses a reply that does not begin with the brief, adds the author's triage of each finding and writes the record with its seal in that directory, one file per round, and `ont-check --rounds` says what follows it:
+If the configuration has `reviewRounds`, no one writes the record of a round by hand (D-168). The author gives you the lines `round.mjs brief` printed at the top of your brief, `Task:`, `Step:`, `Narrow:`, `Number:`, `Statement-hash:`, `Goal:` where the statement names one, `Commits:`, for a result `Done:`, and `Brief-time:`. Begin your reply with those lines word for word, then `By: <your model and provider>`, then your answer in the form of step 4: `round.mjs record` reads its line `Condition:`, its line `Acceptance: clean`, or `Acceptance: refused` with the lines of the items not met under it, and the rows of the table of findings by their first three columns, class, weight and origin, the others being your advice; `Acceptance: pass` and `Acceptance: fail` and a table of those three columns alone are read the same (D-172). The author records it with `round.mjs record`, which refuses a reply that does not begin with the brief, adds the author's triage of each finding and writes the record with its seal in that directory, one file per round, and `ont-check --rounds` says what follows it:
 
 ```
 Task: <the task, named the same in every round>

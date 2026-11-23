@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The writer of the records of rounds (D-168), in two steps, and of the tests of their fixes.
 //   node tools/ont-check/round.mjs brief <task> --step statement|result --statement FILE [--config ont.config.json]
-//   node tools/ont-check/round.mjs record <task> --from REPLY --triage FILE [--step statement|result] [--config ont.config.json]
+//   node tools/ont-check/round.mjs record <task> --from REPLY --triage FILE [--step statement|result] [--statement FILE] [--config ont.config.json]
 //   node tools/ont-check/round.mjs fixes <task> --round FILE --from FILE [--config ont.config.json]
 // brief refuses unless the task's next action, as --task gives it, is a round of that step: for the
 // statement, while the file is the version the last round with findings read, it is not corrected yet; for
@@ -11,8 +11,9 @@
 // has none or one the tool refuses. It writes the brief into ont-briefs/ of the Git directory and prints
 // its lines, which the executor puts at the top of the reviewer's brief.
 // record takes the brief, used once, and the reviewer's reply, whose first lines are the brief's word for
-// word, then By:, for a round of the result Condition: and Acceptance: pass|fail with its findings, and
-// the table of the findings on merging; it refuses a reply that differs from the brief, or no brief, and a
+// word, then By:, for a round of the result Condition: and Acceptance: clean, or refused with its findings
+// under it, and the table of the findings on merging, as skills/change-review asks for them (D-172); the
+// scope of the budget is the brief's Goal:, which brief wrote from the statement; it refuses a reply that differs from the brief, or no brief, and a
 // finding without the executor's triage, "class · usual path: <step>", "class · not fixable", "class ·
 // limitation" or "class · later: issues/NNNN.md", a filed finding whose file does not hold its class, and a
 // finding of acceptance filed. Where spend is counted from the logs, it finds the reviewer's session by the
@@ -95,9 +96,16 @@ export function briefAllowed({ cfg, task, step, statement, inputs, head, spendNo
   return { narrow: result.next === "narrow", number: result.number, done: fresh, next };
 }
 
-// The reviewer's reply (D-168): its first lines are the brief's word for word; then By:, and for a round of
-// the result Condition: and Acceptance: pass|fail with the findings of acceptance under it; the findings on
-// merging as rows of a table, | class | important or nit | change or before |.
+// The reviewer's reply (D-168, D-172), as skills/change-review asks for it: its first lines are the brief's
+// word for word; then By:, and for a round of the result Condition: and Acceptance: clean or Acceptance:
+// refused with its reason, the findings of acceptance under it as lines "- class · weight · origin"; the
+// findings on merging as the rows of the table of findings, | class | weight | origin | path | fixability
+// | evidence |, of which the writer reads the first three cells, the rest the reviewer's advice, the
+// executor's triage deciding; a row of three cells is read the same. Acceptance: pass and fail, the names
+// before, are read as clean and refused.
+const ACCEPT = { clean: "pass", pass: "pass", refused: "fail", fail: "fail" };
+const ORIGIN = { change: "change", "of this change": "change", before: "before", "there before": "before" };
+const cellsOf = (l) => l.trim().replace(/^\|/, "").replace(/\|$/, "").split(/(?<!\\)\|/).map((c) => c.trim());
 export function parseReply(text, brief, step) {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const want = briefText(brief).split("\n");
@@ -115,19 +123,26 @@ export function parseReply(text, brief, step) {
     condition = field("Condition")[0] ?? null;
     if (!["holds", "not yet"].includes(condition)) wrong.push(`Condition: ${condition ?? "(none)"} is not holds or not yet`);
     const at = rest.findIndex((l) => /^Acceptance:/.test(l));
-    acceptance = at < 0 ? null : rest[at].replace(/^Acceptance:\s*/, "").trim();
-    if (!["pass", "fail"].includes(acceptance)) wrong.push(`Acceptance: ${acceptance ?? "(none)"} is not pass or fail`);
+    const given = at < 0 ? null : rest[at].replace(/^Acceptance:\s*/, "").trim();
+    // The word, with the reason a refusal may give after it: "refused. why", "refused: why".
+    const word = given?.match(/^([a-z]+)\b[.:,;]?/)?.[1] ?? given;
+    acceptance = ACCEPT[word] ?? null;
+    if (!acceptance) wrong.push(`Acceptance: ${given ?? "(none)"} is not clean or refused`);
+    else if (acceptance === "pass" && !/^[a-z]+\.?$/.test(given)) wrong.push(`Acceptance: ${given} gives more than clean`);
     for (let i = at + 1; at >= 0 && i < rest.length && /^- /.test(rest[i]); i++) {
       const [cls, weight, of] = rest[i].replace(/^-\s*/, "").split("·").map((x) => x.trim());
-      acceptFindings.push({ cls, weight, of: of ?? "change" });
+      acceptFindings.push({ cls: cls?.replace(/^`|`$/g, ""), weight, of: ORIGIN[of ?? "change"] ?? of });
     }
-    if (acceptance === "fail" && !acceptFindings.length) wrong.push("Acceptance: fail with no finding under it");
-    if (acceptance === "pass" && acceptFindings.length) wrong.push("Acceptance: pass with findings under it");
+    if (acceptance === "fail" && !acceptFindings.length) wrong.push("Acceptance: refused with no finding under it: give a line \"- <class> · important or nit · change or before\" under it for each item not met");
+    if (acceptance === "pass" && acceptFindings.length) wrong.push("Acceptance: clean with findings under it");
   } else if (field("Acceptance").length || field("Condition").length) wrong.push("a reply to a round of the statement gives no Acceptance: and no Condition:");
+  // The rows of the table of findings: a weight in the second cell and an origin in the third; the header,
+  // its rule and the rows of the table of verdicts have neither.
   const findings = rest
-    .map((l) => l.match(/^\|\s*([^|]*?)\s*\|\s*(important|nit)\s*\|\s*(change|before)\s*\|\s*$/))
-    .filter(Boolean)
-    .map((m) => ({ cls: m[1].replace(/^`|`$/g, ""), weight: m[2], of: m[3] }));
+    .filter((l) => /^\s*\|/.test(l))
+    .map(cellsOf)
+    .filter((c) => c.length >= 3 && ["important", "nit"].includes(c[1].toLowerCase()) && ORIGIN[c[2].toLowerCase()])
+    .map((c) => ({ cls: c[0].replace(/^`|`$/g, ""), weight: c[1].toLowerCase(), of: ORIGIN[c[2].toLowerCase()] }));
   for (const f of [...findings, ...acceptFindings]) {
     if (!f.cls) wrong.push("a finding with no class");
     if (!["important", "nit"].includes(f.weight)) wrong.push(`the finding ${f.cls}: weight ${f.weight ?? "(none)"} is not important or nit`);
@@ -138,7 +153,9 @@ export function parseReply(text, brief, step) {
 }
 
 // The executor's triage (rule.executor-triage, D-168): one line for each finding, "class · usual path:
-// <step>", "class · not fixable", "class · limitation" or "class · later: issues/NNNN.md".
+// <step>", "class · not fixable", "class · limitation" or "class · later: issues/NNNN.md". A class is matched
+// to the reply's whatever its case, as a reviewer begins a row of a table with a capital, and recorded as
+// the triage spells it (D-172).
 export function parseTriage(text) {
   const out = new Map();
   const wrong = [];
@@ -152,8 +169,8 @@ export function parseTriage(text) {
     else if (what === "limitation") t = { fix: "limitation", file: LIMITATIONS_FILE };
     else if (/^later:\s*\S/.test(what)) t = { fix: "later", file: what.replace(/^later:\s*/, "") };
     if (!t) wrong.push(`line ${i + 1} of the triage, ${JSON.stringify(l)}, is not "class · usual path: <step>", "class · not fixable", "class · limitation" or "class · later: ${LATER_DIR}NNNN.md"`);
-    else if (out.has(cls)) wrong.push(`the triage gives the class ${cls} twice`);
-    else out.set(cls, t);
+    else if (out.has(cls.toLowerCase())) wrong.push(`the triage gives the class ${cls} twice`);
+    else out.set(cls.toLowerCase(), { ...t, cls });
   });
   return { triage: out, wrong };
 }
@@ -217,6 +234,7 @@ function main(argv) {
       Narrow: String(ok.narrow),
       Number: String(ok.number),
       "Statement-hash": statement.hash,
+      Goal: statement.goal ?? undefined,
       Commits: step === "result-review" ? ok.done.commit : head,
       Done: step === "result-review" ? ok.done.file : undefined,
       "Brief-time": now(),
@@ -242,23 +260,29 @@ function main(argv) {
   if (all.length && (!triageFile || !existsSync(triageFile))) return refuse("give the executor's triage of every finding with --triage FILE");
   const { triage, wrong: badTriage } = triageFile && existsSync(triageFile) ? parseTriage(readFileSync(triageFile, "utf8")) : { triage: new Map(), wrong: [] };
   const wrong = [...badTriage];
+  const tri = (f) => triage.get(f.cls.toLowerCase());
   for (const f of all) {
-    const t = triage.get(f.cls);
+    const t = tri(f);
     if (!t) wrong.push(`the finding ${f.cls} has no triage: usual path with its step, not fixable, limitation or later with its ticket`);
     else if (f.at === "acceptance" && (t.fix === "limitation" || t.fix === "later")) wrong.push(`the finding of acceptance ${f.cls} is filed as ${t.fix}: an item of the approved statement not met is not put off`);
     else if (t.file) {
       const path = join(top, t.file);
-      if (!t.file.startsWith(t.fix === "later" ? LATER_DIR : LIMITATIONS_FILE) || !existsSync(path) || !readFileSync(path, "utf8").includes(f.cls)) wrong.push(`the finding ${f.cls} is filed in ${t.file}, which is not a file of the repository that holds its class word for word`);
+      if (!t.file.startsWith(t.fix === "later" ? LATER_DIR : LIMITATIONS_FILE) || !existsSync(path) || !readFileSync(path, "utf8").includes(t.cls)) wrong.push(`the finding ${t.cls} is filed in ${t.file}, which is not a file of the repository that holds its class word for word`);
     }
   }
-  for (const cls of triage.keys()) if (!all.some((f) => f.cls === cls)) wrong.push(`the triage gives ${cls}, which is not a finding of the reply`);
+  for (const [key, t] of triage) if (!all.some((f) => f.cls.toLowerCase() === key)) wrong.push(`the triage gives ${t.cls}, which is not a finding of the reply`);
   if (wrong.length) return refuse(wrong.join("; "));
+  // Each finding by the class as the triage spells it.
+  for (const f of [...reply.findings, ...reply.acceptFindings, ...all]) f.cls = tri(f).cls;
   // The spend of the round, from the reviewer's session that holds the brief (D-169). The round ends after
   // the record of done it reviews and after its brief, never in the same second.
   const time = timeAfter(brief["Brief-time"], records.done.find((d) => d.file === brief.Done)?.time);
+  // The scope of the budget is the brief's, which brief wrote from the statement: a task of a goal keeps
+  // its goal with no statement given (D-172). A statement given is that version, or nothing is written.
   const statementFile = value("--statement");
   const statement = statementFile && existsSync(statementFile) ? readStatement(statementFile) : null;
-  const sp = spendOf({ cfg, task, statement, inputs });
+  if (statement && statement.hash !== brief["Statement-hash"]) return refuse(`the statement ${statementFile} is version ${statement.hash.slice(0, 12)}, and the brief's is ${brief["Statement-hash"].slice(0, 12)}`);
+  const sp = spendOf({ cfg, task, statement, goal: brief.Goal ?? null, inputs });
   let roundSum = null;
   if (sp) {
     if (sp.errors?.length) return refuse(sp.errors.join("; "));
@@ -272,10 +296,10 @@ function main(argv) {
   const narrow = brief.Narrow === "true";
   const name = `${compact(time)}-${task}-${kind}-${narrow ? "narrow-" : ""}${brief.Number}.md`;
   const line = (f) => {
-    const t = triage.get(f.cls);
+    const t = tri(f);
     return `- ${f.cls} · ${f.weight} · ${f.of} · ${t.fix}${t.file ? ` · ${t.file}` : ""}`;
   };
-  const merging = reply.findings.map((f) => ({ ...f, ...triage.get(f.cls), ofChange: f.of === "change" }));
+  const merging = reply.findings.map((f) => ({ ...f, ...tri(f), ofChange: f.of === "change" }));
   const cleanMerge = !merging.some((f) => f.ofChange && !["limitation", "later"].includes(f.fix));
   const ends = step === "result-review" && cleanMerge && reply.acceptance === "pass";
   let snapshot = null;
@@ -307,8 +331,8 @@ function main(argv) {
     "",
     "## Notes",
     "",
-    ...(all.filter((f) => triage.get(f.cls).fix === "fixable").length
-      ? all.filter((f) => triage.get(f.cls).fix === "fixable").map((f) => `- ${f.cls}: usual path, the step it breaks: ${triage.get(f.cls).step}`)
+    ...(all.filter((f) => tri(f).fix === "fixable").length
+      ? all.filter((f) => tri(f).fix === "fixable").map((f) => `- ${f.cls}: usual path, the step it breaks: ${tri(f).step}`)
       : ["- Written by round.mjs record from the reviewer's reply and the executor's triage."]),
     "",
   ].join("\n");
