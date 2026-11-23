@@ -13,8 +13,9 @@
 // record takes the brief, used once, and the reviewer's reply, whose first lines are the brief's word for
 // word, then By:, for a round of the result Condition: and Acceptance: clean, or refused with its findings
 // under it, and the table of the findings on merging, as skills/change-review asks for them (D-172); the
-// scope of the budget and the task's limits and reserve are those of the brief's version, which its lines
-// Goal: and Budget-, written by brief from the statement, carry (D-172, D-174);
+// scope of the budget and the task's limits and reserve of the round's record and its snapshot are those of
+// the brief's version, which its lines Goal: and Budget-, written by brief from the statement, carry
+// (D-172, D-174), while brief stops for the budget by the version in force, as --task does (D-175);
 // it refuses a reply that differs from the brief, or no brief, and a
 // finding without the executor's triage, "class · usual path: <step>", "class · not fixable", "class ·
 // limitation" or "class · later: issues/NNNN.md", a filed finding whose file does not hold its class, and a
@@ -42,8 +43,10 @@ const compact = (t) => t.replace(/[-:]/g, "");
 // for that step; refused with why, or { narrow, number, done } of the round it allows.
 export function briefAllowed({ cfg, task, step, statement, inputs, head, spendNow = null, git }) {
   const { rounds, malformed, records } = inputs;
-  // The round is of the file's version, whose limits apply to it (D-174).
-  const args = { rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement, malformed, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, head, spendNow, version: statement.hash, pending: pendingBriefs(cfg.base), snapshots: records.snapshots };
+  // The next action by the one call --task makes, with the same inputs: the budget is that of the version
+  // in force, as --task reads it, so the round --task names is the round brief writes, and a round brief
+  // refuses for the budget is one --task names the question for (rule.budget-before-next, D-175).
+  const args = { rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement, malformed, needFile: true, gatesFrom: cfg.reviewRounds.gatesFrom, head, spendNow, pending: pendingBriefs(cfg.base), snapshots: records.snapshots };
   const next = taskNext(args);
   const refuse = (why) => ({ refused: why });
   if (["question", "correct", "done"].includes(next.kind)) return refuse(`the task's next action is not a round: ${next.say}`);
@@ -222,12 +225,12 @@ function main(argv) {
     const file = value("--statement");
     if (!file || !existsSync(file)) return refuse("give the statement with --statement FILE");
     const statement = readStatement(file);
-    // The spend first, from the logs where the configuration counts it so (D-169): a spent reserve of the
-    // goal or of the task refuses a new round, by the limits of the file's version, the round's (D-174).
-    const sp = spendOf({ cfg, task, statement, version: statement.hash, inputs });
+    // The spend first, from the logs where the configuration counts it so (D-169), by the version in force,
+    // as --task counts it (D-175): spend that cannot be counted refuses; a spent reserve of the goal or of
+    // the task is the next action's budget question, which briefAllowed refuses, by the call --task makes.
+    const sp = spendOf({ cfg, task, statement, inputs });
     if (sp?.errors?.length) return refuse(sp.errors.join("; "));
     if (sp?.missing?.length) return refuse(`the spend cannot be counted: the environment does not give ${sp.missing.join("; ")}`);
-    if (sp?.exhausted) return refuse(`the reserve of ${sp.which.join(" and ")} is spent: a question to the owner`);
     const head = run("rev-parse", "--verify", "HEAD").stdout.trim() || null;
     const ok = briefAllowed({ cfg, task, step, statement, inputs, head, spendNow: sp, git });
     if (ok.refused) return refuse(ok.refused);

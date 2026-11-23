@@ -755,6 +755,80 @@ test("[check.spend-snapshot.revised-statement-limits] a revised statement review
   assert.match(task.out, /^NEXT t: the executor works under version [0-9a-f]{12}, then records done/m);
 });
 
+test("[check.spend-snapshot.revised-statement-stop] a revised statement whose own limits are below the spend while the approved version's are above: --task and round.mjs brief take the budget of the version in force alike, the round --task names is the round brief writes, and past the approved version's reserve both stop", () => {
+  const p = project({ fromLogs: true, goals: { g: ["t"] } });
+  const gst = statement({ budget: [20000000, 9000000] });
+  p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, iso(Date.now() - 120000)));
+  // Version A, approved in force, whose reserve is well above the spend.
+  const a = statement({ goal: "g", budget: [1000000, 200000] });
+  p.put("reviews/rounds/20261101T095500Z-t-statement-1.md", cleanStatementRound("t", a.hash, iso(Date.now() - 60000)));
+  const work = p.commit("the goal and version A approved");
+  // A's record of done carries its limits and its goal, which every reader takes for the version in force.
+  const doneTime = iso(Date.now() - 40000);
+  p.put(`reviews/tasks/${doneTime.replace(/[-:]/g, "")}-t-done.md`, ["Record: done", "Task: t", `Commit: ${work}`, `Statement-hash: ${a.hash}`, "Goal: g", "Budget-new-input: 1000000", "Budget-output: 200000", "Budget-reserve: 1.5", `Time: ${doneTime}`, "Checks:", "- true · pass", ""].join("\n"));
+  p.commit("done of A");
+  // Version B, proposed, whose own limits the spend is past.
+  const b = statement({ goal: "g", budget: [100, 100], extra: "Revised.\n\n" });
+  const L = logs();
+  L.claudeSession("exec-1", [{ user: "work on t", time: iso(Date.now() - 30000) }, { msg: "e1", time: iso(Date.now() - 20000), new: 500, out: 50 }]);
+  const env = L.env({ ONT_GOAL_STATEMENT: gst.file });
+  const task = p.tool("ont-check.mjs", ["--task", "t", "--statement", b.file], env);
+  assert.match(task.out, /^SPEND t: from the session logs since \S+: goal g new input 500 of 20000000 × 1\.5 = 30000000, output 50 of 9000000 × 1\.5 = 13500000; task t new input 500 of 1000000 × 1\.5 = 1500000, output 50 of 200000 × 1\.5 = 300000$/m);
+  assert.match(task.out, /^NEXT t: the statement changed after its approval: next is full round 2 of the new version$/m);
+  const br = p.tool("round.mjs", ["brief", "t", "--step", "statement", "--statement", b.file], env);
+  assert.equal(br.code, 0, br.out);
+  assert.match(br.out, /^BRIEF t: full round 2 of the statement/m);
+  // The brief still carries B's own limits, for the round's record (D-174).
+  assert.match(br.out, /^Budget-new-input: 100\nBudget-output: 100$/m);
+  // Past A's reserve too: --task names the question, and brief refuses for the budget.
+  L.claudeSession("exec-2", [{ user: "work on t", time: iso(Date.now() - 10000) }, { msg: "e2", time: iso(Date.now() - 5000), new: 2000000, out: 50 }]);
+  const env2 = L.env({ ONT_GOAL_STATEMENT: gst.file, ONT_EXECUTOR_SESSIONS: "exec-1,exec-2" });
+  const over = p.tool("ont-check.mjs", ["--task", "t", "--statement", b.file], env2);
+  assert.match(over.out, /^NEXT t: the budget is exhausted: a question to the owner \(the reserve of the task t is spent\)$/m);
+  const refused = p.tool("round.mjs", ["brief", "t", "--step", "statement", "--statement", b.file], env2);
+  assert.notEqual(refused.code, 0, refused.out);
+  assert.match(refused.out, /^ERROR · no brief written: .*the budget is exhausted: a question to the owner \(the reserve of the task t is spent\)/m);
+});
+
+test("[check.spend-snapshot.snapshot-of-version] with no logs, no kept brief and no record of done of the version in force, a reader takes only a snapshot of spend of that version: after the approval of a newer version with no snapshot of it, --rounds shows none of the older version's limits as the newer one's", () => {
+  const p = project({ fromLogs: true, goals: {} });
+  const cfg = JSON.parse(readFileSync(join(p.dir, "ont.config.json"), "utf8"));
+  p.put("ont.config.json", JSON.stringify({ ...cfg, budget: { newInput: 95000, output: 10000, reserve: 1.25 } }, null, 2));
+  p.commit("the configuration's limits");
+  const a = statement({ budget: [1234567, 234567] });
+  const L = logs();
+  L.claudeSession("exec-1", [{ user: "work on t", time: iso(Date.now() - 1000) }]);
+  const env = L.env();
+  // Version A reviewed and approved by a round written by the tool, with a snapshot of A's limits.
+  const br = p.tool("round.mjs", ["brief", "t", "--step", "statement", "--statement", a.file], env);
+  assert.equal(br.code, 0, br.out);
+  const lines = briefLines(br.out);
+  const soon = (s) => iso(Date.now() + s * 1000);
+  L.codexSession("rev-a", [{ user: `${lines}\n\nReview the statement of task t.`, time: soon(1) }, { input: 400, cached: 0, out: 40, time: soon(2) }]);
+  const r = p.tool("round.mjs", ["record", "t", "--from", writeReply(lines, "By: gpt (OpenAI, Codex)")], env);
+  assert.equal(r.code, 0, r.out);
+  const roundA = readdirSync(join(p.dir, "reviews/rounds")).find((f) => f.includes("-t-statement-1"));
+  const snap = readFileSync(join(p.dir, "reviews/rounds", roundA), "utf8").match(/^Spend-record: (\S+)$/m)[1];
+  assert.match(readFileSync(join(p.dir, "reviews/tasks", snap), "utf8"), /^Task-limit-new: 1234567$/m);
+  // Version B approved after it by a clean round with no snapshot of its own; no record of done.
+  const b = statement({ budget: [3000000, 700000], extra: "Revised.\n\n" });
+  const timeA = readFileSync(join(p.dir, "reviews/rounds", roundA), "utf8").match(/^Time: (\S+)$/m)[1];
+  const timeB = iso(Date.parse(timeA) + 1000);
+  p.put(`reviews/rounds/${timeB.replace(/[-:]/g, "")}-t-statement-2.md`, cleanStatementRound("t", b.hash, timeB, 2));
+  p.commit("A's round and B's approval");
+  const inputs = inputsOf(p);
+  assert.equal(approvedHash(inputs.rounds, "t", null, inputs.records.approvals), b.hash);
+  // CI: no logs. The reader asks B's limits and finds no record of B: the configuration's, never A's.
+  const rounds = p.tool("ont-check.mjs", ["--rounds"], {});
+  const own = rounds.out.slice(rounds.out.indexOf("ROUNDS t "));
+  assert.doesNotMatch(own, /1234567|234567/, own);
+  assert.match(own, /^BUDGET t: new input \d+ of 95000 × 1\.25 = 118750, output \d+ of 10000 × 1\.25 = 12500/m);
+  const sp = spendOf({ cfg: p.config(), task: "t", inputs, env: {} });
+  assert.equal(sp.fromSnapshot, undefined);
+  // The version asked is A: its snapshot is taken.
+  assert.equal(spendOf({ cfg: p.config(), task: "t", version: a.hash, inputs, env: {} }).fromSnapshot, snap);
+});
+
 test("[check.task-statement.limits-by-version] the limits of a version come from the records of that version alone: its file, its kept brief, its record of done or its snapshot of spend, and the configuration's where none holds them", () => {
   const defaults = { newInput: 95000, output: 10000, reserve: 1.25 };
   const H = (c) => c.repeat(64);

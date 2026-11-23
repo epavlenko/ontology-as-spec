@@ -46,10 +46,13 @@ export function readStatement(file) {
 
 // The state of spend of a task from the session logs (D-169), by spend.mjs logSpend, with the records the
 // check reads; null where the configuration does not set spend.fromLogs. Where the environment gives no
-// logs, as in CI, the latest snapshot of spend of the task, with the inputs that are missing: a reader
-// with no logs compares what the writer saw.
-// version is the version of the statement whose limits and goal apply (D-174): a round's writer gives its
-// brief's; given none, the version in force, as --task, --rounds and done.mjs read it (versionInForce).
+// logs, as in CI, the latest snapshot of spend of the task whose Task-statement-hash: is the version that
+// applies, with the inputs that are missing: a reader with no logs compares what the writer saw; with no
+// snapshot of that version, none, and the limits are the version's own as versionLimits gives them, the
+// configuration's where no record of it holds them, never a snapshot of another version (D-175).
+// version is the version of the statement whose limits and goal apply (D-174): round.mjs record gives its
+// brief's; given none, the version in force, as --task, round.mjs brief, --rounds and done.mjs read it
+// (versionInForce, D-175).
 // ont: derived.task-budget, derived.log-spend
 export function spendOf({ cfg, task, statement = null, version, inputs = null, env = process.env }) {
   if (cfg.spend?.fromLogs !== true) return null;
@@ -60,7 +63,7 @@ export function spendOf({ cfg, task, statement = null, version, inputs = null, e
   const limits = { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version };
   const sp = logSpend({ cfg, task, goal: l.goal, rounds, pending, limits, approvedOf: (t) => approvedHash(rounds, t, null, records.approvals), readStatementFile: readStatement, env });
   if (sp?.missing?.length && !sp.errors?.length) {
-    const snap = (records.snapshots ?? []).filter((x) => x.task === task).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1);
+    const snap = (records.snapshots ?? []).filter((x) => x.task === task && v && x.limits?.task?.hash === v).sort(byTimeFile).at(-1);
     if (snap) return { ...snapshotSpend(snap), missing: sp.missing };
   }
   return sp;
