@@ -181,6 +181,11 @@ After the narrow round, the acceptance of the result is the narrow round's verdi
 The spend of a goal before its records were written by the tool is entered once, as a baseline record with the time it covers up to; after that time the tool sums the session logs afresh. The rounds and tasks of that earlier time are not given their own spend, so the payoff of a round recorded before the baseline is not known (class "historical rounds still share an attribution key"). A round recorded after the baseline has its spend from the logs.
 
 <!-- ont: -->
+### Required verdicts and the fixes after the narrow round
+
+Where a project sets `verdicts.require`, a fix after the narrow round that changes the stamp of a check can be refused by the pre-commit check before the fix is in the range of fixes the exception covers (class "required verdicts still block the first fix commit"). This repository does not set `verdicts.require`; a project that does commits such a fix with the check of required verdicts reported and not refused, or gives the one verdict pass first.
+
+<!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
