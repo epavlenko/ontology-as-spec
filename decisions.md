@@ -21,7 +21,7 @@ The approach applied to itself: decisions about how the approach is described an
 ### D-03 · English only
 
 - Date: 2026-10-17 · Status: accepted
-- Decision: all documents are in English.
+- Decision: all documents are in English. (probe of the merge gate: an accepted entry edited)
 - Why: the discussion of spec-driven development and all primary sources are in English, and the repository is meant to be published. Two languages would drift apart, which is the failure this approach exists to prevent.
 - Rejected: Russian only (narrows the audience); both languages (double maintenance, guaranteed drift).
 

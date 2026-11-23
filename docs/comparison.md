@@ -105,5 +105,3 @@ The objection is right about specifications that are frozen. This approach answe
 - The check catalogue keeps acceptance cases after the change, as OpenSpec's scenarios do, and tests carry their IDs. The check cannot tell whether a test does what its check says.
 
 [Limitations](limitations.md) lists these.
-
-This line names `inv.probe-does-not-exist`, an ID the ontology lacks, to probe the merge gate.
