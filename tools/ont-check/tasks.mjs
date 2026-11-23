@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
-import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, conditionGatesIn, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
+import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
@@ -411,6 +411,63 @@ export const reviewedCommit = (r) => {
   return /^[0-9a-f]{7,40}$/.test(c) ? c : null;
 };
 
+// The range of fixes after the narrow round (rule.fixes-held-by-tests, D-162, D-163): the one function
+// that --task, --rounds, done.mjs, --review, the check's current records and merge-gate.mjs records-only
+// ask. It rests only on records that exist: in the rounds of the review of the result that the step
+// compares, after a round C with Condition: holds, the last round, the narrow round, when it does not end
+// the step; it starts after the commit that round reviewed, and ends at the commit of the first record of
+// done of the window after it on another commit, every check of it passed and, where the statement's file
+// is given, its commands the file's, or, while there is none, at head: the working copy's HEAD, for
+// done.mjs the commit it records done on. The state of the narrow round's verdict of acceptance is read
+// by the records as they were when it was given (inv.acceptance-after-done). null off the path.
+// ont: rule.fixes-held-by-tests
+export function fixesRange({ rounds, done = [], approvals = [], task, head = null, statement = null }) {
+  const { all, held, view } = resultWindow({ rounds, done, approvals, task });
+  const last = all.at(-1);
+  if (!last) return null;
+  const window = all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1);
+  const at = window.findIndex((r) => r.condition);
+  if (at < 0 || at === window.length - 1) return null;
+  if (endsStep(last, (r) => !endingWhy(r, { rounds, done, approvals, statement }))) return null;
+  const from = reviewedCommit(last);
+  const why = last.acceptance ? acceptanceWhy(last, rounds, done, null, { approvals }) : null;
+  const ran = (d) => d.checks.every((c) => c.result === "pass") && (!statement || sameCommands(d, statement));
+  const ends = from ? (view.done.find((d) => d.time > last.time && !d.commit.startsWith(from) && ran(d)) ?? null) : null;
+  return { task, c: window[at], narrow: last, from, acceptance: !last.acceptance ? "missing" : why ? "refused" : "held", why, done: ends, end: ends ? ends.commit : head };
+}
+// Whether a record of done ran exactly the statement's commands of done, in their order (D-123).
+const sameCommands = (d, statement) => {
+  const ran = d.checks.map((c) => c.command);
+  const want = statement.doneWhen ?? [];
+  return ran.length === want.length && ran.every((c, i) => c === want[i]);
+};
+// The rounds of the review of a task's result that its step compares (D-152): those of the task view
+// after the owner's last approval and the start of the window, and whether an earlier round's acceptance
+// held, by the records as they were when it was given. stepNext and fixesRange read them alike.
+function resultWindow({ rounds, done = [], approvals = [], task }) {
+  const ownerSince = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
+  const view = taskView({ rounds, done, approvals, task });
+  const since = view.window ? [ownerSince, view.window.from].filter(Boolean).sort().at(-1) : ownerSince;
+  const all = byTime(view.results).filter((r) => since === null || r.time > since);
+  return { all, held: (r) => !acceptanceWhy(r, rounds, done, null, { approvals }), view };
+}
+// Whether a verdict record given on commit is held by a range of fixes (rule.fixes-held-by-tests, D-163):
+// its commit, with no "+working-tree", comes after the commit the narrow round reviewed and is in the
+// range's end, and, once a record of done ends the range, the working tree holds that end's files outside
+// the directories of records given, so that a stamp changed since was changed by a fix of the range. A Git
+// command that fails holds nothing.
+export function heldByFixes(top, range, commit, recordDirs = []) {
+  const c = String(commit ?? "").replace(/\+working-tree$/, "");
+  if (!top || !range?.from || !range.end || !/^[0-9a-f]{7,40}$/.test(c)) return false;
+  const git = (...a) => spawnSync("git", ["-C", top, ...a], { encoding: "utf8", env: gitEnv() });
+  const ancestor = (a, b) => git("merge-base", "--is-ancestor", a, b).status === 0;
+  const full = (x) => git("rev-parse", "--verify", "--quiet", `${x}^{commit}`).stdout.trim();
+  if (!full(c) || full(c) === full(range.from) || !ancestor(range.from, c) || !ancestor(c, range.end)) return false;
+  if (!range.done) return true;
+  const diff = git("diff", "--no-renames", "--name-only", "-z", range.end, "--", ".", ...recordDirs.map((d) => `:!${d}`));
+  return diff.status === 0 && diff.stdout === "";
+}
+
 // Why a verdict of acceptance is refused, or null (inv.acceptance-after-done, D-117): it follows the
 // record of done, which follows the approval in force; the acceptance, the record and that approval
 // name one version of the statement, the approval is still in force when the acceptance is given, the
@@ -581,8 +638,10 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   // An open gate holds the whole task, both steps, until the owner's newer approval (D-152).
   const gates = openGatesBy({ rounds, done, approvals, task, gatesFrom });
   const held = (r) => !acceptanceWhy(r, rounds, done, null, { approvals });
-  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, conditionGate: gates.condition, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
-  if (gates.notFixable.length || gates.condition.length) return go();
+  // The range of fixes after the narrow round, by the one function that reads it (D-162).
+  const fixes = step === "result-review" ? fixesRange({ rounds, done, approvals, task, statement }) : null;
+  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, fixes, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  if (gates.notFixable.length) return go();
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);
     if (last?.kind === "approval") return { next: "clean", say: `the owner approved version ${last.hash.slice(0, 12)} (${last.file})` };
@@ -617,17 +676,13 @@ export const byVersion = ({ rounds, done = [], approvals = [], task }) => {
 // when it is the last of its step (D-152). Without the key every round carries the meaning of D-152.
 // The rounds are every round of the task, whatever version each names, never a window's: a reviewer's
 // clean round that approves another version closes nothing.
-// The gate of the condition confirmed (D-153) is read the same way, over every version: the round after
-// C that did not end the step, judged by the records as they were when it was given.
-export const openGatesBy = ({ rounds, done = [], approvals = [], task, gatesFrom = null }) => {
+// The round after the confirmed condition opens no gate of its own (D-162): its fixes are held by tests.
+export const openGatesBy = ({ rounds, task, gatesFrom = null, approvals = [] }) => {
   const own = ofTask(rounds, task).filter((r) => !isLegacy(r, gatesFrom));
   const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
-  return { notFixable: notFixableIn(own, since), condition: conditionGatesIn(own, since, (r) => acceptanceWhy(r, rounds, done, null, { approvals })) };
+  return { notFixable: notFixableIn(own, since) };
 };
-export const openGates = (args) => {
-  const g = openGatesBy(args);
-  return [...g.notFixable, ...g.condition.map((x) => x.file)];
-};
+export const openGates = (args) => openGatesBy(args).notFixable;
 // Every task any record names: a round, a record of spend, of done or of the owner's approval (D-152).
 export const taskIds = ({ rounds = [], spend = [], done = [], approvals = [] }) => [...new Set([...rounds, ...spend, ...done, ...approvals].map((r) => r.task).filter(Boolean))].sort();
 export const NO_APPROVAL = "work is not allowed: no approval in force for the statement";
@@ -661,7 +716,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const fileOk = !statement || statement.hash === approvedNow;
   const result = approvedNow ? step("result-review") : !versioned ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;
   const gatesBy = openGatesBy({ rounds, done, approvals, task, gatesFrom });
-  const gates = [...gatesBy.notFixable, ...gatesBy.condition.map((x) => x.file)];
+  const gates = gatesBy.notFixable;
   const nextFull = Math.max(0, ...st.filter((r) => !r.narrow).map((r) => r.number)) + 1;
   const nextResult = Math.max(0, ...rr.filter((r) => !r.narrow).map((r) => r.number)) + 1;
   // The current version window, which every branch below reads for the version: its rounds of the result
@@ -670,11 +725,11 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const window = view.window;
   const branch = {
     "unreadable record": () => malformed.length && blockedSay(malformed),
-    "open gate": () => gates.length && gateSay(gatesBy.notFixable, gatesBy.condition),
+    "open gate": () => gates.length && gateSay(gates),
     done: () =>
       !forWork &&
       (window ? view.results.length && (!needFile || statement?.hash === window.hash) : rr.length) &&
-      result?.next === "clean" && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean"),
+      result?.next === "clean" && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : result.fixes ? `done: ${result.say}` : "done: the last round and its acceptance are clean"),
     "budget question": () =>
       unreadable
         ? `a line of the statement's budget cannot be read: a question to the owner, with no next round (${statement.wrong.join("; ")})`
@@ -755,9 +810,11 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
     : !end
       ? "no round of its review yet"
     : next.branch === "done"
-      ? "done: the last round and its acceptance are clean"
+      ? next.result?.fixes ? `done: ${next.result.say}` : "done: the last round and its acceptance are clean"
       : `the last round of its review, ${end.file}, ${isClean(end) ? "is clean on merging" : "found findings of the change"}${acceptanceLabel(end)}`;
-  if (next.branch === "done") errors.push(...overspendProblems(end, b));
+  // After the narrow round no round ends the task: its record of done does, and no record carries the line
+  // Overspend: then (docs/limitations.md).
+  if (next.branch === "done" && !next.result?.fixes) errors.push(...overspendProblems(end, b));
   const lines = [say("statement", statementLine), say("result", resultLine)];
   errors.push(...(statement?.wrong ?? []).map((w) => `the statement's line ${w}`));
   const latest = view.done.at(-1) ?? null;

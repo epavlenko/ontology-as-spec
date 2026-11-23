@@ -54,7 +54,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, gitEnv, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
+import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
 import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
@@ -1294,6 +1294,15 @@ if (flag("--next") > 0) {
 // that checks get a verdict, not that they pass.
 // ont: inv.manual-checks-run, inv.manual-runs-well-formed, derived.current-run
 const stampFor = (c) => runStamp(c, ONT, rows, checkById, notes);
+// The ranges of fixes after a narrow round of every task, each to HEAD while no record of done ends it,
+// by the one function that gives them (rule.fixes-held-by-tests, D-162).
+// ont: rule.fixes-held-by-tests
+function fixesRanges() {
+  if (!cfg.reviewRounds) return [];
+  const { rounds, records } = readTaskInputs(cfg);
+  const head = spawnSync("git", ["-C", cfg.base, "rev-parse", "--verify", "--quiet", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() || null;
+  return [...new Set(rounds.map((r) => r.task))].map((task) => fixesRange({ rounds, done: records.done, approvals: records.approvals, task, head })).filter(Boolean);
+}
 if (cfg.manualRuns) {
   // A run of a check the Retired IDs table retires is read as history and is never current (D-152).
   const known = new Set([...checkById.keys(), ...(approach?.checks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
@@ -1305,7 +1314,17 @@ if (cfg.manualRuns) {
   report("verdict records whose commit this clone does not have (what a verdict proves does not rest on it)", resolveRecords(runsTop, { runs }).notes, false, 10);
   report("verdict records that two files claim (same check, time and author)", ambiguous);
   const due = checks.filter((c) => untested(c.proof) && c.concepts.some((x) => implemented.has(x)));
-  const current = new Map(due.map((c) => [c.id, currentRun(runs, c.id, stampFor(c))]));
+  // A record given in the range of fixes after a narrow round stays current when a fix of the range changed
+  // its check's stamp (rule.fixes-held-by-tests, D-163): the ranges are those fixesRange gives, each ended
+  // at HEAD while no record of done ends it.
+  const ranges = fixesRanges();
+  const recordDirs = [cfg.manualRuns.dir, cfg.reviewRounds?.dir, cfg.taskRecords?.dir].filter(Boolean).map((d) => relative(runsTop || cfg.base, d).split("\\").join("/"));
+  const heldCache = new Map();
+  const held = (run) => {
+    if (!heldCache.has(run.file)) heldCache.set(run.file, ranges.some((rg) => heldByFixes(runsTop, rg, run.commit, recordDirs)));
+    return heldCache.get(run.file);
+  };
+  const current = new Map(due.map((c) => [c.id, currentRun(runs, c.id, stampFor(c), held)]));
   report(
     "checks of review or run of implemented concepts with no current record",
     due.filter((c) => !current.get(c.id)).map((c) => c.id),
@@ -1342,6 +1361,11 @@ if (flag("--review") > 0) {
     if (!ofApproach || cfg.approachIds) return at;
     return copy?.commit ? `${at} · ${APPROACH_REPO}/blob/${copy.commit}/${at}` : `${at} (the copy has no copy.json: update it with pin.mjs)`;
   };
+  // The diff from the narrow round's commit is the one issue of verdicts of its range of fixes, not a
+  // round (rule.fixes-held-by-tests, D-163).
+  const fullOf = (c) => spawnSync("git", ["-C", cfg.base, "rev-parse", "--verify", "--quiet", `${c}^{commit}`], { encoding: "utf8", env: gitEnv() }).stdout?.trim() || null;
+  for (const rg of fixesRanges().filter((x) => x.from && fullOf(x.from) && fullOf(x.from) === fullOf(base)))
+    console.log(`ISSUE ${rg.task}: the diff from ${base} is the diff of the fixes after the narrow round ${rg.narrow.file}, up to ${rg.end ? rg.end.slice(0, 12) : "the working tree"}: one issue of verdicts, not a round; its findings of the usual path are fixed with a test with no new issue, its rare ones filed (rule.fixes-held-by-tests)`);
   console.log(renderReview(r, base, cfg.base, stampFor, guideOf));
   // --record <table>: the records of the review, written from the reviewer's table (D-100).
   // ont: action.record-verdicts
@@ -1415,7 +1439,8 @@ if (cfg.reviewRounds) {
   const tasksOf = [...new Set(rounds.map((r) => r.task))];
   const viewOf = (t) => taskView({ rounds, done: records.done, approvals: records.approvals, task: t });
   const nextOf = (t) => taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, gatesFrom });
-  const ended = tasksOf.filter((t) => nextOf(t).branch === "done");
+  // After the narrow round the record of done ends the task, and no round carries Overspend: (D-162).
+  const ended = tasksOf.filter((t) => nextOf(t).branch === "done" && !nextOf(t).result?.fixes);
   report(
     "records of acceptance whose line Overspend: is not the tool's",
     ended.flatMap((t) => {

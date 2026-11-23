@@ -1,7 +1,7 @@
 // Records of review rounds (D-99, D-152): one file per round of review of a task, in the directory the
 // configuration names under reviewRounds, with what the round cost and found. From them the tool says
 // what follows the last round of each step, and, once a step has ten applications, what it paid off.
-// ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.condition, field.review-round.overspend, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.rounds-converge, rule.findings-filed, rule.executor-triage, rule.ready-after-clean-round, inv.review-rounds-well-formed, rule.records-english-in-repo
+// ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.condition, field.review-round.overspend, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.rounds-converge, rule.findings-filed, rule.executor-triage, rule.ready-after-clean-round, inv.review-rounds-well-formed, rule.records-english-in-repo, rule.fixes-held-by-tests
 import { realpathSync } from "node:fs";
 import { basename, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { isFile, listFiles, read } from "./lib.mjs";
@@ -274,36 +274,26 @@ const conditionIn = (window) => {
   const at = window.findIndex((r) => r.condition);
   return at < 0 ? null : { c: window[at], after: window.length - 1 - at };
 };
-export const CONDITION_GATE = "a question to the owner: the reviewer confirmed the goal's condition and the one round after it did not end the step; only his approval of a version lets rounds go on";
-// Why a round after C did not end the step, as the owner's question names it (D-153): the classes of its
-// findings of the change left unfiled, or that it has no verdict of acceptance, or why that is refused.
-export const conditionWhat = (r, refusedWhy = () => null) => {
-  const left = [...new Set(ofChange(r).map((x) => x.cls))];
-  return left.length ? `findings left: ${left.join(", ")}` : !r.acceptance ? "no verdict of acceptance" : `the verdict of acceptance is refused: ${refusedWhy(r)}`;
+// What follows the one round after C that did not end its step (rule.fixes-held-by-tests, D-162): no
+// round and no question. fixes is what tasks.mjs fixesRange gives, the one function that reads the range
+// of fixes from the records: the round C, the narrow round, the state of its verdict of acceptance and the
+// record of done that ends the range, if any. The verdict given again on the same result is no new round.
+const RULE = "(rule.fixes-held-by-tests)";
+export const afterNarrow = (f) => {
+  const of = `${f.narrow.file}, the one round after the confirmed condition in ${f.c.file},`;
+  if (f.acceptance === "missing") return { next: "acceptance", fixes: f, say: `${of} has no verdict of acceptance: its reviewer gives it on the same result, recorded after it as the narrow round's; no new round ${RULE}` };
+  if (f.acceptance === "refused") return { next: "acceptance", fixes: f, say: `${of} has a verdict of acceptance the tool refuses (${f.why}): its reviewer gives it again on the same result, recorded after it as the narrow round's; no new round ${RULE}` };
+  if (!f.done)
+    return {
+      next: "fixes",
+      fixes: f,
+      say: `the reviewer confirmed the goal's condition in ${f.c.file} and ${f.narrow.file} is the one round after it: fix its findings of the usual path with tests, get one issue of verdicts on the diff of the fixes (--review ${f.from ?? "<its commit>"} --record), fix the findings of the usual path of that issue with tests, then record done with done.mjs; no round and no question follow ${RULE}`,
+    };
+  return { next: "clean", fixes: f, say: `the record of done ${f.done.file} ends the range of fixes after ${f.narrow.file}, whose verdict of acceptance holds: merge ${RULE}` };
 };
-// The rounds of the review of the result that hold the gate of the condition confirmed (D-153): in the
-// rounds of one version after the owner's last approval, whose time is since, the round that follows C
-// with no end of the step between them, when it does not end the step itself, each with why, by
-// conditionWhat. refusedWhy says why an acceptance is refused by the records as they were when it was
-// given, or null; tasks.mjs openGates gives them over the whole task.
-export const conditionGatesIn = (rounds, since = null, refusedWhy = () => null) => {
-  const held = (r) => !refusedWhy(r);
-  const out = [];
-  const results = byTime(rounds.filter((r) => r.step === "result-review" && (since === null || r.time > since)));
-  for (const hash of new Set(results.map((r) => r.statementHash))) {
-    let c = null;
-    for (const r of results.filter((x) => x.statementHash === hash)) {
-      const ends = endsStep(r, held);
-      if (c && !ends) out.push({ file: r.file, what: conditionWhat(r, refusedWhy) });
-      c = ends || c ? null : r.condition ? r : null;
-    }
-  }
-  return out;
-};
-// The text of an open gate, by its kinds: the files of findings not fixable, and each round of the gate of
-// the condition confirmed with why it did not end the step, the one text --task, --rounds and done.mjs give.
-export const gateSay = (notFixable, condition = []) =>
-  [notFixable.length && `${GATE} (${notFixable.join(", ")})`, condition.length && `${CONDITION_GATE} (${condition.map((g) => `${g.file}: ${g.what}`).join("; ")})`].filter(Boolean).join("; ");
+// The text of an open gate: the files of the rounds with a finding not fixable, the one text --task,
+// --rounds and done.mjs give.
+export const gateSay = (notFixable) => `${GATE} (${notFixable.join(", ")})`;
 
 // The rounds of a step that hold an open gate: a finding of the change `not fixable`, not filed, in a round
 // after the owner's last record of approval for the task, whose time is since (D-152). Only a newer
@@ -328,13 +318,13 @@ export const BRANCHES = ["open gate", "no round", "condition confirmed", "no acc
 // refused(round) says why the clean verdict of acceptance of the last round does not end the task now, or
 // null (inv.acceptance-after-done): such a round does not end its step either (D-123). held(round) says
 // whether an earlier round's acceptance held, for endsStep, which alone resets the comparison of rounds.
-// gate is the files of the rounds of the task that hold an open gate of a finding not fixable, and
-// conditionGate those that hold the gate of the condition confirmed (D-153).
+// gate is the files of the rounds of the task that hold an open gate of a finding not fixable; fixes, the
+// range of fixes after the narrow round that tasks.mjs fixesRange gives (D-162).
 // gatesFrom: a round before it carries the meaning `not fixable` had before D-152, a question at that
 // round only, when it is the last.
 // gateSince: the owner's last approval, from which a finding not fixable is a gate; since by default.
 // numbered: every round of the step, over which a next round takes the next free number of its kind.
-export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], conditionGate = [], gatesFrom = null, numbered = stepRounds } = {}) {
+export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], fixes = null, gatesFrom = null, numbered = stepRounds } = {}) {
   const every = byTime(stepRounds);
   const nextOf = (narrow) => Math.max(0, ...numbered.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
@@ -350,14 +340,18 @@ export function nextRound(stepRounds, { refused = () => null, held = () => true,
   // The last round ends the step by the one end of a step (D-153): held for the latest record of done.
   const ends = last && endsStep(last, (r) => !refused(r));
   const cond = last && last.step === "result-review" && !ends ? conditionIn(window) : null;
-  const condGates = conditionGate.filter((g, i) => conditionGate.findIndex((x) => x.file === g.file) === i);
   const branch = {
-    "open gate": () => (gates.length || condGates.length) && { next: "question", gates: [...gates, ...condGates.map((g) => g.file)], say: gateSay(gates, condGates) },
+    "open gate": () => gates.length && { next: "question", gates, say: gateSay(gates) },
     "no round": () => !last && (every.length ? { next: "first round", number: nextFull, say: `the owner approved a later version: work goes on under it, then full round ${nextFull}` } : { next: "first round" }),
-    // After C one narrow round alone; when it does not end the step, the owner's gate (D-153).
+    // After C one narrow round alone; when it does not end the step, its fixes held by tests, never a
+    // question nor a round (D-162). The range is the one tasks.mjs fixesRange reads from the records; a
+    // caller with rounds alone, and no records of done, gets it from the rounds.
     "condition confirmed": () => {
       if (!cond) return null;
-      if (cond.after > 0) return { next: "question", gates: [last.file], say: gateSay([], [{ file: last.file, what: conditionWhat(last, refused) }]) };
+      if (cond.after > 0)
+        return afterNarrow(
+          fixes?.narrow === last ? fixes : { c: cond.c, narrow: last, from: (last.commits ?? "").split("..").at(-1).trim() || null, acceptance: !last.acceptance ? "missing" : held(last) ? "held" : "refused", why: "refused by the records", done: null },
+        );
       const s = stagnates(last, window.slice(0, -1));
       const on = `the reviewer confirmed the goal's condition in ${last.file}`;
       return s

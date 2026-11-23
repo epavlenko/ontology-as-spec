@@ -141,10 +141,13 @@ export function parseRuns(dir, known, opts = {}) {
 }
 
 // The current run of a check: its latest run, by time and then by file name, whose verdict is pass or
-// fail and whose stamp is the check's stamp now. not-run and not-applicable are not runs.
-export const currentRun = (runs, id, stamp) =>
+// fail and whose stamp is the check's stamp now, or one that held(run) says a range of fixes holds, its
+// stamp changed by a fix of the range (rule.fixes-held-by-tests, D-163). not-run and not-applicable are
+// not runs.
+// ont: rule.fixes-held-by-tests
+export const currentRun = (runs, id, stamp, held = () => false) =>
   runs
-    .filter((r) => r.check === id && r.stamp === stamp && (r.verdict === "pass" || r.verdict === "fail"))
+    .filter((r) => r.check === id && (r.stamp === stamp || held(r)) && (r.verdict === "pass" || r.verdict === "fail"))
     .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file))
     .at(-1);
 
