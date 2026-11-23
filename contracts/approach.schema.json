@@ -814,7 +814,7 @@
           "type": "string"
         },
         "commit": {
-          "description": "The commit, in full, at which the pull request's change of the paths the record lists is whole: each of them changes between the merge base and it; the record is added by the next commit, whose one parent it is, and after it the pull request changes nothing outside reviews/ but by merging main.",
+          "description": "The commit, in full, at which the pull request's change of the paths the record lists is whole: the last commit of the pull request that changes a path outside reviews/, never a later commit of records alone; each of them changes between the merge base and it; the record is added by the next commit, whose one parent it is, and after it the pull request changes nothing outside reviews/ but by merging main.",
           "x-ont": "field.gate-change.commit",
           "type": "string"
         },
