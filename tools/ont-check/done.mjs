@@ -2,16 +2,21 @@
 // The executor's record of done (D-152): runs the commands of done of the task's statement on the
 // commit, in a temporary worktree, and writes the record only under an approval in force for the
 // statement's version and when every command passed.
-//   node tools/ont-check/done.mjs <task> --statement FILE [--config ont.config.json] [--commit REF]
+//   node tools/ont-check/done.mjs <task> --statement FILE [--config ont.config.json] [--commit REF] [--evidence FILE]
 // The commands are the statement's lines "Done-when:", run from the directory of the configuration.
+// --evidence FILE: what the statement asks the record to name besides the commands, such as each row of
+// the catalogue the task changed; each line of the file that is not blank goes under a line "Evidence:"
+// after the checks, and where the configuration sets records.latinOnly the file holds only English text
+// and paths of the repository, or nothing is written (field.task-result.evidence, D-166).
 // After the narrow round that follows a confirmed condition, the record of done ends the range of fixes
 // (rule.fixes-held-by-tests, D-164): its commit is the end fixesRange gives, and it comes after the
 // commit the narrow round reviewed.
-// ont: action.record-done, ent.task-result, inv.acceptance-after-done, rule.work-under-approval, rule.fixes-held-by-tests
+// ont: action.record-done, ent.task-result, field.task-result.evidence, inv.acceptance-after-done, rule.work-under-approval, rule.fixes-held-by-tests
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadConfig } from "./lib.mjs";
+import { outsideRecord } from "./manual-runs.mjs";
 import { TASK_NAME } from "./review-rounds.mjs";
 import { approvedHash, budgetLines, fixesRange, gitEnv, readStatement, readTaskInputs, runAtCommit, taskNext } from "./tasks.mjs";
 
@@ -56,6 +61,22 @@ if (approved !== statement.hash)
       ? `the approval in force is for version ${approved.slice(0, 12)}, the file is ${statement.hash.slice(0, 12)}`
       : "no approval is in force for the statement: its last round of review is not clean or names no version, and no approval of the owner follows it",
   );
+// The evidence, read and held to the rule of language before any command runs (D-166).
+const evidenceFile = value("--evidence");
+let evidence = [];
+if (argv.includes("--evidence")) {
+  if (!evidenceFile || evidenceFile.startsWith("--")) refuse("give the evidence with --evidence FILE");
+  let text;
+  try {
+    text = readFileSync(evidenceFile, "utf8");
+  } catch (e) {
+    refuse(`the evidence ${evidenceFile} cannot be read: ${e.code ?? e.message}`);
+  }
+  const outside = cfg.records.latinOnly ? outsideRecord(text, 1, { latinOnly: true }) : [];
+  if (outside.length) refuse(`the evidence ${evidenceFile} holds what a record here may not: ${outside.join("; ")}`);
+  evidence = text.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => (/^-\s/.test(l) ? l : `- ${l}`));
+  if (!evidence.length) refuse(`the evidence ${evidenceFile} has no line that is not blank`);
+}
 const git = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() });
 const top = git("rev-parse", "--show-toplevel").stdout.trim();
 const commit = git("rev-parse", "--verify", `${value("--commit") ?? "HEAD"}^{commit}`).stdout.trim();
@@ -75,7 +96,7 @@ if (failed.length) {
 const time = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 mkdirSync(cfg.taskRecords.dir, { recursive: true });
 // The statement's limits go into the record, for the check and --rounds, which read no statement (D-147).
-const text = [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${statement.hash}`, ...budgetLines(statement.budget), `Time: ${time}`, `Checks:`, ...run.results.map((r) => `- ${r.command} · ${r.result}`), ""].join("\n");
+const text = [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${statement.hash}`, ...budgetLines(statement.budget), `Time: ${time}`, `Checks:`, ...run.results.map((r) => `- ${r.command} · ${r.result}`), ...(evidence.length ? ["Evidence:", ...evidence] : []), ""].join("\n");
 // A record is never written over another: two records of one second take the next free name.
 let name;
 for (let i = 1; ; i++) {

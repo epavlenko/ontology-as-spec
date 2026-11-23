@@ -643,7 +643,7 @@
     },
     "task-result": {
       "title": "Task result",
-      "description": "The executor's record of done: the task, the commit of its result, the version of the approved statement and the commands of done with their results on that commit, one file in the directory the configuration names under taskRecords.",
+      "description": "The executor's record of done: the task, the commit of its result, the version of the approved statement, the commands of done with their results on that commit and, where the statement asks the record to name more, its evidence, one file in the directory the configuration names under taskRecords.",
       "x-ont": "ent.task-result",
       "type": "object",
       "properties": {
@@ -665,6 +665,11 @@
         "checks": {
           "description": "Each command of done with its result, pass or fail.",
           "x-ont": "field.task-result.checks",
+          "type": "string"
+        },
+        "evidence": {
+          "description": "What the approved statement asks the record of done to name besides the commands of done, such as each row of the catalogue the task changed, one line each under a line Evidence: after the checks, as done.mjs --evidence FILE copies them from the file's lines that are not blank; a reviewer of acceptance reads it there. Where the configuration sets records.latinOnly, its lines hold only English text and paths of the repository, as a record of a gate change does (rule.records-english-in-repo): done.mjs refuses such a file and writes nothing, and the check refuses a record of done whose evidence does not, naming the letter or the path and its line. A record made without it carries none (D-166).",
+          "x-ont": "field.task-result.evidence",
           "type": "string"
         },
         "time": {

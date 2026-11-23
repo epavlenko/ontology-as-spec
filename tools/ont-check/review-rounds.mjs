@@ -72,7 +72,7 @@ export const TASK_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // The lines of a block: after a line "Name:" alone, the lines "- …" up to the first other line.
 export const blockLines = (text, name) => blockAt(text, name)?.map((b) => b.line) ?? null;
 // The same, with the number of each line in the file, from 1.
-const blockAt = (text, name) => {
+export const blockAt = (text, name) => {
   const lines = text.split("\n");
   const at = lines.findIndex((l) => new RegExp(`^${name}:\\s*$`).test(l));
   if (at < 0) return null;

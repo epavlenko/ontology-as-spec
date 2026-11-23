@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
-import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
+import { BUDGET_QUESTION, SHA256, TASK_NAME, blockAt, blockLines, blockedSay, byTime, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
@@ -89,7 +89,8 @@ export function lateRecords({ rounds, done = [], approvals = [], gatesFrom = nul
 // wrong with each. opts.latinOnly is the configuration's records.latinOnly: where it is set, a record of
 // a gate change or of a gate proof holds only English text and paths of the repository, as a record of a
 // round does (D-151, D-158); a record of spend, of done or of approval is read as before, with no rule of
-// language (D-162).
+// language (D-162), but for the lines of the evidence of a record of done, held to it there (D-166).
+// ont: field.task-result.evidence, rule.records-english-in-repo
 // ont: ent.gate-change, field.gate-change.task, field.gate-change.item, field.gate-change.paths, field.gate-change.commit, field.gate-change.time, edge.gate-change.statement, inv.gate-records-well-formed
 // ont: ent.gate-proof, field.gate-proof.kind, field.gate-proof.probe, field.gate-proof.result, field.gate-proof.refused-by, field.gate-proof.head, field.gate-proof.base, field.gate-proof.main-after, field.gate-proof.check, field.gate-proof.run, field.gate-proof.required, field.gate-proof.answer, field.gate-proof.merge, field.gate-proof.time, edge.gate-proof.gate
 export function parseTaskRecords(dir, { latinOnly = false } = {}) {
@@ -129,6 +130,9 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         return { command, result };
       });
       const [commit, hash, time] = [field("Commit"), field("Statement-hash"), field("Time")];
+      // What the statement asks the record to name besides the commands, under Evidence: (D-166).
+      const evidenceAt = blockAt(text, "Evidence");
+      const evidence = (evidenceAt ?? []).map((b) => b.line.replace(/^-\s*/, "").trim());
       const limits = BUDGET_LINES.map(([k, name]) => [k, name, field(name)]);
       const given = limits.filter(([, , v]) => v !== null);
       const reserveLine = field(RESERVE_LINE);
@@ -144,13 +148,16 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
         !checks.length && "no checks",
         ...checks.filter((c) => !c.command || !["pass", "fail"].includes(c.result)).map((c) => `check ${c.command ?? ""} has no result pass or fail`),
+        evidenceAt && !evidenceAt.length && "Evidence: has no line under it",
+        // The evidence, new text no earlier record carries, holds English only where records do (D-166).
+        ...(evidenceAt ?? []).flatMap((b) => outsideOf(b.line, latinOnly).map((p) => p.replace(/^line 1:/, `line ${b.n}:`))),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
         // A record made before the lines existed carries no limits: budget is null (D-147); one made
         // before the line of the reserve carries none, as one whose statement gives none (D-150).
         const budget = given.length ? { ...Object.fromEntries(limits.map(([k, , v]) => [k, v === "none" ? null : Number(v)])), reserve: reserveOf(reserveLine) } : null;
-        done.push({ file: name, task, commit, statementHash: hash, time, checks, budget });
+        done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence });
       }
     } else if (kind === "approval") {
       // The owner's approval of a version of a statement (D-121): valid only by the owner and with the
@@ -689,6 +696,11 @@ export const NO_FILE = "give --statement <file> to compare the version it names 
 // check do not. gatesFrom: the configuration's reviewRounds.gatesFrom.
 // forWork: done.mjs, which asks for new work on the result, so the branch done does not stand for it: a
 // new record of done after the task is done meets the budget and every other branch (D-152).
+// The next action after a clean last round whose acceptance holds, a clean narrow round after the confirmed
+// condition included: the change is merged at once, with no fixes, no issue of verdicts and no new record
+// of done (rule.ready-after-clean-round, D-164).
+// ont: derived.task-next, rule.ready-after-clean-round
+const CLEAN_DONE = "done: the last round and its acceptance are clean: merge (rule.ready-after-clean-round)";
 export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false }) {
   const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement });
   const unreadable = (statement?.wrong ?? []).length > 0;
@@ -719,7 +731,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
     done: () =>
       !forWork &&
       (window ? view.results.length && (!needFile || statement?.hash === window.hash) : rr.length) &&
-      result?.next === "clean" && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : result.fixes ? `done: ${result.say}` : "done: the last round and its acceptance are clean"),
+      result?.next === "clean" && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : result.fixes ? `done: ${result.say}` : CLEAN_DONE),
     "budget question": () =>
       unreadable
         ? `a line of the statement's budget cannot be read: a question to the owner, with no next round (${statement.wrong.join("; ")})`

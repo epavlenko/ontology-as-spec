@@ -223,6 +223,7 @@
     "field.task-result.budget",
     "field.task-result.checks",
     "field.task-result.commit",
+    "field.task-result.evidence",
     "field.task-result.task",
     "field.task-result.time",
     "field.task-spend.contribution",

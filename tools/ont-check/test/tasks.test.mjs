@@ -932,7 +932,7 @@ test("[check.task-statement.gate-across-versions] a gate opened by a round of A 
   // Only the owner's approval clears it: a clean acceptance after it ends the task.
   const answered = scenario({ rounds: [...rounds.slice(0, 3), acceptB({ number: 2, time: T(15) })], done: [{ time: T(12), hash: B }], approvals: [{ hash: B, time: T(14) }] });
   const a = checkWith(answered, {}, ["--rounds"]);
-  assert.match(a.stdout, /^NEXT t: done: the last round and its acceptance are clean$/m, a.stdout);
+  assert.match(a.stdout, /^NEXT t: done: the last round and its acceptance are clean: merge \(rule\.ready-after-clean-round\)$/m, a.stdout);
   [sc, answered].forEach((x) => rmSync(x.dir, { recursive: true, force: true }));
   const { repo, outside, clean } = doneRepo("t");
   try {
@@ -1100,6 +1100,73 @@ test("[check.task-result.done-recorded] done.mjs records done only under an appr
     assert.equal(git(repo, "worktree", "list").split("\n").length, 1);
   } finally {
     rmSync(repo, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test("[check.task-result.evidence] done.mjs writes the evidence a statement asks the record of done to name, under Evidence:, read with the record; where records are English only a Cyrillic line is refused by both", () => {
+  const outside = mkdtempSync(join(tmpdir(), "done-evidence-"));
+  const repos = [];
+  // A repository with an approved statement whose command of done passes, records English only or not.
+  const project = (latinOnly) => {
+    const repo = mkdtempSync(join(tmpdir(), "done-repo-"));
+    repos.push(repo);
+    git(repo, "init", "-q", "-b", "main");
+    mkdirSync(join(repo, "rounds"));
+    mkdirSync(join(repo, "tasks"));
+    writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ classes: { ent: "Entity" }, ontology: "ontology.md", reviewRounds: { dir: "rounds" }, taskRecords: { dir: "tasks" }, ...(latinOnly ? { records: { latinOnly: true } } : {}) }));
+    writeFileSync(join(repo, ".gitignore"), "rounds/\ntasks/\n");
+    git(repo, "add", ".");
+    git(repo, "commit", "-q", "-m", "first");
+    const statement = join(outside, `s-${repos.length}.md`);
+    writeFileSync(statement, `# A statement ${repos.length}\n\nDone-when: true\n`);
+    writeFileSync(join(repo, "rounds", "1.md"), roundText({ task: "t", step: "statement-review", number: 1, time: T(9), hash: readStatement(statement).hash }));
+    const done = (evidence) => spawnSync("node", [join(TOOLS, "done.mjs"), "t", "--statement", statement, "--config", join(repo, "ont.config.json"), "--evidence", evidence], { encoding: "utf8" });
+    return { repo, done, files: () => readdirSync(join(repo, "tasks")) };
+  };
+  const good = join(outside, "good.txt");
+  writeFileSync(good, "check.task-result.evidence, a row changed in checks.md\n\n- the code at tools/ont-check/done.mjs\n");
+  const cyrillic = join(outside, "cyrillic.txt");
+  writeFileSync(cyrillic, "check.task-result.evidence\nряд каталога\n");
+  try {
+    const english = project(true);
+    // A Cyrillic line is refused, naming its letter and its line in the file, and nothing is written.
+    const refused = english.done(cyrillic);
+    assert.equal(refused.status, 1, refused.stdout);
+    assert.match(refused.stdout, /no record of done written: the evidence .*line 2: the letter р is not English text/);
+    assert.deepEqual(english.files(), []);
+    // A file of evidence that is not there is refused too.
+    assert.match(english.done(join(outside, "missing.txt")).stdout, /no record of done written: the evidence .* cannot be read/);
+    // English evidence is written under Evidence:, after the checks, one line each, and read with the record.
+    const ok = english.done(good);
+    assert.equal(ok.status, 0, ok.stdout);
+    const [file] = english.files();
+    const rec = readFileSync(join(english.repo, "tasks", file), "utf8");
+    assert.match(rec, /\nChecks:\n- true · pass\nEvidence:\n- check\.task-result\.evidence, a row changed in checks\.md\n- the code at tools\/ont-check\/done\.mjs\n$/);
+    const read = parseTaskRecords(join(english.repo, "tasks"), { latinOnly: true });
+    assert.deepEqual(read.malformed, []);
+    assert.deepEqual(read.done[0].evidence, ["check.task-result.evidence, a row changed in checks.md", "the code at tools/ont-check/done.mjs"]);
+    // The reader refuses a record of done whose evidence holds a Cyrillic word where records are English
+    // only, naming its line in the record, and reads it where they are not.
+    const hand = rec.replace("- the code at", "- код at");
+    const dir = join(outside, "hand");
+    mkdirSync(dir);
+    writeFileSync(join(dir, "20261123T100000Z-t-done.md"), hand);
+    const line = hand.split("\n").findIndex((l) => l.startsWith("- код")) + 1;
+    const latin = parseTaskRecords(dir, { latinOnly: true });
+    assert.equal(latin.done.length, 0);
+    assert.match(latin.malformed.join("\n"), new RegExp(`20261123T100000Z-t-done\\.md: line ${line}: the letter к is not English text`));
+    assert.deepEqual(parseTaskRecords(dir).malformed, []);
+    assert.equal(parseTaskRecords(dir).done[0].evidence[1], "код at tools/ont-check/done.mjs");
+    // Where records are not English only, the Cyrillic evidence is written and read.
+    const other = project(false);
+    const free = other.done(cyrillic);
+    assert.equal(free.status, 0, free.stdout);
+    assert.deepEqual(parseTaskRecords(join(other.repo, "tasks")).done[0].evidence, ["check.task-result.evidence", "ряд каталога"]);
+    // A record of done made without it carries none.
+    assert.deepEqual(parseTaskRecords(join(TOOLS, "../../reviews/tasks"), { latinOnly: true }).done.find((d) => d.task === "enforcement-merge-gate").evidence, []);
+  } finally {
+    for (const r of repos) rmSync(r, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
   }
 });
@@ -1723,6 +1790,8 @@ const FIXES = /^NEXT t: the reviewer confirmed the goal's condition in r1\.md an
 const AGAIN = (why) => new RegExp(`^NEXT t: r2\\.md, the one round after the confirmed condition in r1\\.md, ${why}: its reviewer gives it (again )?on the same result, recorded after it as the narrow round's; no new round \\(rule\\.fixes-held-by-tests\\)$`);
 const NO_ACCEPTANCE = "has no verdict of acceptance";
 const REFUSED = "has a verdict of acceptance the tool refuses \\(the record of done d0\\.md is of commit [0-9a-f]{7}, not of the commit the round reviewed, [0-9a-f]{7}\\)";
+// A clean last round with its acceptance holding, a clean narrow round included: the merge.
+const CLEAN_MERGE = /^NEXT t: done: the last round and its acceptance are clean: merge \(rule\.ready-after-clean-round\)$/;
 const MERGE = /^NEXT t: done: the record of done d1\.md ends the range of fixes after r2\.md, whose verdict of acceptance holds: merge \(rule\.fixes-held-by-tests\)$/;
 // The cases of the branch condition confirmed, each on its side of its boundary, with the case of
 // derived.next-round its rounds fall under.
@@ -1818,8 +1887,9 @@ test("[check.review-round.fixes-after-narrow] after C and the narrow round, its 
     ["(a) findings of the usual path", { rounds: [C1, resultV(1, { narrow: true, found: 2, prefix: "other" })] }, FIXES, 0],
     // (b) Only a finding of acceptance: the same.
     ["(b) only a finding of acceptance", { rounds: [C1, resultV(1, { narrow: true, acceptance: ACCEPTANCE_FINDING })] }, FIXES, 0],
-    // (v) A clean narrow round with a clean acceptance: done, the merge.
-    ["(v) a clean narrow round", { rounds: [C1, resultV(1, { narrow: true })] }, /^NEXT t: done: the last round and its acceptance are clean$/, 0],
+    // (v) A clean narrow round with a clean acceptance: done, and the next action is the merge at once, no
+    // fixes, no issue of verdicts and no record of done before it.
+    ["(v) a clean narrow round", { rounds: [C1, resultV(1, { narrow: true })] }, CLEAN_MERGE, 0],
     // (g) No verdict of acceptance: that verdict, never the merge.
     ["(g) no verdict of acceptance", { rounds: [C1, resultV(1, { narrow: true, found: 1, prefix: "other", acceptance: undefined })] }, AGAIN(NO_ACCEPTANCE), 0],
     // (d) A record of done on a later commit after the narrow round: done, the merge.
@@ -1831,6 +1901,7 @@ test("[check.review-round.fixes-after-narrow] after C and the narrow round, its 
     assert.match(r.next[0], next, `${name}: ${r.out}`);
     assert.doesNotMatch(r.next[0], /a question to the owner|(narrow|full) round \d/, name);
     if (name.startsWith("(g)")) assert.doesNotMatch(r.next[0], /done:|merge/, name);
+    if (name.startsWith("(v)")) assert.doesNotMatch(r.next[0], /fix|issue of verdicts|record done/, name);
     // The check passes: no verdict of acceptance is refused on the path.
     assert.equal(r.status, 0, `${name}, the check: ${r.out}`);
     assert.equal(r.done, doneMjs, `${name}, done.mjs: ${r.doneOut}`);
