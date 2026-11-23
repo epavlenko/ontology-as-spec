@@ -83,6 +83,59 @@ test("[check.manual-run.stale] lists a check whose run was stamped before its co
   assert.ok(noRun(r.out), r.out);
 });
 
+// The range of fixes after a narrow round (rule.fixes-held-by-tests, D-163): a copy of the example with
+// records of a task whose round C with Condition: holds is followed by a narrow round; a pass given after
+// the narrow round's commit stays current when a fix of the range changes its check's stamp, until a
+// change outside the records follows the record of done that ends the range.
+test("[check.manual-run.fixes-range] a verdict given in the range of fixes after a narrow round stays current when a fix changes its stamp, and not once a change outside the records follows the record of done", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ont-runs-fixes-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
+    patch(dir, "ont.config.json", '"verdicts": { "dir": "verify/runs" },', '"verdicts": { "dir": "verify/runs" }, "reviewRounds": { "dir": "reviews/rounds" }, "taskRecords": { "dir": "reviews/tasks" },');
+    gitIn(dir, "init", "-q", "-b", "main");
+    gitIn(dir, "add", "-A");
+    gitIn(dir, "commit", "-q", "-m", "the copy");
+    const reviewed = gitIn(dir, "rev-parse", "HEAD");
+    const hash = "a".repeat(64);
+    const put = (path, lines) => {
+      mkdirSync(join(dir, path, ".."), { recursive: true });
+      writeFileSync(join(dir, path), [...lines, ""].join("\n"));
+    };
+    const commit = (msg) => (gitIn(dir, "add", "-A"), gitIn(dir, "commit", "-q", "-m", msg), gitIn(dir, "rev-parse", "HEAD"));
+    const head = (n, extra) => [`Task: t`, `Step: result-review`, ...extra, `Number: ${n}`, `Time: 2026-11-20T1${n + 2}:00:00Z`, `By: a model (a provider)`, `Commits: ${reviewed.slice(0, 7)}`, `Statement-hash: ${hash}`];
+    put("reviews/rounds/s1.md", [`Task: t`, `Step: statement-review`, `Number: 1`, `Time: 2026-11-20T10:00:00Z`, `By: a model (a provider)`, `Statement-hash: ${hash}`]);
+    put("reviews/tasks/d0.md", [`Record: done`, `Task: t`, `Commit: ${reviewed}`, `Statement-hash: ${hash}`, `Time: 2026-11-20T11:00:00Z`, `Checks:`, `- true · pass`]);
+    put("reviews/rounds/r1.md", [...head(1, ["Condition: holds"]), "Findings:", "- a · important · change · fixable · t.test.mjs", "Acceptance: clean"]);
+    put("reviews/rounds/r2.md", [...head(1, ["Narrow: true"]).map((l) => l.replace("T13:", "T14:")), "Findings:", "- b · important · change · fixable · t.test.mjs", "Acceptance: clean"]);
+    commit("records");
+    // The one issue of verdicts, after the narrow round's commit, at the check's stamp then.
+    gitIn(dir, "commit", "-q", "--allow-empty", "-m", "a fix");
+    record(dir, `20261120T150000Z-${CHECK}-a1b2.md`, { Time: "2026-11-20T15:00:00Z", Stamp: stampIn(dir, CHECK), Verdict: "pass" });
+    commit("the issue");
+    // A fix of a finding of the issue changes the check's stamp.
+    patch(dir, "ontology.md", "The loan is open and the due date has passed.", "The loan is open and its due date has passed.");
+    const fix = commit("the fix");
+    const check = (...args) => {
+      const r = spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), ...args], { encoding: "utf8" });
+      return r.stdout + r.stderr;
+    };
+    assert.ok(!noRun(check()), "current in the range before done");
+    // The issue is the diff from the narrow round's commit, not a round.
+    assert.match(check("--review", reviewed.slice(0, 7)), new RegExp(`^ISSUE t: the diff from ${reviewed.slice(0, 7)} is the diff of the fixes after the narrow round r2\\.md, up to [0-9a-f]{12}: one issue of verdicts, not a round`, "m"));
+    // The record of done on the fix ends the range: still current.
+    put("reviews/tasks/d1.md", [`Record: done`, `Task: t`, `Commit: ${fix}`, `Statement-hash: ${hash}`, `Time: 2026-11-20T16:00:00Z`, `Checks:`, `- true · pass`]);
+    commit("done");
+    assert.ok(!noRun(check()), "current with the record of done that ends the range");
+    // A change outside the records after the record of done: the exception no longer holds.
+    writeFileSync(join(dir, "notes.md"), "a later change\n");
+    commit("after done");
+    assert.ok(noRun(check()), "not current after a change past the range");
+    // Off the path, as the stale case shows, the same pass with a changed stamp is not current.
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("[check.manual-run.last-failed] lists a failed current run as information, even when runs are required", () => {
   const r = run((dir) => {
     requireRuns(dir);

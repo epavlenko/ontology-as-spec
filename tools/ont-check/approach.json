@@ -365,6 +365,7 @@
     "rule.executor-triage",
     "rule.findings-filed",
     "rule.findings-mislead",
+    "rule.fixes-held-by-tests",
     "rule.form-follows-rows",
     "rule.gate-switched-on",
     "rule.guard-from-acceptance",
@@ -983,7 +984,7 @@
       ],
       "given": "a change about to be merged",
       "when": "a reviewer reads its rounds",
-      "then": "its last round of the review of the result is clean, and the merge is one the owner's policy allows",
+      "then": "its last round of the review of the result is clean, or, after the narrow round that follows a confirmed condition, the record of done that ends the range of fixes follows it (`rule.fixes-held-by-tests`), and the merge is one the owner's policy allows",
       "proof": "review"
     },
     {
@@ -1040,7 +1041,7 @@
       ],
       "given": "a merge of a task through GitHub",
       "when": "a reviewer reads the record of the merge",
-      "then": "it was a merge commit made through the API on the condition of the head's commit, after the head was confirmed past the reviewed commit by records alone",
+      "then": "it was a merge commit made through the API on the condition of the head's commit, after the head was confirmed past the reviewed commit, or, after the narrow round that follows a confirmed condition, the commit of the record of done that ends the range of fixes (`rule.fixes-held-by-tests`), by records alone",
       "proof": "review"
     },
     {
@@ -1218,7 +1219,7 @@
       ],
       "given": "a change about to be merged",
       "when": "a reviewer looks for its review",
-      "then": "an agent of another provider that did not write it gave each check `--review` listed a verdict, and a check it could not run is `not run` with the reason, not `not applicable`; no check that failed and no finding of the change remains, and each verdict was given at the check's stamp now, on files no later commit changed, with the check of code errors given on the last diff",
+      "then": "an agent of another provider that did not write it gave each check `--review` listed a verdict, and a check it could not run is `not run` with the reason, not `not applicable`; no check that failed and no finding of the change remains, and each verdict was given at the check's stamp now, on files no later commit changed, with the check of code errors given on the last diff; in the range of fixes after the narrow round that follows a confirmed condition, what `rule.fixes-held-by-tests` says instead: the one issue of verdicts on the diff of the fixes, given at the stamps then, its fails and findings of the usual path fixed with tests and its rare ones filed",
       "proof": "review"
     },
     {
@@ -1239,7 +1240,7 @@
         "rule.code-reviewed-for-errors"
       ],
       "given": "a change that touches code",
-      "when": "its reviewer reads the diff",
+      "when": "its reviewer reads the diff, after the narrow round that follows a confirmed condition the diff of the fixes, once (`rule.fixes-held-by-tests`)",
       "then": "the change brings no error of correctness and no security problem: no secret in the code, no unchecked input that reaches a query, a command or a path, no access wider than the change needs, no dependency with a known flaw; each one found is reported with its file and line",
       "proof": "review"
     },
