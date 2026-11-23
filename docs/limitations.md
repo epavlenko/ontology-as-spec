@@ -156,6 +156,11 @@ The pin command writes the commit of the approach into a file of information abo
 The recorder of a reviewer's table checks that a row of a run given to a person has evidence, but a cell of only spaces in backticks passes it, and the record then fails the check when it is read (class "recorder accepts evidence its reader treats as empty"). A row whose verdict is misspelt with a doubled hyphen, such as `not--run`, is not read as a row at all, so a duplicate or an unlisted check written that way is dropped instead of refused (class "malformed verdict row bypasses validation"). Both need a cell or a spelling no reviewer writes by habit, and the check of the records catches the first.
 
 <!-- ont: -->
+### The merge gate trusts the pull request's own workflow for its rights and names
+
+The full check runs the pull request's own workflow, so a pull request can declare wider rights for that workflow's token before the guard answers, or add a second workflow with the same job name (classes "read-only rights declared by the pull request" and "workflow provenance of the required checks"). Both need a pull request written to attack the gate; the guard still refuses the merge of a change to `.github/` without an approval, and a deliberate attack by an agent with write access is the limitation the owner accepted.
+
+<!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
