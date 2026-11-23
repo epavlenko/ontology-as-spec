@@ -178,7 +178,7 @@ After the narrow round, the acceptance of the result is the narrow round's verdi
 <!-- ont: -->
 ### Spend of a task counts only the sessions given to it
 
-The tool sums spend from the session logs afresh, from the start of the goal. A task's spend is the sessions whose first message names it: the reviewers of its rounds and the agents it was handed to. The executor's own work in a session shared by several tasks is counted to the goal, where the hard stop is, not to a task; and a round recorded before the round writer has no spend of its own, so its payoff is not known (class "historical rounds still share an attribution key"). The goal's limit stops all its work whatever the shares say.
+The tool sums spend from the session logs afresh, from the start of the goal. A task's spend is the sessions whose first message names it: the reviewers of its rounds and the agents it was handed to. The executor's own work in a session shared by several tasks is counted to the goal, where the hard stop is, not to a task; and a round recorded before the round writer has no spend of its own, so its payoff is not known (class "historical rounds still share an attribution key"). Spend counts from the first round of the review of the unit's statement, so the drafting of a statement before its first round is not counted. The goal's limit stops all its work whatever the shares say.
 
 <!-- ont: -->
 ### Required verdicts and the fixes after the narrow round
