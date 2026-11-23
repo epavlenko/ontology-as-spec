@@ -5,6 +5,7 @@
 //   node tools/ont-check/merge-gate.mjs guard --base <commit> --head <commit> [--config ont.config.json]
 //   node tools/ont-check/merge-gate.mjs records-only --reviewed <commit> --head <commit> [--base <commit>] [--config ont.config.json]
 //   node tools/ont-check/merge-gate.mjs ruleset [--config ont.config.json]
+//   node tools/ont-check/merge-gate.mjs switch-on [--repo <owner>/<repo>] [--config ont.config.json]
 // guard reads the pull request only as data: the paths of the diff from the merge base of --base and
 // --head to --head, and the records of rounds and tasks at --head, read from Git's objects into a
 // temporary directory outside the working tree. It runs nothing of the pull request and changes neither
@@ -16,8 +17,10 @@
 // of --head is the tree of --reviewed merged with --base as Git merges them (D-158).
 // Both fail closed: a Git command that fails is an error, never a diff or a history without changes.
 // ruleset prints the ruleset of the rule file (mergeGate.rules) as the GitHub API takes it.
+// switch-on prints the steps that switch the gate on after the merge of the task that brings it, in their
+// order, each with its calls of gh api, from the rule file (rule.gate-switched-on, D-163).
 // ont: ent.merge-gate, field.merge-gate.guard, field.merge-gate.gate-paths, field.merge-gate.rule-file, edge.merge-gate.changes
-// ont: rule.ci-from-main, inv.gate-change-approved, rule.merge-what-was-checked, rule.main-through-gate
+// ont: rule.ci-from-main, inv.gate-change-approved, rule.merge-what-was-checked, rule.main-through-gate, rule.gate-switched-on
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,7 +28,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gitEnv, loadConfig } from "./lib.mjs";
 import { parseRounds } from "./review-rounds.mjs";
-import { approvedHash, parseTaskRecords, recordsBefore } from "./tasks.mjs";
+import { approvedHash, parseTaskRecords } from "./tasks.mjs";
 
 // The directory of the records of the process: commits that change only files under it change no gate.
 export const RECORDS_DIR = "reviews/";
@@ -177,9 +180,7 @@ export function guard({ cfg, base, head }) {
     const roundsDir = cfg.reviewRounds ? filesAt(top, h, rel(cfg.reviewRounds.dir), tmp) : null;
     const tasksDir = cfg.taskRecords ? filesAt(top, h, rel(cfg.taskRecords.dir), tmp) : null;
     const rounds = roundsDir && existsSync(roundsDir) ? parseRounds(roundsDir, { latinOnly: cfg.records.latinOnly, root: null, hashFrom: cfg.reviewRounds.gatesFrom ?? "" }).rounds : [];
-    const before = cfg.taskRecords ? recordsBefore(cfg, top) : { names: null, errors: [] };
-    if (before.errors.length) return { errors: before.errors };
-    const records = tasksDir && existsSync(tasksDir) ? parseTaskRecords(tasksDir, { latinOnly: cfg.records.latinOnly, before: before.names }) : { gateChanges: [], approvals: [], malformed: [] };
+    const records = tasksDir && existsSync(tasksDir) ? parseTaskRecords(tasksDir, { latinOnly: cfg.records.latinOnly }) : { gateChanges: [], approvals: [], malformed: [] };
     const recordsPath = cfg.taskRecords ? rel(cfg.taskRecords.dir) : null;
     // The commits of the pull request by their parents, so that the commit right after a named one is found.
     const children = new Map();
@@ -217,6 +218,108 @@ export function guard({ cfg, base, head }) {
     rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+// The steps that switch the gate on after the merge of the task that brings it, in their order, each with
+// its calls of `gh api`, from the rule file (rule.gate-switched-on, D-163): the event policy that allows
+// pull_request_target for the guard's workflow first, since GitHub blocks that event in a public
+// repository without one, and the guard would not run on the pull request of records; that policy and the
+// permissions of Actions read back; the pull request of records with both checks under their names and
+// from their app; the ruleset created active; the ruleset read back and compared; the three refusal
+// probes; their gate proofs, the first holding what the pull request of records showed; the probes'
+// pull requests closed and their branches deleted. A rule file without a ruleset that requires checks of
+// an app, or without a policy that allows pull_request_target, gives no steps but an error.
+export function switchOnSteps(rules, { repo = "<owner>/<repo>", file = ".github/merge-gate.json" } = {}) {
+  const ruleset = rules?.ruleset;
+  const rule = (type) => ruleset?.rules?.find((r) => r.type === type)?.parameters;
+  const required = rule("required_status_checks");
+  const checks = required?.required_status_checks ?? [];
+  if (!ruleset || !checks.length || checks.some((c) => !c.context || !Number.isInteger(c.integration_id))) throw new Error(`${file} holds no ruleset that requires checks by name and by app (integration_id)`);
+  const policies = (rules.actions?.policies ?? []).filter((p) => (p.rules ?? []).some((r) => r.type === "restrict_action_events" && (r.parameters?.allowed_events ?? []).includes("pull_request_target")));
+  if (!policies.length) throw new Error(`${file} holds no Actions policy that allows pull_request_target`);
+  const perms = rules.actions?.permissions ?? {};
+  const wf = rules.actions?.workflow ?? {};
+  const names = checks.map((c) => c.context);
+  const app = (c) => `${c.context} · success · app ${c.integration_id}`;
+  const methods = rule("pull_request")?.allowed_merge_methods ?? [];
+  // A body for gh api --input -, on one line in single quotes, so that the command is copied whole.
+  const body = (x) => {
+    const j = JSON.stringify(x);
+    if (j.includes("'")) throw new Error(`a body of ${file} holds a single quote: ${j}`);
+    return `echo '${j}'`;
+  };
+  const R = `repos/${repo}`;
+  const shaLines = `gh api ${R}/pulls/<n> --jq '[.head.sha, .base.sha] | @tsv'`;
+  const checkRuns = `gh api ${R}/commits/<head>/check-runs --jq '.check_runs[] | [.name, .conclusion, .app.id] | @tsv'`;
+  const merge = `gh api -X PUT ${R}/pulls/<n>/merge -f merge_method=merge -f sha=<head>`;
+  return [
+    {
+      title: `Allow pull_request_target for the guard's workflow by the Actions policy, the event policy`,
+      say: [
+        `GitHub blocks pull_request_target in a public repository that has no event policy for it, so ${names.find((n) => /guard/.test(n)) ?? names[1] ?? names[0]} would not run. List the repository's policies; when one of the same name exists, update it, \`gh api -X PUT ${R}/actions/policies/<id> --input -\` with the same body; otherwise create it:`,
+      ],
+      run: [`gh api ${R}/actions/policies`, ...policies.map((p) => `${body(p)} | gh api -X POST ${R}/actions/policies --input -`)],
+    },
+    {
+      title: "Read the Actions settings back and compare them with the rule file",
+      say: [
+        ...policies.map((p) => `the policy "${p.name}": enforcement ${p.enforcement}, workflows ${(p.conditions?.workflow_path?.include ?? []).join(", ")}, events ${p.rules.flatMap((r) => r.parameters?.allowed_events ?? []).join(", ")}`),
+        `the permissions: enabled ${perms.enabled}, allowed actions ${perms.allowed_actions}; the workflows' token: ${wf.default_workflow_permissions}, approving reviews ${wf.can_approve_pull_request_reviews}`,
+        `A difference stops here: set it as ${file} says, \`gh api -X PUT ${R}/actions/permissions -F enabled=${perms.enabled} -f allowed_actions=${perms.allowed_actions}\`, \`gh api -X PUT ${R}/actions/permissions/workflow -f default_workflow_permissions=${wf.default_workflow_permissions} -F can_approve_pull_request_reviews=${wf.can_approve_pull_request_reviews}\`, and read it back again.`,
+      ],
+      run: [`gh api ${R}/actions/policies`, `gh api ${R}/actions/permissions`, `gh api ${R}/actions/permissions/workflow`],
+    },
+    {
+      title: "Open the preflight pull request of the task's records alone and wait for both checks",
+      say: [
+        "A branch from main with the task's records alone, its rounds and verdicts under reviews/, pushed, and its pull request into main:",
+        `Wait until both checks have run on its head, then read them: each must be ${checks.map(app).join(", and ")}, under that name and from that app. Keep the pull request, its head and these lines for the first gate proof.`,
+      ],
+      run: [`gh api ${R}/pulls -f base=main -f head=<branch> -f title=<title> -f body=<body>`, shaLines, `gh pr checks <n> --watch`, checkRuns],
+    },
+    {
+      title: "Create the ruleset active from the rule file",
+      say: [`When a ruleset of the same name exists, update it, \`node tools/ont-check/merge-gate.mjs ruleset | gh api -X PUT ${R}/rulesets/<id> --input -\`; otherwise:`],
+      run: [`node tools/ont-check/merge-gate.mjs ruleset | gh api -X POST ${R}/rulesets --input -`],
+    },
+    {
+      title: "Read the ruleset back and compare it with the rule file",
+      say: [
+        `It must be: enforcement ${ruleset.enforcement} on ${(ruleset.conditions?.ref_name?.include ?? []).join(", ")}; a pull request required, merged by ${methods.join(", ")} alone; the required checks ${checks.map((c) => `${c.context} from app ${c.integration_id}`).join(" and ")}; strict, the branch up to date with main, ${required.strict_required_status_checks_policy}; no bypass, bypass actors ${JSON.stringify(ruleset.bypass_actors ?? [])}. A difference stops here.`,
+        "The preflight pull request now lists both checks as required: keep that for the first gate proof as well.",
+      ],
+      run: [
+        `gh api ${R}/rulesets --jq '.[] | select(.name == "${ruleset.name}") | .id'`,
+        `gh api ${R}/rulesets/<id> --jq '{enforcement, conditions, bypass_actors, rules: [.rules[] | {type, parameters}]}'`,
+        `gh api ${R}/rules/branches/main`,
+        `gh pr checks <n> --required`,
+      ],
+    },
+    {
+      title: "Make the three refusal probes",
+      say: [
+        "For each, a branch from main, pushed, its pull request, both checks waited for, then the attempt to merge, keeping GitHub's answer:",
+        "(1) a check broken on purpose outside the gate paths, such as a doc section that names an ID the ontology lacks: refused by ont-check, while ont-gate-guard passes;",
+        "(2) a gate path changed with no record of a gate change, such as a comment in a workflow: refused by ont-gate-guard;",
+        `(3) a change outside the gate paths with both checks green; then main moves on, by the merge of the preflight pull request through the gate after \`node tools/ont-check/merge-gate.mjs records-only --reviewed <main> --head <head> --base <main>\`, which is no proof of a pass; then the attempt is refused for being behind, GitHub's answer naming the branch out of date and not a check.`,
+      ],
+      run: [`gh api ${R}/pulls -f base=main -f head=<branch> -f title=<title> -f body=<body>`, `gh pr checks <n> --watch`, shaLines, checkRuns, `gh api '${R}/actions/runs?head_sha=<head>' --jq '.workflow_runs[] | [.name, .id, .html_url, .conclusion] | @tsv'`, merge],
+    },
+    {
+      title: "Record a gate proof of each probe",
+      say: [
+        "One file reviews/tasks/<time>-<task>-gate-proof.md for each probe, in English with paths of the repository: Record: gate-proof, Gate, Kind: refusal, Probe: pr <n>, Result: refused, Refused-by, Head, Base, Check, Run, Required, Answer, Time.",
+        `The first holds the preflight observation too, on a line of its own: Preflight: pr <n> · <head> · ${checks.map(app).join(" · ")} · required ${names.join(", ")} after the ruleset was created.`,
+      ],
+      run: [shaLines, checkRuns],
+    },
+    {
+      title: "Close the probes' pull requests and delete their branches",
+      say: ["For each probe:"],
+      run: [`gh api -X PATCH ${R}/pulls/<n> -f state=closed`, `gh api -X DELETE ${R}/git/refs/heads/<branch>`],
+    },
+  ];
+}
+export const SWITCH_ON_END = "The proof of a pass is the merge of the next task's pull request through the gate, after that task starts.";
 
 function main(argv) {
   const [mode] = argv;
@@ -263,7 +366,24 @@ function main(argv) {
       return say([`ERROR · the rule file ${cfg.mergeGate.rules} cannot be read: ${e.message}`]), 1;
     }
   }
-  say([`ERROR · the mode ${mode ?? "(none)"} is not guard, records-only or ruleset`]);
+  if (mode === "switch-on") {
+    if (!cfg.mergeGate?.rules) return say([`ERROR · the configuration ${cfg.file} names no mergeGate.rules`]), 1;
+    const file = relative(cfg.base, cfg.mergeGate.rules).split("\\").join("/");
+    try {
+      const steps = switchOnSteps(JSON.parse(readFileSync(cfg.mergeGate.rules, "utf8")), { repo: value("--repo") ?? "<owner>/<repo>", file });
+      const lines = [`Switch the gate on after the merge of the task that brings it: these steps, in this order, from ${file} (rule.gate-switched-on, D-163).`];
+      steps.forEach((st, i) => {
+        lines.push("", `${i + 1}. ${st.title}.`);
+        for (const l of st.say) lines.push(`   ${l}`);
+        for (const r of st.run) lines.push(`   $ ${r}`);
+      });
+      lines.push("", SWITCH_ON_END);
+      return say(lines), 0;
+    } catch (e) {
+      return say([`ERROR · the rule file ${file} gives no steps: ${e.message}`]), 1;
+    }
+  }
+  say([`ERROR · the mode ${mode ?? "(none)"} is not guard, records-only, ruleset or switch-on`]);
   return 1;
 }
 

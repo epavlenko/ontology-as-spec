@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join, relative } from "node:path";
+import { basename, join } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
 import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, conditionGatesIn, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
@@ -62,9 +62,7 @@ export const budgetLines = (budget) => BUDGET_ALL.map(([k, name]) => `${name}: $
 // A late record (lateRecords) is given to no reader: it is in malformed, which blocks every task.
 export function readTaskInputs(cfg) {
   const { rounds: parsedRounds, malformed: unreadable, top } = readRoundRecords(cfg);
-  const before = cfg.taskRecords ? recordsBefore(cfg, top) : { names: null, errors: [] };
-  const own = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir, { latinOnly: cfg.records.latinOnly, before: before.names }) : { spend: [], done: [], approvals: [], gateChanges: [], gateProofs: [], malformed: [] };
-  const parsed = { ...own, malformed: [...before.errors, ...own.malformed] };
+  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir, { latinOnly: cfg.records.latinOnly }) : { spend: [], done: [], approvals: [], gateChanges: [], gateProofs: [], malformed: [] };
   const late = lateRecords({ rounds: parsedRounds, done: parsed.done, approvals: parsed.approvals, gatesFrom: cfg.reviewRounds.gatesFrom ?? null });
   const kept = (x) => !late.some((l) => l.record === x);
   const malformed = [...unreadable, ...late.map((l) => l.text)];
@@ -87,31 +85,14 @@ export function lateRecords({ rounds, done = [], approvals = [], gatesFrom = nul
   });
 }
 
-// The task records that the commit named by taskRecords.latinAfter holds, by their paths in the directory
-// of task records (D-160): those of the earlier kinds read as before. names is null without the key; a key
-// that names no commit of the clone, or a Git command that fails, is an error, and then every record is
-// held, never read without the rule.
-export function recordsBefore(cfg, top) {
-  const at = cfg.taskRecords?.latinAfter ?? null;
-  if (!at) return { names: null, errors: [] };
-  const missing = { names: new Set(), errors: [`the commit ${at} that taskRecords.latinAfter names is not a commit of this clone (D-160)`] };
-  if (!top || spawnSync("git", ["-C", top, "cat-file", "-e", `${at}^{commit}`], { env: gitEnv() }).status !== 0) return missing;
-  const dir = relative(top, cfg.taskRecords.dir).split("\\").join("/");
-  const args = ["ls-tree", "-r", "-z", "--full-tree", "--name-only", at, "--", dir];
-  const r = spawnSync("git", ["-C", top, ...args], { encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 28 });
-  if (r.status !== 0) return { names: new Set(), errors: [`git ${args.join(" ")} failed: ${(r.stderr ?? "").trim().split("\n")[0]}`] };
-  return { names: new Set(r.stdout.split("\0").filter(Boolean).map((p) => p.slice(dir.length + 1))), errors: [] };
-}
-
 // Records of done, of spend, of the owner's approval, of a gate change and of a gate proof, with what is
 // wrong with each. opts.latinOnly is the configuration's records.latinOnly: where it is set, a record of
 // a gate change or of a gate proof holds only English text and paths of the repository, as a record of a
-// round does (D-151, D-158), and so does a record of spend, of done or of approval whose path in dir is
-// not in opts.before, the records the commit named by taskRecords.latinAfter holds; with opts.before null,
-// no key, those read as before (D-160).
+// round does (D-151, D-158); a record of spend, of done or of approval is read as before, with no rule of
+// language (D-162).
 // ont: ent.gate-change, field.gate-change.task, field.gate-change.item, field.gate-change.paths, field.gate-change.commit, field.gate-change.time, edge.gate-change.statement, inv.gate-records-well-formed
 // ont: ent.gate-proof, field.gate-proof.kind, field.gate-proof.probe, field.gate-proof.result, field.gate-proof.refused-by, field.gate-proof.head, field.gate-proof.base, field.gate-proof.check, field.gate-proof.run, field.gate-proof.required, field.gate-proof.answer, field.gate-proof.merge, field.gate-proof.time, edge.gate-proof.gate
-export function parseTaskRecords(dir, { latinOnly = false, before = null } = {}) {
+export function parseTaskRecords(dir, { latinOnly = false } = {}) {
   const spend = [];
   const done = [];
   const approvals = [];
@@ -122,8 +103,6 @@ export function parseTaskRecords(dir, { latinOnly = false, before = null } = {})
     const text = read(f);
     const field = (name) => text.match(new RegExp(`^${name}:[ \\t]*(.*?)\\s*$`, "m"))?.[1] ?? null;
     const name = basename(f);
-    // A record of an earlier kind is held to the rule of language only when added after the start (D-160).
-    const held = latinOnly && before !== null && !before.has(relative(dir, f).split("\\").join("/"));
     const kind = field("Record");
     const task = field("Task");
     if (kind === "spend") {
@@ -138,7 +117,6 @@ export function parseTaskRecords(dir, { latinOnly = false, before = null } = {})
         !realTime(end) && `end ${end ?? "(none)"} is not a UTC time to the second`,
         realTime(start) && realTime(end) && start > end && `start ${start} is after its end ${end}`,
         ...counts.filter(([, v]) => v !== null && !/^\d+$/.test(v)).map(([k, v]) => `${k.toLowerCase()} ${v} is not a whole number`),
-        ...outsideOf(text, held),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
@@ -166,7 +144,6 @@ export function parseTaskRecords(dir, { latinOnly = false, before = null } = {})
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
         !checks.length && "no checks",
         ...checks.filter((c) => !c.command || !["pass", "fail"].includes(c.result)).map((c) => `check ${c.command ?? ""} has no result pass or fail`),
-        ...outsideOf(text, held),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
@@ -186,7 +163,6 @@ export function parseTaskRecords(dir, { latinOnly = false, before = null } = {})
         by !== "owner" && `by ${by ?? "(none)"}, not by owner: only the owner's approval is recorded so`,
         !source && "no source: the owner's words or answer it rests on, with the date",
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
-        ...outsideOf(text, held),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else approvals.push({ file: name, task, statementHash: hash, by, source, time });
@@ -232,7 +208,10 @@ export function gateChangeOf(text, name, { latinOnly = false } = {}) {
 }
 
 // A record of a gate proof (D-158): a live probe of a gate on GitHub, a refusal or a pass, of a pull
-// request or of a push; the file is <time>-<task>-gate-proof.md, by the task whose gate it probes.
+// request or of a push; the file is <time>-<task>-gate-proof.md, by the task whose gate it probes. The
+// result agrees with the kind: a refusal, of a pull request or of a push, was refused, and a pass is an
+// ordinary merge through the gate, of a pull request, merged. A kind is one of the two by its own name,
+// never by a name every object inherits, such as constructor.
 export const PROOF_KINDS = { refusal: "refused", pass: "merged" };
 export function gateProofOf(text, name, { latinOnly = false } = {}) {
   const f = Object.fromEntries(["Gate", "Kind", "Probe", "Result", "Refused-by", "Head", "Base", "Check", "Run", "Required", "Answer", "Merge", "Time"].map((k) => [k, lineOf(text, k)]));
@@ -241,15 +220,18 @@ export function gateProofOf(text, name, { latinOnly = false } = {}) {
   const pair = (v) => /^\S.* · \S+$/.test(v ?? "");
   const runOk = /^\d+ · https:\/\/\S+$/.test(f.Run ?? "");
   const results = ["refused", "merged", "pushed"];
+  const kind = Object.hasOwn(PROOF_KINDS, f.Kind ?? "") ? f.Kind : null;
+  const probe = pr ? "pr" : push ? "push" : null;
+  const expected = kind ? PROOF_KINDS[kind] : null;
   const wrong = [
     !f.Gate && "no gate: the task whose gate was probed",
     f.Gate && !TASK_NAME.test(f.Gate) && `gate ${f.Gate} is not lower-case letters, digits and hyphens`,
     f.Gate && TASK_NAME.test(f.Gate) && !new RegExp(`^\\d{8}T\\d{6}Z-${f.Gate}-gate-proof\\.md$`).test(name) && `the file is not named <time>-${f.Gate}-gate-proof.md`,
-    !(f.Kind in PROOF_KINDS) && `kind ${f.Kind ?? "(none)"} is not refusal or pass`,
-    !pr && !push && `probe ${f.Probe ?? "(none)"} is not "pr <number>" or "push <ref>"`,
+    !kind && `kind ${f.Kind ?? "(none)"} is not refusal or pass`,
+    !probe && `probe ${f.Probe ?? "(none)"} is not "pr <number>" or "push <ref>"`,
     !results.includes(f.Result) && `result ${f.Result ?? "(none)"} is not refused, merged or pushed`,
-    f.Kind === "refusal" && f.Result && f.Result !== "refused" && `result ${f.Result} disagrees with the kind refusal`,
-    f.Kind === "pass" && f.Result && f.Result === "refused" && `result refused disagrees with the kind pass`,
+    expected && results.includes(f.Result) && f.Result !== expected && `result ${f.Result} disagrees with the kind ${kind}, whose result is ${expected}`,
+    kind === "pass" && probe === "push" && "a pass is a merge of a pull request, not a push",
     f.Kind === "refusal" && !f["Refused-by"] && "a refusal names no check or rule that refused it",
     f.Kind === "refusal" && !f.Answer && "a refusal has no answer of GitHub",
     f.Kind === "pass" && !FULL_COMMIT.test(f.Merge ?? "") && `a pass has no merge commit in full (${f.Merge ?? "none"})`,

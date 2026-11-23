@@ -295,7 +295,9 @@ test("[check.merge-gate.pre-commit-index] the hook checks what the commit holds,
   chmodSync(join(repo, ".githooks/pre-commit"), 0o755);
   // A check that fails when the files it is run on hold "broken", and says where it ran.
   writeFileSync(join(repo, "check.mjs"), 'import { appendFileSync, existsSync } from "node:fs";\nappendFileSync(process.env.HOOK_LOG, process.cwd() + "\\n");\nprocess.exit(existsSync("broken") ? 1 : 0);\n');
-  writeFileSync(join(repo, "package.json"), JSON.stringify({ name: "p", private: true, type: "module", scripts: { check: "node check.mjs", guard: "true" } }));
+  // A guard of decisions that says where it ran, and passes as the commit holds it.
+  writeFileSync(join(repo, "guard.mjs"), 'import { appendFileSync } from "node:fs";\nappendFileSync(process.env.HOOK_LOG + ".guard", process.cwd() + "\\n");\n');
+  writeFileSync(join(repo, "package.json"), JSON.stringify({ name: "p", private: true, type: "module", scripts: { check: "node check.mjs", guard: "node guard.mjs" } }));
   git("add", "-A");
   git("commit", "-q", "--no-verify", "-m", "start");
   git("config", "core.hooksPath", ".githooks");
@@ -323,6 +325,19 @@ test("[check.merge-gate.pre-commit-index] the hook checks what the commit holds,
   assert.equal(record.status, 0, record.stderr);
   assert.equal(ran(), 3, "the hook runs on a commit of a record too");
   assert.ok(readFileSync(log, "utf8").trim().split("\n").every((d) => d !== repo), "the check ran outside the working tree");
+
+  // An unfinished edit of the guard of decisions, left unstaged, that would refuse every commit: the
+  // commit of a whole staged change is made, by the guard the commit holds, run where the check ran.
+  rmSync(join(repo, "broken"));
+  writeFileSync(join(repo, "guard.mjs"), "process.exit(1);\n");
+  writeFileSync(join(repo, "more.md"), "more\n");
+  git("add", "more.md");
+  const unstaged = git("commit", "-q", "-m", "a whole change, the guard broken in the working tree only");
+  assert.equal(unstaged.status, 0, unstaged.stderr);
+  assert.equal(ran(), 4);
+  const guards = readFileSync(`${log}.guard`, "utf8").trim().split("\n");
+  assert.equal(guards.length, 3, "the guard ran on each commit the check passed");
+  assert.ok(guards.every((d) => d !== repo), "the guard ran outside the working tree");
   assert.equal(git("worktree", "list").stdout.trim().split("\n").length, 1, "the temporary worktree is removed");
 });
 
@@ -361,7 +376,7 @@ test("[check.merge-gate.ci-workflow-reported] a configuration without a CI workf
 const records = (files) => {
   const dir = temp("records-");
   for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text);
-  return parseTaskRecords(dir, { latinOnly: true, before: new Set() });
+  return parseTaskRecords(dir, { latinOnly: true });
 };
 const C40 = "a".repeat(40);
 
@@ -401,6 +416,10 @@ test("[check.gate-proof.read] records of a refusal and of a pass are read with t
     [name(5)]: REFUSAL.replace(/^Head: .*\n/m, ""),
     [name(6)]: REFUSAL.replace("Result: refused", "Result: merged"),
     [name(7)]: REFUSAL.replace("Refused-by: ont-check", "Refused-by: /home/someone/log.txt"),
+    [name(8)]: REFUSAL.replace("Kind: refusal", "Kind: constructor"),
+    [name(9)]: REFUSAL.replace("Kind: refusal", "Kind: attack"),
+    "20261124T100010Z-enforcement-merge-gate-gate-proof.md": PASS.replace("Result: merged", "Result: pushed"),
+    "20261124T100011Z-enforcement-merge-gate-gate-proof.md": PASS.replace("Probe: pr 12", "Probe: push refs/heads/main"),
   });
   assert.deepEqual(
     r.gateProofs.map((p) => [p.file, p.kind, p.probe, p.result, p.head, p.base, p.check, p.run, p.required, p.refusedBy, p.answer, p.merge]),
@@ -416,16 +435,39 @@ test("[check.gate-proof.read] records of a refusal and of a pass are read with t
   assert.match(m, new RegExp(`${name(5)}: head \\(none\\) is not a full commit`));
   assert.match(m, new RegExp(`${name(6)}: result merged disagrees with the kind refusal`));
   assert.match(m, new RegExp(`${name(7)}: .*/home/someone/log\\.txt is a path outside the repository`));
-  assert.equal(r.malformed.length, 6);
+  // A kind is refusal or pass by that name: not a name every object inherits, nor any other.
+  assert.match(m, new RegExp(`${name(8)}: kind constructor is not refusal or pass`));
+  assert.match(m, new RegExp(`${name(9)}: kind attack is not refusal or pass`));
+  // A pass is an ordinary merge of a pull request: recorded as pushed, or as a push, it is refused.
+  assert.match(m, /100010Z-enforcement-merge-gate-gate-proof\.md: result pushed disagrees with the kind pass/);
+  assert.match(m, /100011Z-enforcement-merge-gate-gate-proof\.md: a pass is a merge of a pull request, not a push/);
+  assert.equal(r.malformed.length, 10);
 });
 
-test("[check.owner-approval.english] where records are English only from a start, an approval added after it that quotes the owner in Cyrillic is refused and its transliteration is read", () => {
-  const approval = (source) => ["Record: approval", "Task: t", `Statement-hash: ${A}`, "By: owner", `Source: ${source}`, "Time: 2026-11-21T13:52:40Z", ""].join("\n");
-  const r = records({ "a.md": approval('the owner\'s answer to question 1, "Да"'), "b.md": approval('the owner\'s answer to question 1, "Da" ("yes", transliterated from Russian)') });
-  assert.deepEqual(r.malformed, ["a.md: line 5: the letter Д is not English text"]);
-  assert.deepEqual(r.approvals.map((a) => a.file), ["b.md"]);
-  // The repository's own records hold to it.
-  assert.deepEqual(parseTaskRecords(join(TOP, "reviews/tasks"), { latinOnly: true, before: new Set() }).malformed, []);
+test("[check.owner-approval.read-as-before] where records are English only, the records of spend, of done and of approval are read as before, and only the records of a gate change and of a gate proof are held to it", () => {
+  const approval = ["Record: approval", "Task: t", `Statement-hash: ${A}`, "By: owner", 'Source: the owner\'s answer to question 1, "Да"', "Time: 2026-11-21T13:52:40Z", ""].join("\n");
+  const spend = ["Record: spend", "Task: t", "Contribution: сессия · s1", "Start: 2026-11-21T10:00:00Z", "End: 2026-11-21T10:30:00Z", "Tokens-new: 10", ""].join("\n");
+  const done = ["Record: done", "Task: t", `Commit: ${C40}`, `Statement-hash: ${A}`, "Time: 2026-11-21T11:00:00Z", "Checks:", "- npm test · pass", "Note: готово", ""].join("\n");
+  const r = records({
+    "20261121T135240Z-t-approval.md": approval,
+    "20261121T100000Z-t-spend.md": spend,
+    "20261121T110000Z-t-done.md": done,
+    "20261123T110000Z-t-gate-change.md": CHANGE({ commit: C40, paths: ["package.json"], item: "пункт 2" }),
+    "20261124T100000Z-enforcement-merge-gate-gate-proof.md": REFUSAL.replace("Refused-by: ont-check", "Refused-by: проверка"),
+  });
+  assert.deepEqual(r.approvals.map((x) => x.file), ["20261121T135240Z-t-approval.md"]);
+  assert.deepEqual(r.spend.map((x) => x.file), ["20261121T100000Z-t-spend.md"]);
+  assert.deepEqual(r.done.map((x) => x.file), ["20261121T110000Z-t-done.md"]);
+  assert.equal(r.malformed.length, 2, r.malformed.join("\n"));
+  assert.match(r.malformed.join("\n"), /20261123T110000Z-t-gate-change\.md: line 4: the letter п is not English text/);
+  assert.match(r.malformed.join("\n"), /20261124T100000Z-enforcement-merge-gate-gate-proof\.md: line \d+: the letter п is not English text/);
+  // The configuration names no start of a rule for the earlier kinds, and the loader reads no such key.
+  assert.equal(ROOT_CFG.taskRecords.latinAfter, undefined);
+  assert.equal(loadConfig(join(TOP, "ont.config.json")).taskRecords.latinAfter, undefined);
+  // This repository's records are read with none refused, and the record of round-rules, corrected in
+  // place (item 8), holds Latin letters only.
+  assert.deepEqual(parseTaskRecords(join(TOP, "reviews/tasks"), { latinOnly: true }).malformed, []);
+  assert.match(read("reviews/tasks/20261121T135240Z-round-rules-approval.md"), /^[\x00-\x7F]*$/);
 });
 
 test("[check.tool-copy.copy-verified-in-ci] the templates' step verifies a pinned copy, fails on an edited one, and is skipped with no pin", () => {
@@ -606,39 +648,6 @@ test("[check.merge-gate.gate-change-bound] a record of a gate change approves on
   assert.ok(repo);
 });
 
-test("[check.owner-approval.english-after-start] where records are English only, a task record of an earlier kind is held to it only when added after taskRecords.latinAfter", () => {
-  const repo = temp("latin-after-");
-  const g = (...a) => {
-    const r = spawnSync("git", ["-C", repo, ...a], { encoding: "utf8", env: GIT_ENV });
-    assert.equal(r.status, 0, r.stderr);
-    return r.stdout.trim();
-  };
-  const approval = (source) => ["Record: approval", "Task: t", `Statement-hash: ${A}`, "By: owner", `Source: ${source}`, "Time: 2026-11-21T13:52:40Z", ""].join("\n");
-  g("init", "-q", "-b", "main");
-  mkdirSync(join(repo, "reviews/rounds"), { recursive: true });
-  mkdirSync(join(repo, "reviews/tasks"), { recursive: true });
-  writeFileSync(join(repo, "reviews/rounds/.keep"), "");
-  writeFileSync(join(repo, "reviews/tasks/20261121T135240Z-t-approval.md"), approval('the owner\'s answer to question 1, "Да"'));
-  g("add", "-A");
-  g("commit", "-q", "-m", "an old record");
-  const start = g("rev-parse", "HEAD");
-  writeFileSync(join(repo, "reviews/tasks/20261123T100000Z-t-approval.md"), approval('the owner\'s answer to question 2, "Да"'));
-  const config = (extra) => {
-    writeFileSync(join(repo, "ont.config.json"), JSON.stringify({ classes: { ent: "Entity" }, ontology: "ontology.md", reviewRounds: { dir: "reviews/rounds" }, taskRecords: { dir: "reviews/tasks", ...extra }, records: { latinOnly: true } }));
-    return readTaskInputs(loadConfig(join(repo, "ont.config.json")));
-  };
-  const held = config({ latinAfter: start });
-  assert.deepEqual(held.records.approvals.map((a) => a.file), ["20261121T135240Z-t-approval.md"]);
-  assert.deepEqual(held.records.malformed, ["20261123T100000Z-t-approval.md: line 5: the letter Д is not English text"]);
-  const none = config({});
-  assert.deepEqual(none.records.approvals.map((a) => a.file), ["20261121T135240Z-t-approval.md", "20261123T100000Z-t-approval.md"]);
-  assert.deepEqual(none.records.malformed, []);
-  writeFileSync(join(repo, "reviews/tasks/20261123T110000Z-t-gate-change.md"), CHANGE({ commit: C40, paths: ["package.json"], item: "пункт 2" }));
-  assert.match(config({}).records.malformed.join("\n"), /20261123T110000Z-t-gate-change\.md: line 4: the letter п is not English text/);
-  const missing = config({ latinAfter: "0".repeat(40) });
-  assert.match(missing.records.malformed.join("\n"), /the commit 0{40} that taskRecords\.latinAfter names is not a commit of this clone/);
-});
-
 // The steps the rules for agents and the lifecycle give, found in this order.
 const inOrder = (text, steps) => {
   const at = [];
@@ -651,22 +660,73 @@ const inOrder = (text, steps) => {
   }
 };
 
-test("[check.merge-gate.switch-on-steps] the rules for agents and the lifecycle give the steps that switch the gate on, in their order", () => {
+test("[check.merge-gate.switch-on-steps] switch-on prints the steps that switch the gate on from the rule file, in their order, each with its gh api calls", () => {
+  const rules = JSON.parse(read(".github/merge-gate.json"));
+  const cli = (...args) => spawnSync("node", [join(TOOLS, "merge-gate.mjs"), "switch-on", ...args], { cwd: TOP, encoding: "utf8", env: GIT_ENV });
+  const r = cli("--repo", "owner/repo");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  // The steps, by their numbered titles, each with the lines under it.
+  const steps = r.stdout.split(/\n(?=\d+\. )/).slice(1).map((t) => ({ title: t.split("\n")[0], text: t }));
+  const titles = steps.map((x) => x.title);
+  assert.deepEqual(titles, [
+    "1. Allow pull_request_target for the guard's workflow by the Actions policy, the event policy.",
+    "2. Read the Actions settings back and compare them with the rule file.",
+    "3. Open the preflight pull request of the task's records alone and wait for both checks.",
+    "4. Create the ruleset active from the rule file.",
+    "5. Read the ruleset back and compare it with the rule file.",
+    "6. Make the three refusal probes.",
+    "7. Record a gate proof of each probe.",
+    "8. Close the probes' pull requests and delete their branches.",
+  ]);
+  for (const x of steps) assert.match(x.text, /^ {3}\$ .*gh api /m, `${x.title} has its gh api call`);
+  const [policy, readback, preflight, create, ruleset, probes, proofs, close] = steps.map((x) => x.text);
+  // The event policy, before the preflight: its body is the rule file's, sent to the policies of Actions.
+  const body = policy.match(/^ {3}\$ echo '(.*)' \| gh api -X POST repos\/owner\/repo\/actions\/policies --input -$/m);
+  assert.ok(body, policy);
+  assert.deepEqual(JSON.parse(body[1]), rules.actions.policies[0]);
+  assert.ok(rules.actions.policies[0].rules[0].parameters.allowed_events.includes("pull_request_target"));
+  assert.deepEqual(rules.actions.policies[0].conditions.workflow_path.include, [".github/workflows/ont-gate-guard.yml"]);
+  for (const call of ["gh api repos/owner/repo/actions/policies", "gh api repos/owner/repo/actions/permissions", "gh api repos/owner/repo/actions/permissions/workflow"]) assert.ok(readback.includes(`$ ${call}\n`), call);
+  assert.match(readback, /enforcement active, workflows \.github\/workflows\/ont-gate-guard\.yml, events pull_request_target/);
+  assert.match(readback, /A difference stops here/);
+  // The preflight: both checks, under their names and from their app, read on its head.
+  for (const c of rules.ruleset.rules.find((x) => x.type === "required_status_checks").parameters.required_status_checks) assert.ok(preflight.includes(`${c.context} · success · app ${c.integration_id}`), c.context);
+  assert.match(preflight, /\$ gh api repos\/owner\/repo\/commits\/<head>\/check-runs --jq '.*\.app\.id/);
+  assert.match(preflight, /records alone/);
+  assert.match(create, /\$ node tools\/ont-check\/merge-gate\.mjs ruleset \| gh api -X POST repos\/owner\/repo\/rulesets --input -/);
+  // The readback of the ruleset, compared with the rule file.
+  for (const want of ["enforcement active on refs/heads/main", "a pull request required, merged by merge alone", "the required checks ont-check from app 15368 and ont-gate-guard from app 15368", "strict, the branch up to date with main, true", "no bypass, bypass actors []", "A difference stops here"]) assert.ok(ruleset.includes(want), want);
+  assert.match(ruleset, /\$ gh api repos\/owner\/repo\/rulesets\/<id> --jq/);
+  inOrder(probes, ["refused by ont-check", "refused by ont-gate-guard", "refused for being behind", "GitHub's answer naming the branch out of date", "$ gh api -X PUT repos/owner/repo/pulls/<n>/merge -f merge_method=merge -f sha=<head>"]);
+  inOrder(proofs, ["reviews/tasks/<time>-<task>-gate-proof.md", "Kind: refusal", "Answer", "The first holds the preflight observation", "Preflight: pr <n>"]);
+  inOrder(close, ["$ gh api -X PATCH repos/owner/repo/pulls/<n> -f state=closed", "$ gh api -X DELETE repos/owner/repo/git/refs/heads/<branch>"]);
+  assert.match(r.stdout, /The proof of a pass is the merge of the next task's pull request through the gate/);
+  // A rule file with no policy that allows the event gives no steps.
+  const dir = temp("switch-on-");
+  const cfg = { ...ROOT_CFG, mergeGate: { ...ROOT_CFG.mergeGate, rules: "rules.json" } };
+  writeFileSync(join(dir, "rules.json"), JSON.stringify({ ...rules, actions: { ...rules.actions, policies: [] } }));
+  writeFileSync(join(dir, "ont.config.json"), JSON.stringify(cfg));
+  const none = cli("--config", join(dir, "ont.config.json"));
+  assert.equal(none.status, 1, none.stdout);
+  assert.match(none.stdout, /ERROR · the rule file rules\.json gives no steps: rules\.json holds no Actions policy that allows pull_request_target/);
+  // The rules for agents and the lifecycle point to the command and do not list the steps.
   const rule = read("AGENTS.md").match(/^- \*\*Switch the gate on\.\*\*.*$/m)?.[0];
   assert.ok(rule, "the rule is in AGENTS.md");
-  inOrder(rule, ["records alone", "`ont-check` and `ont-gate-guard`", "GitHub Actions app", "read back the ruleset and the Actions policy with `gh api`", "activate the rule", "merge-gate.mjs ruleset | gh api", "refused by `ont-check`", "refused by `ont-gate-guard`", "refused for being behind", "GitHub's answer", "read the settings back", "no bypass", "`gate-proof`", "close the probes' pull requests", "delete their branches", "merge of the next task's pull request"]);
-  assert.match(rule, /rule\.gate-switched-on/);
   const page = read("docs/lifecycle.md");
   const section = page.slice(page.indexOf("### Switching the gate on"), page.indexOf("### Proving the gate"));
-  assert.ok(section.length > 30, "the section is in the lifecycle");
-  inOrder(section, ["records alone", "`ont-check` and `ont-gate-guard`", "GitHub Actions app", "Reads back the ruleset and the Actions policy with `gh api`", "Activates the rule", "merge-gate.mjs ruleset | gh api", "refused by `ont-check`", "refused by `ont-gate-guard`", "refused for being behind", "GitHub's answer", "Reads the settings back", "no bypass", "gate proof", "Closes the probes' pull requests", "deletes their branches", "merge of the pull request of the next task"]);
+  for (const [where, text] of [["AGENTS.md", rule], ["docs/lifecycle.md", section]]) {
+    assert.match(text, /`node tools\/ont-check\/merge-gate\.mjs switch-on --repo <owner>\/<repo>`/, where);
+    assert.match(text, /D-163/, where);
+    assert.doesNotMatch(text, /refused by `ont-check`|^\d+\. /m, `${where} lists no steps`);
+  }
+  assert.match(rule, /rule\.gate-switched-on/);
 });
 
 test("[check.merge-gate.commands-run] the commands of merge-gate.mjs the rules, the lifecycle and the README give are read by the tool, and the workflows the README names exist", () => {
   const head = spawnSync("git", ["-C", TOP, "rev-parse", "HEAD"], { encoding: "utf8", env: GIT_ENV }).stdout.trim();
   const readme = read("tools/ont-check/README.md");
   const commands = [];
-  for (const file of ["AGENTS.md", "docs/lifecycle.md"]) for (const m of read(file).matchAll(/`([^`]*merge-gate\.mjs (?:guard|records-only|ruleset)[^`]*)`/g)) commands.push([file, m[1]]);
+  for (const file of ["AGENTS.md", "docs/lifecycle.md"]) for (const m of read(file).matchAll(/`([^`]*merge-gate\.mjs (?:guard|records-only|ruleset|switch-on)[^`]*)`/g)) commands.push([file, m[1]]);
   for (const m of readme.matchAll(/^(node tools\/ont-check\/merge-gate\.mjs [^#\n]*)/gm)) commands.push(["tools/ont-check/README.md", m[1]]);
   assert.ok(commands.filter(([, c]) => /records-only/.test(c)).length >= 3, JSON.stringify(commands));
   for (const [file, text] of commands) {

@@ -121,8 +121,7 @@
     "gatesFrom": "2026-11-21T09:35:15Z"
   },
   "taskRecords": {
-    "dir": "reviews/tasks",
-    "latinAfter": "c785fa74eb7d836e3c518071576cb3ddc14c67f7"
+    "dir": "reviews/tasks"
   },
   "mergeGate": {
     "paths": [

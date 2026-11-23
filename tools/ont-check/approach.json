@@ -430,6 +430,8 @@
     "rule.work-under-approval"
   ],
   "retired": {
+    "check.owner-approval.english": null,
+    "check.owner-approval.english-after-start": null,
     "check.review-round.ceilings-set": null,
     "field.map-row.does-not-do": null,
     "field.review-round.ceiling": "rule.rounds-converge",

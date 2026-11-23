@@ -1541,12 +1541,33 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: the steps left to the executor's judgement (the order is what makes each probe prove this gate).
 - Concepts: `rule.gate-switched-on`, `rule.main-through-gate`.
 
+### D-162 · Where records are English only, only the records of a gate change and of a gate proof are held to it among the task records
+
+- Date: 2026-11-23 · Status: accepted
+- Supersedes: D-160
+- Source: the statement of task enforcement-merge-gate, version 15, approved by its clean round 15: item 4, which brings the record of a gate change, items 1 and 10, which bring the record of a gate proof, in English with paths of the repository, item 8, which corrects in place the one record of the owner's approval of round-rules that quoted him in Cyrillic, and its What not to do, which leaves the behaviour of the records of tasks as it is. The finding "legacy task-record validity changed outside scope", of rounds 1 and 2 of the review of its result, is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words; dropping the key rather than moving its start is the thread's technical decision there, the finding having come back a second time.
+- Decision: where the configuration sets `records.latinOnly`, a record of a gate change or of a gate proof holds Latin letters only and no path outside the repository, as a record of a round does; a record of spend, of done or of the owner's approval is read as it was before D-159, with no rule of language, however and whenever it was added (`rule.records-english-in-repo`). The key `taskRecords.latinAfter` is dropped: this repository's configuration does not give it, and the tool reads none. The record of the approval of round-rules stays corrected in place, its quote of the owner transliterated.
+- Why: D-159 and D-160 changed how the records of the kinds that were already there are read, once for every record and once for those added after a commit, while the approved statement brings the rule only for the two new kinds and allows, for the old ones, only the correction of one record in place.
+- Rejected: D-160 as it stands (it still changes the reading of the records of spend, of done and of approval added from its commit on); D-159 (it changes the reading of every old record).
+- Concepts: `rule.records-english-in-repo`, `inv.gate-records-well-formed`.
+
+### D-163 · The gate is switched on by the steps that merge-gate.mjs switch-on prints from the rule file, the event policy first
+
+- Date: 2026-11-23 · Status: accepted
+- Supersedes: D-161
+- Source: the owner's answers to question 1037, "a" (the agent creates the rule of main through the GitHub API when the slice is ready), to question 1044, "1044 - yes" (probes with pull requests in the public repository, each closed and its branch deleted, its outcome recorded), and to question 1058, "1058 - a", 2026-11-23 (allow `pull_request_target` for this repository through the GitHub API and add the guard) (translated from Russian), quoted in D-158; the statement of task enforcement-merge-gate, version 15, approved by its clean round 15, items 2, 5 and 10, item 5 with the observation of the pull request of records kept in the first gate proof. The finding "bootstrap and probe handoff incomplete", of rounds 1 and 2 of the review of its result, is the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. A command that prints the steps from the rule file, in place of steps written out in two pages, is the thread's technical decision there, the finding having come back a second time; GitHub's documentation, "Securely using pull_request_target" (https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target) and "REST API endpoints for GitHub Actions policies" (https://docs.github.com/en/rest/actions/policies), gives the default policy that blocks the event in a public repository and the calls that set a policy.
+- Decision: adds to D-158. After the merge of the task that brings the gate, the executor takes the steps `node tools/ont-check/merge-gate.mjs switch-on --repo <owner>/<repo>` prints from the rule file, in their order, each with its calls of `gh api`: the event policy of Actions that allows `pull_request_target` for the guard's workflow, created from the rule file; that policy and the permissions of Actions read back and compared with the rule file; an ordinary pull request of the task's records alone, on which both checks pass under their names and from the GitHub Actions app; the ruleset created active from the rule file; the ruleset read back and compared with it, a pull request required, both checks by their app, strict, a merge commit alone and no bypass; the three probes GitHub must refuse, by `ont-check`, by `ont-gate-guard` and for being behind, GitHub's answer kept; a gate proof of each, the first holding the observation of the pull request of records, its checks and that GitHub then required both; the probes' pull requests closed and their branches deleted (`rule.gate-switched-on`). The rules for agents and the page of the lifecycle point to the command and do not list the steps. A rule file with no ruleset that requires checks by their app, or no policy that allows `pull_request_target`, gives no steps but an error. The proof of a pass is the merge of the pull request of the next task through the gate.
+- Why: the steps written out in two pages left the event policy out, so the pull request of records would have been opened before the guard could run on it, read back only the general permissions, and kept the observation of that pull request nowhere; printed from the rule file, the steps carry its values, and one test holds their order.
+- Rejected: D-161 as it stands (its order opens the pull request of records before the event is allowed, and its readback misses the policy); the steps kept in the pages with a test of their wording (the pages fell behind the rule file twice).
+- Concepts: `rule.gate-switched-on`, `rule.main-through-gate`, `field.merge-gate.rule-file`.
+
 ## Tentative
 
 ## Open questions
 
 ## History
 
+- 2026-11-23: D-162, which supersedes D-160, and D-163, which supersedes D-161, accepted under the approved statement of task enforcement-merge-gate, after round 2 of the review of its result.
 - 2026-11-23: D-160, which supersedes D-159, and D-161 accepted under the approved statement of task enforcement-merge-gate, after round 1 of the review of its result.
 - 2026-11-23: D-159 accepted under the approved statement of task enforcement-merge-gate, item 8.
 - 2026-11-23: D-158 accepted under the owner's answers to questions 1037, 1044, 1047 and 1058, in task enforcement-merge-gate.

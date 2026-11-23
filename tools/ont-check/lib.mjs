@@ -172,7 +172,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "verdicts.dir", "verdicts.require", "records.latinOnly", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "taskRecords.latinAfter", "mergeGate.paths", "mergeGate.rules", "ci.workflow", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "verdicts.dir", "verdicts.require", "records.latinOnly", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "mergeGate.paths", "mergeGate.rules", "ci.workflow", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
@@ -298,16 +298,7 @@ export function loadConfig(configPath, text) {
       })(),
     },
     // Records of a task's done and of the executor's spend, one file each (D-107, D-108).
-    // taskRecords.latinAfter: the commit before the one that brings in the rule of language for the task
-    // records of the earlier kinds; a record that commit holds reads as before (D-160).
-    taskRecords: raw.taskRecords && {
-      dir: at(raw.taskRecords.dir),
-      latinAfter: (() => {
-        const c = raw.taskRecords.latinAfter ?? null;
-        if (c !== null && !/^[0-9a-f]{40}$/.test(c)) throw new Error(`taskRecords.latinAfter ${JSON.stringify(c)} is not a commit in full, 40 hexadecimal digits (D-160)`);
-        return c;
-      })(),
-    },
+    taskRecords: raw.taskRecords && { dir: at(raw.taskRecords.dir) },
     // The merge gate on the server (D-158): the gate paths, which the guard holds, as paths from the root of
     // the repository, and the rule file of the ruleset of main and the permissions of Actions.
     // ont: field.merge-gate.gate-paths, field.merge-gate.rule-file, field.merge-gate.ci-workflow
