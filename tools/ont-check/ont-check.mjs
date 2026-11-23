@@ -54,7 +54,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, fixesRange, gitEnv, goalOf, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
+import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, scopeOf, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { localRecordNotes, recordDirs } from "./merge-gate.mjs";
 import { briefsDir, pendingBriefs } from "./briefs.mjs";
 import { sealed } from "./seal.mjs";
@@ -1556,8 +1556,10 @@ if (cfg.reviewRounds) {
     const inputs = { rounds, records };
     // The sums of a task where the logs or a snapshot give them; a task with neither says nothing of them.
     const shownSpend = (t) => {
-      // The scope of the budget from the task's statement, as its kept brief or its record of done names it (D-172).
-      const sp = spendOf({ cfg, task: t, goal: goalOf({ task: t, done: records.done, pending: pendingBriefs(cfg.base) }), inputs });
+      // The scope of the budget from the task's statement, as its kept brief or its record of done names it,
+      // or else, before any, its latest snapshot of spend, with the task's limits (D-172, D-173).
+      const scope = scopeOf({ task: t, done: records.done, pending: pendingBriefs(cfg.base), snapshots: records.snapshots });
+      const sp = spendOf({ cfg, task: t, statement: scope.statement, goal: scope.goal, inputs });
       return sp && (sp.used || sp.errors?.length) ? sp : null;
     };
     const stateOf = (t) => taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task: t, defaults: cfg.budget, statement: null, malformed, gatesFrom, needFile: false, head, spendNow: shownSpend(t), budgetActions: cfg.spend.fromLogs !== true, snapshots: records.snapshots }).lines;

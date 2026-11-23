@@ -88,6 +88,32 @@ export function goalOf({ task, done = [], pending = [] }) {
   return done.filter((d) => d.task === task).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1)?.goal ?? null;
 }
 
+// The statement as a brief carries it (D-173): its version, its goal and its limits and reserve, for a
+// writer or a reader given no statement, which taskLimits reads as the file of that version; null for a
+// brief without the lines of the limits.
+export function briefStatement(b) {
+  if (!b || !b["Statement-hash"] || b["Budget-new-input"] === undefined) return null;
+  const n = (v) => (v === undefined || v === "none" || !/^\d+$/.test(v) ? null : Number(v));
+  return { hash: b["Statement-hash"], goal: b.Goal ?? null, budget: { newInput: n(b["Budget-new-input"]), output: n(b["Budget-output"]), reserve: reserveOf(b["Budget-reserve"]) }, doneWhen: null, carried: "brief" };
+}
+
+// The scope and the limits of a task where no statement is given (D-172, D-173): its kept brief, with the
+// version, the goal and the limits it carries; or else the goal of its latest record of done, whose limits
+// taskLimits reads; or else, with neither, its latest snapshot of spend, the goal its unit and the task's
+// limits and reserve with their version. { statement, goal }, either null.
+export function scopeOf({ task, done = [], pending = [], snapshots = [] }) {
+  const b = pending.find((x) => x.task === task);
+  const fromBrief = briefStatement(b?.brief);
+  if (fromBrief) return { statement: fromBrief, goal: fromBrief.goal };
+  const goal = goalOf({ task, done, pending });
+  if (b || done.some((d) => d.task === task)) return { statement: null, goal };
+  const snap = snapshots.filter((x) => x.task === task).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1);
+  if (!snap) return { statement: null, goal: null };
+  const l = snap.limits.task;
+  const g = snap.unit !== snap.task ? snap.unit : null;
+  return { statement: { hash: l.hash, goal: g, budget: { newInput: l.newInput, output: l.output, reserve: l.reserve }, doneWhen: null, carried: "snapshot" }, goal: g };
+}
+
 // The reserve of a statement or of a record of done (field.task-statement.budget, D-150): the multiplier
 // of the limits at which the task stops, a number of 1 or more written as a whole number or a decimal
 // with a point, such as 1.5; null when the line is not given or cannot be read.

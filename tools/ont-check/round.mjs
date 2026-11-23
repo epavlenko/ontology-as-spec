@@ -13,7 +13,8 @@
 // record takes the brief, used once, and the reviewer's reply, whose first lines are the brief's word for
 // word, then By:, for a round of the result Condition: and Acceptance: clean, or refused with its findings
 // under it, and the table of the findings on merging, as skills/change-review asks for them (D-172); the
-// scope of the budget is the brief's Goal:, which brief wrote from the statement; it refuses a reply that differs from the brief, or no brief, and a
+// scope of the budget is the brief's Goal:, and the task's limits and reserve its lines Budget-, which brief
+// wrote from the statement (D-172, D-173); it refuses a reply that differs from the brief, or no brief, and a
 // finding without the executor's triage, "class · usual path: <step>", "class · not fixable", "class ·
 // limitation" or "class · later: issues/NNNN.md", a filed finding whose file does not hold its class, and a
 // finding of acceptance filed. Where spend is counted from the logs, it finds the reviewer's session by the
@@ -30,7 +31,7 @@ import { outsideRecord } from "./manual-runs.mjs";
 import { LATER_DIR, LIMITATIONS_FILE, TASK_NAME, isClean } from "./review-rounds.mjs";
 import { timeAfter, writeSealed } from "./seal.mjs";
 import { overspendOf, roundSpend, snapshotLines } from "./spend.mjs";
-import { readStatement, readTaskInputs, reviewedCommit, spendOf, stepNext, taskNext } from "./tasks.mjs";
+import { BUDGET_ALL, briefStatement, readStatement, readTaskInputs, reviewedCommit, spendOf, stepNext, taskNext } from "./tasks.mjs";
 
 const STEP = { statement: "statement-review", result: "result-review" };
 const now = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -235,6 +236,8 @@ function main(argv) {
       Number: String(ok.number),
       "Statement-hash": statement.hash,
       Goal: statement.goal ?? undefined,
+      // The statement's limits and reserve, which record takes with the goal (D-173).
+      ...Object.fromEntries(BUDGET_ALL.map(([k, name]) => [name, String(statement.budget?.[k] ?? "none")])),
       Commits: step === "result-review" ? ok.done.commit : head,
       Done: step === "result-review" ? ok.done.file : undefined,
       "Brief-time": now(),
@@ -277,11 +280,14 @@ function main(argv) {
   // The spend of the round, from the reviewer's session that holds the brief (D-169). The round ends after
   // the record of done it reviews and after its brief, never in the same second.
   const time = timeAfter(brief["Brief-time"], records.done.find((d) => d.file === brief.Done)?.time);
-  // The scope of the budget is the brief's, which brief wrote from the statement: a task of a goal keeps
-  // its goal with no statement given (D-172). A statement given is that version, or nothing is written.
+  // The scope of the budget and the task's limits are the brief's, which brief wrote from the statement:
+  // a task of a goal keeps its goal, and a round of the statement before any record of done the task's
+  // limits and reserve, with no statement given (D-172, D-173). A statement given is that version, or
+  // nothing is written.
   const statementFile = value("--statement");
-  const statement = statementFile && existsSync(statementFile) ? readStatement(statementFile) : null;
-  if (statement && statement.hash !== brief["Statement-hash"]) return refuse(`the statement ${statementFile} is version ${statement.hash.slice(0, 12)}, and the brief's is ${brief["Statement-hash"].slice(0, 12)}`);
+  const given = statementFile && existsSync(statementFile) ? readStatement(statementFile) : null;
+  if (given && given.hash !== brief["Statement-hash"]) return refuse(`the statement ${statementFile} is version ${given.hash.slice(0, 12)}, and the brief's is ${brief["Statement-hash"].slice(0, 12)}`);
+  const statement = given ?? briefStatement(brief);
   const sp = spendOf({ cfg, task, statement, goal: brief.Goal ?? null, inputs });
   let roundSum = null;
   if (sp) {
@@ -324,6 +330,8 @@ function main(argv) {
     ...(over ? [`Overspend: ${over}`] : []),
     ...(reply.condition === "holds" ? ["Condition: holds"] : []),
   ];
+  // The step each fixable class breaks, once for the class, given both on merging and under acceptance.
+  const fixableNotes = [...new Set(all.filter((f) => tri(f).fix === "fixable").map((f) => `- ${f.cls}: usual path, the step it breaks: ${tri(f).step}`))];
   const body = [
     ...head,
     ...(reply.findings.length ? ["Findings:", ...reply.findings.map(line)] : []),
@@ -331,9 +339,7 @@ function main(argv) {
     "",
     "## Notes",
     "",
-    ...(all.filter((f) => tri(f).fix === "fixable").length
-      ? all.filter((f) => tri(f).fix === "fixable").map((f) => `- ${f.cls}: usual path, the step it breaks: ${tri(f).step}`)
-      : ["- Written by round.mjs record from the reviewer's reply and the executor's triage."]),
+    ...(fixableNotes.length ? fixableNotes : ["- Written by round.mjs record from the reviewer's reply and the executor's triage."]),
     "",
   ].join("\n");
   const outside = cfg.records.latinOnly ? outsideRecord(body, 1, { latinOnly: true }) : [];

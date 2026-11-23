@@ -1730,12 +1730,22 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: requiring `--statement` on the record (a step of the usual path the executor can leave out, which loses the scope again); the goal read from the configuration's list of goals alone (a task may be listed in no goal while its statement names one, an error the writer must report); the acceptance findings taken from the reason's prose (a class must be named the same in later rounds).
 - Concepts: `field.round-brief.lines`, `field.task-result.budget`, `action.record-round`, `derived.log-spend`, `field.task-statement.goal`, `field.spend-snapshot.unit`, `rule.executor-triage`.
 
+### D-173 · The brief carries the statement's limits, and `--rounds` reads the latest snapshot before a record of done
+
+- Date: 2026-11-23 · Status: accepted
+- Source: the approved statement of task enforcement-tool-records, version 14 (a60f13206d30), item 5, the snapshot of spend with the limits and the reserve of the task and of its goal, under the owner's answer to question 1036, option a (D-169); the finding of the usual path of round 2 of the review of its result, `reviews/rounds/20261123T194851Z-enforcement-tool-records-result-2.md`, "Statement review loses budget context". The lines are the thread's technical choice.
+- Decision: adds to D-172. `round.mjs brief` writes the statement's limits and reserve on the lines `Budget-new-input:`, `Budget-output:` and `Budget-reserve:` of the brief, after `Goal:`, each a number or `none` (`field.round-brief.lines`); `round.mjs record`, given no statement, takes them from the brief with its version and its goal, so that the snapshot of a round of the review of a statement, recorded before any record of done, carries the task's limits and reserve and not the configuration's. `--rounds`, given no statement, takes the scope and the limits from the task's kept brief, or else the goal from its latest record of done, or else, with neither, the goal and the task's limits and reserve from its latest snapshot of spend (`derived.log-spend`).
+- Why: a round of the review of a statement recorded as the agent rules give it, with no statement, before the first record of done, had no place to read the task's limits from: its snapshot gave the configuration's limits, or none, and once the brief was used `--rounds` lost the goal until another brief or a record of done.
+- Rejected: requiring `--statement` on the record (a step of the usual path the executor can leave out, as D-172 says); the limits read from the configuration's list of goals (it holds no limits of a task).
+- Concepts: `field.round-brief.lines`, `action.record-round`, `derived.log-spend`, `field.spend-snapshot.limits`, `field.spend-snapshot.unit`.
+
 ## Tentative
 
 ## Open questions
 
 ## History
 
+- 2026-11-23: D-173, which adds to D-172, accepted under the approved statement of task enforcement-tool-records, version 14, item 5, after round 2 of the review of its result.
 - 2026-11-23: D-172, which adds to D-168 and D-169, accepted under the approved statement of task enforcement-tool-records, version 14, items 4 and 5, after round 1 of the review of its result.
 - 2026-11-23: D-167, D-168, D-169, D-170, which supersedes D-121, and D-171 accepted under the approved statement of task enforcement-tool-records, version 14, items 1 to 6, by the owner's answer to question 1036, a.
 - 2026-11-23: D-166, which adds to D-162 for the evidence of a record of done, accepted under the approved statement of task enforcement-after-condition, version 28, item 2, after round 3 of the review of its result.

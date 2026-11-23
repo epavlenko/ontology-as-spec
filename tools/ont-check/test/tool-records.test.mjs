@@ -132,7 +132,7 @@ const spendIn = (p, task, st, env) => {
 };
 
 // A brief and the reviewer's reply to it: the brief's lines word for word, then the reply's own.
-const briefLines = (out) => out.split("\n").filter((l) => /^(Task|Step|Narrow|Number|Statement-hash|Goal|Commits|Done|Brief-time): /.test(l)).join("\n");
+const briefLines = (out) => out.split("\n").filter((l) => /^(Task|Step|Narrow|Number|Statement-hash|Goal|Budget-new-input|Budget-output|Budget-reserve|Commits|Done|Brief-time): /.test(l)).join("\n");
 const writeReply = (lines, rest) => {
   const f = join(temp("ont-reply-"), "reply.md");
   writeFileSync(f, `${lines}\n${rest}\n`);
@@ -481,6 +481,17 @@ test("[check.round-brief.skill-reply] the reply the change-review skill asks for
   assert.deepEqual(round.acceptance.findings.map((f) => f.cls), ["round recording with the wrong goal-budget evidence", "writer and test requirements of items 4 and 7"]);
   // No row of the table of verdicts is read as a finding.
   assert.ok(round.findings.every((f) => !f.cls.startsWith("check.")));
+  // A class given both in the table of findings and under the refusal: the notes give its step once.
+  const q = approved();
+  doneRecord(q.p, q.p.git("rev-parse", "HEAD"), q.st, at(10));
+  q.p.commit("done");
+  const qb = q.p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", q.st.file]);
+  assert.equal(qb.code, 0, qb.out);
+  const ql = briefLines(qb.out);
+  const both = q.p.tool("round.mjs", ["record", "t", "--from", writeReply(ql, ["By: m (p)", "", ROUND1_FINDINGS[0], ROUND1_FINDINGS[1], "| Same class | important | change | usual | fixable | x |", "", "Acceptance: refused. An item is not met.", "- Same class · important · change", "Condition: not yet"].join("\n")), "--triage", writeFile("same class · usual path: the executor records the round\n")]);
+  assert.equal(both.code, 0, both.out);
+  const bothText = readFileSync(join(q.p.dir, "reviews/rounds", readdirSync(join(q.p.dir, "reviews/rounds")).find((f) => f.includes("-t-result-1"))), "utf8");
+  assert.equal(bothText.split("\n").filter((l) => l === "- same class: usual path, the step it breaks: the executor records the round").length, 1, bothText);
 });
 // The ticket a finding is filed in, holding its class.
 function p_issue(p) {
@@ -657,6 +668,41 @@ test("[check.spend-snapshot.goal-kept-on-record] a task of a goal briefed and re
   p.commit("the round");
   const after = p.tool("ont-check.mjs", ["--rounds"], env);
   assert.match(after.out, /^SPEND t: from the session logs since \S+: goal g new input 1200 of 200000 × 1\.5 = 300000/m);
+});
+
+test("[check.spend-snapshot.statement-round-limits] a round of the review of a statement briefed from it and recorded with no statement before any record of done keeps the task's limits and reserve in its snapshot, and --rounds keeps the goal and the limits after the brief is used", () => {
+  const p = project({ fromLogs: true, goals: { g: ["t"] } });
+  const gst = statement({ budget: [20000000, 9000000] });
+  p.put("reviews/rounds/20261101T095000Z-g-statement-1.md", cleanStatementRound("g", gst.hash, iso(Date.now() - 60000)));
+  p.commit("the goal approved");
+  const st = statement({ goal: "g", budget: [3000000, 700000] });
+  const L = logs();
+  L.claudeSession("exec-1", [{ user: "work on t", time: iso(Date.now() - 1000) }]);
+  const env = L.env({ ONT_GOAL_STATEMENT: gst.file });
+  const b = p.tool("round.mjs", ["brief", "t", "--step", "statement", "--statement", st.file], env);
+  assert.equal(b.code, 0, b.out);
+  // The brief carries the statement's limits and reserve, after its goal.
+  assert.match(b.out, /^Goal: g\nBudget-new-input: 3000000\nBudget-output: 700000\nBudget-reserve: 1\.5$/m);
+  const lines = briefLines(b.out);
+  const soon = (s) => iso(Date.now() + s * 1000);
+  L.codexSession("rev-s", [{ user: `${lines}\n\nReview the statement of task t.`, time: soon(1) }, { input: 400, cached: 0, out: 40, time: soon(2) }]);
+  // Recorded as docs/parts/agent-rules.md gives it, with no statement, before any record of done.
+  const r = p.tool("round.mjs", ["record", "t", "--from", writeReply(lines, "By: gpt (OpenAI, Codex)\n\n| a choice | important | change |"), "--triage", writeFile("a choice · usual path: the executor corrects the statement\n")], env);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(readdirSync(join(p.dir, "reviews/tasks")).filter((f) => f.endsWith("-done.md")).length, 0);
+  const round = readdirSync(join(p.dir, "reviews/rounds")).find((f) => f.includes("-t-statement-1"));
+  const snap = readFileSync(join(p.dir, "reviews/rounds", round), "utf8").match(/^Spend-record: (\S+)$/m)[1];
+  const text = readFileSync(join(p.dir, "reviews/tasks", snap), "utf8");
+  assert.match(text, /^Unit: g$/m);
+  assert.match(text, /^Unit-limit-new: 20000000$/m);
+  assert.match(text, /^Task-limit-new: 3000000$/m);
+  assert.match(text, /^Task-limit-out: 700000$/m);
+  assert.match(text, /^Task-reserve: 1\.5$/m);
+  assert.match(text, new RegExp(`^Task-statement-hash: ${st.hash}$`, "m"));
+  // The brief is used and no record of done is there: --rounds takes the goal and the limits from the snapshot.
+  p.commit("the round");
+  const after = p.tool("ont-check.mjs", ["--rounds"], env);
+  assert.match(after.out, /^SPEND t: from the session logs since \S+: goal g new input \d+ of 20000000 × 1\.5 = 30000000, output \d+ of 9000000 × 1\.5 = 13500000; task t new input 400 of 3000000 × 1\.5 = 4500000, output 40 of 700000 × 1\.5 = 1050000$/m);
 });
 
 test("[check.spend-snapshot.overspend-by-snapshot] a round with findings past the reserve has no Overspend and the question follows; a clean acceptance past it names the snapshot's, which a later spend does not change", () => {
@@ -958,19 +1004,33 @@ test("[check.process-record.usual-path] rounds, a verdict, done, the owner's app
   assert.equal(p.tool("approve.mjs", ["t", "--statement", st.file, "--english", english, "--question", "9", "--kind", "approval"], { ONT_REGISTRY_CMD: cmd }).code, 0);
   // The work: a gate path changed, then the run of a check of run, then done.
   p.put("tools/ont-check/extra.mjs", "// the work\n");
+  p.put("app/close.mjs", "// ont: action.close\nexport const close = (thing) => ({ ...thing, state: \"closed\" });\n");
   const work = p.commit("the work");
+  // The gate change on the last commit outside the records, before any commit of records.
+  const gc = p.tool("gate-record.mjs", ["change", "t", "--statement", st.file, "--clause", "1", "--paths", "tools/ont-check/extra.mjs", "--base", base]);
+  assert.equal(gc.code, 0, gc.out);
   const run = ["--verdict", "pass", "--performer", "agent", "--by", "an agent (a provider)", "--evidence", "notes kept outside"];
   assert.equal(p.tool("ont-check.mjs", ["--run-start", "check.thing.close-is-clear"]).code, 0);
   const rr = p.tool("ont-check.mjs", ["--run-record", "check.thing.close-is-clear", ...run]);
   assert.match(rr.out, /RECORDED the run/);
   const done = p.tool("done.mjs", ["t", "--statement", st.file], env);
   assert.equal(done.code, 0, done.out);
-  // The round of the result, clean.
+  p.commit("done");
+  // The round of the result, clean: the reviewer gives a verdict to each check --review lists, carrying
+  // the run outside the review it names, and the executor records that table with --review --record.
   const rb = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file], env);
   assert.equal(rb.code, 0, rb.out);
   const rl = briefLines(rb.out);
   L.codexSession("rev-r", [{ user: rl, time: soon(3) }, { input: 200, cached: 0, out: 20, time: soon(4) }]);
-  const rres = p.tool("round.mjs", ["record", "t", "--from", writeReply(rl, "By: m (p)\nCondition: holds\nAcceptance: clean")], env);
+  const listed = p.tool("ont-check.mjs", ["--review", "main"]);
+  const ids = [...listed.out.slice(listed.out.indexOf("REVIEW ")).matchAll(/^ {2}(check\.\S+) \[/gm)].map((m) => m[1]);
+  assert.ok(ids.includes("check.thing.close-is-clear"), listed.out);
+  const carry = new Map([...listed.out.matchAll(/^CARRY (check\.\S+): (\S+),/gm)].map((m) => [m[1], m[2]]));
+  assert.ok(carry.has("check.thing.close-is-clear"), listed.out);
+  const verdicts = ["| Check | Verdict | Evidence |", "| --- | --- | --- |", ...ids.map((id) => (carry.has(id) ? `| ${id} | carried | ${carry.get(id)} |` : `| ${id} | pass | read in the review |`))];
+  const recorded = p.tool("ont-check.mjs", ["--review", "main", "--record", writeFile(["By: m (p)", "", ...verdicts, ""].join("\n"))]);
+  assert.match(recorded.out, new RegExp(`RECORDED ${ids.length - carry.size} verdicts, ${carry.size} carried`), recorded.out);
+  const rres = p.tool("round.mjs", ["record", "t", "--from", writeReply(rl, ["By: m (p)", "", ...verdicts, "", "Condition: holds", "Acceptance: clean"].join("\n"))], env);
   assert.equal(rres.code, 0, rres.out);
   // Every snapshot of the task is of its goal, with the goal's part and reserve.
   const snaps = readdirSync(join(p.dir, "reviews/tasks")).filter((f) => f.includes("-t-spend-snapshot"));
@@ -981,11 +1041,14 @@ test("[check.process-record.usual-path] rounds, a verdict, done, the owner's app
     assert.match(text, /^Unit-limit-new: 20000000$/m, f);
     assert.match(text, /^Unit-reserve: 1\.5$/m, f);
   }
-  // The gate change on the last commit outside the records, then the records.
-  const gc = p.tool("gate-record.mjs", ["change", "t", "--statement", st.file, "--clause", "1", "--paths", "tools/ont-check/extra.mjs", "--base", base]);
-  assert.equal(gc.code, 0, gc.out);
   const head = p.commit("the records");
   assert.ok(work);
+  // The reviewer's verdicts are among the records the guard and the full check read.
+  const reviewed = p.git("diff", "--name-only", base, head, "--", "reviews/runs").split("\n").filter((f) => f.endsWith(".md"));
+  assert.equal(reviewed.length, ids.length - carry.size + 1, reviewed.join("\n"));
+  const ofReview = reviewed.map((f) => readFileSync(join(p.dir, f), "utf8")).filter((t) => /^Origin: review$/m.test(t));
+  assert.equal(ofReview.length, ids.length - carry.size);
+  for (const t of ofReview) assert.equal(sealState(t).state, "valid");
   const g = guard({ cfg: p.config(), base, head });
   assert.deepEqual(g.records, []);
   assert.deepEqual(g.refused, []);

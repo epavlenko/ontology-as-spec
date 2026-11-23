@@ -1027,7 +1027,7 @@
       "type": "object",
       "properties": {
         "lines": {
-          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, the scope of the budget round.mjs record takes from the brief, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, and Brief-time:, when the brief was given.",
+          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, the scope of the budget round.mjs record takes from the brief, Budget-new-input:, Budget-output: and Budget-reserve:, the statement's limits and reserve, each a number or none, which round.mjs record takes from the brief as it takes Goal:, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, and Brief-time:, when the brief was given.",
           "x-ont": "field.round-brief.lines",
           "type": "string"
         },
