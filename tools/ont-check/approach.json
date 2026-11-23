@@ -62,9 +62,12 @@
     "edge.doc-section.explains",
     "edge.doc-section.set",
     "edge.formal-form.concept",
+    "edge.gate-change.statement",
+    "edge.gate-proof.gate",
     "edge.implementation-row.concept",
     "edge.manual-run.check",
     "edge.map-row.concept",
+    "edge.merge-gate.changes",
     "edge.mockup-element.concept",
     "edge.ontology-tree.concepts",
     "edge.other-word.concept",
@@ -97,9 +100,12 @@
     "ent.doc-section",
     "ent.doc-set",
     "ent.formal-form",
+    "ent.gate-change",
+    "ent.gate-proof",
     "ent.implementation-row",
     "ent.manual-run",
     "ent.map-row",
+    "ent.merge-gate",
     "ent.mockup-element",
     "ent.ontology-tree",
     "ent.other-word",
@@ -147,6 +153,24 @@
     "field.doc-set.files",
     "field.doc-set.name",
     "field.doc-set.scope",
+    "field.gate-change.commit",
+    "field.gate-change.item",
+    "field.gate-change.paths",
+    "field.gate-change.task",
+    "field.gate-change.time",
+    "field.gate-proof.answer",
+    "field.gate-proof.base",
+    "field.gate-proof.check",
+    "field.gate-proof.head",
+    "field.gate-proof.kind",
+    "field.gate-proof.main-after",
+    "field.gate-proof.merge",
+    "field.gate-proof.probe",
+    "field.gate-proof.refused-by",
+    "field.gate-proof.required",
+    "field.gate-proof.result",
+    "field.gate-proof.run",
+    "field.gate-proof.time",
     "field.implementation-row.files",
     "field.implementation-row.note",
     "field.manual-run.by",
@@ -157,6 +181,11 @@
     "field.manual-run.time",
     "field.manual-run.verdict",
     "field.map-row.shows",
+    "field.merge-gate.ci-workflow",
+    "field.merge-gate.full-check",
+    "field.merge-gate.gate-paths",
+    "field.merge-gate.guard",
+    "field.merge-gate.rule-file",
     "field.ontology-tree.built-from",
     "field.ontology-tree.place",
     "field.other-word.word",
@@ -194,6 +223,7 @@
     "field.task-result.budget",
     "field.task-result.checks",
     "field.task-result.commit",
+    "field.task-result.evidence",
     "field.task-result.task",
     "field.task-result.time",
     "field.task-spend.contribution",
@@ -226,6 +256,7 @@
     "inv.check-ids-unique",
     "inv.check-in-its-section",
     "inv.check-well-formed",
+    "inv.ci-workflow-present",
     "inv.code-compared",
     "inv.code-has-owner",
     "inv.code-names-resolve",
@@ -248,6 +279,8 @@
     "inv.form-names-defined",
     "inv.form-per-row",
     "inv.forms-end",
+    "inv.gate-change-approved",
+    "inv.gate-records-well-formed",
     "inv.ids-permanent",
     "inv.implementation-files-exist",
     "inv.implementation-true",
@@ -315,6 +348,7 @@
     "rule.check-in-product-terms",
     "rule.check-not-redundant",
     "rule.chosen-value-checked",
+    "rule.ci-from-main",
     "rule.cite-decisions",
     "rule.code-compared-with-oracle",
     "rule.code-names-concepts",
@@ -322,16 +356,20 @@
     "rule.commit-finished-work",
     "rule.concept-with-its-entity",
     "rule.coordinator-cuts",
+    "rule.copy-verified-in-ci",
     "rule.cut-when-started",
     "rule.deferral-returns",
     "rule.definition-says-what",
     "rule.departure-by-entry",
     "rule.divergence-becomes-work",
     "rule.divergence-contradicts",
+    "rule.early-pre-commit",
     "rule.executor-triage",
     "rule.findings-filed",
     "rule.findings-mislead",
+    "rule.fixes-held-by-tests",
     "rule.form-follows-rows",
+    "rule.gate-switched-on",
     "rule.guard-from-acceptance",
     "rule.guide-runs-check",
     "rule.intact-is-not-run",
@@ -339,8 +377,10 @@
     "rule.kind-order",
     "rule.limits-in-ontology",
     "rule.link-is-real",
+    "rule.main-through-gate",
     "rule.manual-evidence-kept",
     "rule.map-by-screen",
+    "rule.merge-what-was-checked",
     "rule.mockup-data-fictional",
     "rule.mockup-shows-target",
     "rule.no-default-budget",
@@ -378,6 +418,7 @@
     "rule.ticket-without-behavior",
     "rule.tool-before-files",
     "rule.trace-runs-on-code",
+    "rule.tree-after-server-merge",
     "rule.tree-refreshed-after-merge",
     "rule.tree-structure-only",
     "rule.types-not-instances",
@@ -392,6 +433,8 @@
     "rule.work-under-approval"
   ],
   "retired": {
+    "check.owner-approval.english": null,
+    "check.owner-approval.english-after-start": null,
     "check.review-round.ceilings-set": null,
     "field.map-row.does-not-do": null,
     "field.review-round.ceiling": "rule.rounds-converge",
@@ -758,7 +801,7 @@
       "guide": {
         "path": "docs/run-guide.md",
         "anchor": "one-mockup-that-runs-without-a-build",
-        "hash": "43c9b6329a8b"
+        "hash": "91c402c16ac9"
       }
     },
     {
@@ -785,7 +828,7 @@
       "guide": {
         "path": "docs/run-guide.md",
         "anchor": "an-element-does-what-its-label-says",
-        "hash": "148c8d4e1f14"
+        "hash": "0ed033ef5aa8"
       }
     },
     {
@@ -912,7 +955,7 @@
       "guide": {
         "path": "docs/run-guide.md",
         "anchor": "deriving-a-case-blind",
-        "hash": "d66e8ca8b96b"
+        "hash": "c597c9369823"
       }
     },
     {
@@ -945,7 +988,7 @@
       ],
       "given": "a change about to be merged",
       "when": "a reviewer reads its rounds",
-      "then": "its last round of the review of the result is clean, and the merge is one the owner's policy allows",
+      "then": "its last round of the review of the result is clean, or, after the narrow round that follows a confirmed condition, the record of done that ends the range of fixes follows it (`rule.fixes-held-by-tests`), and the merge is one the owner's policy allows",
       "proof": "review"
     },
     {
@@ -991,6 +1034,18 @@
       "given": "a verdict of acceptance",
       "when": "a reviewer reads it with the statement",
       "then": "it answers every item of what to do and of done when, and the owner's sources, of the approved version",
+      "proof": "review"
+    },
+    {
+      "id": "check.merge-gate.merged-as-checked",
+      "section": "Merge gate",
+      "concepts": [
+        "rule.merge-what-was-checked",
+        "rule.main-through-gate"
+      ],
+      "given": "a merge of a task through GitHub",
+      "when": "a reviewer reads the record of the merge",
+      "then": "it was a merge commit made through the API on the condition of the head's commit, after the head was confirmed past the reviewed commit, or, after the narrow round that follows a confirmed condition, the commit of the record of done that ends the range of fixes (`rule.fixes-held-by-tests`), by records alone",
       "proof": "review"
     },
     {
@@ -1168,7 +1223,7 @@
       ],
       "given": "a change about to be merged",
       "when": "a reviewer looks for its review",
-      "then": "an agent of another provider that did not write it gave each check `--review` listed a verdict, and a check it could not run is `not run` with the reason, not `not applicable`; no check that failed and no finding of the change remains, and each verdict was given at the check's stamp now, on files no later commit changed, with the check of code errors given on the last diff",
+      "then": "an agent of another provider that did not write it gave each check `--review` listed a verdict, and a check it could not run is `not run` with the reason, not `not applicable`; no check that failed and no finding of the change remains, and each verdict was given at the check's stamp now, on files no later commit changed, with the check of code errors given on the last diff; in the range of fixes after the narrow round that follows a confirmed condition, what `rule.fixes-held-by-tests` says instead: the one issue of verdicts on the diff of the fixes, given at the stamps then, its fails and findings of the usual path fixed with tests and its rare ones filed",
       "proof": "review"
     },
     {
@@ -1189,7 +1244,7 @@
         "rule.code-reviewed-for-errors"
       ],
       "given": "a change that touches code",
-      "when": "its reviewer reads the diff",
+      "when": "its reviewer reads the diff, after the narrow round that follows a confirmed condition the diff of the fixes, once (`rule.fixes-held-by-tests`)",
       "then": "the change brings no error of correctness and no security problem: no secret in the code, no unchecked input that reaches a query, a command or a path, no access wider than the change needs, no dependency with a known flaw; each one found is reported with its file and line",
       "proof": "review"
     },
@@ -1229,7 +1284,7 @@
       "guide": {
         "path": "docs/run-guide.md",
         "anchor": "a-section-of-a-run-guide-lets-a-fresh-reader-run-its-check",
-        "hash": "06ced127de53"
+        "hash": "7ac97c091f47"
       }
     },
     {
@@ -1241,6 +1296,17 @@
       "given": "a change of the tree or of the page that explains it",
       "when": "a reviewer reads it",
       "then": "the rows under an entity are shown and described as the rows of its table, never as kinds or parts of it, and the page shows nothing beyond the structure but its footer, which says what it was built from: the commit, the configuration and the date",
+      "proof": "review"
+    },
+    {
+      "id": "check.ontology-tree.served-after-merge",
+      "section": "Ontology tree",
+      "concepts": [
+        "rule.tree-after-server-merge"
+      ],
+      "given": "a merge of a task through GitHub",
+      "when": "a reviewer reads the executor's report of the merge",
+      "then": "it says the clone that serves the tree was brought to the merge commit and the page names that commit",
       "proof": "review"
     },
     {
@@ -1267,7 +1333,7 @@
       "guide": {
         "path": "docs/run-guide.md",
         "anchor": "a-release-verified-before-it-is-trusted",
-        "hash": "d376d85ee089"
+        "hash": "7434cb48adfa"
       }
     },
     {

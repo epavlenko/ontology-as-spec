@@ -123,6 +123,26 @@
   "taskRecords": {
     "dir": "reviews/tasks"
   },
+  "mergeGate": {
+    "paths": [
+      ".github/",
+      ".githooks/",
+      "package.json",
+      "tools/ont-check/",
+      "ont.config.json",
+      "example/ont.config.json",
+      "templates/",
+      "example/app/*.test.mjs",
+      "example/e2e/",
+      "example/traces/",
+      "example/judged/",
+      "example/app/adapter.mjs"
+    ],
+    "rules": ".github/merge-gate.json"
+  },
+  "ci": {
+    "workflow": ".github/workflows/ont-check.yml"
+  },
   "protocolReleases": {
     "file": "releases.md"
   },

@@ -508,7 +508,7 @@ test("[check.manual-run.record-verdicts] --review --record writes the records in
 const C = (number, names, opts = {}) => named(number, names, { condition: true, ...opts });
 const before = (r) => ({ ...r, findings: [...r.findings, { cls: "old", weight: "important", ofChange: false, fixable: true, filed: null, test: null }] });
 
-test("[check.review-round.condition-branch] after C one narrow round alone, then the owner's gate; C or the round after it ends the step only with no finding left and an acceptance that holds", () => {
+test("[check.review-round.condition-branch] after C one narrow round alone, then its fixes held by tests, never the owner's gate; C or the round after it ends the step only with no finding left and an acceptance that holds", () => {
   // C with no finding left and a clean acceptance that holds ends the step, a finding there before too.
   assert.equal(nextRound([C(1, [], { acceptance: [] })]).next, "clean");
   assert.equal(nextRound([before(C(1, [], { acceptance: [] }))]).next, "clean");
@@ -528,25 +528,23 @@ test("[check.review-round.condition-branch] after C one narrow round alone, then
   assert.equal(nextRound([C(1, ["a"]), named(1, [], { narrow: true, acceptance: [] })]).next, "clean");
   assert.equal(nextRound([C(1, ["a"]), named(2, [], { acceptance: [] })]).next, "clean");
   assert.equal(nextRound([C(1, ["a"]), before(named(1, [], { narrow: true, acceptance: [] }))]).next, "clean");
-  // The round after C with a finding left, no acceptance or one refused: the owner's gate, naming why.
-  for (const [why, rounds, opts, said] of [
-    ["a finding", [C(1, ["a"]), named(1, ["b"], { narrow: true, acceptance: [] })], {}, /findings left: b/],
-    ["full, no acceptance", [C(1, ["a"]), named(2, [])], {}, /no verdict of acceptance/],
-    ["refused", [C(1, ["a"]), named(1, [], { narrow: true, acceptance: [] })], { refused: (r) => (r.narrow ? "x" : null) }, /the verdict of acceptance is refused: x/],
+  // The round after C with a finding left: its fixes with tests, then done; with no acceptance or one that
+  // does not hold, that verdict again on the same result; never a question nor a round (D-164).
+  for (const [why, rounds, opts, next] of [
+    ["a finding", [C(1, ["a"]), named(1, ["b"], { narrow: true, acceptance: [] })], {}, "fixes"],
+    ["full, no acceptance", [C(1, ["a"]), named(2, [])], {}, "acceptance"],
+    ["not held", [C(1, ["a"]), named(1, ["b"], { narrow: true, acceptance: [] })], { held: (r) => !r.narrow }, "acceptance"],
   ]) {
     const n = nextRound(rounds, opts);
-    assert.deepEqual([n.branch, n.next], ["condition confirmed", "question"], `${why}: ${n.say}`);
-    assert.match(n.say, /the one round after it did not end the step/);
-    assert.match(n.say, said);
+    assert.deepEqual([n.branch, n.next], ["condition confirmed", next], `${why}: ${n.say}`);
+    assert.match(n.say, /rule\.fixes-held-by-tests/);
+    assert.doesNotMatch(n.say, /a question to the owner|(narrow|full) round \d/);
   }
   // A repeat of Condition: holds adds nothing: the round after C is still the last one allowed.
-  assert.equal(nextRound([C(1, ["a"]), C(1, ["b"], { narrow: true })]).next, "question");
+  assert.equal(nextRound([C(1, ["a"]), C(1, ["b"], { narrow: true, acceptance: [] })]).next, "fixes");
   // An open gate comes first.
   assert.equal(nextRound([C(1, ["a:not"])]).branch, "open gate");
-  // The gate of a later round of the task given by the reader holds the step, as one not fixable does.
-  const g = nextRound([named(1, [], { acceptance: [] })], { conditionGate: [{ file: "x.md", what: "no verdict of acceptance" }] });
-  assert.equal(g.branch, "open gate");
-  assert.match(g.say, /the one round after it did not end the step; only his approval of a version lets rounds go on \(x\.md: no verdict of acceptance\)$/);
+  assert.equal(nextRound([C(1, ["a"]), named(1, ["b:not"], { narrow: true, acceptance: [] })]).branch, "open gate");
   // After C ended the step, a new round with findings is read afresh.
   assert.equal(nextRound([C(1, [], { acceptance: [] }), named(2, ["a"])]).next, "narrow");
 });

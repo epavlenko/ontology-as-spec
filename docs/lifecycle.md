@@ -2,6 +2,43 @@
 
 How each kind of change moves through the artifacts. The [agent rules](parts/agent-rules.md) table is the short form of this page.
 
+<!-- ont: ent.merge-gate@572acd, rule.main-through-gate@65a8ba, rule.ci-from-main@e2531a, inv.gate-change-approved@e3880c, ent.gate-change@f99bb2, rule.merge-what-was-checked@4ce98e -->
+## Merging into main
+
+Main is changed only through a pull request that GitHub merges, by a merge commit, once two checks passed on its head and its branch contains main (D-165). The ruleset of main requires both by name and by the GitHub Actions app that reports them, and lets no one bypass it; its settings and the permissions of Actions are kept in `.github/merge-gate.json`, from which an agent creates the ruleset through the GitHub API (`node tools/ont-check/merge-gate.mjs ruleset` prints it).
+
+- **The full check**, `ont-check`, runs on `pull_request`: the check of the approach, the example and the templates, the guard of decisions against the pull request's base, which fails when that base is not found, and every test suite but the judged. It runs the pull request's code, so a pull request could weaken it by editing it.
+- **The guard**, `ont-gate-guard`, runs on `pull_request_target`, so its definition and code come from main. It fetches the pull request's commits as data, lists the paths the final diff changes and reads the records at its head; it runs nothing of the pull request. It refuses a change of a gate path, any file through which the full check could be weakened, that no record of a gate change approves: the record names the task, the approved version of its statement by its hash, the item of What to do that allows the change, the paths, and the last commit of the pull request that changes a path outside `reviews/`, never a later commit of records alone such as a record of done, after which the pull request has only commits of records.
+
+The executor merges through the API with the merge method and the head's commit as the condition, `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/merge -f merge_method=merge -f sha=<head>`, after `node tools/ont-check/merge-gate.mjs records-only --reviewed <reviewed> --head <head> --base <main>` confirms that the head is past the commit the reviewer of the result checked only by records under `reviews/`: outside them, the head's tree must be the reviewed commit merged with main as Git merges them, so a resolution that takes main's version of a reviewed file, or a merge that conflicts outside `reviews/`, is refused and needs a review of its own. After the narrow round that follows a confirmed condition, the commit compared is that of the record of done that ends the range of fixes, which records-only finds in the records at the head, and without it the reviewed commit, never the head (`rule.fixes-held-by-tests`). An update of the branch with main changes the head and asks for that again. A Git command that fails, in the guard or here, is an error, never a diff without changes. The guard binds a record of a gate change to its commit: that commit is the last of the pull request that changes a path outside `reviews/`, each path the record lists changes between the merge base and it, the record is added by the commit whose one parent it is, and after it the head changes nothing outside `reviews/` but by merging main.
+
+<!-- ont: rule.gate-switched-on@2e2b00 -->
+### Switching the gate on
+
+After the merge of the task that brings the gate, the executor runs `node tools/ont-check/merge-gate.mjs switch-on --repo <owner>/<repo>` and takes the steps it prints, in their order (D-163). It prints them from `.github/merge-gate.json`, each with its `gh api` calls and the values of the rule file it sets or compares, so that the steps cannot fall behind the settings they apply; a readback that differs from the rule file stops the switch-on. Each Actions policy is read back by its own call, since the list of policies gives summaries and only the policy's own response holds the conditions and rules to compare. The order matters: GitHub blocks `pull_request_target` in a public repository without an event policy that allows it, so the policy comes before the pull request of records on which both checks must first pass, and the ruleset is created only after that pull request showed them; the first gate proof keeps what it showed.
+
+The positive proof is the merge of the pull request of the next task through the gate, after that task starts.
+
+<!-- ont: ent.gate-proof@402ba8, inv.gate-records-well-formed@282c3f -->
+### Proving the gate
+
+A gate is proven on GitHub after the merge of the task that brings it: the probes the gate refuses, such as a pull request whose check is broken on purpose, and later an ordinary merge through it. Each is recorded as a gate proof in `reviews/tasks/`: the gate, refusal or pass, the probe and its result, the head and base of the pull request, read before the attempt, the check, its run and the required check with their results, GitHub's answer to a refused attempt or the merge commit of a pass, and the time, in English with paths of the repository. The probe refused for being behind keeps the base and head read before main moves on and, on a line of its own, `Main-after`, the tip of main read after it moved; the check refuses such a record without that tip, without the base, or whose base is the tip, read too late. The pull request of a probe is closed and its branch deleted. The check refuses a record of a gate change or of a gate proof that lacks a line its kind needs, and a gate proof whose kind is not refusal or pass, or whose result disagrees with its kind: a refusal was refused, and a pass, the merge of a pull request, merged.
+
+<!-- ont: rule.early-pre-commit@1e697f -->
+### The early hook
+
+`npm install` sets the clone's hooks to `.githooks/`; its pre-commit hook runs the check and the guard of decisions on the content of the commit, its index, whatever paths it changes. It is an early signal, not a gate: `--no-verify` and a clone without hooks skip it, and only the checks on the server hold a merge.
+
+<!-- ont: rule.tree-after-server-merge@2794d3 -->
+### The tree after a merge on the server
+
+A merge made on GitHub runs no hook in any clone, so the executor brings the clone that serves the ontology tree to it: in that clone, on main, or in a temporary worktree of main when the clone is on another branch, it confirms that `git config --path ont.treeOut` gives an absolute path, runs `git pull --ff-only`, confirms that HEAD is the merge commit on `origin/main`, runs `node tools/ont-check/gen-tree.mjs --stale`, and when the tree is stale `--refresh` and `--stale` again. Since `--stale` says nothing of a fresh tree, it then confirms that the page's footer, `built from`, names the merge commit.
+
+<!-- ont: rule.copy-verified-in-ci@1eddb8, inv.ci-workflow-present@9cc80d -->
+### A project's CI
+
+The templates give a project the workflow of its full check, `templates/.github/workflows/ont-check.yml`. The project copies it to `.github/workflows/` and writes in its directory of the tool, its configuration, its test command and, when its copy of the tool is pinned, the pin `pin.mjs` wrote, inside the copy's directory or outside it; the workflow then runs `pin.mjs verify --pin` first, so that an edited copy turns the check red. The project's configuration names the workflow under `ci.workflow`; the check reports a configuration that names none, and fails when the file it names is missing.
+
 <!-- ont: action.add-concept@3509fd, inv.ontology-connected@423c04, rule.form-follows-rows@8006af, ent.trace@eb1f36 -->
 ## A new concept
 
@@ -69,12 +106,12 @@ node tools/ontology-as-spec/pin.mjs verify --pin tools/ontology-as-spec.upstream
 
 The update copies the tool of the clone's `HEAD`, or of `--ref`, without its tests and with the approach's LICENSE, deletes the files the approach removed since the old pin, and writes the pin: the commit, its date, the last decision of the approach and the hash of every file. It lists the decisions since the old pin, which the project reads and carries into its own rules, and the files in the directory that no pin names, which it leaves in place. The verification runs with the check, and fails on a file that is missing or changed and on any file in the directory that the pin does not name. A note the project keeps beside the copy is listed under `own` in the pin.
 
-The update also writes `copy.json` in the copy's directory, naming the commit it copied from, and lists it under `own`: the copied files stay the commit's, so the verification passes at once, and `--review` links each check of run of the approach to its section of the [run guide](run-guide.md) at that commit, wherever the pin lives (D-155).
+The update also writes `copy.json` in the copy's directory, naming the commit it copied from, and lists it under `own`: the copied files stay the commit's, so the verification passes at once, and `--review` links each check of run of the approach to its section of the [run guide](run-guide.md) at that commit, wherever the pin lives (D-165).
 
 <!-- ont: rule.tool-before-files@9d5ec3, field.tool-copy.copy-info@cd7554 -->
 ### Moving to a new format
 
-When the approach changes a format, as when the proof `manual` became `review` and `run` and the key `manualRuns` became `verdicts` (D-154, D-157), the new version of the tool reads the earlier format as before, names what to move, and keeps reading it until a decision retires that reading; an older tool does not read the new format. So a project updates in this order (`rule.tool-before-files`):
+When the approach changes a format, as when the proof `manual` became `review` and `run` and the key `manualRuns` became `verdicts` (D-154, D-165), the new version of the tool reads the earlier format as before, names what to move, and keeps reading it until a decision retires that reading; an older tool does not read the new format. So a project updates in this order (`rule.tool-before-files`):
 
 1. Update the copy with the `pin.mjs` of the version you update to, the one of its clone, or of its copy with `--ref`, not the copy you have: an older `pin.mjs` does not write what the new version expects, such as `copy.json`.
 2. Run the check. It passes on the earlier files and lists what to move: checks whose proof is `manual`, a doc set that lists `["manual"]`, the key `manualRuns`. A run guide that lists `["manual"]` still asks for a section of every earlier manual check, so the first update loses none.

@@ -17,6 +17,7 @@
     "retired": "## Retired IDs"
   },
   "root": ".",
+  "ci": { "workflow": ".github/workflows/ont-check.yml" },
   "agentInstructions": ["agents-section.md"],
   "decisions": {
     "file": "decisions.md",

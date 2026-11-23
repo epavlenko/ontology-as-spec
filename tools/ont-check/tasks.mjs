@@ -8,7 +8,8 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
-import { BUDGET_QUESTION, SHA256, TASK_NAME, blockLines, blockedSay, byTime, conditionGatesIn, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
+import { outsideRecord } from "./manual-runs.mjs";
+import { BUDGET_QUESTION, SHA256, TASK_NAME, blockAt, blockLines, blockedSay, byTime, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
@@ -61,7 +62,7 @@ export const budgetLines = (budget) => BUDGET_ALL.map(([k, name]) => `${name}: $
 // A late record (lateRecords) is given to no reader: it is in malformed, which blocks every task.
 export function readTaskInputs(cfg) {
   const { rounds: parsedRounds, malformed: unreadable, top } = readRoundRecords(cfg);
-  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir) : { spend: [], done: [], approvals: [], malformed: [] };
+  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir, { latinOnly: cfg.records.latinOnly }) : { spend: [], done: [], approvals: [], gateChanges: [], gateProofs: [], malformed: [] };
   const late = lateRecords({ rounds: parsedRounds, done: parsed.done, approvals: parsed.approvals, gatesFrom: cfg.reviewRounds.gatesFrom ?? null });
   const kept = (x) => !late.some((l) => l.record === x);
   const malformed = [...unreadable, ...late.map((l) => l.text)];
@@ -84,11 +85,20 @@ export function lateRecords({ rounds, done = [], approvals = [], gatesFrom = nul
   });
 }
 
-// Records of done, of spend and of the owner's approval, with what is wrong with each.
-export function parseTaskRecords(dir) {
+// Records of done, of spend, of the owner's approval, of a gate change and of a gate proof, with what is
+// wrong with each. opts.latinOnly is the configuration's records.latinOnly: where it is set, a record of
+// a gate change or of a gate proof holds only English text and paths of the repository, as a record of a
+// round does (D-151, D-158); a record of spend, of done or of approval is read as before, with no rule of
+// language (D-162), but for the lines of the evidence of a record of done, held to it there (D-166).
+// ont: field.task-result.evidence, rule.records-english-in-repo
+// ont: ent.gate-change, field.gate-change.task, field.gate-change.item, field.gate-change.paths, field.gate-change.commit, field.gate-change.time, edge.gate-change.statement, inv.gate-records-well-formed
+// ont: ent.gate-proof, field.gate-proof.kind, field.gate-proof.probe, field.gate-proof.result, field.gate-proof.refused-by, field.gate-proof.head, field.gate-proof.base, field.gate-proof.main-after, field.gate-proof.check, field.gate-proof.run, field.gate-proof.required, field.gate-proof.answer, field.gate-proof.merge, field.gate-proof.time, edge.gate-proof.gate
+export function parseTaskRecords(dir, { latinOnly = false } = {}) {
   const spend = [];
   const done = [];
   const approvals = [];
+  const gateChanges = [];
+  const gateProofs = [];
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
     const text = read(f);
@@ -120,6 +130,9 @@ export function parseTaskRecords(dir) {
         return { command, result };
       });
       const [commit, hash, time] = [field("Commit"), field("Statement-hash"), field("Time")];
+      // What the statement asks the record to name besides the commands, under Evidence: (D-166).
+      const evidenceAt = blockAt(text, "Evidence");
+      const evidence = (evidenceAt ?? []).map((b) => b.line.replace(/^-\s*/, "").trim());
       const limits = BUDGET_LINES.map(([k, name]) => [k, name, field(name)]);
       const given = limits.filter(([, , v]) => v !== null);
       const reserveLine = field(RESERVE_LINE);
@@ -135,13 +148,16 @@ export function parseTaskRecords(dir) {
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
         !checks.length && "no checks",
         ...checks.filter((c) => !c.command || !["pass", "fail"].includes(c.result)).map((c) => `check ${c.command ?? ""} has no result pass or fail`),
+        evidenceAt && !evidenceAt.length && "Evidence: has no line under it",
+        // The evidence, new text no earlier record carries, holds English only where records do (D-166).
+        ...(evidenceAt ?? []).flatMap((b) => outsideOf(b.line, latinOnly).map((p) => p.replace(/^line 1:/, `line ${b.n}:`))),
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
         // A record made before the lines existed carries no limits: budget is null (D-147); one made
         // before the line of the reserve carries none, as one whose statement gives none (D-150).
         const budget = given.length ? { ...Object.fromEntries(limits.map(([k, , v]) => [k, v === "none" ? null : Number(v)])), reserve: reserveOf(reserveLine) } : null;
-        done.push({ file: name, task, commit, statementHash: hash, time, checks, budget });
+        done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence });
       }
     } else if (kind === "approval") {
       // The owner's approval of a version of a statement (D-121): valid only by the owner and with the
@@ -157,9 +173,100 @@ export function parseTaskRecords(dir) {
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else approvals.push({ file: name, task, statementHash: hash, by, source, time });
-    } else malformed.push(`${name}: Record ${kind ?? "(none)"} is not spend, done or approval`);
+    } else if (kind === "gate-change") {
+      const g = gateChangeOf(text, name, { latinOnly });
+      if (g.wrong.length) malformed.push(`${name}: ${g.wrong.join("; ")}`);
+      else gateChanges.push(g.record);
+    } else if (kind === "gate-proof") {
+      const g = gateProofOf(text, name, { latinOnly });
+      if (g.wrong.length) malformed.push(`${name}: ${g.wrong.join("; ")}`);
+      else gateProofs.push(g.record);
+    } else malformed.push(`${name}: Record ${kind ?? "(none)"} is not spend, done, approval, gate-change or gate-proof`);
   }
-  return { spend, done, approvals, malformed };
+  return { spend, done, approvals, gateChanges, gateProofs, malformed };
+}
+
+const FULL_COMMIT = /^[0-9a-f]{40}$/;
+const lineOf = (text, name) => text.match(new RegExp(`^${name}:[ \\t]*(.*?)\\s*$`, "m"))?.[1] ?? null;
+// A path of the repository as a record names it: relative, with "/" between parts, no part "." or "..".
+const repoPath = (p) => Boolean(p) && !p.startsWith("/") && !p.includes("\\") && p.split("/").every((part) => part && part !== "." && part !== "..");
+// The text of a record outside the repository's language or tree, where the configuration asks for it.
+const outsideOf = (text, latinOnly) => (latinOnly ? outsideRecord(text, 1, { latinOnly }) : []);
+
+// A record of a gate change (D-158): a pull request's change of gate paths, the work of a task under the
+// approved version of its statement, named by the item of What to do that allows it, the paths and the
+// commit that made it; the file is <time>-<task>-gate-change.md.
+export function gateChangeOf(text, name, { latinOnly = false } = {}) {
+  const [task, hash, item, commit, time] = ["Task", "Statement-hash", "Item", "Commit", "Time"].map((k) => lineOf(text, k));
+  const paths = (blockLines(text, "Paths") ?? []).map((l) => l.replace(/^-\s*/, "").replace(/^`(.*)`$/, "$1").trim());
+  const wrong = [
+    !task && "no task",
+    task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
+    task && TASK_NAME.test(task) && !new RegExp(`^\\d{8}T\\d{6}Z-${task}-gate-change\\.md$`).test(name) && `the file is not named <time>-${task}-gate-change.md`,
+    !SHA256.test(hash ?? "") && `statement hash ${hash ?? "(none)"} is not a SHA-256`,
+    !item && "no item of What to do that allows the change",
+    !FULL_COMMIT.test(commit ?? "") && `commit ${commit ?? "(none)"} is not a full commit`,
+    !paths.length && "no paths",
+    ...paths.filter((p) => !repoPath(p)).map((p) => `path ${p || "(empty)"} is not a path of the repository`),
+    !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
+    ...outsideOf(text, latinOnly),
+  ].filter(Boolean);
+  return { wrong, record: { file: name, task, statementHash: hash, item, paths, commit, time } };
+}
+
+// A record of a gate proof (D-158): a live probe of a gate on GitHub, a refusal or a pass, of a pull
+// request or of a push; the file is <time>-<task>-gate-proof.md, by the task whose gate it probes. The
+// result agrees with the kind: a refusal, of a pull request or of a push, was refused, and a pass is an
+// ordinary merge through the gate, of a pull request, merged. A kind is one of the two by its own name,
+// never by a name every object inherits, such as constructor. A refusal for being behind, whose
+// Refused-by names the branch up to date with main, out of date or behind, keeps the base read before
+// main moved on and the tip of main after, Main-after, as two commits: a base equal to the tip was read
+// after main moved on.
+export const PROOF_KINDS = { refusal: "refused", pass: "merged" };
+export function gateProofOf(text, name, { latinOnly = false } = {}) {
+  const f = Object.fromEntries(["Gate", "Kind", "Probe", "Result", "Refused-by", "Head", "Base", "Main-after", "Check", "Run", "Required", "Answer", "Merge", "Time"].map((k) => [k, lineOf(text, k)]));
+  const pr = f.Probe?.match(/^pr (\d+)$/);
+  const push = f.Probe?.match(/^push (\S+)$/);
+  const pair = (v) => /^\S.* · \S+$/.test(v ?? "");
+  const runOk = /^\d+ · https:\/\/\S+$/.test(f.Run ?? "");
+  const results = ["refused", "merged", "pushed"];
+  const kind = Object.hasOwn(PROOF_KINDS, f.Kind ?? "") ? f.Kind : null;
+  const probe = pr ? "pr" : push ? "push" : null;
+  const expected = kind ? PROOF_KINDS[kind] : null;
+  const behind = f.Kind === "refusal" && /up to date|out of date|\bbehind\b/i.test(f["Refused-by"] ?? "");
+  const wrong = [
+    !f.Gate && "no gate: the task whose gate was probed",
+    f.Gate && !TASK_NAME.test(f.Gate) && `gate ${f.Gate} is not lower-case letters, digits and hyphens`,
+    f.Gate && TASK_NAME.test(f.Gate) && !new RegExp(`^\\d{8}T\\d{6}Z-${f.Gate}-gate-proof\\.md$`).test(name) && `the file is not named <time>-${f.Gate}-gate-proof.md`,
+    !kind && `kind ${f.Kind ?? "(none)"} is not refusal or pass`,
+    !probe && `probe ${f.Probe ?? "(none)"} is not "pr <number>" or "push <ref>"`,
+    !results.includes(f.Result) && `result ${f.Result ?? "(none)"} is not refused, merged or pushed`,
+    expected && results.includes(f.Result) && f.Result !== expected && `result ${f.Result} disagrees with the kind ${kind}, whose result is ${expected}`,
+    kind === "pass" && probe === "push" && "a pass is a merge of a pull request, not a push",
+    f.Kind === "refusal" && !f["Refused-by"] && "a refusal names no check or rule that refused it",
+    f.Kind === "refusal" && !f.Answer && "a refusal has no answer of GitHub",
+    behind && !f["Main-after"] && "a refusal for being behind has no Main-after: the tip of main read after it moved on",
+    f["Main-after"] && !behind && "Main-after is the tip of main of a refusal for being behind, and this record is none",
+    f["Main-after"] && !FULL_COMMIT.test(f["Main-after"]) && `main-after ${f["Main-after"]} is not a full commit`,
+    behind && f["Main-after"] && f.Base === f["Main-after"] && "the base is the tip of main after it moved on: it was read after main moved, not before",
+    f.Kind === "pass" && !FULL_COMMIT.test(f.Merge ?? "") && `a pass has no merge commit in full (${f.Merge ?? "none"})`,
+    ...(pr
+      ? [
+          !FULL_COMMIT.test(f.Head ?? "") && `head ${f.Head ?? "(none)"} is not a full commit`,
+          !FULL_COMMIT.test(f.Base ?? "") && `base ${f.Base ?? "(none)"} is not a full commit`,
+          !pair(f.Check) && `check ${f.Check ?? "(none)"} is not "<name> · <result>"`,
+          !runOk && `run ${f.Run ?? "(none)"} is not "<number> · <address>"`,
+          !pair(f.Required) && `required ${f.Required ?? "(none)"} is not "<name> · <result>"`,
+        ]
+      : []),
+    !realTime(f.Time) && `time ${f.Time ?? "(none)"} is not a UTC time to the second`,
+    ...outsideOf(text, latinOnly),
+  ].filter(Boolean);
+  const record = {
+    file: name, gate: f.Gate, kind: f.Kind, probe: f.Probe, result: f.Result, refusedBy: f["Refused-by"], head: f.Head, base: f.Base, mainAfter: f["Main-after"],
+    check: f.Check, run: f.Run, required: f.Required, answer: f.Answer, merge: f.Merge, time: f.Time,
+  };
+  return { wrong, record };
 }
 
 // The records whose commits do not resolve in the repository (inv.named-commits-resolve, D-145, D-148),
@@ -300,6 +407,63 @@ export const reviewedCommit = (r) => {
   const c = (r.commits ?? "").split("..").at(-1).trim();
   return /^[0-9a-f]{7,40}$/.test(c) ? c : null;
 };
+
+// The range of fixes after the narrow round (rule.fixes-held-by-tests, D-164, D-165): the one function
+// that --task, --rounds, done.mjs, --review, the check's current records and merge-gate.mjs records-only
+// ask. It rests only on records that exist: in the rounds of the review of the result that the step
+// compares, after a round C with Condition: holds, the last round, the narrow round, when it does not end
+// the step; it starts after the commit that round reviewed, and ends at the commit of the first record of
+// done of the window after it on another commit, every check of it passed and, where the statement's file
+// is given, its commands the file's, or, while there is none, at head: the working copy's HEAD, for
+// done.mjs the commit it records done on. The state of the narrow round's verdict of acceptance is read
+// by the records as they were when it was given (inv.acceptance-after-done). null off the path.
+// ont: rule.fixes-held-by-tests
+export function fixesRange({ rounds, done = [], approvals = [], task, head = null, statement = null }) {
+  const { all, held, view } = resultWindow({ rounds, done, approvals, task });
+  const last = all.at(-1);
+  if (!last) return null;
+  const window = all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1);
+  const at = window.findIndex((r) => r.condition);
+  if (at < 0 || at === window.length - 1) return null;
+  if (endsStep(last, (r) => !endingWhy(r, { rounds, done, approvals, statement }))) return null;
+  const from = reviewedCommit(last);
+  const why = last.acceptance ? acceptanceWhy(last, rounds, done, null, { approvals }) : null;
+  const ran = (d) => d.checks.every((c) => c.result === "pass") && (!statement || sameCommands(d, statement));
+  const ends = from ? (view.done.find((d) => d.time > last.time && !d.commit.startsWith(from) && ran(d)) ?? null) : null;
+  return { task, c: window[at], narrow: last, from, acceptance: !last.acceptance ? "missing" : why ? "refused" : "held", why, done: ends, end: ends ? ends.commit : head };
+}
+// Whether a record of done ran exactly the statement's commands of done, in their order (D-123).
+const sameCommands = (d, statement) => {
+  const ran = d.checks.map((c) => c.command);
+  const want = statement.doneWhen ?? [];
+  return ran.length === want.length && ran.every((c, i) => c === want[i]);
+};
+// The rounds of the review of a task's result that its step compares (D-152): those of the task view
+// after the owner's last approval and the start of the window, and whether an earlier round's acceptance
+// held, by the records as they were when it was given. stepNext and fixesRange read them alike.
+function resultWindow({ rounds, done = [], approvals = [], task }) {
+  const ownerSince = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
+  const view = taskView({ rounds, done, approvals, task });
+  const since = view.window ? [ownerSince, view.window.from].filter(Boolean).sort().at(-1) : ownerSince;
+  const all = byTime(view.results).filter((r) => since === null || r.time > since);
+  return { all, held: (r) => !acceptanceWhy(r, rounds, done, null, { approvals }), view };
+}
+// Whether a verdict record given on commit is held by a range of fixes (rule.fixes-held-by-tests, D-165):
+// its commit, with no "+working-tree", comes after the commit the narrow round reviewed and is in the
+// range's end, and, once a record of done ends the range, the working tree holds that end's files outside
+// the directories of records given, so that a stamp changed since was changed by a fix of the range. A Git
+// command that fails holds nothing.
+export function heldByFixes(top, range, commit, recordDirs = []) {
+  const c = String(commit ?? "").replace(/\+working-tree$/, "");
+  if (!top || !range?.from || !range.end || !/^[0-9a-f]{7,40}$/.test(c)) return false;
+  const git = (...a) => spawnSync("git", ["-C", top, ...a], { encoding: "utf8", env: gitEnv() });
+  const ancestor = (a, b) => git("merge-base", "--is-ancestor", a, b).status === 0;
+  const full = (x) => git("rev-parse", "--verify", "--quiet", `${x}^{commit}`).stdout.trim();
+  if (!full(c) || full(c) === full(range.from) || !ancestor(range.from, c) || !ancestor(c, range.end)) return false;
+  if (!range.done) return true;
+  const diff = git("diff", "--no-renames", "--name-only", "-z", range.end, "--", ".", ...recordDirs.map((d) => `:!${d}`));
+  return diff.status === 0 && diff.stdout === "";
+}
 
 // Why a verdict of acceptance is refused, or null (inv.acceptance-after-done, D-117): it follows the
 // record of done, which follows the approval in force; the acceptance, the record and that approval
@@ -457,7 +621,7 @@ export function overspendProblems(end, b) {
 // (D-121); a verdict of acceptance holds only for the latest record of done (D-128).
 // The owner's last record of approval for the task ends both steps (D-152): the rounds before it are not
 // read by the branches of derived.next-round, so a question it answered is lifted.
-export function stepNext({ rounds, done = [], approvals = [], task, step, statement = null, gatesFrom = null }) {
+export function stepNext({ rounds, done = [], approvals = [], task, step, statement = null, gatesFrom = null, head = null }) {
   const all = ofTask(rounds, task, step);
   // The owner's last approval closes gates and starts the comparison of the statement's rounds; the
   // review of the result starts at its version window, which that approval may have opened (D-152).
@@ -471,8 +635,11 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   // An open gate holds the whole task, both steps, until the owner's newer approval (D-152).
   const gates = openGatesBy({ rounds, done, approvals, task, gatesFrom });
   const held = (r) => !acceptanceWhy(r, rounds, done, null, { approvals });
-  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, conditionGate: gates.condition, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
-  if (gates.notFixable.length || gates.condition.length) return go();
+  // The range of fixes after the narrow round, by the one function that reads it (D-164), its end before
+  // done head, the working copy's HEAD, as for every other reader of it.
+  const fixes = step === "result-review" ? fixesRange({ rounds, done, approvals, task, statement, head }) : null;
+  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, fixes, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  if (gates.notFixable.length) return go();
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);
     if (last?.kind === "approval") return { next: "clean", say: `the owner approved version ${last.hash.slice(0, 12)} (${last.file})` };
@@ -507,17 +674,13 @@ export const byVersion = ({ rounds, done = [], approvals = [], task }) => {
 // when it is the last of its step (D-152). Without the key every round carries the meaning of D-152.
 // The rounds are every round of the task, whatever version each names, never a window's: a reviewer's
 // clean round that approves another version closes nothing.
-// The gate of the condition confirmed (D-153) is read the same way, over every version: the round after
-// C that did not end the step, judged by the records as they were when it was given.
-export const openGatesBy = ({ rounds, done = [], approvals = [], task, gatesFrom = null }) => {
+// The round after the confirmed condition opens no gate of its own (D-164): its fixes are held by tests.
+export const openGatesBy = ({ rounds, task, gatesFrom = null, approvals = [] }) => {
   const own = ofTask(rounds, task).filter((r) => !isLegacy(r, gatesFrom));
   const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
-  return { notFixable: notFixableIn(own, since), condition: conditionGatesIn(own, since, (r) => acceptanceWhy(r, rounds, done, null, { approvals })) };
+  return { notFixable: notFixableIn(own, since) };
 };
-export const openGates = (args) => {
-  const g = openGatesBy(args);
-  return [...g.notFixable, ...g.condition.map((x) => x.file)];
-};
+export const openGates = (args) => openGatesBy(args).notFixable;
 // Every task any record names: a round, a record of spend, of done or of the owner's approval (D-152).
 export const taskIds = ({ rounds = [], spend = [], done = [], approvals = [] }) => [...new Set([...rounds, ...spend, ...done, ...approvals].map((r) => r.task).filter(Boolean))].sort();
 export const NO_APPROVAL = "work is not allowed: no approval in force for the statement";
@@ -530,11 +693,24 @@ export const TASK_BRANCHES = ["unreadable record", "done", "budget question", "o
 // The kind of the action of each branch but the step, whose kind its result gives (taskNext).
 export const TASK_KINDS = { "unreadable record": "correct", done: "done", "budget question": "question", "open gate": "question", "no review": "review", "under review": "review", "no version": "correct", changed: "review" };
 export const NO_FILE = "give --statement <file> to compare the version it names with the file";
+// head: the working copy's HEAD, or for done.mjs the commit it records done on, the end of the range of
+// fixes before its record of done (rule.fixes-held-by-tests).
 // needFile: the caller, --task or done.mjs, compares the version with a statement's file; --rounds and the
 // check do not. gatesFrom: the configuration's reviewRounds.gatesFrom.
 // forWork: done.mjs, which asks for new work on the result, so the branch done does not stand for it: a
 // new record of done after the task is done meets the budget and every other branch (D-152).
-export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false }) {
+// The next action after a clean last round whose acceptance holds, a clean narrow round after the confirmed
+// condition included: the change is merged at once, with no fixes, no issue of verdicts and no new record
+// of done (rule.ready-after-clean-round, D-164).
+// ont: derived.task-next, rule.ready-after-clean-round
+const CLEAN_DONE = "done: the last round and its acceptance are clean: merge (rule.ready-after-clean-round)";
+// The action of the branch done: the merge, and past the budget its overspend reported with it, never in
+// its place (derived.task-next, rule.ready-after-clean-round).
+const doneSay = (result, b) => {
+  const merge = result.fixes ? result.say : CLEAN_DONE.replace(/^done: /, "");
+  return b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner, and ${merge}` : `done: ${merge}`;
+};
+export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false, head = null }) {
   const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement });
   const unreadable = (statement?.wrong ?? []).length > 0;
   // The approved version of the file gives no command of done: no result can be recorded or accepted
@@ -547,11 +723,11 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const rr = ofTask(rounds, task, "result-review");
   // A task none of whose records names a version has no statement branches: its rounds read as they did.
   const versioned = byVersion({ rounds, done, approvals, task });
-  const step = (name) => stepNext({ rounds, done, approvals, task, step: name, statement, gatesFrom });
+  const step = (name) => stepNext({ rounds, done, approvals, task, step: name, statement, gatesFrom, head });
   const fileOk = !statement || statement.hash === approvedNow;
   const result = approvedNow ? step("result-review") : !versioned ? step(rr.length || !st.length ? "result-review" : "statement-review") : null;
   const gatesBy = openGatesBy({ rounds, done, approvals, task, gatesFrom });
-  const gates = [...gatesBy.notFixable, ...gatesBy.condition.map((x) => x.file)];
+  const gates = gatesBy.notFixable;
   const nextFull = Math.max(0, ...st.filter((r) => !r.narrow).map((r) => r.number)) + 1;
   const nextResult = Math.max(0, ...rr.filter((r) => !r.narrow).map((r) => r.number)) + 1;
   // The current version window, which every branch below reads for the version: its rounds of the result
@@ -560,11 +736,11 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const window = view.window;
   const branch = {
     "unreadable record": () => malformed.length && blockedSay(malformed),
-    "open gate": () => gates.length && gateSay(gatesBy.notFixable, gatesBy.condition),
+    "open gate": () => gates.length && gateSay(gates),
     done: () =>
       !forWork &&
       (window ? view.results.length && (!needFile || statement?.hash === window.hash) : rr.length) &&
-      result?.next === "clean" && (b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner` : "done: the last round and its acceptance are clean"),
+      result?.next === "clean" && doneSay(result, b),
     "budget question": () =>
       unreadable
         ? `a line of the statement's budget cannot be read: a question to the owner, with no next round (${statement.wrong.join("; ")})`
@@ -604,8 +780,8 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
 // its one next action on a line of its own, NEXT; and the errors of its records that only --task can
 // see (derived.statement-state, rule.budget-before-next, derived.task-next). --rounds prints the same
 // lines, given no file and needFile false (D-152).
-export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true }) {
-  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom });
+export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true, head = null }) {
+  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom, head });
   const b = next.budget;
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
   const { view } = next;
@@ -645,9 +821,11 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
     : !end
       ? "no round of its review yet"
     : next.branch === "done"
-      ? "done: the last round and its acceptance are clean"
+      ? next.result?.fixes ? `done: ${next.result.say}` : "done: the last round and its acceptance are clean"
       : `the last round of its review, ${end.file}, ${isClean(end) ? "is clean on merging" : "found findings of the change"}${acceptanceLabel(end)}`;
-  if (next.branch === "done") errors.push(...overspendProblems(end, b));
+  // After the narrow round no round ends the task: its record of done does, and no record carries the line
+  // Overspend: then (docs/limitations.md).
+  if (next.branch === "done" && !next.result?.fixes) errors.push(...overspendProblems(end, b));
   const lines = [say("statement", statementLine), say("result", resultLine)];
   errors.push(...(statement?.wrong ?? []).map((w) => `the statement's line ${w}`));
   const latest = view.done.at(-1) ?? null;

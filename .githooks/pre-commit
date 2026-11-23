@@ -1,9 +1,33 @@
 #!/bin/sh
-# Runs the drift check on the approach, the example and the templates when a commit touches them,
-# and refuses a commit that edits or removes an accepted decision entry.
-if git diff --cached --name-only | grep -qE '^(example|templates|tools|docs|contracts)/|^(ontology|checks|decisions|AGENTS|CLAUDE)\.md$|^ont\.config\.json$'; then
-  npm run --silent check || exit 1
-fi
+# An early signal, not a gate (D-158): runs the drift check on the content of the commit, its index,
+# whatever paths it changes, and refuses a commit that edits or removes an accepted decision entry.
+# --no-verify and a clone without hooks skip it; only the checks on the server hold a merge.
+# npm install sets core.hooksPath to .githooks (the script prepare of package.json).
+# ont: rule.early-pre-commit
+# The check and the guard of decisions both run in one temporary worktree that holds the files of the
+# index and nothing of the working tree, so that what is checked is what the commit holds, by the scripts
+# and the tool the commit holds: an unstaged edit of either changes no verdict. Git gives a hook GIT_INDEX_FILE and, in a
+# linked worktree, GIT_DIR: the tree of the index is written with them, and every command on the
+# temporary worktree runs without them, so that none of them touches the index being committed.
+TREE=$(git write-tree) || exit 1
 if git rev-parse --verify --quiet HEAD >/dev/null; then
-  npm run --silent guard -- --staged || exit 1
+  TMP=$(mktemp -d "${TMPDIR:-/tmp}/ont-pre-commit-XXXXXX") || exit 1
+  STATUS=0
+  (
+    unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_OBJECT_DIRECTORY
+    git worktree add --quiet --detach --no-checkout "$TMP/tree" HEAD >/dev/null 2>&1 || exit 97
+    cd "$TMP/tree" && git read-tree --reset -u "$TREE" && npm run --silent check && npm run --silent guard -- --staged
+  ) || STATUS=$?
+  (
+    unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_OBJECT_DIRECTORY
+    git worktree remove --force "$TMP/tree" >/dev/null 2>&1
+    rm -rf "$TMP"
+  )
+  if [ "$STATUS" = 97 ]; then
+    echo "pre-commit: no temporary worktree could be made for the check of the index" >&2
+    exit 1
+  fi
+  [ "$STATUS" = 0 ] || exit 1
+else
+  npm run --silent check || exit 1
 fi

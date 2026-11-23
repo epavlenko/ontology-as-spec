@@ -18,7 +18,7 @@ The ontology is the source of the code, and a model writes it. Two runs write di
 <!-- ont: inv.test-does-what-check-says@2b7515 -->
 ### A tag says what a test implements, not that it does
 
-An invariant such as "an item is on at most one open loan" is written in prose, and the check catalogue gives the case with data that proves it. A test names the check in a tag, and the check requires such a test for every automatic check of implemented concepts. It cannot see whether the test actually does what the check says: a test tagged `[check.item.one-open-loan]` that asserts nothing passes. Checks of review are given a verdict by a reviewer, and checks of run carried out by an agent or a person; a project may record each verdict (`verdicts` in the configuration of the tool, D-157), and the check then lists the checks of review and run without a current record, but it cannot see whether a recorded run was done as its guide says. `--mutate` (D-102) changes the forms one line at a time: a test of a check written against a system must fail on the oracle with every change its check's trace fails on, or it is reported as empty; a test that calls the code directly, not through a system, is not run there, and a change no trace fails on is only listed, since some changes alter nothing that can be observed. On the example it lists 21 of 95 changes; among them, a member at the borrow limit refused one loan early, `open > limit` turned into `open >= limit`, which no check of the example's catalogue tells apart. The checks of the tool count what a project's files register and run, not what they mean: an adapter that answers for the code instead of calling it, or a divergence whose stated effect accepts everything, passes them, and the reviewer of the change reads those two files (`concept.code-adapter`, D-101).
+An invariant such as "an item is on at most one open loan" is written in prose, and the check catalogue gives the case with data that proves it. A test names the check in a tag, and the check requires such a test for every automatic check of implemented concepts. It cannot see whether the test actually does what the check says: a test tagged `[check.item.one-open-loan]` that asserts nothing passes. Checks of review are given a verdict by a reviewer, and checks of run carried out by an agent or a person; a project may record each verdict (`verdicts` in the configuration of the tool, D-165), and the check then lists the checks of review and run without a current record, but it cannot see whether a recorded run was done as its guide says. `--mutate` (D-102) changes the forms one line at a time: a test of a check written against a system must fail on the oracle with every change its check's trace fails on, or it is reported as empty; a test that calls the code directly, not through a system, is not run there, and a change no trace fails on is only listed, since some changes alter nothing that can be observed. On the example it lists 21 of 95 changes; among them, a member at the borrow limit refused one loan early, `open > limit` turned into `open >= limit`, which no check of the example's catalogue tells apart. The checks of the tool count what a project's files register and run, not what they mean: an adapter that answers for the code instead of calling it, or a divergence whose stated effect accepts everything, passes them, and the reviewer of the change reads those two files (`concept.code-adapter`, D-101).
 
 <!-- ont: inv.no-restated-definition@21be03 -->
 ### Notes can still restate a definition
@@ -45,42 +45,42 @@ A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at
 
 A finding `not fixable` is a question to the owner, and only his record of approval of a new version answers it; a clean round of review cannot. When the author edits a statement for any other reason, a clean round of its review approves the new version. The tool compares versions by their hash only: it does not see whether a version approved by a round still holds every item the owner decided, with its source, nor whether an edit changed one of them, which would need his approval. The reviewer of the new version judges that, against the owner's words (D-152).
 
-<!-- ont: rule.rounds-converge@771d2a, derived.next-round@9e91d6 -->
+<!-- ont: rule.rounds-converge@fe1007, derived.next-round@324b74 -->
 ### The tool does not see whether the design changed after stagnation
 
-When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and then what `derived.next-round` names follows, except after the one round that follows a confirmed condition, where the owner is asked instead and nothing is redesigned before his approval (D-153). The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both (D-152).
+When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and then what `derived.next-round` names follows, except after the one round that follows a confirmed condition, after which no round follows and its findings are fixed with tests (`rule.fixes-held-by-tests`, D-164). The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both (D-152).
 
 <!-- ont: rule.findings-filed@a0eba5 -->
 ### A filed finding is trusted to belong where it is filed
 
-The tool checks that a finding filed as `limitation` or `later` names `docs/limitations.md` or a file under `issues/` that holds its class word for word, and refuses it in a verdict of acceptance. It does not see whether the finding is a rare history, whether the step of usual work the notes name is real, whether the finding is outside the approved statement, or whether the text there says what the finding means. The executor decides that (`rule.executor-triage`); the reviewer of the next round, if there is one, may name a wrong filing as a finding (D-153).
+The tool checks that a finding filed as `limitation` or `later` names `docs/limitations.md` or a file under `issues/` that holds its class word for word, and refuses it in a verdict of acceptance. It does not see whether the finding is a rare history, whether the step of usual work the notes name is real, whether the finding is outside the approved statement, or whether the text there says what the finding means. The executor decides that (`rule.executor-triage`); the reviewer of the next round, if there is one, may name a wrong filing as a finding (D-164).
 
-<!-- ont: field.review-round.condition@b7e15c, derived.next-round@9e91d6 -->
+<!-- ont: field.review-round.condition@b7e15c, derived.next-round@324b74 -->
 ### A full round after a confirmed condition counts as the one round
 
-Once a reviewer of the result has confirmed the goal's condition, the one round allowed after it should be narrow. The tool counts whatever round is recorded next, narrow or full, as that one round: a full round written in its place ends the step when it is clean and is the owner's question when it is not, and it opens no second round (D-153).
+Once a reviewer of the result has confirmed the goal's condition, the one round allowed after it should be narrow. The tool counts whatever round is recorded next, narrow or full, as that one round: a full round written in its place ends the step when it is clean, and when it is not its findings are fixed with tests as after the narrow round (`rule.fixes-held-by-tests`); it opens no second round (D-164).
 
 <!-- ont: rule.executor-triage@6569c2, rule.findings-filed@a0eba5 -->
 ### A finding filed in the round that ends the step is seen by no reviewer
 
-The executor files a rare history in the commit of the round's record. When that round is the one that ends the step, the confirmed condition or the one round after it, no later reviewer reads the filing: by the owner's answer "1020 b", the executor decides and the merge follows, so whether such a filing is right rests on the executor alone (D-153).
+The executor files a rare history in the commit of the round's record. When that round is the one that ends the step, the confirmed condition or the one round after it, no later reviewer reads the filing: by the owner's answer "1020 b", the executor decides and the merge follows, so whether such a filing is right rests on the executor alone (D-164).
 
-<!-- ont: inv.named-commits-resolve@ba7f87, inv.acceptance-after-done@84529f -->
+<!-- ont: inv.named-commits-resolve@ba7f87, inv.acceptance-after-done@3c3c5e -->
 ### A record of acceptance of a wrong commit, corrected later, still fails the check
 
-A round of the result whose verdict of acceptance names a commit that is not the one the record of done is of is refused by the check. A later round that corrects it ends the step, but the refused verdict of the earlier record is still reported by the check until that record is moved or removed (D-153).
+A round of the result whose verdict of acceptance names a commit that is not the one the record of done is of is refused by the check. A later round that corrects it ends the step, but the refused verdict of the earlier record is still reported by the check until that record is moved or removed (D-164).
 
 <!-- ont: rule.findings-filed@a0eba5 -->
 ### A filing is looked up in the working tree, not in the commit of the record
 
-The tool looks up the file a filed finding names, and the class it holds, in the working tree of the repository, not in the commit of the round's record. A filing written but not yet committed, or removed after the commit, is read as the working tree has it (D-153).
+The tool looks up the file a filed finding names, and the class it holds, in the working tree of the repository, not in the commit of the round's record. A filing written but not yet committed, or removed after the commit, is read as the working tree has it (D-164).
 
 <!-- ont: derived.budget-report@63246a -->
 ### The tool prints the marks of the budget, not that they were sent
 
 `--task` prints a line `REPORT` with the marks of half the limit and the limit that the spend has passed, each run it is given. It keeps no record of which marks were reported: the executor sends the owner one report with every mark not yet reported, and the tool does not see that it was sent, nor stops when it was not (D-152).
 
-<!-- ont: rule.records-english-in-repo@09514b -->
+<!-- ont: rule.records-english-in-repo@326bd9 -->
 ### Records refuse a path strictly
 
 A verdict record or a record of a round may name no path outside the repository, and the check finds one without reading Markdown. After a line's web URLs and HTML end tags are dropped, it refuses a prefix that names something on a machine anywhere in the line (`/home/`, `/Users/`, `/tmp/`, `~/`, a drive such as `C:/`, `\\server`, `file:`, `mailto:`), an absolute path or a URL of another scheme where no letter or digit stands before it, and any `..` next to a slash. So a path inside the repository written with `..`, such as `docs/../README.md`, or one after a combining mark, is refused too, and is written from the repository's root instead. A web URL is taken up to a comma or a bracket, so one with a comma in it is cut there (D-151).
@@ -154,6 +154,46 @@ The pin command writes the commit of the approach into a file of information abo
 ### The recorder takes some cells its reader refuses
 
 The recorder of a reviewer's table checks that a row of a run given to a person has evidence, but a cell of only spaces in backticks passes it, and the record then fails the check when it is read (class "recorder accepts evidence its reader treats as empty"). A row whose verdict is misspelt with a doubled hyphen, such as `not--run`, is not read as a row at all, so a duplicate or an unlisted check written that way is dropped instead of refused (class "malformed verdict row bypasses validation"). Both need a cell or a spelling no reviewer writes by habit, and the check of the records catches the first.
+
+<!-- ont: ent.merge-gate@572acd, rule.ci-from-main@e2531a, ent.gate-proof@402ba8 -->
+### The merge gate trusts the pull request's own workflow for its rights and names
+
+The full check runs the pull request's own workflow, so a pull request can declare wider rights for that workflow's token before the guard answers, or add a second workflow with the same job name (classes "read-only rights declared by the pull request" and "workflow provenance of the required checks"). Both need a pull request written to attack the gate; the guard still refuses the merge of a change to `.github/` without an approval, and a deliberate attack by an agent with write access is the limitation the owner accepted. For the same reason a record of a probe of the gate names the pull request, its head, the check and its outcome and GitHub's answer, but not which commit each run checked out (class "proof records tied to what github evaluated"): that detail only guards against a forged record.
+
+<!-- ont: rule.copy-verified-in-ci@1eddb8, ent.merge-gate@572acd -->
+### An adopting project gets the full check, and the guard only as an option
+
+The templates give a project a copy of the full check's workflow, which runs the project's own check and test command. How a project sets up its suites, its system tests, the guard, the policy of events and the rule on main is a later task of the goal, which checks a project made from the templates end to end; until then a project sets them up by hand. The guard is meant as an option for a project with records of tasks and rounds; a project without them has the full check only, and an update of its pinned tool is then not guarded (class "first protected pin upgrade of an adopting project"). Two classes filed here at first, "ci suite list behind the project configuration" and "owner record lookup without task records", are of the usual path and are given to that later task rather than accepted.
+
+<!-- ont: -->
+### Three rare cases of the merge gate
+
+The review of the merge gate's result found three cases that need a pull request written to attack the gate or an unusual repository, and they are accepted for now. The full check runs npm in the pull request's checkout, so a root npm configuration added by the pull request could change how its commands run without touching a gate path (class "full check accepting execution settings outside the gate paths"); it is the same deliberate attack by an agent with write access that the owner accepted. The early hook checks the working tree, not the index, in a repository with no commit yet (class "initial commit checking the working tree"). The trusted guard uses actions by their major tags rather than by commit (class "trusted guard using mutable action references"). A fourth case was filed here at first and is no longer accepted: the reader of a probe record took a few malformed kinds (class "gate-proof kind validation incomplete"), and round 2 of that review fixed it, since reading the record is part of the task; a kind is now refusal or pass by that name and its result must agree with it.
+
+<!-- ont: inv.gate-change-approved@e3880c, rule.merge-what-was-checked@4ce98e -->
+### The check that only records follow compares the final tree
+
+The check that only records follow the reviewed commit compares the head's tree outside `reviews/` with the reviewed commit merged with main; a change made after the review and undone again before the head passes it (class "records-only confirmation checks the final tree alone"). What is merged is still what was reviewed; only the history between holds an edit no one read. The guard's binding of a record of a gate change is stricter since round 4 of the review of the merge gate's result: it refuses any commit of the pull request outside `reviews/` after the one the record names, even when the final tree is the same (class "gate limitation describes superseded behavior"). A merge of main into the pull request after the record is not such a commit when git makes it with no conflict: outside `reviews/` the head is then the commit the record names merged with main, and the record of a gate change stays valid, also with a later round of records; a merge whose resolution changes a file outside `reviews/` is refused (class "gate limitation omits the clean main merge exception").
+
+<!-- ont: rule.fixes-held-by-tests@4d76f6 -->
+### The tool does not see the issue of verdicts after the narrow round, nor a test for each fix
+
+After the narrow round that follows a confirmed condition, the tool gives the range of fixes and reads it, but it does not record that the one issue of verdicts on the diff of the fixes was given, nor that each finding of the usual path of the narrow round and of that issue is closed by a test, nor that the test runs (`rule.fixes-held-by-tests`). The task enforcement-verdicts-tests of the goal makes them items the tool checks; until then the executor names each fix's test when he reports the task done, and the reviewer of the merge reads them. A verdict given in the range, or its commit, is current when a fix of the range changed its stamp, whatever fix it was: the tool cannot tell a fix of a finding from another change in the range. The task that the record of done after the narrow round ends carries no line `Overspend:`, since no round ends it; `--task` still says the overspend, and the executor reports it. A record of done after the one that ends the range, of a later commit, does not move the end of the range: the merge is refused for a change after it, which needs a review of its own.
+
+<!-- ont: inv.named-commits-resolve@ba7f87, rule.fixes-held-by-tests@4d76f6 -->
+### A narrow round that supplies the acceptance is read without its missing commits
+
+After the narrow round, the acceptance of the result is the narrow round's verdict together with a later record of done. The rule on missing commits keeps an error for a clean acceptance given after the latest record of done and treats other rounds as information, so a clone that lacks the start commit the narrow round names reads that round without an error (class "missing-commit decision excludes the narrow round that now supplies acceptance"). It needs a clone with the record of done but not the narrow round's start commit; the check of the repository that has both is unchanged.
+
+<!-- ont: derived.current-run@15f782, rule.fixes-held-by-tests@4d76f6 -->
+### Required verdicts and the fixes after the narrow round
+
+Where a project sets `verdicts.require`, a fix after the narrow round that changes the stamp of a check can be refused by the pre-commit check before the fix is in the range of fixes the exception covers (class "required verdicts still block the first fix commit"). This repository does not set `verdicts.require`; a project that does commits such a fix with the check of required verdicts reported and not refused, or gives the one verdict pass first.
+
+<!-- ont: rule.fixes-held-by-tests@4d76f6, field.task-result.evidence@a73249 -->
+### Three rare cases of the path after the narrow round
+
+When a narrow round has findings but no verdict of acceptance and the acceptance is given again on the same result, the reader takes the new record as the last round and can lose the narrow round's findings from the next action (class "reissued acceptance drops the narrow-round findings"); it needs a reviewer who leaves the verdict of acceptance out, and the executor reads the narrow round's findings from its record. Where `verdicts.require` is set, a clean update with main after the record of done compares the head with that record's commit directly and reports a verdict of the one issue as missing (class "clean update from main invalidates verdicts in the fix range"); this repository reports it as information. The record of done named its commands and their results, not the rows of the catalogue a task changed (class "done omits the catalogue changes required for acceptance"); since D-166 it carries them, and whatever else the statement asks it to name, under `Evidence:`, which `done.mjs --evidence` writes (`field.task-result.evidence`). The faults of the tool among these cases are filed in [ticket 16](../issues/0016-faults-of-the-range-of-fixes.md), as `rule.findings-filed` routes a fault of the tool, rather than kept here (class "tool faults filed as limitations"). A record of a round of the review of a result says which of its findings the executor holds of the usual path, but the step each breaks only where its notes say it (class "usual-path triage without the step in the round record"); the record of done can name them in its evidence.
 
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet

@@ -1,0 +1,42 @@
+# The full check of a project in CI, from the templates of the approach (D-158). Copy it to
+# .github/workflows/ont-check.yml and write in the values of env below: the directory of the copy of the
+# tool, the configuration of the check, the pin of the copy if it is pinned (the file pin.mjs update
+# wrote, inside the copy's directory or outside it, as --pin named it), and the project's test command.
+# It runs on the pull request's own code with a read-only token, as the approach's own full check does.
+# ont: rule.copy-verified-in-ci, field.merge-gate.ci-workflow, field.merge-gate.full-check
+name: ont-check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  ONT_TOOL: tools/ontology-as-spec
+  ONT_CONFIG: ont.config.json
+  ONT_PIN: tools/ontology-as-spec/upstream.json
+  ONT_TEST: npm test
+
+jobs:
+  ont-check:
+    name: ont-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: The copy of the tool matches its pin
+        run: if [ -n "$ONT_PIN" ]; then node "$ONT_TOOL/pin.mjs" verify --pin "$ONT_PIN"; else echo "No pin is named; the copy is not verified."; fi
+      - name: Drift check of the project
+        run: node "$ONT_TOOL/ont-check.mjs" --config "$ONT_CONFIG"
+      - name: Accepted decisions are not edited
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: node "$ONT_TOOL/guard-decisions.mjs" --config "$ONT_CONFIG" --base "$BASE"
+      - name: The project's tests
+        run: $ONT_TEST

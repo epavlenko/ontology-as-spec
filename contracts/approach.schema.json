@@ -643,7 +643,7 @@
     },
     "task-result": {
       "title": "Task result",
-      "description": "The executor's record of done: the task, the commit of its result, the version of the approved statement and the commands of done with their results on that commit, one file in the directory the configuration names under taskRecords.",
+      "description": "The executor's record of done: the task, the commit of its result, the version of the approved statement, the commands of done with their results on that commit and, where the statement asks the record to name more, its evidence, one file in the directory the configuration names under taskRecords.",
       "x-ont": "ent.task-result",
       "type": "object",
       "properties": {
@@ -665,6 +665,11 @@
         "checks": {
           "description": "Each command of done with its result, pass or fail.",
           "x-ont": "field.task-result.checks",
+          "type": "string"
+        },
+        "evidence": {
+          "description": "What the approved statement asks the record of done to name besides the commands of done, such as each row of the catalogue the task changed, one line each under a line Evidence: after the checks, as done.mjs --evidence FILE copies them from the file's lines that are not blank; a reviewer of acceptance reads it there. Where the configuration sets records.latinOnly, its lines hold only English text and paths of the repository, as a record of a gate change does (rule.records-english-in-repo): done.mjs refuses such a file and writes nothing, and the check refuses a record of done whose evidence does not, naming the letter or the path and its line. A record made without it carries none (D-166).",
+          "x-ont": "field.task-result.evidence",
           "type": "string"
         },
         "time": {
@@ -741,6 +746,197 @@
         "start",
         "end",
         "task"
+      ]
+    },
+    "merge-gate": {
+      "title": "Merge gate",
+      "description": "The server's refusal to merge into main a pull request whose required checks did not pass on its head, or whose branch does not contain main: a ruleset of the repository on GitHub, with the two checks it requires, which no agent can skip as it can skip a hook of its clone.",
+      "x-ont": "ent.merge-gate",
+      "type": "object",
+      "properties": {
+        "fullCheck": {
+          "description": "The workflow ont-check, run on pull_request with a read-only token: the check of the approach, of the example and of the templates, the guard of decisions against the pull request's base, which fails when that base is not a commit it finds, and every test suite npm test runs but the judged; it runs the pull request's code.",
+          "x-ont": "field.merge-gate.full-check",
+          "type": "string"
+        },
+        "guard": {
+          "description": "The workflow ont-gate-guard, run on pull_request_target, so that its definition and its code are main's: it fetches the pull request's commits as data, reads the paths the diff between the merge base of the event's base and its head changes and the records at that head, with the files at that head a filed finding may name (rule.findings-filed), so that a version is approved in force for it as for --task, runs nothing of the pull request and writes none of it into the working tree; it has a read-only token and no secret, and runs again on each push. A Git command of it that fails is an error that refuses the pull request, never a diff or a history without changes.",
+          "x-ont": "field.merge-gate.guard",
+          "type": "string"
+        },
+        "gatePaths": {
+          "description": "The paths of the repository whose change could weaken the gate, listed in the configuration under mergeGate.paths: a path ending in / names everything under it, and * any name within one part of a path.",
+          "x-ont": "field.merge-gate.gate-paths",
+          "type": "string"
+        },
+        "ruleFile": {
+          "description": "The file of the repository that the configuration names under mergeGate.rules, holding the ruleset of main as the GitHub API takes it and the permissions of Actions the gate needs, so that the settings on GitHub can be compared with it.",
+          "x-ont": "field.merge-gate.rule-file",
+          "type": "string"
+        },
+        "ciWorkflow": {
+          "description": "The workflow file of a project's full check, which its configuration names under ci.workflow from its root; the templates give one.",
+          "x-ont": "field.merge-gate.ci-workflow",
+          "type": "string"
+        },
+        "changes": {
+          "description": "The records of gate changes the guard reads at the head of a pull request.",
+          "x-ont": "edge.merge-gate.changes",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-ont-ref": "ent.gate-change"
+          }
+        }
+      },
+      "required": [
+        "fullCheck",
+        "guard",
+        "gatePaths",
+        "ruleFile",
+        "changes"
+      ]
+    },
+    "gate-change": {
+      "title": "Gate change",
+      "description": "The record, in a pull request, that a change of gate paths is the work of a task under an approved version of its statement: one file <time>-<task>-gate-change.md in the directory the configuration names under taskRecords, Record: gate-change.",
+      "x-ont": "ent.gate-change",
+      "type": "object",
+      "properties": {
+        "task": {
+          "description": "The task whose statement allows the change, named as in its rounds.",
+          "x-ont": "field.gate-change.task",
+          "type": "string"
+        },
+        "item": {
+          "description": "The item of What to do of that version that allows the change.",
+          "x-ont": "field.gate-change.item",
+          "type": "string"
+        },
+        "paths": {
+          "description": "The gate paths the change makes, one per line, each a path of the repository.",
+          "x-ont": "field.gate-change.paths",
+          "type": "string"
+        },
+        "commit": {
+          "description": "The commit, in full, at which the pull request's change of the paths the record lists is whole: the last commit of the pull request that changes a path outside reviews/, never a later commit of records alone; each of them changes between the merge base and it; the record is added by the next commit, whose one parent it is, and after it the pull request changes nothing outside reviews/ but by merging main.",
+          "x-ont": "field.gate-change.commit",
+          "type": "string"
+        },
+        "time": {
+          "description": "When the record was written, in UTC to the second.",
+          "x-ont": "field.gate-change.time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "statement": {
+          "description": "The approved version of the statement, by the SHA-256 of its file.",
+          "x-ont": "edge.gate-change.statement",
+          "type": "string",
+          "x-ont-ref": "ent.task-statement"
+        }
+      },
+      "required": [
+        "task",
+        "item",
+        "paths",
+        "commit",
+        "time",
+        "statement"
+      ]
+    },
+    "gate-proof": {
+      "title": "Gate proof",
+      "description": "The record of a live probe of a gate on GitHub: one file <time>-<task>-gate-proof.md, named by the task whose gate it probes, in the directory the configuration names under taskRecords, Record: gate-proof.",
+      "x-ont": "ent.gate-proof",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "A refusal is proven by an attack the gate refused; a pass by an ordinary merge through it.",
+          "x-ont": "field.gate-proof.kind",
+          "enum": [
+            "refusal",
+            "pass"
+          ]
+        },
+        "probe": {
+          "description": "pr <number> for a pull request, push <ref> for a push.",
+          "x-ont": "field.gate-proof.probe",
+          "type": "string"
+        },
+        "result": {
+          "description": "What GitHub did with the attempt; a proof counts only when it agrees with its kind.",
+          "x-ont": "field.gate-proof.result",
+          "enum": [
+            "refused",
+            "merged",
+            "pushed"
+          ]
+        },
+        "refusedBy": {
+          "description": "For a refusal, the check or the rule whose answer refused it, so that the proof is of this gate and not of an earlier one.",
+          "x-ont": "field.gate-proof.refused-by",
+          "type": "string"
+        },
+        "head": {
+          "description": "For a pull request, the commit of its head, in full.",
+          "x-ont": "field.gate-proof.head",
+          "type": "string"
+        },
+        "base": {
+          "description": "For a pull request, the commit of main it was based on when its checks ran, in full; for a refusal for being behind, read before main moves on.",
+          "x-ont": "field.gate-proof.base",
+          "type": "string"
+        },
+        "mainAfter": {
+          "description": "For a refusal for being behind, the commit main moved on to, read after it moved, in full; it is not the base.",
+          "x-ont": "field.gate-proof.main-after",
+          "type": "string"
+        },
+        "check": {
+          "description": "For a pull request, the check that ran on its head and its result, <name> · <result>.",
+          "x-ont": "field.gate-proof.check",
+          "type": "string"
+        },
+        "run": {
+          "description": "For a pull request, the number of the run of that check and its address, <number> · <URL>.",
+          "x-ont": "field.gate-proof.run",
+          "type": "string"
+        },
+        "required": {
+          "description": "For a pull request, the required check and its result, <name> · <result>.",
+          "x-ont": "field.gate-proof.required",
+          "type": "string"
+        },
+        "answer": {
+          "description": "For a refusal, GitHub's answer to the attempt to merge or to push.",
+          "x-ont": "field.gate-proof.answer",
+          "type": "string"
+        },
+        "merge": {
+          "description": "For a pass, the commit of the merge, in full.",
+          "x-ont": "field.gate-proof.merge",
+          "type": "string"
+        },
+        "time": {
+          "description": "When the probe was made, in UTC to the second.",
+          "x-ont": "field.gate-proof.time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "gate": {
+          "description": "The task whose gate was probed, named as in its rounds, on the line Gate:.",
+          "x-ont": "edge.gate-proof.gate",
+          "type": "string",
+          "x-ont-ref": "ent.task-statement"
+        }
+      },
+      "required": [
+        "kind",
+        "probe",
+        "result",
+        "time",
+        "gate"
       ]
     },
     "test": {

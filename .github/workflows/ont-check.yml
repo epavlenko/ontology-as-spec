@@ -1,0 +1,33 @@
+# The full check of the merge gate (D-158): a required check of the ruleset of main, run on the pull
+# request's own code with a read-only token. It checks the approach, the example and the templates,
+# guards accepted decisions against the pull request's base, which must be a commit it finds, and runs
+# every test suite npm test runs but the judged, which CI never runs (D-158).
+# ont: field.merge-gate.full-check, ent.merge-gate
+name: ont-check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ont-check:
+    name: ont-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Drift check on the approach, the example and the templates
+        run: npm run check
+      - name: Accepted decisions are not edited
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: npm run --silent guard -- --base "$BASE"
+      - name: Tests of every suite but the judged
+        run: npm run --silent test:ci
