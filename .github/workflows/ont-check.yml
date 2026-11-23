@@ -1,4 +1,5 @@
 # The full check of the merge gate (D-158): a required check of the ruleset of main, run on the pull
+# probe of the merge gate: a gate path changed with no record of a gate change
 # request's own code with a read-only token. It checks the approach, the example and the templates,
 # guards accepted decisions against the pull request's base, which must be a commit it finds, and runs
 # every test suite npm test runs but the judged, which CI never runs (D-158).
