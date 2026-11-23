@@ -120,6 +120,7 @@ export function parseRuns(dir, known, opts = {}) {
       !fields.by && "no author",
       fields.performer !== undefined && !PERFORMERS.includes(fields.performer) && `performer ${fields.performer || "(none)"} is not one of ${PERFORMERS.join(", ")}`,
       // No one carried out a not-run or a not-applicable; a person who did is named in the evidence (D-157).
+      // ont: inv.manual-runs-well-formed
       fields.performer !== undefined && VERDICTS.includes(fields.verdict) && fields.verdict !== "pass" && fields.verdict !== "fail" && `a performer is given on a pass or a fail only, not on ${fields.verdict}`,
       fields.performer === "person" && !fields.evidence && "performer person without the evidence that names the person",
       !named && "the name is not <UTC time>-<check>-<4 characters>.md, such as 20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md",
