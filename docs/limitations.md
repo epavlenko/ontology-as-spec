@@ -171,6 +171,11 @@ The templates give a project a copy of the full check's workflow, which runs the
 The review of the merge gate's result found three cases that need a pull request written to attack the gate or an unusual repository, and they are accepted for now. The full check runs npm in the pull request's checkout, so a root npm configuration added by the pull request could change how its commands run without touching a gate path (class "full check accepting execution settings outside the gate paths"); it is the same deliberate attack by an agent with write access that the owner accepted. The early hook checks the working tree, not the index, in a repository with no commit yet (class "initial commit checking the working tree"). The trusted guard uses actions by their major tags rather than by commit (class "trusted guard using mutable action references"). A fourth case was filed here at first and is no longer accepted: the reader of a probe record took a few malformed kinds (class "gate-proof kind validation incomplete"), and round 2 of that review fixed it, since reading the record is part of the task; a kind is now refusal or pass by that name and its result must agree with it.
 
 <!-- ont: -->
+### The check that only records follow compares the final tree
+
+The check that only records follow the reviewed commit, and the same check after a record of a gate change, compares the head's tree outside `reviews/` with the reviewed commit merged with main; a change made after the review and undone again before the head passes it (class "records-only confirmation checks the final tree alone"). What is merged is still what was reviewed; only the history between holds an edit no one read.
+
+<!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
