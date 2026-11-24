@@ -692,6 +692,36 @@ test("[check.merge-gate.rules-compared] the fields the token reads: a required c
   assert.match(hidden.notRead.join("\n"), /bypass_actors/);
 });
 
+test("[check.merge-gate.rules-compared] every parameter of every rule the rule file names is compared, so one approval required where the file says none is a difference, and a list GitHub gives as null is not read", () => {
+  const cmp = (edit, fields = "token") => compareRules({ rules: RULES, repo: "o/r", fields, api: apiOf(githubAnswers(edit)) });
+  const param = (a, type) => a["repos/o/r/rulesets/1"].rules.find((r) => r.type === type).parameters;
+  assert.equal(param(githubAnswers(), "pull_request").required_approving_review_count, 0);
+  for (const fields of ["token", "all"]) {
+    const one = cmp((a) => (param(a, "pull_request").required_approving_review_count = 1), fields);
+    assert.match(one.drift.join("\n"), /pull_request\.required_approving_review_count: 1 on GitHub, 0 in the rule file/, fields);
+    assert.match(cmp((a) => (param(a, "required_status_checks").do_not_enforce_on_create = true), fields).drift.join("\n"), /required_status_checks\.do_not_enforce_on_create/, fields);
+    assert.match(cmp((a) => delete param(a, "pull_request").dismiss_stale_reviews_on_push, fields).unread.join("\n"), /pull_request\.dismiss_stale_reviews_on_push: not in GitHub's answer/, fields);
+  }
+  // A null list of excluded refs is not the empty list of the file: the field is not read, and refused.
+  const nul = cmp((a) => (a["repos/o/r/rulesets/1"].conditions.ref_name.exclude = null));
+  assert.deepEqual(nul.drift, []);
+  assert.match(nul.unread.join("\n"), /conditions\.ref_name\.exclude: null in GitHub's answer/);
+  assert.match(cmp((a) => (param(a, "pull_request").allowed_merge_methods = null)).unread.join("\n"), /pull_request\.allowed_merge_methods: null/);
+  assert.match(cmp((a) => (a["repos/o/r/rulesets/1"].rules = null)).unread.join("\n"), /^rules: null/m);
+});
+
+test("[check.merge-gate.rules-compared] merge-gate.mjs rules refuses a null list of excluded refs, RULES_UNREAD, and --task names the question to the owner when GitHub requires an approval the rule file does not", () => {
+  const { p, st } = approved();
+  const nul = p.tool("merge-gate.mjs", ["rules", "--repo", "o/r"], { ONT_GH_CMD: ghStub(githubAnswers((a) => (a["repos/o/r/rulesets/1"].conditions.ref_name.exclude = null))) });
+  assert.equal(nul.code, 1, nul.out);
+  assert.match(nul.out, /^CODE RULES_UNREAD$/m);
+  assert.doesNotMatch(nul.out, /^RULES_OK$/m);
+  p.git("remote", "add", "origin", "https://github.com/o/r.git");
+  const one = ghStub(githubAnswers((a) => (a["repos/o/r/rulesets/1"].rules.find((r) => r.type === "pull_request").parameters.required_approving_review_count = 1)));
+  const t = p.tool("ont-check.mjs", ["--task", "t", "--statement", st.file], { ONT_GH_CMD: one });
+  assert.match(t.out, /^NEXT t: the rules of main on GitHub differ from the rule file: a question to the owner, who alone changes them \(pull_request\.required_approving_review_count: 1 on GitHub, 0 in the rule file\)$/m, t.out);
+});
+
 test("[check.merge-gate.rules-compared] merge-gate.mjs rules exits 0 on the rule file's rules and prints its codes on others; --task names the question to the owner on a difference, and says why when it cannot compare", () => {
   const { p, st } = approved();
   const rules = (answers, fields = "token") => p.tool("merge-gate.mjs", ["rules", "--repo", "o/r", "--fields", fields], { ONT_GH_CMD: ghStub(answers) });

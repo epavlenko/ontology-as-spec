@@ -645,7 +645,7 @@ export function ghApi(path, { json = true } = {}) {
 
 // The comparison of the rules of main on GitHub with the rule file (inv.rules-match-file, action.compare-rules,
 // D-185). fields "token": only what the read-only token of a workflow reads, the ruleset by its name, its
-// enforcement, target and conditions, the types of its rules, the methods of merge of its rule of pull
+// enforcement, target and conditions, the types of its rules, every parameter of every rule the file names, among them the methods of merge of its rule of pull
 // requests, and the checks its rule of status checks requires, by name and app, with its strictness; "all"
 // adds the actors that bypass it, which GitHub gives only with the right to write, and the settings of
 // Actions, its permissions, the workflows' token and its policies. drift: each difference; unread: each field
@@ -666,12 +666,18 @@ export function compareRules({ rules, repo, fields = "token", api = ghApi }) {
   // Values compared as JSON with the keys of every object in order, as GitHub gives them in any order.
   const canon = (x) => (Array.isArray(x) ? x.map(canon) : x && typeof x === "object" ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, canon(x[k])])) : x);
   const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
-  const sorted = (xs) => [...(xs ?? [])].map((x) => (typeof x === "string" ? x : JSON.stringify(x))).sort();
-  // A field compared: unread where the answer lacks it, a difference where it is not the file's.
+  const sorted = (xs) => [...xs].map((x) => (typeof x === "string" ? x : JSON.stringify(canon(x)))).sort();
+  // A field compared: unread where the answer lacks it, or gives null where the rule file has a value, never
+  // taken for the file's value; a difference where it is not the file's.
   const compare = (name, have, wantValue, into = out.unread) => {
-    if (have === undefined) return into.push(`${name}: not in GitHub's answer`);
+    if (have === undefined || (have === null && wantValue !== null)) return into.push(`${name}: ${have === null ? "null" : "not"} in GitHub's answer`);
     out.read.push(name);
     if (!same(have, wantValue)) out.drift.push(`${name}: ${JSON.stringify(have)} on GitHub, ${JSON.stringify(wantValue)} in the rule file`);
+  };
+  // A list compared in any order: unread where the answer gives no list where the rule file has one.
+  const compareList = (name, have, wantList, into = out.unread, item = (x) => x) => {
+    if (!Array.isArray(have)) return into.push(`${name}: ${have === null ? "null" : have === undefined ? "not" : "no list"} in GitHub's answer`);
+    compare(name, sorted(have.map(item)), sorted((wantList ?? []).map(item)), into);
   };
   const list = call(`repos/${repo}/rulesets`, "the rulesets of the repository", out.unread);
   if (list !== undefined) {
@@ -685,23 +691,25 @@ export function compareRules({ rules, repo, fields = "token", api = ghApi }) {
         if (have !== undefined) {
           compare("enforcement", have.enforcement, want.enforcement);
           compare("target", have.target, want.target);
-          compare("conditions.ref_name.include", have.conditions?.ref_name?.include === undefined ? undefined : sorted(have.conditions.ref_name.include), sorted(want.conditions?.ref_name?.include));
-          compare("conditions.ref_name.exclude", have.conditions?.ref_name?.exclude === undefined ? undefined : sorted(have.conditions.ref_name.exclude), sorted(want.conditions?.ref_name?.exclude));
-          const rulesOf = (x) => (Array.isArray(x?.rules) ? x.rules : undefined);
-          const hr = rulesOf(have);
-          compare("rules", hr === undefined ? undefined : sorted(hr.map((x) => x.type)), sorted(want.rules.map((x) => x.type)));
-          const param = (rs, type) => rs?.find((x) => x.type === type)?.parameters;
-          const hp = param(hr, "pull_request");
-          const wp = param(want.rules, "pull_request");
-          if (hr && wp && hr.some((x) => x.type === "pull_request")) compare("pull_request.allowed_merge_methods", hp?.allowed_merge_methods === undefined ? undefined : sorted(hp.allowed_merge_methods), sorted(wp.allowed_merge_methods));
-          const hs = param(hr, "required_status_checks");
-          const ws = param(want.rules, "required_status_checks");
-          if (hr && ws && hr.some((x) => x.type === "required_status_checks")) {
-            compare("required_status_checks.strict_required_status_checks_policy", hs?.strict_required_status_checks_policy, ws.strict_required_status_checks_policy);
-            const checks = (xs) => (xs === undefined ? undefined : sorted(xs.map((c) => ({ context: c.context, integration_id: c.integration_id ?? null }))));
-            compare("required_status_checks.required_status_checks", checks(hs?.required_status_checks), checks(ws.required_status_checks));
-          }
-          if (fields === "all") compare("bypass_actors", have.bypass_actors === undefined ? undefined : sorted(have.bypass_actors.map((x) => ({ actor_id: x.actor_id ?? null, actor_type: x.actor_type, bypass_mode: x.bypass_mode }))), sorted((want.bypass_actors ?? []).map((x) => ({ actor_id: x.actor_id ?? null, actor_type: x.actor_type, bypass_mode: x.bypass_mode }))), out.notRead);
+          for (const k of ["include", "exclude"]) if (want.conditions?.ref_name?.[k] !== undefined) compareList(`conditions.ref_name.${k}`, have.conditions?.ref_name?.[k], want.conditions.ref_name[k]);
+          const hr = have.rules;
+          compareList("rules", Array.isArray(hr) ? hr.map((x) => x?.type) : hr, want.rules.map((x) => x.type));
+          // Every parameter of every rule the rule file names, of a rule GitHub has: a list in any order, a
+          // required check by its name and app, and any other value as it is (D-185).
+          if (Array.isArray(hr))
+            for (const w of want.rules) {
+              const h = hr.find((x) => x?.type === w.type);
+              if (!h) continue;
+              for (const [k, v] of Object.entries(w.parameters ?? {})) {
+                const name = `${w.type}.${k}`;
+                const hv = h.parameters?.[k];
+                if (k === "required_status_checks") compareList(name, hv, v, out.unread, (c) => ({ context: c?.context, integration_id: c?.integration_id ?? null }));
+                else if (Array.isArray(v)) compareList(name, hv, v);
+                else compare(name, hv, v);
+              }
+            }
+          const actor = (x) => ({ actor_id: x?.actor_id ?? null, actor_type: x?.actor_type, bypass_mode: x?.bypass_mode });
+          if (fields === "all") compareList("bypass_actors", have.bypass_actors, want.bypass_actors ?? [], out.notRead, actor);
         }
       }
     }
