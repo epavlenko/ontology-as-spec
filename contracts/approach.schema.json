@@ -554,6 +554,11 @@
           "x-ont": "field.review-round.spend-record",
           "type": "string"
         },
+        "gatePaths": {
+          "description": "On a round of the review of a statement, the statement's gate paths, Gate-paths: apart by , , which round.mjs record copies from the brief, so that a clean round approves them with the version it read (field.task-statement.gate-paths); the line on a round of the result is an error of the record (D-185).",
+          "x-ont": "field.review-round.gate-paths",
+          "type": "string"
+        },
         "cause": {
           "description": "On a round briefed after stagnation, the SHA-256 of the file of the analysis of the cause the executor gave round.mjs brief with --cause, copied from the brief by round.mjs record; a round without it, as every round before it, reads as it did.",
           "x-ont": "field.review-round.cause",
@@ -623,6 +628,11 @@
           "description": "The goal the task is part of, on a line Goal: <goal>: its unit of budget where spend is counted from the logs. The unit of a task is the goal only when its statement names it so; a statement with no line is its own unit, with its own limits, and no error (D-179). The line is read from the statement file given, its line or its absence; with no file given, as in CI and round.mjs record, from the records of the version that applies (derived.task-budget) that copy the statement's lines of the budget, the task's kept brief of that version, or else its latest record of done of it, or else its latest snapshot of spend of it, whose Unit: is the goal where it is not the task, by the record's line or its absence, so that a version with no line is its own unit whatever an older version named; only where no record of that version copies those lines, as for a version whose only record is the owner's approval, from the latest of the task's records of another version that carries a line; with no line there the task is its own unit (D-179). The configuration lists each goal's tasks under goals, its composition: a line that names a goal the configuration does not list, or a goal whose list does not hold the task, is an error of --task, round.mjs and done.mjs, and a record of done or a kept brief whose line is so is an error of the check; a task listed under two goals is an error. The commands of a goal, --task <goal>, the goal's record of done and the brief of its acceptance, count it whole by that composition, its tasks whose statements have no line included.",
           "x-ont": "field.task-statement.goal",
           "type": "string"
+        },
+        "gatePaths": {
+          "description": "The gate paths the task may change, in the syntax of mergeGate.paths, on one or more lines Gate-paths:, apart by commas or spaces. The approval of the version carries them: round.mjs brief of a round of the statement's review and approve.mjs --kind approval copy them into the brief, the round and the record of approval, and the guard, which reads no statement, reads them there (inv.gate-path-in-approval); a version with no line allows no gate path (D-185).",
+          "x-ont": "field.task-statement.gate-paths",
+          "type": "string"
         }
       },
       "required": [
@@ -661,11 +671,12 @@
           "format": "date-time"
         },
         "kind": {
-          "description": "approval, the owner's approval of the version, or gate, his answer to the gate of a round, which closes it; a record without the line is an approval.",
+          "description": "approval, the owner's approval of the version, or gate, his answer to the gate of the round it names, which closes that gate alone, the other gates staying open, and approves no version (derived.approval); publish is the owner's permission to publish (ent.publish-permission), no approval of a version either; a record without the line is an approval (D-185).",
           "x-ont": "field.owner-approval.kind",
           "enum": [
             "approval",
-            "gate"
+            "gate",
+            "publish"
           ]
         },
         "question": {
@@ -683,6 +694,11 @@
           "x-ont": "field.owner-approval.budget",
           "type": "string"
         },
+        "gatePaths": {
+          "description": "On an approval, the gate paths of the version it approves, Gate-paths: apart by , , as approve.mjs copies them from the statement's lines (field.task-statement.gate-paths); none where the statement has none (D-185).",
+          "x-ont": "field.owner-approval.gate-paths",
+          "type": "string"
+        },
         "statement": {
           "description": "The version approved, by the SHA-256 of its file.",
           "x-ont": "edge.owner-approval.statement",
@@ -696,6 +712,54 @@
         "source",
         "time",
         "statement"
+      ]
+    },
+    "publish-permission": {
+      "title": "Publish permission",
+      "description": "The owner's permission to publish the work of a goal or of a task, in his own words: one file <time>-<scope>-publish.md in the directory the configuration names under taskRecords, Record: approval with Kind: publish; no approval of a version of a statement, and it names none.",
+      "x-ont": "ent.publish-permission",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "description": "A goal of the configuration's goals, whose tasks and pull requests of records alone it covers, or a task, which it covers alone.",
+          "x-ont": "field.publish-permission.scope",
+          "type": "string"
+        },
+        "question": {
+          "description": "The number of the question of the registry whose answer the record carries; the question names the scope.",
+          "x-ont": "field.publish-permission.question",
+          "type": "integer"
+        },
+        "by": {
+          "description": "owner: only the owner allows to publish.",
+          "x-ont": "field.publish-permission.by",
+          "type": "string"
+        },
+        "source": {
+          "description": "The number of the question, the date of the answer, the option chosen, whose value is publish, and the English translation of the owner's words, marked translated from Russian.",
+          "x-ont": "field.publish-permission.source",
+          "type": "string"
+        },
+        "time": {
+          "description": "When the record was written, in UTC to the second.",
+          "x-ont": "field.publish-permission.time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "guard": {
+          "description": "The gate whose guard reads the permission, on the base of a pull request or added by it, for the merge by the state of the task (rule.merge-by-task-state).",
+          "x-ont": "edge.publish-permission.guard",
+          "type": "string",
+          "x-ont-ref": "ent.merge-gate"
+        }
+      },
+      "required": [
+        "scope",
+        "question",
+        "by",
+        "source",
+        "time",
+        "guard"
       ]
     },
     "task-result": {
@@ -817,7 +881,7 @@
           "type": "string"
         },
         "guard": {
-          "description": "The workflow ont-gate-guard, run on pull_request_target, so that its definition and its code are main's: it fetches the pull request's commits as data, reads the paths the diff between the merge base of the event's base and its head changes and the records at that head, with the files at that head a filed finding may name (rule.findings-filed), so that a version is approved in force for it as for --task, runs nothing of the pull request and writes none of it into the working tree; it has a read-only token and no secret, and runs again on each push. A Git command of it that fails is an error that refuses the pull request, never a diff or a history without changes.",
+          "description": "The workflow ont-gate-guard, run on pull_request_target, so that its definition and its code are main's: it fetches the pull request's commits as data, reads the paths the diff between the merge base of the event's base and its head changes and the records at that head, with the files at that head a filed finding may name (rule.findings-filed), so that a version is approved in force for it as for --task, runs nothing of the pull request and writes none of it into the working tree; it has a read-only token and no secret, and runs again on each push; its last step, which runs whatever the guard found, compares the rules of main on GitHub with the rule file, the fields that token reads (inv.rules-match-file). A Git command of it that fails is an error that refuses the pull request, never a diff or a history without changes.",
           "x-ont": "field.merge-gate.guard",
           "type": "string"
         },
@@ -836,6 +900,16 @@
           "x-ont": "field.merge-gate.ci-workflow",
           "type": "string"
         },
+        "taskState": {
+          "description": "The key mergeGate.taskState of the configuration: where the configuration at the base of a pull request sets it, the guard holds the merge by the state of the task (rule.merge-by-task-state), reading the composition of the goals, goals, from that base too; the pull request that brings the key is not held by it, and the next one is (D-185).",
+          "x-ont": "field.merge-gate.task-state",
+          "type": "boolean"
+        },
+        "driftWorkflow": {
+          "description": "The workflow ont-rules-drift, run on main once a day and on demand with a read-only token, even when the rule of pull requests is taken off: it compares the rules of main on GitHub with the rule file, every field its token reads, and says each one it cannot read (inv.rules-match-file).",
+          "x-ont": "field.merge-gate.drift-workflow",
+          "type": "string"
+        },
         "changes": {
           "description": "The records of gate changes the guard reads at the head of a pull request.",
           "x-ont": "edge.merge-gate.changes",
@@ -851,6 +925,7 @@
         "guard",
         "gatePaths",
         "ruleFile",
+        "driftWorkflow",
         "changes"
       ]
     },
@@ -998,7 +1073,7 @@
     },
     "process-record": {
       "title": "Process record",
-      "description": "A record of the process that a writer of the tool writes: a round of review, a verdict, a record of done, the owner's approval or answer to a gate, a snapshot of spend, a record of fixes, a gate change or a gate proof; a file in the directory of rounds, of verdicts or of task records the configuration names.",
+      "description": "A record of the process that a writer of the tool writes: a round of review, a verdict, a record of done, the owner's approval, answer to a gate or permission to publish, a snapshot of spend, a record of fixes, a gate change or a gate proof; a file in the directory of rounds, of verdicts or of task records the configuration names.",
       "x-ont": "ent.process-record",
       "type": "object",
       "properties": {
@@ -1013,7 +1088,7 @@
           "type": "boolean"
         },
         "refusalCode": {
-          "description": "What the guard prints on a line CODE <code>, once for each rule a pull request breaks: GATE_PATH_UNAPPROVED, SEAL_MISSING, SEAL_WRONG, RECORD_CHANGED and RECORD_REMOVED; the configuration lists under mergeGate.codes the codes of each task's gate, which a gate proof of a refusal compares with the output of the check.",
+          "description": "What the guard prints on a line CODE <code>, once for each rule a pull request breaks: GATE_PATH_UNAPPROVED, SEAL_MISSING, SEAL_WRONG, RECORD_CHANGED and RECORD_REMOVED; where field.merge-gate.task-state is set at the base, TASK_UNNAMED, TASK_NOT_DONE, TASK_HEAD_UNREVIEWED, WORK_BEFORE_APPROVAL, MERGE_UNPERMITTED (rule.merge-by-task-state) and GATE_PATH_OUTSIDE_APPROVAL (inv.gate-path-in-approval); and from the comparison of the rules on GitHub, RULES_DRIFT and RULES_UNREAD (inv.rules-match-file); the configuration lists under mergeGate.codes the codes of each task's gate, which a gate proof of a refusal compares with the output of the check.",
           "x-ont": "field.process-record.refusal-code",
           "type": "string"
         },
@@ -1037,7 +1112,7 @@
       "type": "object",
       "properties": {
         "lines": {
-          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, from which a reader given no file reads the scope of the budget, held to the configuration's goals (field.task-statement.goal, D-179), Budget-new-input:, Budget-output: and Budget-reserve:, the statement's limits and reserve, each a number or none, the limits of the brief's version, which round.mjs record reads by derived.task-budget for that version, whatever version is approved in force, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, on a round briefed after stagnation Cause:, the SHA-256 of the analysis of the cause given with --cause (field.review-round.cause), and Brief-time:, when the brief was given.",
+          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, from which a reader given no file reads the scope of the budget, held to the configuration's goals (field.task-statement.goal, D-179), Budget-new-input:, Budget-output: and Budget-reserve:, the statement's limits and reserve, each a number or none, the limits of the brief's version, which round.mjs record reads by derived.task-budget for that version, whatever version is approved in force, for a round of the review of a statement that has them, Gate-paths:, its gate paths, which round.mjs record copies into the round (field.review-round.gate-paths, D-182), Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, on a round briefed after stagnation Cause:, the SHA-256 of the analysis of the cause given with --cause (field.review-round.cause), and Brief-time:, when the brief was given.",
           "x-ont": "field.round-brief.lines",
           "type": "string"
         },

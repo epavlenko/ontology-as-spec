@@ -20,12 +20,16 @@ export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 // finding's file is looked up (D-152), and reviewRounds.gatesFrom, from which a round of the review of the
 // result gives its Statement-hash: (every round without the key). top is that root, or "" outside a Git
 // repository.
-export function readRoundRecords(cfg) {
-  const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
-  return { ...parseRounds(cfg.reviewRounds.dir, { latinOnly: cfg.records.latinOnly, root: top || null, hashFrom: cfg.reviewRounds.gatesFrom ?? "" }), top };
+// at: where the guard of the merge gate reads the records of a commit as data (D-185): the directories of
+// rounds and of task records copied from Git's objects, the root a filed finding is looked up in, and the
+// clone in which the commits records name resolve; by default the configuration's, in the working tree.
+export function readRoundRecords(cfg, at = null) {
+  const top = at?.top ?? spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
+  return { ...parseRounds(at?.roundsDir ?? cfg.reviewRounds.dir, { latinOnly: cfg.records.latinOnly, root: at?.root ?? (top || null), hashFrom: cfg.reviewRounds.gatesFrom ?? "" }), top };
 }
 
 // The lines of a statement the tool reads; the rest of it is for people and the reviewer.
+// ont: field.task-statement.gate-paths
 export function readStatement(file) {
   const text = readFileSync(file);
   const lines = text.toString("utf8").split("\n");
@@ -41,8 +45,16 @@ export function readStatement(file) {
   // The goal the task is part of, its unit of budget where spend is counted from the logs (D-169).
   const goal = value("Goal")[0] ?? null;
   if (goal !== null && !TASK_NAME.test(goal)) wrong.push(`Goal: ${goal} is not lower-case letters, digits and hyphens`);
-  return { file, hash: sha256(text), doneWhen: value("Done-when").filter(Boolean), budget, wrong, goal, text: text.toString("utf8") };
+  // The gate paths the task may change (field.task-statement.gate-paths, D-185): the lines Gate-paths:, each
+  // one or more paths in the syntax of mergeGate.paths, apart by commas or spaces; none without the line.
+  const gatePaths = gatePathsOf(value("Gate-paths").join(" "));
+  return { file, hash: sha256(text), doneWhen: value("Done-when").filter(Boolean), budget, wrong, goal, gatePaths, text: text.toString("utf8") };
 }
+
+// The gate paths of a line, apart by commas or spaces, as a statement, a brief, a round and an approval
+// write them (D-185); a record carries them on one line Gate-paths:, apart by ", ".
+export const gatePathsOf = (line) => [...new Set(String(line ?? "").split(/[\s,]+/).map((p) => p.replace(/^`|`$/g, "")).filter(Boolean))];
+export const gatePathsLine = (paths) => (paths?.length ? [`Gate-paths: ${paths.join(", ")}`] : []);
 
 // The state of spend of a task from the session logs (D-169), by spend.mjs logSpend, with the records the
 // check reads; null where the configuration does not set spend.fromLogs. Where the environment gives no
@@ -178,9 +190,11 @@ export const budgetLines = (budget) => BUDGET_ALL.map(([k, name]) => `${name}: $
 // of approval, and both through resolveRecords, so that a commit a record names and the repository lacks
 // counts the same for each. records.done holds only the records of done whose commit resolves.
 // A late record (lateRecords) is given to no reader: it is in malformed, which blocks every task.
-export function readTaskInputs(cfg) {
-  const { rounds: parsedRounds0, malformed: unreadable, top } = readRoundRecords(cfg);
-  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir, { latinOnly: cfg.records.latinOnly }) : { spend: [], done: [], approvals: [], gateChanges: [], gateProofs: [], snapshots: [], fixes: [], malformed: [] };
+// at: as readRoundRecords takes it, for the guard of the merge gate, which reads the records at the head of a
+// pull request through this same function (D-185).
+export function readTaskInputs(cfg, at = null) {
+  const { rounds: parsedRounds0, malformed: unreadable, top } = readRoundRecords(cfg, at);
+  const parsed = cfg.taskRecords ? parseTaskRecords(at?.tasksDir ?? cfg.taskRecords.dir, { latinOnly: cfg.records.latinOnly }) : { spend: [], done: [], approvals: [], publications: [], gateChanges: [], gateProofs: [], snapshots: [], fixes: [], malformed: [] };
   // The tests of the findings that records of fixes give (D-168), before any reader sees the rounds.
   const withTests = applyFixes(parsedRounds0, parsed.fixes);
   const late = lateRecords({ rounds: withTests, done: parsed.done, approvals: parsed.approvals, gatesFrom: cfg.reviewRounds.gatesFrom ?? null });
@@ -236,6 +250,7 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
   const spend = [];
   const done = [];
   const approvals = [];
+  const publications = [];
   const gateChanges = [];
   const gateProofs = [];
   const snapshots = [];
@@ -297,6 +312,11 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         if (goal !== null && !TASK_NAME.test(goal)) malformed.push(`${name}: goal ${goal} is not lower-case letters, digits and hyphens`);
         else done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence, goal });
       }
+    } else if (kind === "approval" && field("Kind") === "publish") {
+      // The owner's permission to publish the work of a goal or of a task (D-185): no version, a scope.
+      const g = publicationOf(field);
+      if (g.wrong.length) malformed.push(`${name}: ${g.wrong.join("; ")}`);
+      else publications.push({ file: name, ...g.record });
     } else if (kind === "approval") {
       // The owner's approval of a version of a statement (D-121): valid only by the owner and with the
       // owner's words it rests on.
@@ -314,7 +334,8 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
-      else approvals.push({ file: name, task, statementHash: hash, by, source, time, kind: field("Kind") ?? "approval", question: field("Question"), round: field("Round"), budget: lim.budget });
+      // The gate paths the version allows its task to change, as approve.mjs copies them (D-185).
+      else approvals.push({ file: name, task, statementHash: hash, by, source, time, kind: field("Kind") ?? "approval", question: field("Question"), round: field("Round"), budget: lim.budget, gatePaths: field("Gate-paths") === null ? null : gatePathsOf(field("Gate-paths")) });
     } else if (kind === "spend-snapshot") {
       const g = snapshotOf(text, name);
       if (g.wrong.length) malformed.push(`${name}: ${g.wrong.join("; ")}`);
@@ -333,7 +354,26 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
       else gateProofs.push(g.record);
     } else malformed.push(`${name}: Record ${kind ?? "(none)"} is not spend, spend-snapshot, done, approval, fixes, gate-change or gate-proof`);
   }
-  return { spend, done, approvals, gateChanges, gateProofs, snapshots, fixes, malformed };
+  return { spend, done, approvals, publications, gateChanges, gateProofs, snapshots, fixes, malformed };
+}
+
+// The owner's permission to publish (ent.publish-permission, D-185): Record: approval with Kind: publish, the
+// scope, a goal of the configuration's goals or a task, By: owner, the question of the registry, the source and
+// the time; it names no version of a statement and approves none.
+// ont: ent.publish-permission, field.publish-permission.scope, field.publish-permission.question, field.publish-permission.by, field.publish-permission.source, field.publish-permission.time
+export function publicationOf(field) {
+  const [scope, by, question, source, time] = ["Scope", "By", "Question", "Source", "Time"].map(field);
+  const wrong = [
+    !scope && "no scope: the goal or the task whose work it allows to publish",
+    scope && !TASK_NAME.test(scope) && `scope ${scope} is not lower-case letters, digits and hyphens`,
+    field("Statement-hash") !== null && "a permission to publish names no version of a statement",
+    field("Task") !== null && "a permission to publish names its scope on Scope:, not a task on Task:",
+    by !== "owner" && `by ${by ?? "(none)"}, not by owner: only the owner allows to publish`,
+    !/^\d+$/.test(question ?? "") && `question ${question ?? "(none)"} is not the number of a question of the registry`,
+    !source && "no source: the owner's answer it rests on, with the date",
+    !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
+  ].filter(Boolean);
+  return { wrong, record: { kind: "publish", scope, by, question, source, time } };
 }
 
 // A snapshot of spend (D-169): the three sums of a unit of budget, of its task and of one round, from the
@@ -575,13 +615,20 @@ export const overlaps = (rounds, spend) => overlapPairs(rounds, spend).map((p) =
 
 const ofTask = (rounds, task, step) => byTime(rounds.filter((r) => r.task === task && (!step || r.step === step)));
 
+// The owner's records of a task that approve a version and close every gate before them: his approvals,
+// never his answers to a gate, each of which closes the gate of the round it names alone and approves no
+// version (D-185). A record with no line Kind: is an approval.
+export const ownerApprovals = (approvals, task) => approvals.filter((a) => a.task === task && a.kind !== "gate");
+export const answeredRounds = (approvals, task) => new Set(approvals.filter((a) => a.task === task && a.kind === "gate" && a.round).map((a) => a.round));
+
 // The events that give or withdraw an approval of a task's statement, by time: each round of the review
-// of the statement, and each record of the owner's approval (D-121). At the same second a round comes
-// before an approval, which answers it.
+// of the statement, and each record of the owner's approval, never his answer to a gate (D-121, D-185). At
+// the same second a round comes before an approval, which answers it. Each event carries the gate paths
+// its version allows, its line Gate-paths:, or null where it has none (D-185).
 export const approvalEvents = (rounds, task, approvals = []) =>
   [
-    ...ofTask(rounds, task, "statement-review").map((r) => ({ kind: "round", time: r.time, hash: isClean(r) ? r.statementHash : null, round: r, file: r.file })),
-    ...approvals.filter((a) => a.task === task).map((a) => ({ kind: "approval", time: a.time, hash: a.statementHash, approval: a, file: a.file })),
+    ...ofTask(rounds, task, "statement-review").map((r) => ({ kind: "round", time: r.time, hash: isClean(r) ? r.statementHash : null, round: r, file: r.file, gatePaths: r.gatePaths ?? null })),
+    ...ownerApprovals(approvals, task).map((a) => ({ kind: "approval", time: a.time, hash: a.statementHash, approval: a, file: a.file, gatePaths: a.gatePaths ?? null })),
   ]
     .map((e, i) => ({ ...e, i }))
     .sort((a, b) => a.time.localeCompare(b.time) || (a.kind === b.kind ? a.i - b.i : a.kind === "round" ? -1 : 1));
@@ -591,10 +638,14 @@ export const approvalEvents = (rounds, task, approvals = []) =>
 // names the version it read, or the owner's approval of a version, approves that version; a round with
 // findings approves none. With a time, the approval in force then: the last such event before it (D-117).
 export function approvedHash(rounds, task, before = null, approvals = []) {
+  return approvalInForce(rounds, task, before, approvals)?.hash ?? null;
+}
+// The event of the approval in force, with the gate paths it allows (D-185), or null.
+export function approvalInForce(rounds, task, before = null, approvals = []) {
   const last = approvalEvents(rounds, task, approvals)
     .filter((e) => before === null || e.time < before)
     .at(-1);
-  return last?.hash ?? null;
+  return last?.hash ? last : null;
 }
 
 // The task view (D-152): the one place every reader of a task takes its records of the result from, the
@@ -671,7 +722,7 @@ const sameCommands = (d, statement) => {
 // after the owner's last approval and the start of the window, and whether an earlier round's acceptance
 // held, by the records as they were when it was given. stepNext and fixesRange read them alike.
 function resultWindow({ rounds, done = [], approvals = [], task }) {
-  const ownerSince = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
+  const ownerSince = ownerApprovals(approvals, task).map((a) => a.time).sort().at(-1) ?? null;
   const view = taskView({ rounds, done, approvals, task });
   const since = view.window ? [ownerSince, view.window.from].filter(Boolean).sort().at(-1) : ownerSince;
   const all = byTime(view.results).filter((r) => since === null || r.time > since);
@@ -838,7 +889,9 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   const all = ofTask(rounds, task, step);
   // The owner's last approval closes gates and starts the comparison of the statement's rounds; the
   // review of the result starts at its version window, which that approval may have opened (D-152).
-  const ownerSince = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
+  // His answer to a gate closes that gate alone, and starts no comparison (D-185).
+  const ownerSince = ownerApprovals(approvals, task).map((a) => a.time).sort().at(-1) ?? null;
+  const answered = answeredRounds(approvals, task);
   const view = taskView({ rounds, done, approvals, task });
   const window = step === "result-review" ? view.window : null;
   const since = window ? [ownerSince, window.from].filter(Boolean).sort().at(-1) : ownerSince;
@@ -851,7 +904,7 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   // The range of fixes after the narrow round, by the one function that reads it (D-164), its end before
   // done head, the working copy's HEAD, as for every other reader of it.
   const fixes = step === "result-review" ? fixesRange({ rounds, done, approvals, task, statement, head }) : null;
-  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, fixes, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, answered, fixes, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
   if (gates.notFixable.length) return go();
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);
@@ -888,10 +941,13 @@ export const byVersion = ({ rounds, done = [], approvals = [], task }) => {
 // The rounds are every round of the task, whatever version each names, never a window's: a reviewer's
 // clean round that approves another version closes nothing.
 // The round after the confirmed condition opens no gate of its own (D-164): its fixes are held by tests.
+// The owner's approval closes the gates of every round before it; his answer to a gate closes the gate of
+// the round it names alone, and the other gates stay open (D-185).
 export const openGatesBy = ({ rounds, task, gatesFrom = null, approvals = [] }) => {
   const own = ofTask(rounds, task).filter((r) => !isLegacy(r, gatesFrom));
-  const since = approvals.filter((a) => a.task === task).map((a) => a.time).sort().at(-1) ?? null;
-  return { notFixable: notFixableIn(own, since) };
+  const since = ownerApprovals(approvals, task).map((a) => a.time).sort().at(-1) ?? null;
+  const answered = answeredRounds(approvals, task);
+  return { notFixable: notFixableIn(own, since).filter((f) => !answered.has(f)) };
 };
 export const openGates = (args) => openGatesBy(args).notFixable;
 // Every task any record names: a round, a record of spend, of done or of the owner's approval (D-152).
@@ -902,10 +958,13 @@ export const NO_APPROVAL = "work is not allowed: no approval in force for the st
 // branches, in this order, which ontology.md and docs/parts/agent-rules.md list by the same names and
 // numbers. --task, --rounds, done.mjs and the check all ask it; every other line of --task and --rounds
 // says a state only.
-export const TASK_BRANCHES = ["unreadable record", "done", "budget question", "open gate", "no review", "under review", "no version", "changed", "step"];
+export const TASK_BRANCHES = ["unreadable record", "rules drift", "done", "budget question", "open gate", "no review", "under review", "no version", "changed", "step"];
 // The kind of the action of each branch but the step, whose kind its result gives (taskNext).
-export const TASK_KINDS = { "unreadable record": "correct", done: "done", "budget question": "question", "open gate": "question", "no review": "review", "under review": "review", "no version": "correct", changed: "review" };
+export const TASK_KINDS = { "unreadable record": "correct", "rules drift": "question", done: "done", "budget question": "question", "open gate": "question", "no review": "review", "under review": "review", "no version": "correct", changed: "review" };
 export const NO_FILE = "give --statement <file> to compare the version it names with the file";
+// The rules of main on GitHub differ from the rule file, as --task compares them before each step with the
+// executor's gh (inv.rules-match-file, D-185): only the owner changes them (his answer 1036 a).
+export const RULES_QUESTION = "the rules of main on GitHub differ from the rule file: a question to the owner, who alone changes them";
 // head: the working copy's HEAD, or for done.mjs the commit it records done on, the end of the range of
 // fixes before its record of done (rule.fixes-held-by-tests).
 // needFile: the caller, --task or done.mjs, compares the version with a statement's file; --rounds and the
@@ -939,7 +998,9 @@ export function doneOverspend({ b, spendNow = null, end = null, snapshots = [] }
 // each step, does.
 // version, pending and snapshots: the version whose limits apply, as a round's writer gives its brief's,
 // and the kept briefs and snapshots of spend versionLimits reads them from (D-174).
-export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false, head = null, spendNow = null, budgetActions = true, version, pending = [], snapshots = [] }) {
+// rules: what --task found comparing the rules of main on GitHub with the rule file, { drift: [...] }, or null
+// where they were not compared (D-185).
+export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false, head = null, spendNow = null, budgetActions = true, version, pending = [], snapshots = [], rules = null }) {
   const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement, version, pending, snapshots });
   const spent = spendNow?.used ? spendNow.exhausted : b?.exhausted;
   const unreadable = (statement?.wrong ?? []).length > 0;
@@ -966,6 +1027,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
   const window = view.window;
   const branch = {
     "unreadable record": () => malformed.length && blockedSay(malformed),
+    "rules drift": () => rules?.drift?.length && `${RULES_QUESTION} (${rules.drift.join("; ")})`,
     "open gate": () => gates.length && gateSay(gates),
     done: () =>
       !forWork &&
@@ -1010,8 +1072,8 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
 // its one next action on a line of its own, NEXT; and the errors of its records that only --task can
 // see (derived.statement-state, rule.budget-before-next, derived.task-next). --rounds prints the same
 // lines, given no file and needFile false (D-152).
-export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true, head = null, spendNow = null, budgetActions = true, snapshots = [], pending = [] }) {
-  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom, head, spendNow, budgetActions, pending, snapshots });
+export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true, head = null, spendNow = null, budgetActions = true, snapshots = [], pending = [], rules = null }) {
+  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom, head, spendNow, budgetActions, pending, snapshots, rules });
   const b = next.budget;
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
   const { view } = next;

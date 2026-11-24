@@ -1,0 +1,31 @@
+# Before the gate of task enforcement-task-state is switched on: what the token of a workflow with the
+# permissions of the guard, contents read alone, reads of the rules of main, by the same calls of gh api the
+# guard makes (D-185). GitHub runs a pull_request workflow from the branch of the pull request, so this runs
+# before it is on main. The executor records what it read in the pull request and removes this file before
+# done when it is not needed further.
+name: ont-rules-probe
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ont-rules-probe:
+    name: ont-rules-probe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: The fields of the rules this token reads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          node tools/ont-check/merge-gate.mjs rules --repo "$REPO" --fields token || true
+          node tools/ont-check/merge-gate.mjs rules --repo "$REPO" --fields all || true

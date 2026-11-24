@@ -6,6 +6,7 @@
 //   node tools/ont-check/merge-gate.mjs records-only --reviewed <commit> --head <commit> [--base <commit>] [--config ont.config.json]
 //   node tools/ont-check/merge-gate.mjs ruleset [--config ont.config.json]
 //   node tools/ont-check/merge-gate.mjs switch-on [--repo <owner>/<repo>] [--config ont.config.json]
+//   node tools/ont-check/merge-gate.mjs rules --repo <owner>/<repo> [--fields token|all] [--config ont.config.json]
 // guard reads the pull request only as data: the paths of the diff from the merge base of --base and
 // --head to --head, and the records of rounds and tasks at --head, read from Git's objects into a
 // temporary directory outside the working tree. It runs nothing of the pull request and changes neither
@@ -26,9 +27,22 @@
 // removed, a record the pull request adds is at the head as the commit that added it wrote it, and, where
 // the configuration at the base sets records.sealsFrom, a record it adds whose time is after the start of
 // seals has a valid seal. It prints one code for each rule a pull request breaks (field.process-record.refusal-code).
+// Where the configuration at the base sets mergeGate.taskState, the guard holds the merge by the state of the
+// task too (rule.merge-by-task-state, D-185): a pull request that changes a path that is no record of the
+// process is a change of a task, named by the records of done and of gate changes it adds, whose next action
+// at the head, by tasks.mjs taskNext on the records at the head, is the merge, whose head outside the
+// records is the commit that ended the task merged with main, none of whose commits outside the records was
+// made before the task's first approval, and whose publication the owner allowed, by a record of the base or
+// of the pull request for the task or for a goal the configuration at the base lists it under; a pull
+// request of records alone needs a permission to publish on the base (rule.records-only-pr); and a gate path
+// changes only within the gate paths of the approval in force (inv.gate-path-in-approval).
+// rules reads the ruleset of main, and with --fields all the settings of Actions, through gh api (the command
+// ONT_GH_CMD names, gh by default), and compares them with the rule file (inv.rules-match-file, D-185):
+// RULES_DRIFT for a difference, RULES_UNREAD for a field of the token's that it could not read.
 // ont: ent.merge-gate, field.merge-gate.guard, field.merge-gate.gate-paths, field.merge-gate.rule-file, edge.merge-gate.changes
 // ont: inv.record-sealed, inv.records-immutable, field.process-record.seals-from, field.process-record.refusal-code
 // ont: rule.ci-from-main, inv.gate-change-approved, rule.merge-what-was-checked, rule.main-through-gate, rule.gate-switched-on, rule.fixes-held-by-tests
+// ont: field.merge-gate.task-state, edge.publish-permission.guard, rule.merge-by-task-state, rule.records-only-pr, derived.pr-task, inv.gate-path-in-approval, inv.rules-match-file, action.compare-rules
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -37,7 +51,7 @@ import { pathToFileURL } from "node:url";
 import { gitEnv, loadConfig } from "./lib.mjs";
 import { LATER_DIR, LIMITATIONS_FILE, parseRounds } from "./review-rounds.mjs";
 import { recordTime, sealState, sealsStart } from "./seal.mjs";
-import { approvedHash, fixesRange, parseTaskRecords } from "./tasks.mjs";
+import { approvalEvents, approvalInForce, approvedHash, fixesRange, parseTaskRecords, readTaskInputs, reviewedCommit, taskNext } from "./tasks.mjs";
 
 // The directory of the records of the process: commits that change only files under it change no gate.
 export const RECORDS_DIR = "reviews/";
@@ -46,7 +60,15 @@ export const RECORDS_DIR = "reviews/";
 // a gate path changed without an approval; a record added after the start of seals without a seal, or with
 // one that is not its text's; a record of the base, or one the pull request added earlier, changed; and
 // one removed. A gate proof of a refusal names the gate whose code alone is in the guard's output.
-export const GUARD_CODES = ["GATE_PATH_UNAPPROVED", "SEAL_MISSING", "SEAL_WRONG", "RECORD_CHANGED", "RECORD_REMOVED"];
+// Where the configuration at the base sets mergeGate.taskState, the codes of the merge by the state of the
+// task (D-185): a change of a task no record of done names, or whose records name two tasks; a task whose
+// next action at the head is not the merge; a head outside the records that is not the commit that ended the
+// task merged with main; a commit of the work made before the task's first approval; no permission to
+// publish; a gate path outside the gate paths of the approval in force. And the codes of the comparison of
+// the rules of main on GitHub with the rule file: a difference, and a field the token's reading did not give.
+export const TASK_CODES = ["TASK_UNNAMED", "TASK_NOT_DONE", "TASK_HEAD_UNREVIEWED", "WORK_BEFORE_APPROVAL", "MERGE_UNPERMITTED", "GATE_PATH_OUTSIDE_APPROVAL"];
+export const RULES_CODES = ["RULES_DRIFT", "RULES_UNREAD"];
+export const GUARD_CODES = ["GATE_PATH_UNAPPROVED", "SEAL_MISSING", "SEAL_WRONG", "RECORD_CHANGED", "RECORD_REMOVED", ...TASK_CODES, ...RULES_CODES];
 
 // Whether a path of the repository is a gate path: a pattern ending in "/" names everything under it,
 // and "*" any name within one part of a path; any other pattern names that path alone.
@@ -194,8 +216,10 @@ function recordsAt({ cfg, top, head, tmp }) {
   const tasksDir = cfg.taskRecords ? filesAt(top, head, rel(cfg.taskRecords.dir), tmp) : null;
   if (roundsDir) for (const filed of [LIMITATIONS_FILE, LATER_DIR.replace(/\/$/, "")]) filesAt(top, head, filed, tmp);
   const rounds = roundsDir && existsSync(roundsDir) ? parseRounds(roundsDir, { latinOnly: cfg.records.latinOnly, root: tmp, hashFrom: cfg.reviewRounds.gatesFrom ?? "" }).rounds : [];
-  const records = tasksDir && existsSync(tasksDir) ? parseTaskRecords(tasksDir, { latinOnly: cfg.records.latinOnly }) : { gateChanges: [], approvals: [], done: [], malformed: [] };
-  return { rounds, records, recordsPath: cfg.taskRecords ? rel(cfg.taskRecords.dir) : null };
+  const records = tasksDir && existsSync(tasksDir) ? parseTaskRecords(tasksDir, { latinOnly: cfg.records.latinOnly }) : { gateChanges: [], approvals: [], publications: [], done: [], malformed: [] };
+  // Every record a task's next action reads, as --task reads them, by the one function, at the head (D-185).
+  const inputs = () => readTaskInputs(cfg, { roundsDir: roundsDir && existsSync(roundsDir) ? roundsDir : join(tmp, "absent"), tasksDir: tasksDir && existsSync(tasksDir) ? tasksDir : join(tmp, "absent"), root: tmp, top });
+  return { rounds, records, inputs, recordsPath: cfg.taskRecords ? rel(cfg.taskRecords.dir) : null };
 }
 
 // What records-only compares the head with (rule.fixes-held-by-tests, D-165): after the narrow round whose
@@ -335,6 +359,99 @@ export function localRecordNotes(cfg) {
   return notes;
 }
 
+// The configuration at a commit, read from Git's objects as data, or null where it has none or it is not
+// JSON: the base's decides which rules the guard holds and which goals a task is part of (D-185).
+export function configAt(top, commit, cfgPath) {
+  const r = git(top, "show", `${commit}:${cfgPath}`);
+  if (r.status !== 0) return null;
+  try {
+    return JSON.parse(r.stdout);
+  } catch {
+    return null;
+  }
+}
+
+// The task of a pull request (derived.pr-task, D-185): the one task its records of done and of gate changes
+// it adds name, from the records at the head; the description of the pull request is never read. null with
+// why, when it adds no record of done, or its records name more than one task.
+export function prTask({ done = [], gateChanges = [] }) {
+  const tasks = [...new Set([...done, ...gateChanges].map((x) => x.task))].sort();
+  if (!done.length) return { task: null, why: "it adds no record of done: the task of a pull request is named by the records of done it adds" };
+  if (tasks.length > 1) return { task: null, why: `its records of done and of gate changes name more than one task: ${tasks.join(", ")}` };
+  return { task: tasks[0], why: null };
+}
+
+// What the merge by the state of the task refuses in the pull request from b to h, with merge base mb, each
+// with its code (rule.merge-by-task-state, rule.records-only-pr, D-185), where the configuration at the base,
+// baseCfg, sets mergeGate.taskState: changed is its paths, at the records at the head, read by recordsAt.
+function taskStateProblems({ cfg, top, b, h, mb, changed, at, baseCfg, tmp }) {
+  const dirs = recordDirs(cfg, top);
+  const taskPaths = changed.filter((p) => !isRecordPath(p, dirs));
+  const recordsPath = at.recordsPath;
+  const addedBy = (list) => list.filter((x) => recordsPath && changed.includes(`${recordsPath}/${x.file}`));
+  // The permissions to publish the base holds, read from Git's objects as data.
+  const basePubs = recordsPath ? parseTaskRecords(filesAt(top, b, recordsPath, join(tmp, "base")), { latinOnly: cfg.records.latinOnly }).publications : [];
+  const problems = [];
+  // A pull request that changes nothing publishes nothing.
+  if (!changed.length) return problems;
+  if (!taskPaths.length) {
+    // A pull request of records alone: no chain, and a permission to publish of any goal or task on the base.
+    if (!basePubs.length) problems.push({ code: "MERGE_UNPERMITTED", why: "a pull request of records alone passes on a permission to publish of the owner that the base holds, of a goal or of a task, and the base holds none" });
+    return problems;
+  }
+  const named = prTask({ done: addedBy(at.records.done), gateChanges: addedBy(at.records.gateChanges) });
+  if (!named.task) {
+    problems.push({ code: "TASK_UNNAMED", why: `it changes paths that are no record of the process, ${taskPaths.slice(0, 5).join(", ")}${taskPaths.length > 5 ? ", …" : ""}, so it is a change of a task, and ${named.why}` });
+    return problems;
+  }
+  const task = named.task;
+  // The chain: the task's next action at the head, by the function --task asks, with the records at the
+  // head, no statement's file, and spend by the snapshots, as CI reads it.
+  const inputs = at.inputs();
+  const { rounds, records, malformed } = inputs;
+  const gatesFrom = baseCfg.reviewRounds?.gatesFrom ?? cfg.reviewRounds?.gatesFrom ?? null;
+  const next = taskNext({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: baseCfg.budget ?? cfg.budget, statement: null, malformed, needFile: false, gatesFrom, head: h, spendNow: null, pending: [], snapshots: records.snapshots });
+  if (next.branch !== "done") problems.push({ code: "TASK_NOT_DONE", why: `the next action of ${task} at the head is not the merge: NEXT ${task}: ${next.say}` });
+  else {
+    // The head is what was checked: outside the records, the commit the end of the step names, the one the
+    // last clean round reviewed, or after the narrow round with findings the commit of the record of done
+    // that ends the range of fixes, merged with the main the head contains.
+    const end = next.result?.fixes?.done ? next.result.fixes.done.commit : reviewedCommit(next.view.results.at(-1));
+    const c = end && full(top, end);
+    if (!c) problems.push({ code: "TASK_HEAD_UNREVIEWED", why: `the commit that ended ${task}, ${end ?? "(none)"}, is not a commit of this clone` });
+    else if (!isAncestor(top, c, h)) problems.push({ code: "TASK_HEAD_UNREVIEWED", why: `the commit that ended ${task}, ${c.slice(0, 12)}, is not in the head` });
+    else {
+      const p = pastByRecords(top, { commit: c, head: h, base: mb });
+      if (p.conflicts.length) problems.push({ code: "TASK_HEAD_UNREVIEWED", why: `the commit that ended ${task}, ${c.slice(0, 12)}, and main conflict outside ${RECORDS_DIR}: ${p.conflicts.join(", ")}` });
+      else if (p.differ.length) problems.push({ code: "TASK_HEAD_UNREVIEWED", why: `outside ${RECORDS_DIR} the head is not ${c.slice(0, 12)}, the commit that ended ${task}, merged with main: ${p.differ.join(", ")}` });
+    }
+  }
+  // No commit of the work before the task's first approval, by the committer's time. The files a filed
+  // finding of a round of the review of its statement names, the limitations and the tickets, are written
+  // before the approval by the rounds that file them, and are no work (D-185).
+  const first = approvalEvents(rounds, task, records.approvals).find((e) => e.hash);
+  if (first) {
+    const filed = new Set(rounds.filter((r) => r.task === task && r.step === "statement-review").flatMap((r) => r.findings.filter((x) => x.filed && x.file).map((x) => x.file)));
+    const early = [];
+    for (const line of must(top, "log", "--no-merges", "--format=%H %ct", h, `^${b}`).split("\n").filter(Boolean)) {
+      const [commit, ct] = line.split(" ");
+      const when = new Date(Number(ct) * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+      if (when >= first.time) continue;
+      const parents = must(top, "rev-list", "--parents", "-n", "1", commit).trim().split(" ").slice(1);
+      const own = parents.length ? changedBetween(top, parents[0], commit) : lines0(must(top, "ls-tree", "-r", "-z", "--name-only", commit));
+      if (own.some((p) => !isRecordPath(p, dirs) && !filed.has(p))) early.push(`${commit.slice(0, 12)} at ${when}`);
+    }
+    if (early.length) problems.push({ code: "WORK_BEFORE_APPROVAL", why: `commits outside the records were made before the first approval of ${task}, ${first.file} at ${first.time}: ${early.join(", ")}` });
+  }
+  // The permission to publish: on the base or added by the pull request, of the task or of a goal the
+  // configuration at the base lists it under.
+  const goals = Object.entries(baseCfg.goals ?? {}).filter(([, ts]) => Array.isArray(ts) && ts.includes(task)).map(([g]) => g);
+  const pubs = [...basePubs, ...addedBy(at.records.publications ?? [])];
+  if (!pubs.some((x) => x.scope === task || goals.includes(x.scope)))
+    problems.push({ code: "MERGE_UNPERMITTED", why: `no permission of the owner to publish ${task}${goals.length ? ` or its goal ${goals.join(", ")}` : ""} is on the base or added by the pull request` });
+  return problems;
+}
+
 // The guard: what the pull request from base to head changes among the gate paths, and which of those
 // changes no record of a gate change approves, with the reason. A Git command that fails is an error.
 export function guard({ cfg, base, head }) {
@@ -351,10 +468,12 @@ export function guard({ cfg, base, head }) {
     const changed = changedBetween(top, mb, h);
     const gated = changed.filter((p) => isGatePath(p, cfg.mergeGate.paths));
     const records = recordProblems({ cfg, top, b, h, mb });
-    if (!gated.length) return { changed, gated, approved: [], refused: [], notes: [], records };
-    // The records at the head, read from Git's objects as data.
-    const at = recordsAt({ cfg, top, head: h, tmp });
-    if (at.errors) return { errors: at.errors };
+    // The merge by the state of the task, only where the configuration at the base sets its key (D-185).
+    const baseCfg = configAt(top, b, relative(top, cfg.file).split("\\").join("/"));
+    const taskState = baseCfg?.mergeGate?.taskState === true;
+    const at = taskState || gated.length ? recordsAt({ cfg, top, head: h, tmp: join(tmp, "head") }) : null;
+    const task = taskState ? taskStateProblems({ cfg, top, b, h, mb, changed, at, baseCfg, tmp }) : [];
+    if (!gated.length) return { changed, gated, approved: [], refused: [], outside: [], notes: [], records, task, taskState };
     const { rounds, records: atHead, recordsPath } = at;
     // The commits of the pull request by their parents, so that the commit right after a named one is found.
     const children = new Map();
@@ -381,12 +500,21 @@ export function guard({ cfg, base, head }) {
     notes.push(...malformed.map((m) => `${m} (cannot be read)`));
     const approved = [];
     const refused = [];
+    // Under the key, a gate path the approval in force of the record's task does not list on Gate-paths: is
+    // outside it, and an approval with no line lists none (inv.gate-path-in-approval, D-185).
+    const outsideApproval = [];
     for (const p of gated) {
       const by = valid.filter((g) => g.paths.includes(p));
       if (by.length) approved.push({ path: p, by: by.map((g) => g.file) });
       else refused.push({ path: p, why: valid.length ? "no record of a gate change of the pull request names it" : "no record of a gate change of the pull request approves it" });
+      if (taskState)
+        for (const g of by) {
+          const e = approvalInForce(rounds, g.task, null, atHead.approvals);
+          if (!e?.gatePaths?.length || !isGatePath(p, e.gatePaths))
+            outsideApproval.push({ path: p, why: `${e?.gatePaths?.length ? `not within the gate paths ${e.gatePaths.join(", ")}` : "no gate paths"} of the approval in force of ${g.task}${e ? `, ${e.file}` : ""}` });
+        }
     }
-    return { changed, gated, approved, refused, notes, records };
+    return { changed, gated, approved, refused, outside: outsideApproval, notes, records, task, taskState };
   } catch (e) {
     if (e instanceof GitError) return { errors: [e.message] };
     throw e;
@@ -506,6 +634,125 @@ export function switchOnSteps(rules, { repo = "<owner>/<repo>", file = ".github/
 }
 export const SWITCH_ON_END = "The proof of a pass is the merge of the next task's pull request through the gate, after that task starts.";
 
+// The answer of gh api for a path, as JSON or as text, by the command ONT_GH_CMD names, gh by default; a
+// command that fails or prints no JSON throws.
+export function ghApi(path, { json = true } = {}) {
+  const cmd = process.env.ONT_GH_CMD || "gh";
+  const r = spawnSync(`${cmd} api '${path.replace(/'/g, "")}'`, { shell: true, encoding: "utf8", maxBuffer: 1 << 28 });
+  if (r.status !== 0) throw new Error(`gh api ${path} failed: ${(r.stderr || r.error?.message || `exit ${r.status}`).trim().split("\n")[0]}`);
+  return json ? JSON.parse(r.stdout) : r.stdout;
+}
+
+// The comparison of the rules of main on GitHub with the rule file (inv.rules-match-file, action.compare-rules,
+// D-185). fields "token": only what the read-only token of a workflow reads, the ruleset by its name, its
+// enforcement, target and conditions, the types of its rules, the methods of merge of its rule of pull
+// requests, and the checks its rule of status checks requires, by name and app, with its strictness; "all"
+// adds the actors that bypass it, which GitHub gives only with the right to write, and the settings of
+// Actions, its permissions, the workflows' token and its policies. drift: each difference; unread: each field
+// of the token's that was not read, by a failed call or an answer without it; notRead: each field beyond the
+// token's that was not read, said and not refused; read: each field compared.
+export function compareRules({ rules, repo, fields = "token", api = ghApi }) {
+  const out = { drift: [], unread: [], notRead: [], read: [] };
+  const want = rules?.ruleset;
+  if (!want) return { ...out, unread: ["the rule file holds no ruleset"] };
+  const call = (path, what, into) => {
+    try {
+      return api(path);
+    } catch (e) {
+      into.push(`${what}: ${e.message}`);
+      return undefined;
+    }
+  };
+  // Values compared as JSON with the keys of every object in order, as GitHub gives them in any order.
+  const canon = (x) => (Array.isArray(x) ? x.map(canon) : x && typeof x === "object" ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, canon(x[k])])) : x);
+  const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+  const sorted = (xs) => [...(xs ?? [])].map((x) => (typeof x === "string" ? x : JSON.stringify(x))).sort();
+  // A field compared: unread where the answer lacks it, a difference where it is not the file's.
+  const compare = (name, have, wantValue, into = out.unread) => {
+    if (have === undefined) return into.push(`${name}: not in GitHub's answer`);
+    out.read.push(name);
+    if (!same(have, wantValue)) out.drift.push(`${name}: ${JSON.stringify(have)} on GitHub, ${JSON.stringify(wantValue)} in the rule file`);
+  };
+  const list = call(`repos/${repo}/rulesets`, "the rulesets of the repository", out.unread);
+  if (list !== undefined) {
+    if (!Array.isArray(list)) out.unread.push("the rulesets of the repository: the answer is not a list");
+    else {
+      const found = list.filter((x) => x?.name === want.name);
+      if (!found.length) out.drift.push(`no ruleset named ${want.name} on GitHub`);
+      else {
+        if (found.length > 1) out.drift.push(`${found.length} rulesets named ${want.name} on GitHub`);
+        const have = call(`repos/${repo}/rulesets/${found[0].id}`, `the ruleset ${want.name}`, out.unread);
+        if (have !== undefined) {
+          compare("enforcement", have.enforcement, want.enforcement);
+          compare("target", have.target, want.target);
+          compare("conditions.ref_name.include", have.conditions?.ref_name?.include === undefined ? undefined : sorted(have.conditions.ref_name.include), sorted(want.conditions?.ref_name?.include));
+          compare("conditions.ref_name.exclude", have.conditions?.ref_name?.exclude === undefined ? undefined : sorted(have.conditions.ref_name.exclude), sorted(want.conditions?.ref_name?.exclude));
+          const rulesOf = (x) => (Array.isArray(x?.rules) ? x.rules : undefined);
+          const hr = rulesOf(have);
+          compare("rules", hr === undefined ? undefined : sorted(hr.map((x) => x.type)), sorted(want.rules.map((x) => x.type)));
+          const param = (rs, type) => rs?.find((x) => x.type === type)?.parameters;
+          const hp = param(hr, "pull_request");
+          const wp = param(want.rules, "pull_request");
+          if (hr && wp && hr.some((x) => x.type === "pull_request")) compare("pull_request.allowed_merge_methods", hp?.allowed_merge_methods === undefined ? undefined : sorted(hp.allowed_merge_methods), sorted(wp.allowed_merge_methods));
+          const hs = param(hr, "required_status_checks");
+          const ws = param(want.rules, "required_status_checks");
+          if (hr && ws && hr.some((x) => x.type === "required_status_checks")) {
+            compare("required_status_checks.strict_required_status_checks_policy", hs?.strict_required_status_checks_policy, ws.strict_required_status_checks_policy);
+            const checks = (xs) => (xs === undefined ? undefined : sorted(xs.map((c) => ({ context: c.context, integration_id: c.integration_id ?? null }))));
+            compare("required_status_checks.required_status_checks", checks(hs?.required_status_checks), checks(ws.required_status_checks));
+          }
+          if (fields === "all") compare("bypass_actors", have.bypass_actors === undefined ? undefined : sorted(have.bypass_actors.map((x) => ({ actor_id: x.actor_id ?? null, actor_type: x.actor_type, bypass_mode: x.bypass_mode }))), sorted((want.bypass_actors ?? []).map((x) => ({ actor_id: x.actor_id ?? null, actor_type: x.actor_type, bypass_mode: x.bypass_mode }))), out.notRead);
+        }
+      }
+    }
+  }
+  if (fields === "all" && rules.actions) {
+    const a = rules.actions;
+    const perms = call(`repos/${repo}/actions/permissions`, "the permissions of Actions", out.notRead);
+    if (perms !== undefined) for (const k of Object.keys(a.permissions ?? {})) compare(`actions.permissions.${k}`, perms?.[k], a.permissions[k], out.notRead);
+    const wf = call(`repos/${repo}/actions/permissions/workflow`, "the workflows' token", out.notRead);
+    if (wf !== undefined) for (const k of Object.keys(a.workflow ?? {})) compare(`actions.workflow.${k}`, wf?.[k], a.workflow[k], out.notRead);
+    if ((a.policies ?? []).length) {
+      const pl = call(`repos/${repo}/actions/policies`, "the policies of Actions", out.notRead);
+      if (pl !== undefined)
+        for (const p of a.policies) {
+          const f = (pl?.policies ?? []).find((x) => x?.name === p.name);
+          if (!f) {
+            out.drift.push(`no policy of Actions named ${p.name} on GitHub`);
+            continue;
+          }
+          const hp = call(`repos/${repo}/actions/policies/${f.id}`, `the policy ${p.name}`, out.notRead);
+          if (hp === undefined) continue;
+          compare(`actions.policies[${p.name}].enforcement`, hp.enforcement, p.enforcement, out.notRead);
+          compare(`actions.policies[${p.name}].conditions`, hp.conditions, p.conditions, out.notRead);
+          compare(`actions.policies[${p.name}].rules`, hp.rules === undefined ? undefined : hp.rules.map((x) => ({ type: x.type, parameters: x.parameters })), p.rules.map((x) => ({ type: x.type, parameters: x.parameters })), out.notRead);
+        }
+    }
+  }
+  return out;
+}
+
+// The lines of a comparison: each field read, each one beyond the token's not read, as information, each
+// difference and each field of the token's not read as an error with its code, and RULES_OK where none.
+export function rulesLines(r, { repo, fields }) {
+  const lines = [`RULES ${repo} · fields ${fields}: ${r.read.length} compared with the rule file`];
+  for (const x of r.read) lines.push(`  read · ${x}`);
+  for (const x of r.notRead) lines.push(`info · not read: ${x}`);
+  if (r.drift.length) lines.push(`ERROR · the rules on GitHub differ from the rule file (${r.drift.length}):`, ...r.drift.map((x) => `  ${x}`));
+  if (r.unread.length) lines.push(`ERROR · fields of the rules the token reads were not read (${r.unread.length}):`, ...r.unread.map((x) => `  ${x}`));
+  if (r.drift.length) lines.push("CODE RULES_DRIFT");
+  if (r.unread.length) lines.push("CODE RULES_UNREAD");
+  lines.push(r.drift.length || r.unread.length ? "RULES_REFUSED" : "RULES_OK");
+  return lines;
+}
+
+// The repository on GitHub of the clone, owner/repo, from the address of its remote origin, or null.
+export function githubRepo(top) {
+  const url = out(git(top, "remote", "get-url", "origin"))?.trim() ?? "";
+  const m = url.match(/github\.com[:/]([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/);
+  return m ? `${m[1]}/${m[2]}` : null;
+}
+
 function main(argv) {
   const [mode] = argv;
   const value = (flag) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
@@ -528,8 +775,10 @@ function main(argv) {
       lines.push("A change of a gate path needs a record of a gate change in the pull request, for the approved version of its task's statement, naming the path and the commit after which only records follow (D-158).");
     }
     if (r.records.length) lines.push(`ERROR · records of the process the pull request writes by hand, edits or removes (${r.records.length}):`, ...r.records.map((x) => `  ${x.path}: ${x.why}`));
+    if (r.outside?.length) lines.push(`ERROR · gate paths outside the gate paths the approval in force allows (${r.outside.length}):`, ...r.outside.map((x) => `  ${x.path}: ${x.why}`));
+    if (r.task?.length) lines.push(`ERROR · the merge by the state of the task (${r.task.length}):`, ...r.task.map((x) => `  ${x.code}: ${x.why}`));
     // One code for each rule broken, once, on a line of its own (field.process-record.refusal-code).
-    const codes = [...(r.refused.length ? ["GATE_PATH_UNAPPROVED"] : []), ...new Set(r.records.map((x) => x.code))];
+    const codes = [...(r.refused.length ? ["GATE_PATH_UNAPPROVED"] : []), ...new Set(r.records.map((x) => x.code)), ...(r.outside?.length ? ["GATE_PATH_OUTSIDE_APPROVAL"] : []), ...new Set((r.task ?? []).map((x) => x.code))];
     if (codes.length) {
       for (const c of GUARD_CODES.filter((c) => codes.includes(c))) lines.push(`CODE ${c}`);
       lines.push("GATE_REFUSED");
@@ -584,7 +833,23 @@ function main(argv) {
       return say([`ERROR · the rule file ${file} gives no steps: ${e.message}`]), 1;
     }
   }
-  say([`ERROR · the mode ${mode ?? "(none)"} is not guard, records-only, ruleset or switch-on`]);
+  if (mode === "rules") {
+    if (!cfg.mergeGate?.rules) return say([`ERROR · the configuration ${cfg.file} names no mergeGate.rules`]), 1;
+    const repo = value("--repo");
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? "")) return say(["ERROR · give the repository with --repo <owner>/<repo>"]), 1;
+    const fields = value("--fields") ?? "token";
+    if (!["token", "all"].includes(fields)) return say([`ERROR · --fields ${fields} is not token or all`]), 1;
+    let rules;
+    try {
+      rules = JSON.parse(readFileSync(cfg.mergeGate.rules, "utf8"));
+    } catch (e) {
+      return say([`ERROR · the rule file ${cfg.mergeGate.rules} cannot be read: ${e.message}`]), 1;
+    }
+    const r = compareRules({ rules, repo, fields });
+    say(rulesLines(r, { repo, fields }));
+    return r.drift.length || r.unread.length ? 1 : 0;
+  }
+  say([`ERROR · the mode ${mode ?? "(none)"} is not guard, records-only, ruleset, switch-on or rules`]);
   return 1;
 }
 
