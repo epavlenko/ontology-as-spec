@@ -11,6 +11,7 @@ Findings of round 1 of the review of the statement of task enforcement-task-stat
 - class "Incomplete rules read" (result round 1): a null list of excluded refs read from GitHub is taken as the empty list the rule file names (`tools/ont-check/merge-gate.mjs` around 669 and 689); GitHub gives the list as an array here.
 - class "Scope validation by substring" (result round 1): `approve.mjs --kind publish` accepts a question whose text holds the scope as a part of a longer name (`tools/ont-check/approve.mjs` around 50); the guard compares scopes whole.
 - class "Reviewer brief includes executor conclusions" (result round 1): the brief of the round listed the implementing agent's choices for the reviewer to judge; later briefs name the change and the statement only.
+- class "Unreadable task record omitted from guard state" (result round 2): the guard passes to the next action the unreadable round records but not the unreadable records of tasks (`tools/ont-check/merge-gate.mjs` around 413); the required full check still refuses them.
 
 ## Slice
 
