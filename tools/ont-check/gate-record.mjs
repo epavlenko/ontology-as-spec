@@ -27,7 +27,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gitEnv, loadConfig } from "./lib.mjs";
-import { GUARD_CODES, RECORDS_DIR, isGatePath } from "./merge-gate.mjs";
+import { GUARD_CODES, RECORDS_DIR, ghApi, isGatePath } from "./merge-gate.mjs";
 import { TASK_NAME } from "./review-rounds.mjs";
 import { timeAfter, writeSealed } from "./seal.mjs";
 import { approvedHash, readStatement, readTaskInputs } from "./tasks.mjs";
@@ -101,14 +101,6 @@ function changeMode({ cfg, argv, value, refuse, git, top }) {
   if (open.length) console.log(`UNCOVERED gate paths of the diff no record of ${task} names yet: ${open.join(", ")}; each needs the item of What to do that allows it`);
   console.log("Commit the records alone, right after this commit: the guard binds them to it.");
   return 0;
-}
-
-// The answer of gh api for a path, as JSON or as text.
-function ghApi(path, { json = true } = {}) {
-  const cmd = process.env.ONT_GH_CMD || "gh";
-  const r = spawnSync(`${cmd} api '${path.replace(/'/g, "")}'`, { shell: true, encoding: "utf8", maxBuffer: 1 << 28 });
-  if (r.status !== 0) throw new Error(`gh api ${path} failed: ${(r.stderr || `exit ${r.status}`).trim().split("\n")[0]}`);
-  return json ? JSON.parse(r.stdout) : r.stdout;
 }
 
 // Why a probe proves nothing of the gate, or null (D-170): the codes in the output of the check, the state

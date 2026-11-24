@@ -1839,7 +1839,7 @@ test("[check.review-round.condition-branch] --task, --rounds, the check and done
 test("[check.review-round.condition-gate] after C only a finding not fixable and a spent budget are questions: the gate holds over the task, a reviewer's approval of a new version too, until the owner's approval; an open gate comes first; both ends by C at the budget's limit end the task", () => {
   // (e) A finding not fixable in the narrow round after C is the question to the owner.
   const failed = [resultV(1, { condition: true, found: 1 }), resultV(1, { narrow: true, found: 1, fix: "not fixable", prefix: "nf" })];
-  const GATE = /^NEXT t: a question to the owner: a finding cannot be fixed without changing what the owner decided, and only his approval of a version answers it \(r2\.md\)$/;
+  const GATE = /^NEXT t: a question to the owner: a finding cannot be fixed without changing what the owner decided; his answer to the gate of the round, recorded with approve\.mjs --kind gate --round, closes that gate alone, and the version keeps its approval or its lack of one \(r2\.md\)$/;
   const gate = readers({ rounds: failed });
   for (const l of gate.next) assert.match(l, GATE, gate.out);
   assert.equal(gate.done, 1, gate.doneOut);

@@ -1,0 +1,30 @@
+# The comparison of the rules of main on GitHub with the rule file, once a day and on demand, from main
+# (D-185): it runs even where the rule of pull requests is taken off. It compares every field its read-only
+# token reads, and says each one it does not, as docs/limitations.md names them.
+# ont: field.merge-gate.drift-workflow, inv.rules-match-file
+name: ont-rules-drift
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ont-rules-drift:
+    name: ont-rules-drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: The rules of main on GitHub are the rule file's
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: node tools/ont-check/merge-gate.mjs rules --repo "$REPO" --fields all

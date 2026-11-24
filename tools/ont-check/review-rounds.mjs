@@ -1,7 +1,7 @@
 // Records of review rounds (D-99, D-152): one file per round of review of a task, in the directory the
 // configuration names under reviewRounds, with what the round cost and found. From them the tool says
 // what follows the last round of each step, and, once a step has ten applications, what it paid off.
-// ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.condition, field.review-round.overspend, field.review-round.cause, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.rounds-converge, rule.findings-filed, rule.executor-triage, rule.ready-after-clean-round, inv.review-rounds-well-formed, rule.records-english-in-repo, rule.fixes-held-by-tests
+// ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.condition, field.review-round.overspend, field.review-round.gate-paths, field.review-round.cause, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.rounds-converge, rule.findings-filed, rule.executor-triage, rule.ready-after-clean-round, inv.review-rounds-well-formed, rule.records-english-in-repo, rule.fixes-held-by-tests
 import { realpathSync } from "node:fs";
 import { basename, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { isFile, listFiles, read } from "./lib.mjs";
@@ -10,8 +10,9 @@ import { outsideRecord } from "./manual-runs.mjs";
 export const STEPS = ["statement-review", "result-review"];
 // The line Ceiling: of a record made before D-152 is read, as a whole number, and decides nothing.
 // Seal:, Brief-time:, Done:, Spend-record: and Cause: are written by round.mjs record (D-167, D-183, D-169):
-// Cause: is the SHA-256 of the analysis of the cause a round briefed after stagnation was given (D-182).
-const FIELDS = ["Seal", "Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "Done", "By", "Contribution", "Statement-hash", "Brief-time", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Spend-record", "Overspend", "Condition", "Cause"];
+// Cause: is the SHA-256 of the analysis of the cause a round briefed after stagnation was given (D-182);
+// Gate-paths:, the statement's gate paths on a round of its review, from the brief (D-185).
+const FIELDS = ["Seal", "Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "Done", "By", "Contribution", "Statement-hash", "Gate-paths", "Brief-time", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Spend-record", "Overspend", "Condition", "Cause"];
 const COUNTS = ["number", "ceiling", "tokens-new", "tokens-cached", "tokens-out", "checks-listed", "checks-given", "checks-carried"];
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 // A time is real when it reads back as itself: 2026-99-99T99:99:99Z has the shape and is no time.
@@ -182,6 +183,7 @@ export function parseRounds(dir, opts = {}) {
       // version is one whose records are all legacy; an older round reads as it did (D-152).
       opts.hashFrom !== undefined && !rec.pairs.some(([k]) => k === "statement-hash") && realTime(fields.time) && !isLegacy(fields, opts.hashFrom) && "no line Statement-hash: on a round at or after reviewRounds.gatesFrom: name the version of the statement it read",
       acceptance && fields.step !== "result-review" && "an acceptance on a review that is not of the result",
+      fields["gate-paths"] !== undefined && fields.step !== "statement-review" && "gate paths on a review that is not of the statement",
       // The goal's condition confirmed by the reviewer of the result (field.review-round.condition, D-153):
       // the executor carries only "holds" into the record.
       ...rec.pairs.filter(([k]) => k === "condition").flatMap(([, v]) => [v !== "holds" && `condition ${v || "(blank)"} is not holds`, fields.step !== "result-review" && "a condition on a review that is not of the result"]),
@@ -223,6 +225,8 @@ export function parseRounds(dir, opts = {}) {
       briefTime: fields["brief-time"] ?? null,
       spendRecord: fields["spend-record"] ?? null,
       doneFile: fields.done ?? null,
+      // The gate paths of the version the round read, apart by ", " (field.review-round.gate-paths, D-185).
+      gatePaths: fields["gate-paths"] === undefined ? null : [...new Set(fields["gate-paths"].split(/[\s,]+/).filter(Boolean))],
       cause: fields.cause ?? null,
     });
   }
@@ -314,10 +318,12 @@ export const afterNarrow = (f) => {
 export const gateSay = (notFixable) => `${GATE} (${notFixable.join(", ")})`;
 
 // The rounds of a step that hold an open gate: a finding of the change `not fixable`, not filed, in a round
-// after the owner's last record of approval for the task, whose time is since (D-152). Only a newer
-// approval of the owner closes it; tasks.mjs openGates gives them over both steps of a task.
+// after the owner's last record of approval for the task, whose time is since (D-152). The owner's answer to
+// the gate of that round closes it alone, and his newer approval of a version closes every gate before it; the
+// answer approves no version, so the version keeps the approval it had, or its lack of one (D-185). tasks.mjs
+// openGates gives them over both steps of a task.
 export const notFixableIn = (rounds, since = null) => rounds.filter((r) => (since === null || r.time > since) && ofChange(r).some((x) => !x.fixable)).map((r) => r.file);
-export const GATE = "a question to the owner: a finding cannot be fixed without changing what the owner decided, and only his approval of a version answers it";
+export const GATE = "a question to the owner: a finding cannot be fixed without changing what the owner decided; his answer to the gate of the round, recorded with approve.mjs --kind gate --round, closes that gate alone, and the version keeps its approval or its lack of one";
 
 // The branches of derived.next-round, in their order (D-152): the first whose condition holds gives the
 // next action. ontology.md lists them by these names in this order, which a test compares; the guide
@@ -341,8 +347,10 @@ export const BRANCHES = ["open gate", "no round", "condition confirmed", "no acc
 // gatesFrom: a round before it carries the meaning `not fixable` had before D-152, a question at that
 // round only, when it is the last.
 // gateSince: the owner's last approval, from which a finding not fixable is a gate; since by default.
+// answered: the files of the rounds whose gate the owner's answer closed, which hold no gate, the last round
+// either (D-185).
 // numbered: every round of the step, over which a next round takes the next free number of its kind.
-export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], fixes = null, gatesFrom = null, numbered = stepRounds } = {}) {
+export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], answered = new Set(), fixes = null, gatesFrom = null, numbered = stepRounds } = {}) {
   const every = byTime(stepRounds);
   const nextOf = (narrow) => Math.max(0, ...numbered.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
@@ -350,7 +358,7 @@ export function nextRound(stepRounds, { refused = () => null, held = () => true,
   const last = all.at(-1);
   const clean = last && isClean(last);
   const gated = gateSince === null ? every : every.filter((r) => r.time > gateSince);
-  const gates = [...new Set([...gate, ...notFixableIn(gated.filter((r) => !isLegacy(r, gatesFrom))), ...(last ? notFixableIn([last]) : [])])];
+  const gates = [...new Set([...gate, ...notFixableIn(gated.filter((r) => !isLegacy(r, gatesFrom))), ...(last ? notFixableIn([last]) : [])])].filter((f) => !answered.has(f));
   const why = clean && last.step === "result-review" && last.acceptance ? refused(last) : null;
   // Only the rounds after the last end of the step are compared, a round that ended it or the owner's
   // approval; the first round with findings after it is not stagnation.

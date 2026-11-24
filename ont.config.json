@@ -23,7 +23,9 @@
   "root": ".",
   "agentInstructions": [
     "AGENTS.md",
-    "CLAUDE.md"
+    "CLAUDE.md",
+    "skills/ontology-as-spec/SKILL.md",
+    "skills/change-review/SKILL.md"
   ],
   "approachIds": {
     "out": "tools/ont-check/approach.json"
@@ -148,8 +150,19 @@
         "SEAL_WRONG",
         "RECORD_CHANGED",
         "RECORD_REMOVED"
+      ],
+      "enforcement-task-state": [
+        "TASK_UNNAMED",
+        "TASK_NOT_DONE",
+        "TASK_HEAD_UNREVIEWED",
+        "WORK_BEFORE_APPROVAL",
+        "MERGE_UNPERMITTED",
+        "GATE_PATH_OUTSIDE_APPROVAL",
+        "RULES_DRIFT",
+        "RULES_UNREAD"
       ]
-    }
+    },
+    "taskState": true
   },
   "ci": {
     "workflow": ".github/workflows/ont-check.yml"
