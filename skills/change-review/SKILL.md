@@ -4,7 +4,7 @@ description: Reviews a change before it is merged, in a project that uses the On
 license: MIT
 ---
 
-<!-- ont: rule.reviewed-before-merge@8f811c, derived.review-checks@41daf4, rule.run-recorded@23e83d, rule.value-checked-against-source@52bea9, rule.code-reviewed-for-errors@e80716 -->
+<!-- ont: rule.reviewed-before-merge@8f811c, derived.review-checks@4e4537, rule.run-recorded@23e83d, rule.value-checked-against-source@52bea9, rule.code-reviewed-for-errors@e80716 -->
 
 # Change review
 
@@ -12,14 +12,14 @@ You review a change you did not write, before it is merged. The approach behind 
 
 You read and report. You do not edit files, commit, push or merge, and you do not message anyone on the author's behalf. The one exception is the records of step 4.
 
-<!-- ont: derived.review-checks@41daf4 -->
+<!-- ont: derived.review-checks@4e4537 -->
 ## What you get
 
 - The base of the change: a branch, a tag or a commit, such as `main`.
 - The change itself: the working tree or the branch checked out against that base.
 - The IDs the change claims to touch, if the author gave them. Do not ask for the author's summary or conclusions, and do not rely on one if it is in front of you: a reviewer handed the author's conclusions tends to confirm them.
 
-<!-- ont: derived.review-checks@41daf4 -->
+<!-- ont: derived.review-checks@4e4537 -->
 ## 1. List the checks
 
 From the directory with `ont.config.json`:
@@ -34,6 +34,8 @@ It prints the files changed, the concepts the change touches, the kinds of artif
 - **the approach's checks of review** for the kinds of artifact the change touches: the ontology, the decision log, the check catalogue, code, the mockup and its map, tests, documentation, tickets, agent rules;
 - **the project's checks of run** the change touches the same way, or through a changed section of its run guide;
 - **the approach's checks of run** for those kinds, such as the checks of the mockup for a changed mockup, and, when the change updates the copy of the tool, those whose guide changed.
+
+While the brief of a round after stagnation is kept in the working copy, carrying `Cause:`, it also lists `check.review-round.redesign-after-stagnation`, the check of the author's analysis of the cause, whatever the change touches, with a line naming the task (D-184); record its verdict, with the others, before the author records the round, which removes the brief.
 
 Each check comes with its GIVEN, WHEN and THEN; a check of run also with its guide: the path and anchor of its section, and for a check of the approach a link to the approach's repository at the commit the copy came from. If it prints `nothing to review`, say so; your review is then only the errors you see in the diff.
 

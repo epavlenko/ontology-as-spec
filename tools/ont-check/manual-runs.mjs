@@ -180,7 +180,7 @@ const cell = (x) => (x ?? "").replace(/\\\|/g, "|").replace(/^`|`$/g, "");
 // carried as a verdict of the reviewer only when its stamp is the check's, its commit is committed, and no
 // file outside the directories of records changed between it and the head of the review, nor differs in
 // the working copy; the files read are not asked for, since the rule is stricter than they are.
-export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], runFresh = () => "the run cannot be compared", source = "the table", latinOnly = false }) {
+export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], runFresh = () => "the run cannot be compared", source = "the table", latinOnly = false, unlisted = () => "" }) {
   // The reviewer is named on the By: line itself; a value on the next line is no value (D-151).
   const by = text.match(/^By:[ \t]*(\S.*?)[ \t]*$/m)?.[1];
   const lines = text.split("\n");
@@ -200,7 +200,7 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
     seen.add(r.check);
     const c = listed.get(r.check);
     if (!c) {
-      problems.push(`${r.check}: not a check the review lists`);
+      problems.push(`${r.check}: not a check the review lists${unlisted(r.check)}`);
       continue;
     }
     // Who carried the check out, on a pass or a fail only: no one carried out a not-run (D-157).

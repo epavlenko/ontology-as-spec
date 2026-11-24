@@ -2,7 +2,7 @@
 // repository of its own, commits it, changes one artifact and asks which checks a reviewer must run.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -226,4 +226,82 @@ test("[check.agent-rules.review-judge-screens-touched] a file the configuration 
     },
   });
   assert.deepEqual(has(out, [...JUDGE, ...SCREENS]), [...JUDGE, ...SCREENS], out);
+});
+
+// A round briefed after stagnation (D-184): the brief kept in the working copy carries Cause:, and the
+// reviewer gives the check of the analysis of the cause its verdict whatever the change touches.
+const CAUSE_CHECK = "check.review-round.redesign-after-stagnation";
+const reviewAndRecord = ({ before, cause }) => {
+  const dir = mkdtempSync(join(tmpdir(), "ont-review-cause-"));
+  try {
+    cpSync(EXAMPLE, dir, { recursive: true, filter: (src) => !src.startsWith(join(EXAMPLE, "releases")) });
+    before?.(dir);
+    const git = (...args) => spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", env: ENV });
+    git("init", "-q");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    // A change of code that touches none of the check's concepts.
+    appendFileSync(join(dir, "app/library.mjs"), "// a change\n");
+    mkdirSync(join(dir, ".git/ont-briefs"), { recursive: true });
+    const lines = ["Task: t", "Step: result-review", "Narrow: false", "Number: 2", `Statement-hash: ${"a".repeat(64)}`, "Commits: 0000000", ...(cause ? [`Cause: ${"b".repeat(64)}`] : []), "Brief-time: 2026-11-24T00:00:00Z"];
+    writeFileSync(join(dir, ".git/ont-briefs/t-result-review.brief"), `${lines.join("\n")}\n`);
+    const run = (...args) => {
+      const r = spawnSync("node", [join(TOOLS, "ont-check.mjs"), "--config", join(dir, "ont.config.json"), "--review", "HEAD", ...args], { encoding: "utf8" });
+      return { code: r.status, out: r.stdout + r.stderr };
+    };
+    const out = run().out;
+    const ids = [...new Set(["project", "approach"].flatMap((w) => ["review", "run"].flatMap((k) => (out.includes(`Checks of ${k} of the ${w}`) ? listed(out, w, k) : []))))];
+    // Every listed check gets a verdict, and the check of the analysis of the cause gets one in any case.
+    const rows = [...new Set([...ids, CAUSE_CHECK])].map((id) => `| ${id} | ${id === CAUSE_CHECK ? "pass" : "not applicable"} | ${id === CAUSE_CHECK ? "the analysis names the cause" : "not of this change"} |`);
+    const table = join(dir, "..", `${dir.split("/").pop()}-verdicts.md`);
+    writeFileSync(table, ["By: m", "", "| Check | Verdict | Evidence or reason |", "| --- | --- | --- |", ...rows, ""].join("\n"));
+    const record = run("--record", table);
+    rmSync(table, { force: true });
+    let records = [];
+    try {
+      records = readdirSync(join(dir, "verify/runs")).filter((f) => f.includes(CAUSE_CHECK));
+    } catch {}
+    return { out, record, records };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
+
+test("[check.agent-rules.review-cause-listed] a kept brief with Cause: lists the check of the analysis of the cause for a change that touches none of its concepts, the approach's, and the verdict is recorded; without Cause: it is not listed and its verdict is refused", () => {
+  const after = reviewAndRecord({ cause: true });
+  assert.ok(listed(after.out, "approach").includes(CAUSE_CHECK), after.out);
+  assert.match(after.out, new RegExp(`^After stagnation: the brief kept for t carries Cause:, so ${CAUSE_CHECK.replaceAll(".", "\\.")} is listed`, "m"));
+  assert.equal(after.record.code, 0, after.record.out);
+  assert.match(after.record.out, /RECORDED \d+ verdicts/);
+  assert.equal(after.records.length, 1, after.record.out);
+
+  const plain = reviewAndRecord({ cause: false });
+  assert.ok(!listed(plain.out, "approach").includes(CAUSE_CHECK), plain.out);
+  assert.doesNotMatch(plain.out, /^After stagnation:/m);
+  assert.notEqual(plain.record.code, 0, plain.record.out);
+  assert.match(plain.record.out, new RegExp(`${CAUSE_CHECK.replaceAll(".", "\\.")}: not a check the review lists: it is listed after stagnation while the round's brief`));
+  assert.equal(plain.records.length, 0);
+});
+
+test("[check.agent-rules.review-cause-listed] where the project's catalogue has the check of the analysis of the cause, a kept brief with Cause: lists the project's, not the approach's", () => {
+  // A section of the catalogue of its own, with its Not traced line: a check of the process is in no trace.
+  const section = [
+    "## Review round",
+    "",
+    "| Check | Concepts | GIVEN | WHEN | THEN | Proof | Covers |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    `| \`${CAUSE_CHECK}\` | \`action.renew\` | a round after stagnation | a reviewer reads the analysis | it names the cause | review | |`,
+    "",
+    `- Not traced: \`${CAUSE_CHECK}\` — a review of the process, not of the library.`,
+    "",
+    "## History",
+  ].join("\n");
+  const own = (dir) => patch(dir, "checks.md", "## History", section);
+  const r = reviewAndRecord({ cause: true, before: own });
+  assert.ok(listed(r.out, "project").includes(CAUSE_CHECK), r.out);
+  assert.ok(!listed(r.out, "approach").includes(CAUSE_CHECK), r.out);
+  // The example's ontology has no section of review rounds, so the full check that follows the record
+  // reports the added section; the verdict is recorded before it.
+  assert.match(r.record.out, /RECORDED \d+ verdicts/);
+  assert.equal(r.records.length, 1, r.record.out);
 });

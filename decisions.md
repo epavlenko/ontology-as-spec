@@ -1889,12 +1889,22 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected: an analysis written in the notes of the record alone (the tool would not see that one was given before the round); the analysis's text in the record (the record holds counts and links, not the review, and its hash names the text); and, as D-168 rejected them, the tool starting the reviewer itself (the reviewer is of another provider and is started by the executor, whose sessions the logs show); a brief kept in the tree (it would be a change of the tree, a new result by the rule above); editing the round's record to add the test of a fix (records are never edited, D-167).
 - Concepts: `ent.round-brief`, `field.round-brief.lines`, `action.brief-round`, `action.record-round`, `ent.fixes-record`, `field.fixes-record.round`, `field.fixes-record.tests`, `action.record-fixes`, `field.review-round.brief-time`, `field.review-round.done`, `rule.executor-triage`, `rule.findings-filed`, `field.review-round.cause`, `inv.review-rounds-well-formed`.
 
+### D-184 · While a kept brief carries `Cause:`, `--review` lists the check of the analysis of the cause whatever the change touches
+
+- Date: 2026-11-24 · Status: accepted
+- Source: the approved statement of task stagnation-cause, version 6 (272187948738), approved by its clean round 5 of the review of the statement, item 4: the reviewer of the round after stagnation checks the analysis and writes a finding when the cause is not named or what was chosen does not follow from it (translated); the finding of round 1 of the review of its result, on commit 2ff8a7e, "Required cause verdict is omitted from the review list", the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words. Reading the kept brief rather than the round's record, the project's check before the approach's, the order of the verdicts before the round's record and the line `--review` prints are the executor thread's technical decisions.
+- Decision: adds to D-155 and D-183. `derived.review-checks` lists `check.review-round.redesign-after-stagnation` whenever a brief kept in the working copy carries `Cause:`, the brief of a round after stagnation, whatever concepts and kinds of artifact the change touches: the project's check where its catalogue has it, as in this repository, and else the approach's. `--review` prints a line naming the task whose brief carries it, and `--review --record` then accepts its verdict, as it accepts any listed one. The brief is removed when `round.mjs record` writes the round, so the verdicts of that round are recorded before its record; a table given the check after that is refused with that reason. With no kept brief carrying `Cause:`, the check is listed only as before, by the concepts the change touches.
+- Why: the review skill asks the reviewer of the round after stagnation for the verdict of this check (D-183), while `--review` listed it only when the diff touched its concepts, so on an ordinary diff the recorder refused the verdict the skill required.
+- Rejected: listing it whenever a round's record carries `Cause:` (the record stays, so the check would stay listed in every later round); a task argument to `--review` (the kept brief already names the round under review, and a reviewer runs `--review` without one); asking for the verdict in the notes of the round instead (the check would have no record, and the recorder could not hold it).
+- Concepts: `derived.review-checks`, `action.record-verdicts`, `ent.round-brief`, `field.round-brief.lines`.
+
 ## Tentative
 
 ## Open questions
 
 ## History
 
+- 2026-11-24: D-184, which adds to D-155 and D-183, accepted under the approved statement of task stagnation-cause, version 6, item 4, after round 1 of the review of its result.
 - 2026-11-24: D-182, which supersedes D-164, and D-183, which supersedes D-168, accepted under the approved statement of task stagnation-cause, version 6, items 1 to 3, by the owner's answer to question 1074, a, and his words of 2026-11-23.
 - 2026-11-24: D-180, which adds to D-170, and D-181, which adds to D-167, accepted under the approved statement of task enforcement-tool-records, version 14, items 3 and 4, after round 7 of the review of its result.
 - 2026-11-24: D-179, which supersedes D-178 and adds to D-169 and D-172, accepted under the approved statement of task enforcement-tool-records, version 14, items 5 and 6, after round 6 of the review of its result.
