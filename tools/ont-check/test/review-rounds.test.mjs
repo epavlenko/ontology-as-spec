@@ -81,21 +81,25 @@ test("[check.review-round.no-ceiling] past six full and three narrow rounds the 
   }
 });
 
-test("[check.review-round.stagnation-count] a round with as many important classes as the round before changes the design; one fewer goes on", () => {
+test("[check.review-round.stagnation-count] a round with as many important classes as the round before is followed by the analysis of its cause, then a full round; one fewer goes on", () => {
   const same = nextRound(seq(["a", "b"], ["c", "d"]));
-  assert.equal(same.next, "redesign");
-  assert.match(same.say, /change the design of the solution, do not patch it; then full round 3/);
+  assert.equal(same.next, "cause");
+  // The next action names the analysis, why the round found no fewer, and never a change of design alone.
+  assert.match(same.say, /first a short analysis of the cause, why the round found no fewer important classes; by it, change the design where the cause lies in it, otherwise fix the error, and file a rare case \(rule\.findings-filed\); give the analysis to round\.mjs brief with --cause FILE; then full round 3$/);
+  assert.doesNotMatch(same.say, /do not patch it/);
+  assert.equal(same.narrow, false);
   assert.equal(same.number, 3);
   assert.doesNotMatch(same.say, /question/);
   // More is stagnation too; exactly one fewer is not.
-  assert.equal(nextRound(seq(["a"], ["c", "d"])).next, "redesign");
+  assert.equal(nextRound(seq(["a"], ["c", "d"])).next, "cause");
   assert.equal(nextRound(seq(["a", "b", "c"], ["d", "e"])).next, "narrow");
 });
 
-test("[check.review-round.stagnation-repeat] an important class that was important before changes the design even when the count falls; a nit on either side is no repeat", () => {
+test("[check.review-round.stagnation-repeat] an important class that was important before is followed by the analysis of its cause even when the count falls; a nit on either side is no repeat", () => {
   const repeat = nextRound(seq(["a", "x"], ["b", "c", "d"], ["a"]));
-  assert.equal(repeat.next, "redesign");
+  assert.equal(repeat.next, "cause");
   assert.match(repeat.say, /repeated: a/);
+  assert.match(repeat.say, /first a short analysis of the cause, why the earlier fix of a did not hold and the one cause behind it; .*then full round 4$/);
   assert.deepEqual(repeat.classes, ["a"]);
   // A nit before, important now, with fewer important classes: no repeat.
   assert.equal(nextRound(seq(["a:nit", "b", "c"], ["a"])).next, "narrow");
@@ -117,11 +121,11 @@ test("[check.review-round.stagnation-reset] after a clean round, or after the ow
   const rounds = [named(1, ["a", "b"], { time: t(1) }), named(2, [], { time: t(2), step: "statement-review" }), named(3, ["a", "b"], { time: t(3) })].map((r) => ({ ...r, step: "statement-review" }));
   assert.equal(nextRound(rounds).next, "narrow");
   // Without the clean round between them the same rounds stagnate.
-  assert.equal(nextRound([rounds[0], rounds[2]]).next, "redesign");
+  assert.equal(nextRound([rounds[0], rounds[2]]).next, "cause");
   // The owner's approval at 02:00: the rounds before it are not read, and numbers go on.
   const result = [named(1, ["a", "b"], { time: t(1) }), named(2, ["a", "b"], { time: t(3) })];
   assert.equal(nextRound(result, { since: t(2) }).next, "narrow");
-  assert.equal(nextRound(result).next, "redesign");
+  assert.equal(nextRound(result).next, "cause");
   const none = nextRound([named(1, ["a:not"], { time: t(1) })], { since: t(2) });
   assert.deepEqual([none.next, none.number], ["first round", 2]);
 });
@@ -130,9 +134,9 @@ test("[check.review-round.stagnation-reset] a round of the result clean on mergi
   const middle = (acceptance) => ({ ...named(2, []), ...(acceptance ? { acceptance: { findings: [] } } : {}) });
   const rounds = (m) => [named(1, ["a"]), m, named(3, ["a"])];
   // No acceptance: nothing ended, class a repeats.
-  assert.equal(nextRound(rounds(middle(false))).next, "redesign");
+  assert.equal(nextRound(rounds(middle(false))).next, "cause");
   // An acceptance refused: nothing ended either.
-  assert.equal(nextRound(rounds(middle(true)), { held: (r) => r.number !== 2 }).next, "redesign");
+  assert.equal(nextRound(rounds(middle(true)), { held: (r) => r.number !== 2 }).next, "cause");
   // An acceptance that holds ended the step: class a is the first finding after it.
   assert.equal(nextRound(rounds(middle(true))).next, "narrow");
 });
@@ -140,11 +144,11 @@ test("[check.review-round.stagnation-reset] a round of the result clean on mergi
 test("[check.review-round.branch-order] not fixable comes before stagnation, findings only in the acceptance are findings, and no branch of a step knows the budget", () => {
   // The last round would stagnate by its two important classes; its finding not fixable goes first.
   const notFixable = seq(["a", "b"], ["c", "d", "e:not"]);
-  assert.equal(nextRound(seq(["a", "b"], ["c", "d"])).next, "redesign");
+  assert.equal(nextRound(seq(["a", "b"], ["c", "d"])).next, "cause");
   assert.equal(nextRound(notFixable).next, "question");
   // Findings in the verdict of acceptance only: not clean, and compared as findings.
   const onlyAcceptance = [named(1, ["a"]), named(2, [], { acceptance: ["a"] })];
-  assert.equal(nextRound(onlyAcceptance).next, "redesign");
+  assert.equal(nextRound(onlyAcceptance).next, "cause");
   assert.equal(nextRound([named(1, ["a", "b"]), named(2, [], { acceptance: ["c"] })]).next, "narrow");
   assert.equal(nextRound([]).next, "first round");
   assert.equal(nextRound([named(1, [])]).next, "acceptance");
@@ -531,7 +535,7 @@ test("[check.review-round.condition-branch] after C one narrow round alone, then
   assert.equal(nextRound([C(1, ["a"]), named(2, [], { acceptance: [] })]).next, "clean");
   assert.equal(nextRound([C(1, ["a"]), before(named(1, [], { narrow: true, acceptance: [] }))]).next, "clean");
   // The round after C with a finding left: its fixes with tests, then done; with no acceptance or one that
-  // does not hold, that verdict again on the same result; never a question nor a round (D-164).
+  // does not hold, that verdict again on the same result; never a question nor a round (D-182).
   for (const [why, rounds, opts, next] of [
     ["a finding", [C(1, ["a"]), named(1, ["b"], { narrow: true, acceptance: [] })], {}, "fixes"],
     ["full, no acceptance", [C(1, ["a"]), named(2, [])], {}, "acceptance"],
@@ -551,14 +555,17 @@ test("[check.review-round.condition-branch] after C one narrow round alone, then
   assert.equal(nextRound([C(1, [], { acceptance: [] }), named(2, ["a"])]).next, "narrow");
 });
 
-test("[check.review-round.condition-stagnation] a C that stagnates, by a repeated class or by no fewer classes, changes the design, then the one narrow round", () => {
+test("[check.review-round.condition-stagnation] a C that stagnates, by a repeated class or by no fewer classes, is followed by the analysis of its cause, then the one narrow round", () => {
   for (const [why, rounds, classes] of [
     ["repeated", [named(1, ["a", "b"]), C(2, ["a"])], ["a"]],
     ["no fewer", [named(1, ["a"]), C(2, ["b"])], []],
   ]) {
     const n = nextRound(rounds);
-    assert.deepEqual([n.branch, n.next, n.number, n.classes], ["condition confirmed", "redesign", 1, classes], `${why}: ${n.say}`);
-    assert.match(n.say, /change the design of the solution, do not patch it; then narrow round 1, the one round after it/);
+    assert.deepEqual([n.branch, n.next, n.number, n.classes], ["condition confirmed", "cause", 1, classes], `${why}: ${n.say}`);
+    assert.match(n.say, /first a short analysis of the cause, .*give the analysis to round\.mjs brief with --cause FILE; then narrow round 1, the one round after it$/);
+    assert.match(n.say, why === "repeated" ? /why the earlier fix of a did not hold and the one cause behind it/ : /why the round found no fewer important classes/);
+    assert.doesNotMatch(n.say, /do not patch it/);
+    assert.equal(n.narrow, true);
   }
   // Without C the same rounds go to a full round.
   assert.equal(nextRound([named(1, ["a", "b"]), named(2, ["a"])]).number, 3);

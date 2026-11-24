@@ -554,6 +554,11 @@
           "x-ont": "field.review-round.spend-record",
           "type": "string"
         },
+        "cause": {
+          "description": "On a round briefed after stagnation, the SHA-256 of the file of the analysis of the cause the executor gave round.mjs brief with --cause, copied from the brief by round.mjs record; a round without it, as every round before it, reads as it did.",
+          "x-ont": "field.review-round.cause",
+          "type": "string"
+        },
         "runs": {
           "description": "The records of the verdicts the round gave, by file name.",
           "x-ont": "edge.review-round.runs",
@@ -1032,7 +1037,7 @@
       "type": "object",
       "properties": {
         "lines": {
-          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, from which a reader given no file reads the scope of the budget, held to the configuration's goals (field.task-statement.goal, D-179), Budget-new-input:, Budget-output: and Budget-reserve:, the statement's limits and reserve, each a number or none, the limits of the brief's version, which round.mjs record reads by derived.task-budget for that version, whatever version is approved in force, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, and Brief-time:, when the brief was given.",
+          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, from which a reader given no file reads the scope of the budget, held to the configuration's goals (field.task-statement.goal, D-179), Budget-new-input:, Budget-output: and Budget-reserve:, the statement's limits and reserve, each a number or none, the limits of the brief's version, which round.mjs record reads by derived.task-budget for that version, whatever version is approved in force, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, on a round briefed after stagnation Cause:, the SHA-256 of the analysis of the cause given with --cause (field.review-round.cause), and Brief-time:, when the brief was given.",
           "x-ont": "field.round-brief.lines",
           "type": "string"
         },

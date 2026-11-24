@@ -3,11 +3,14 @@
 // and the checks of review and of run of the approach for the kinds of artifact it touches, with its
 // checks of run whose guide changed when the copy of approach.json changes. A check still manual is
 // listed with the checks of review. A reviewer that did not write the change gives each of them a
-// verdict (skills/change-review).
+// verdict (skills/change-review). A brief kept in the working copy that carries Cause:, of a round
+// briefed after stagnation, lists the check of the analysis of the cause whatever the change touches, the
+// project's where its catalogue has it and else the approach's, since the skill asks for its verdict (D-184).
 // ont: derived.review-checks
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
+import { pendingBriefs } from "./briefs.mjs";
 import { parseAnchors } from "./docs.mjs";
 import { APPROACH_FILE, codeNames, gitEnv, parseChecks, parseGlossary, readApproach, untested } from "./lib.mjs";
 
@@ -31,6 +34,8 @@ const CODE_CONCEPT_CHECKS = ["check.concept.code-from-ontology", "check.concept.
 const JUDGE_CHECKS = ["check.check.judge-sees-the-check", "check.check.verdict-kept"];
 const SCREEN_CHECKS = ["check.check.view-states-judged", "check.check.screens-outside"];
 const SCREEN_FILE = /\.(?:png|jpe?g|gif|webp|svg)$/i;
+// The check whose verdict the reviewer of a round briefed after stagnation gives on the analysis (D-184).
+export const CAUSE_CHECK = "check.review-round.redesign-after-stagnation";
 
 const git = (cwd, ...args) => {
   const r = spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 26 });
@@ -68,7 +73,7 @@ const docSections = (text) => {
   );
 };
 
-export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids, approachFile = APPROACH_FILE }) {
+export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids, approachFile = APPROACH_FILE, briefs = pendingBriefs(cfg.base) }) {
   const top = git(cfg.base, "rev-parse", "--show-toplevel")?.trim();
   if (!top) return { error: "--review needs a git repository" };
   if (git(top, "rev-parse", "--verify", "--quiet", `${base}^{commit}`) === null) return { error: `--review: no commit ${base}` };
@@ -198,7 +203,15 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids,
         (JUDGE_CHECKS.includes(c.id) && judged) ||
         (SCREEN_CHECKS.includes(c.id) && (screens || judged))),
   );
-  return { changed, touched: [...touched].sort(), kinds: [...kinds], project, approach };
+  // A round briefed after stagnation: its brief, kept until the round is recorded, carries Cause: (D-184).
+  const cause = [...new Set(briefs.filter((b) => b.brief?.Cause).map((b) => b.task))].sort();
+  if (cause.length && !project.some((c) => c.id === CAUSE_CHECK) && !approach.some((c) => c.id === CAUSE_CHECK)) {
+    const own = checks.find((c) => c.id === CAUSE_CHECK && untested(c.proof));
+    const theirs = (approachChecks ?? []).find((c) => c.id === CAUSE_CHECK);
+    if (own) project.push(own);
+    else if (theirs) approach.push(theirs);
+  }
+  return { changed, touched: [...touched].sort(), kinds: [...kinds], project, approach, cause };
 }
 
 // Two lists (D-155): the checks of review, a check still manual among them, and the checks of run,
@@ -210,12 +223,16 @@ export const renderReview = (r, base, root, stamp = () => "", guide = () => null
     return `${show(c)}${ofApproach ? `\n    (${c.section})` : ""}\n    guide: ${g ?? "none: the run guides name no section for it"}`;
   };
   if (!r.project.length && !r.approach.length) return `REVIEW ${base}: nothing to review (${r.changed.length} files changed)`;
+  const cause = r.cause?.length
+    ? [`After stagnation: the brief kept for ${r.cause.join(", ")} carries Cause:, so ${CAUSE_CHECK} is listed for the verdict on the analysis of the cause; record the verdicts before round.mjs record, which removes the brief`]
+    : [];
   const isRun = (c) => c.proof === "run";
   const [pr, pv, ar, av] = [r.project.filter(isRun), r.project.filter((c) => !isRun(c)), r.approach.filter(isRun), r.approach.filter((c) => !isRun(c))];
   return [
     `REVIEW ${base}: ${r.changed.length} files changed: ${r.changed.map((f) => relative(root, f)).join(", ")}`,
     `Touched concepts (${r.touched.length}): ${r.touched.join(", ") || "none"}`,
     `Kinds of artifact: ${r.kinds.join(", ") || "none"}`,
+    ...cause,
     `Checks of review of the project whose concepts the change touches (${pv.length}):`,
     ...pv.map(show),
     `Checks of review of the approach for these kinds of artifact (${av.length}):`,

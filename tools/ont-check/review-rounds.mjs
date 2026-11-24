@@ -1,7 +1,7 @@
 // Records of review rounds (D-99, D-152): one file per round of review of a task, in the directory the
 // configuration names under reviewRounds, with what the round cost and found. From them the tool says
 // what follows the last round of each step, and, once a step has ten applications, what it paid off.
-// ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.condition, field.review-round.overspend, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.rounds-converge, rule.findings-filed, rule.executor-triage, rule.ready-after-clean-round, inv.review-rounds-well-formed, rule.records-english-in-repo, rule.fixes-held-by-tests
+// ont: ent.review-round, field.review-round.task, field.review-round.step, field.review-round.narrow, field.review-round.number, field.review-round.time, field.review-round.commits, field.review-round.by, field.review-round.tokens-new, field.review-round.tokens-cached, field.review-round.tokens-out, field.review-round.checks-listed, field.review-round.checks-given, field.review-round.checks-carried, field.review-round.findings, field.review-round.start, field.review-round.contribution, field.review-round.acceptance, field.review-round.condition, field.review-round.overspend, field.review-round.cause, edge.review-round.runs, edge.review-round.statement, derived.next-round, derived.step-payoff, rule.rounds-converge, rule.findings-filed, rule.executor-triage, rule.ready-after-clean-round, inv.review-rounds-well-formed, rule.records-english-in-repo, rule.fixes-held-by-tests
 import { realpathSync } from "node:fs";
 import { basename, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { isFile, listFiles, read } from "./lib.mjs";
@@ -9,8 +9,9 @@ import { outsideRecord } from "./manual-runs.mjs";
 
 export const STEPS = ["statement-review", "result-review"];
 // The line Ceiling: of a record made before D-152 is read, as a whole number, and decides nothing.
-// Seal:, Brief-time:, Done: and Spend-record: are written by round.mjs record (D-167, D-168, D-169).
-const FIELDS = ["Seal", "Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "Done", "By", "Contribution", "Statement-hash", "Brief-time", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Spend-record", "Overspend", "Condition"];
+// Seal:, Brief-time:, Done:, Spend-record: and Cause: are written by round.mjs record (D-167, D-183, D-169):
+// Cause: is the SHA-256 of the analysis of the cause a round briefed after stagnation was given (D-182).
+const FIELDS = ["Seal", "Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "Done", "By", "Contribution", "Statement-hash", "Brief-time", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Spend-record", "Overspend", "Condition", "Cause"];
 const COUNTS = ["number", "ceiling", "tokens-new", "tokens-cached", "tokens-out", "checks-listed", "checks-given", "checks-carried"];
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 // A time is real when it reads back as itself: 2026-99-99T99:99:99Z has the shape and is no time.
@@ -170,6 +171,8 @@ export function parseRounds(dir, opts = {}) {
       fields.contribution !== undefined && fields.start === undefined && "a contribution without a start",
       realTime(fields.start) && realTime(fields.time) && fields.start > fields.time && `start ${fields.start} is after its time ${fields.time}`,
       fields["statement-hash"] !== undefined && !SHA256.test(fields["statement-hash"]) && `statement hash ${fields["statement-hash"]} is not a SHA-256`,
+      // The analysis of the cause the round was briefed with, by its hash (field.review-round.cause, D-183).
+      rec.pairs.some(([k, v]) => k === "cause" && !SHA256.test(v.trim())) && `cause ${fields.cause ?? "(blank)"} is not a SHA-256`,
       // A blank line Statement-hash: names no version: a round so written would drop out of the review
       // of its version unseen (D-152).
       rec.pairs.some(([k, v]) => k === "statement-hash" && v.trim() === "") && "statement hash is blank: name the version of the statement the round read",
@@ -220,6 +223,7 @@ export function parseRounds(dir, opts = {}) {
       briefTime: fields["brief-time"] ?? null,
       spendRecord: fields["spend-record"] ?? null,
       doneFile: fields.done ?? null,
+      cause: fields.cause ?? null,
     });
   }
   const seen = new Map();
@@ -273,6 +277,14 @@ const stagnates = (last, earlier) => {
   if (!repeated.length && now.size < important(earlier.at(-1)).size) return null;
   return { now, repeated, say: repeated.length ? `repeated: ${repeated.join(", ")}` : `${now.size} important classes, no fewer than the round before` };
 };
+// What follows stagnation (derived.next-round, D-182): a short analysis of the cause, then the round named.
+// It explains what the stagnation names: a repeated class, why the earlier fix did not hold and the one
+// cause behind it; no fewer classes, why the round found no fewer. By it the design changes where the cause
+// lies, the error is fixed otherwise and a rare case is filed (rule.findings-filed); round.mjs brief takes
+// it with --cause (D-183).
+export const CAUSE = "cause";
+export const causeSay = (s, then) =>
+  `the rounds stagnate (${s.say}): first a short analysis of the cause, ${s.repeated.length ? `why the earlier fix of ${s.repeated.join(", ")} did not hold and the one cause behind it` : "why the round found no fewer important classes"}; by it, change the design where the cause lies in it, otherwise fix the error, and file a rare case (rule.findings-filed); give the analysis to round.mjs brief with --cause FILE; then ${then}`;
 
 // The round C of the rounds compared, the first with Condition: holds, and how many rounds follow it, or
 // null (derived.next-round, D-153).
@@ -280,7 +292,7 @@ const conditionIn = (window) => {
   const at = window.findIndex((r) => r.condition);
   return at < 0 ? null : { c: window[at], after: window.length - 1 - at };
 };
-// What follows the one round after C that did not end its step (rule.fixes-held-by-tests, D-164): no
+// What follows the one round after C that did not end its step (rule.fixes-held-by-tests, D-182): no
 // round and no question. fixes is what tasks.mjs fixesRange gives, the one function that reads the range
 // of fixes from the records: the round C, the narrow round, the state of its verdict of acceptance and the
 // record of done that ends the range, if any. The verdict given again on the same result is no new round.
@@ -325,7 +337,7 @@ export const BRANCHES = ["open gate", "no round", "condition confirmed", "no acc
 // null (inv.acceptance-after-done): such a round does not end its step either (D-123). held(round) says
 // whether an earlier round's acceptance held, for endsStep, which alone resets the comparison of rounds.
 // gate is the files of the rounds of the task that hold an open gate of a finding not fixable; fixes, the
-// range of fixes after the narrow round that tasks.mjs fixesRange gives (D-164).
+// range of fixes after the narrow round that tasks.mjs fixesRange gives (D-182).
 // gatesFrom: a round before it carries the meaning `not fixable` had before D-152, a question at that
 // round only, when it is the last.
 // gateSince: the owner's last approval, from which a finding not fixable is a gate; since by default.
@@ -350,7 +362,7 @@ export function nextRound(stepRounds, { refused = () => null, held = () => true,
     "open gate": () => gates.length && { next: "question", gates, say: gateSay(gates) },
     "no round": () => !last && (every.length ? { next: "first round", number: nextFull, say: `the owner approved a later version: work goes on under it, then full round ${nextFull}` } : { next: "first round" }),
     // After C one narrow round alone; when it does not end the step, its fixes held by tests, never a
-    // question nor a round (D-164). The range is the one tasks.mjs fixesRange reads from the records; a
+    // question nor a round (D-182). The range is the one tasks.mjs fixesRange reads from the records; a
     // caller with rounds alone, and no records of done, gets it from the rounds.
     "condition confirmed": () => {
       if (!cond) return null;
@@ -361,7 +373,7 @@ export function nextRound(stepRounds, { refused = () => null, held = () => true,
       const s = stagnates(last, window.slice(0, -1));
       const on = `the reviewer confirmed the goal's condition in ${last.file}`;
       return s
-        ? { next: "redesign", number: nextNarrow, classes: s.repeated, say: `${on} and the rounds stagnate (${s.say}): change the design of the solution, do not patch it; then narrow round ${nextNarrow}, the one round after it` }
+        ? { next: CAUSE, narrow: true, number: nextNarrow, classes: s.repeated, say: `${on}, and ${causeSay(s, `narrow round ${nextNarrow}, the one round after it`)}` }
         : { next: "narrow", number: nextNarrow, say: `${on}: narrow round ${nextNarrow}, the one round after it, on the fixes and the filings` };
     },
     "no acceptance": () => clean && last.step === "result-review" && !last.acceptance && { next: "acceptance", say: NO_ACCEPTANCE },
@@ -369,7 +381,7 @@ export function nextRound(stepRounds, { refused = () => null, held = () => true,
     clean: () => clean && { next: "clean", say: "the step ended clean" },
     stagnation: () => {
       const s = stagnates(last, window.slice(0, -1));
-      return s && { next: "redesign", number: nextFull, classes: s.repeated, say: `the rounds stagnate (${s.say}): change the design of the solution, do not patch it; then full round ${nextFull}` };
+      return s && { next: CAUSE, narrow: false, number: nextFull, classes: s.repeated, say: causeSay(s, `full round ${nextFull}`) };
     },
     "next round": () =>
       allTested(last) ? { next: "narrow", number: nextNarrow, say: `narrow round ${nextNarrow}, on the fixes of the last round` } : { next: "full", number: nextFull, say: `full round ${nextFull}: a finding of the last round has no test that holds its fix` },

@@ -133,7 +133,7 @@ const spendIn = (p, task, st, env) => {
 };
 
 // A brief and the reviewer's reply to it: the brief's lines word for word, then the reply's own.
-const briefLines = (out) => out.split("\n").filter((l) => /^(Task|Step|Narrow|Number|Statement-hash|Goal|Budget-new-input|Budget-output|Budget-reserve|Commits|Done|Brief-time): /.test(l)).join("\n");
+const briefLines = (out) => out.split("\n").filter((l) => /^(Task|Step|Narrow|Number|Statement-hash|Goal|Budget-new-input|Budget-output|Budget-reserve|Commits|Done|Cause|Brief-time): /.test(l)).join("\n");
 const writeReply = (lines, rest) => {
   const f = join(temp("ont-reply-"), "reply.md");
   writeFileSync(f, `${lines}\n${rest}\n`);
@@ -341,7 +341,7 @@ test("[check.round-brief.refused-off-round] a brief is refused when the next act
   assert.equal(readdirSync(join(p.dir, ".git")).includes("ont-briefs") ? readdirSync(join(p.dir, ".git/ont-briefs")).length : 0, 0);
 });
 
-test("[check.round-brief.allowed] the first round after done is briefed from a linked worktree, a round of acceptance alone on the same result, and a round after a change of design with a new record of done", () => {
+test("[check.round-brief.allowed] the first round after done is briefed from a linked worktree, a round of acceptance alone on the same result, and a round after the analysis of the cause with a new record of done", () => {
   const { p, st } = approved();
   const c1 = p.git("rev-parse", "HEAD");
   doneRecord(p, c1, st, at(10));
@@ -362,7 +362,7 @@ test("[check.round-brief.allowed] the first round after done is briefed from a l
   assert.equal(acc.code, 0, acc.out);
   assert.match(acc.out, /for the verdict of acceptance alone on the same result/);
   assert.match(acc.out, new RegExp(`^Commits: ${c1}$`, "m"));
-  // Stagnation: the same important class twice; the design changes, a new done on a new tree, a round.
+  // Stagnation: the same important class twice; the analysis of the cause, a new done on a new tree, a round.
   const q = approved();
   const d1 = q.p.git("rev-parse", "HEAD");
   doneRecord(q.p, d1, q.st, at(10));
@@ -373,14 +373,79 @@ test("[check.round-brief.allowed] the first round after done is briefed from a l
   q.p.put("reviews/rounds/20261101T105000Z-t-result-2.md", resultRound({ st: q.st, commit: d2, time: at(50), number: 2, findings: ["- a design flaw · important · change · fixable"], acceptance: null }));
   q.p.commit();
   assert.match(q.p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", q.st.file]).out, /no record of done newer/);
-  q.p.put("app.mjs", "// a new design\n");
-  const d3 = q.p.commit("redesign");
+  q.p.put("app.mjs", "// the fix the analysis of the cause chose\n");
+  const d3 = q.p.commit("the fix of the cause");
   doneRecord(q.p, d3, q.st, at(70));
   q.p.commit();
-  const redesign = q.p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", q.st.file]);
-  assert.equal(redesign.code, 0, redesign.out);
-  assert.match(redesign.out, /^Number: 3$/m);
-  assert.match(redesign.out, new RegExp(`^Commits: ${d3}$`, "m"));
+  const afterCause = q.p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", q.st.file, "--cause", writeFile("The earlier fix patched one caller; the cause is the shared reader.\n")]);
+  assert.equal(afterCause.code, 0, afterCause.out);
+  assert.match(afterCause.out, /^Number: 3$/m);
+  assert.match(afterCause.out, new RegExp(`^Commits: ${d3}$`, "m"));
+});
+
+// A task whose rounds of the result stagnate: round 1 and round 2 find the same important class, on two
+// results; with condition, round 2 is C, the reviewer having confirmed the goal's condition. The next action
+// is the analysis of the cause (D-182), and a new record of done on a new tree follows it.
+function stagnating({ condition = false } = {}) {
+  const q = approved();
+  const d1 = q.p.git("rev-parse", "HEAD");
+  doneRecord(q.p, d1, q.st, at(10));
+  q.p.put("reviews/rounds/20261101T103000Z-t-result-1.md", resultRound({ st: q.st, commit: d1, time: at(30), findings: ["- a reader drops records · important · change · fixable"], acceptance: null }));
+  q.p.put("app.mjs", "// the first fix\n");
+  const d2 = q.p.commit("fix");
+  doneRecord(q.p, d2, q.st, at(40));
+  const r2 = resultRound({ st: q.st, commit: d2, time: at(50), number: 2, findings: ["- a reader drops records · important · change · fixable"], acceptance: null });
+  q.p.put("reviews/rounds/20261101T105000Z-t-result-2.md", condition ? r2.replace("Statement-hash:", "Condition: holds\nStatement-hash:") : r2);
+  q.p.commit("round 2");
+  const next = q.p.tool("ont-check.mjs", ["--task", "t", "--statement", q.st.file]);
+  q.p.put("app.mjs", "// the fix the analysis of the cause chose\n");
+  const d3 = q.p.commit("the fix of the cause");
+  doneRecord(q.p, d3, q.st, at(70));
+  q.p.commit("done");
+  return { ...q, d3, next };
+}
+const ANALYSIS = "The earlier fix patched one caller of the reader; the one cause is the reader itself, which drops a record it cannot parse. The cause lies in the design of the reader, so the reader changes.\n";
+
+test("[check.round-brief.cause-required] on stagnation, by the branch stagnation and by a stagnating C, brief refuses without --cause or with an empty file and writes with it, full after the branch and narrow after C, the hash on Cause: and the analysis printed; --cause where no stagnation is named is refused", () => {
+  for (const [condition, narrow, number] of [[false, "false", "3"], [true, "true", "1"]]) {
+    const q = stagnating({ condition });
+    const of = condition ? "a stagnating C" : "the branch stagnation";
+    // NEXT names the analysis of the cause, never a change of design alone.
+    assert.match(q.next.out, /^NEXT t: .*first a short analysis of the cause, why the earlier fix of a reader drops records did not hold and the one cause behind it; by it, change the design where the cause lies in it, otherwise fix the error/m, `${of}: ${q.next.out}`);
+    assert.doesNotMatch(q.next.out, /do not patch it/);
+    if (condition) assert.match(q.next.out, /^NEXT t: the reviewer confirmed the goal's condition in 20261101T105000Z-t-result-2\.md, and the rounds stagnate .*then narrow round 1, the one round after it$/m);
+    else assert.match(q.next.out, /then full round 3$/m);
+    const brief = (...extra) => q.p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", q.st.file, ...extra]);
+    const kept = () => existsSync(join(q.p.dir, ".git/ont-briefs/t-result-review.brief"));
+    const without = brief();
+    assert.equal(without.code, 1, `${of}: ${without.out}`);
+    assert.match(without.out, /no brief written: the next action is the analysis of the cause: .*give it with --cause FILE/);
+    assert.ok(!kept(), `${of}: no brief kept without --cause`);
+    const empty = brief("--cause", writeFile("  \n"));
+    assert.equal(empty.code, 1, empty.out);
+    assert.match(empty.out, /no brief written: --cause .* is empty/);
+    assert.ok(!kept());
+    const file = writeFile(ANALYSIS);
+    const withCause = brief("--cause", file);
+    assert.equal(withCause.code, 0, `${of}: ${withCause.out}`);
+    assert.match(withCause.out, new RegExp(`^Narrow: ${narrow}$`, "m"));
+    assert.match(withCause.out, new RegExp(`^Number: ${number}$`, "m"));
+    assert.match(withCause.out, new RegExp(`^Commits: ${q.d3}$`, "m"));
+    assert.match(withCause.out, new RegExp(`^Cause: ${sha256(readFileSync(file))}$`, "m"));
+    assert.ok(withCause.out.includes(ANALYSIS.trim()), "the analysis is printed for the reviewer's brief");
+    assert.ok(kept());
+    assert.match(readFileSync(join(q.p.dir, ".git/ont-briefs/t-result-review.brief"), "utf8"), new RegExp(`^Cause: ${sha256(readFileSync(file))}$`, "m"));
+  }
+  // The first round of the result, with no stagnation: --cause is refused, and the brief is written without it.
+  const { p, st } = approved();
+  doneRecord(p, p.git("rev-parse", "HEAD"), st, at(10));
+  p.commit("done");
+  const refused = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file, "--cause", writeFile(ANALYSIS)]);
+  assert.equal(refused.code, 1, refused.out);
+  assert.match(refused.out, /no brief written: --cause is given, and the next action names no stagnation/);
+  const plain = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+  assert.equal(plain.code, 0, plain.out);
+  assert.doesNotMatch(plain.out, /^Cause:/m);
 });
 
 test("[check.round-brief.record-refused] a reply that differs from the brief, no brief, a finding without triage, a finding of acceptance filed, and no session of the logs with the brief are refused", () => {
@@ -450,6 +515,37 @@ test("[check.round-brief.record-written] a reply that begins with the brief's li
   assert.equal(round.spendRecord, snap);
   assert.ok(inputs.records.snapshots.some((s) => s.file === snap && s.round === file && s.sums.round.new === 900));
   assert.match(q.p.tool("round.mjs", ["record", "t", "--from", writeReply(lines, "By: m")], L.env()).out, /no brief of a round of t is kept/);
+});
+test("[check.round-brief.cause-recorded] a round briefed with the analysis of the cause is recorded with Cause:, read beside the rounds without it by the reader, --task and the full check; a Cause: that is not a SHA-256 cannot be read", () => {
+  const q = stagnating();
+  const file = writeFile(ANALYSIS);
+  const b = q.p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", q.st.file, "--cause", file]);
+  assert.equal(b.code, 0, b.out);
+  const lines = briefLines(b.out);
+  assert.match(lines, /^Cause: [0-9a-f]{64}$/m, "the reply repeats Cause: with the brief's other lines");
+  const r = q.p.tool("round.mjs", ["record", "t", "--from", writeReply(lines, "By: gpt (OpenAI, Codex)\nCondition: not yet\nAcceptance: clean")]);
+  assert.equal(r.code, 0, r.out);
+  const name = readdirSync(join(q.p.dir, "reviews/rounds")).find((f) => f.includes("result-3"));
+  const text = readFileSync(join(q.p.dir, "reviews/rounds", name), "utf8");
+  assert.match(text, new RegExp(`^Cause: ${sha256(readFileSync(file))}$`, "m"));
+  assert.equal(sealState(text).state, "valid");
+  q.p.commit("round 3");
+  const inputs = inputsOf(q.p);
+  assert.deepEqual(inputs.malformed, []);
+  const rounds = inputs.rounds.filter((x) => x.task === "t" && x.step === "result-review");
+  assert.deepEqual(rounds.map((x) => [x.number, x.cause]), [[1, null], [2, null], [3, sha256(readFileSync(file))]]);
+  // --task reads the new round beside the old ones: no record it cannot read, and the step ended clean.
+  const task = q.p.tool("ont-check.mjs", ["--task", "t", "--statement", q.st.file]);
+  assert.doesNotMatch(task.out, /cannot be read|correct the records/, task.out);
+  assert.match(task.out, /^NEXT t: .*merge/m, task.out);
+  const check = q.p.tool("ont-check.mjs", []);
+  assert.match(check.out, /ONT_OK/, check.out);
+  // A Cause: that is not a SHA-256 makes the record unreadable.
+  const dir = temp("ont-cause-");
+  writeFileSync(join(dir, "r.md"), ["Task: t", "Step: result-review", "Number: 1", `Time: ${at(5)}`, "By: m", "Cause: not-a-hash", ""].join("\n"));
+  const { malformed } = parseRounds(dir);
+  assert.equal(malformed.length, 1);
+  assert.match(malformed[0], /cause not-a-hash is not a SHA-256/);
 });
 // The reply of round 1 of the review of the result of task enforcement-tool-records, reduced to its lines
 // of verdicts, findings and acceptance, as its reviewer wrote them (D-172).

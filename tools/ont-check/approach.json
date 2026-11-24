@@ -233,6 +233,7 @@
     "field.review-round.acceptance",
     "field.review-round.brief-time",
     "field.review-round.by",
+    "field.review-round.cause",
     "field.review-round.checks-carried",
     "field.review-round.checks-given",
     "field.review-round.checks-listed",
@@ -1036,11 +1037,13 @@
       "id": "check.review-round.redesign-after-stagnation",
       "section": "Review round",
       "concepts": [
-        "rule.rounds-converge"
+        "rule.rounds-converge",
+        "derived.next-round",
+        "rule.whole-class"
       ],
-      "given": "a round that follows stagnation",
-      "when": "a reviewer reads its rounds and the change",
-      "then": "the design of the solution was changed rather than patched, and the round was the one `derived.next-round` names: full, or, after a round C of the condition confirmed that stagnated, the one narrow round",
+      "given": "a round that follows stagnation, with the analysis of the cause its brief carried",
+      "when": "a reviewer reads the analysis, its rounds and the change",
+      "then": "the analysis names the cause, for a repeated class why the earlier fix did not hold and the one cause behind it, for no fewer findings why the round found no fewer; what was chosen follows from it: the design changed where the cause lies in it, the error fixed otherwise, a rare case filed (`rule.findings-filed`); the reviewer writes a finding when the cause is not named or the choice does not follow from it; and the round was the one `derived.next-round` names: full, or, after a round C of the condition confirmed that stagnated, the one narrow round",
       "proof": "review"
     },
     {

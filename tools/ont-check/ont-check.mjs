@@ -51,7 +51,7 @@ import {
 } from "./lib.mjs";
 import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
-import { renderReview, reviewChange } from "./review.mjs";
+import { CAUSE_CHECK, renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { renderRounds } from "./review-rounds.mjs";
 import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
@@ -1442,7 +1442,7 @@ if (flag("--review") > 0) {
       const changed = runChanged(run.commit);
       return changed ? `${changed.join(", ")} changed outside the records since its commit ${run.commit}` : null;
     };
-    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly });
+    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly, unlisted: (id) => (id === CAUSE_CHECK ? ": it is listed after stagnation while the round's brief, which carries Cause:, is kept; record the verdicts before round.mjs record removes it (D-184)" : "") });
     if (res.problems.length) {
       fail(`the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`, 1);
     }
