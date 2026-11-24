@@ -262,15 +262,41 @@ test("[check.merge-gate.task-state-usual-path] a task's pull request after a nar
   assert.match(g.out, /^GATE_OK$/m);
 });
 
-test("[check.merge-gate.task-state-usual-path] the first pull request of records alone after the merge, with the permission to publish on the base, passes", () => {
+// A command of gh api that answers by a part of the path asked, as GitHub answers the writer of a gate proof:
+// the pull request, its check runs, its workflow runs and the log of a job, a text printed as it is.
+function proofStub(answers) {
+  const d = temp("ont-gh-proof-");
+  writeFileSync(join(d, "answers.json"), JSON.stringify(answers));
+  writeFileSync(join(d, "gh.mjs"), `import { readFileSync } from "node:fs";\nconst a = JSON.parse(readFileSync(${JSON.stringify(join(d, "answers.json"))}, "utf8"));\nconst k = Object.keys(a).find((x) => process.argv[3].includes(x));\nif (!k) process.exit(1);\nprocess.stdout.write(typeof a[k] === "string" ? a[k] : JSON.stringify(a[k]));\n`);
+  return `${process.execPath} ${join(d, "gh.mjs")}`;
+}
+
+test("[check.merge-gate.task-state-usual-path] the first pull request of records alone after the merge, a gate proof written by gate-record.mjs proof, with the permission to publish on the base, passes the guard and the full check", () => {
   const { p } = finished();
   p.git("checkout", "-q", "main");
   p.git("merge", "-q", "--no-ff", "-m", "merge the task", "task");
+  const merged = p.git("rev-parse", "HEAD");
   p.git("checkout", "-q", "-b", "records");
-  p.put("reviews/tasks/20261124T120000Z-t-gate-proof.md", sealed("Record: gate-proof\nGate: t\nTime: 2026-11-24T12:00:00Z\n"));
-  p.commit("a record");
+  // The refusal probe of the gate of t, as the writer records it from GitHub's answers.
+  const gh = proofStub({
+    "pulls/7": { head: { sha: "a".repeat(40) }, base: { sha: merged }, merged: false },
+    "check-runs": { check_runs: [{ name: "ont-gate-guard", conclusion: "failure", id: 11 }, { name: "ont-check", conclusion: "success", id: 12 }] },
+    "actions/runs": { workflow_runs: [{ name: "ont-gate-guard", id: 99, html_url: "https://github.com/o/r/actions/runs/99" }] },
+    "jobs/11/logs": "CODE TASK_UNNAMED\nGATE_REFUSED\n",
+  });
+  const response = writeFile(JSON.stringify({ message: 'Repository rule violations found. Required status check "ont-gate-guard" is failing.' }));
+  const proof = p.tool("gate-record.mjs", ["proof", "t", "--gate", "t", "--check", "ont-gate-guard", "--pr", "7", "--kind", "refusal", "--repo", "o/r", "--response", response, "--base", merged], { ONT_GH_CMD: gh });
+  assert.equal(proof.code, 0, proof.out);
+  p.commit("the gate proof");
+  const records = readTaskInputs(p.config()).records;
+  assert.equal(records.gateProofs.length, 1);
+  assert.deepEqual(records.malformed, []);
   const g = p.gate();
   assert.deepEqual(g.codes, [], g.out);
+  assert.match(g.out, /^GATE_OK$/m);
+  const check = p.tool("ont-check.mjs", []);
+  assert.equal(check.code, 0, check.out);
+  assert.match(check.out, /^ONT_OK$/m);
 });
 
 // ── TASK_UNNAMED ────────────────────────────────────────────────────────────────────────────────────
@@ -541,7 +567,7 @@ test("[check.merge-gate.task-state-switch] a base without mergeGate.taskState ho
 
 // ── The owner's answer to a gate ────────────────────────────────────────────────────────────────────
 
-test("[check.owner-approval.gate-answer-not-approval] the answer to a gate closes the gate it names and no other, approves no version, and is followed by a round of the statement on that step and by work on the step of the result", () => {
+test("[check.owner-approval.gate-answer-not-approval] the next action of an open gate names the owner's answer to the gate of that round, not a new version; the answer to a gate closes the gate it names and no other, approves no version, and is followed by a round of the statement on that step and by work on the step of the result", () => {
   const p = base();
   const st = statement();
   // Two rounds of the statement with a finding not fixable each.
@@ -565,6 +591,9 @@ test("[check.owner-approval.gate-answer-not-approval] the answer to a gate close
   // The other gate stays open; no version is approved.
   let n = next(v2.file);
   assert.equal(n.branch, "open gate", n.say);
+  // The question names the owner's answer to the gate of that round, never a new version to approve.
+  assert.match(n.say, /his answer to the gate of the round, recorded with approve\.mjs --kind gate --round, closes that gate alone, and the version keeps its approval or its lack of one/);
+  assert.doesNotMatch(n.say, /approval of a version answers it|new version/);
   assert.match(n.say, new RegExp(r2));
   assert.doesNotMatch(n.say, new RegExp(r1));
   assert.equal(approvedHash(inputs().rounds, "t", null, inputs().records.approvals), before);

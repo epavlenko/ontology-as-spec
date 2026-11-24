@@ -198,7 +198,7 @@ test("[check.review-round.not-fixable] a gate opened by a finding not fixable ho
   const rounds = [named(1, ["a:not"], { time: t(1) }), named(2, [], { time: t(2), acceptance: [] })];
   const n = nextRound(rounds);
   assert.equal(n.next, "question");
-  assert.match(n.say, /only his approval of a version answers it/);
+  assert.match(n.say, /his answer to the gate of the round, recorded with approve\.mjs --kind gate --round, closes that gate alone, and the version keeps its approval or its lack of one/);
   assert.notEqual(n.next, "clean");
   // The owner's approval after it closes the gate; the clean round after the approval ends the step.
   assert.equal(nextRound(rounds, { since: t(1) }).next, "clean");

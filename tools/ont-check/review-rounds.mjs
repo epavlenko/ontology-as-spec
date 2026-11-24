@@ -318,10 +318,12 @@ export const afterNarrow = (f) => {
 export const gateSay = (notFixable) => `${GATE} (${notFixable.join(", ")})`;
 
 // The rounds of a step that hold an open gate: a finding of the change `not fixable`, not filed, in a round
-// after the owner's last record of approval for the task, whose time is since (D-152). Only a newer
-// approval of the owner closes it; tasks.mjs openGates gives them over both steps of a task.
+// after the owner's last record of approval for the task, whose time is since (D-152). The owner's answer to
+// the gate of that round closes it alone, and his newer approval of a version closes every gate before it; the
+// answer approves no version, so the version keeps the approval it had, or its lack of one (D-185). tasks.mjs
+// openGates gives them over both steps of a task.
 export const notFixableIn = (rounds, since = null) => rounds.filter((r) => (since === null || r.time > since) && ofChange(r).some((x) => !x.fixable)).map((r) => r.file);
-export const GATE = "a question to the owner: a finding cannot be fixed without changing what the owner decided, and only his approval of a version answers it";
+export const GATE = "a question to the owner: a finding cannot be fixed without changing what the owner decided; his answer to the gate of the round, recorded with approve.mjs --kind gate --round, closes that gate alone, and the version keeps its approval or its lack of one";
 
 // The branches of derived.next-round, in their order (D-152): the first whose condition holds gives the
 // next action. ontology.md lists them by these names in this order, which a test compares; the guide
