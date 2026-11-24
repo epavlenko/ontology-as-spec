@@ -45,35 +45,35 @@ A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at
 
 A finding `not fixable` is a question to the owner, and only his record of approval of a new version answers it; a clean round of review cannot. When the author edits a statement for any other reason, a clean round of its review approves the new version. The tool compares versions by their hash only: it does not see whether a version approved by a round still holds every item the owner decided, with its source, nor whether an edit changed one of them, which would need his approval. The reviewer of the new version judges that, against the owner's words (D-152).
 
-<!-- ont: rule.rounds-converge@fe1007, derived.next-round@324b74 -->
+<!-- ont: rule.rounds-converge@c4cf81, derived.next-round@8a140a -->
 ### The tool does not see whether the design changed after stagnation
 
-When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and then what `derived.next-round` names follows, except after the one round that follows a confirmed condition, after which no round follows and its findings are fixed with tests (`rule.fixes-held-by-tests`, D-164). The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both (D-152).
+When the rounds stagnate, `--task` and `--rounds` name a short analysis of the cause first, and `round.mjs brief` refuses the next round's brief without it, `--cause`, keeping its SHA-256 on `Cause:` of the brief and of the round's record; then what `derived.next-round` names follows, except after the one round that follows a confirmed condition, after which no round follows and its findings are fixed with tests (`rule.fixes-held-by-tests`, D-182). The tool reads only the records of rounds and the hash of the analysis: it cannot tell whether the analysis names the cause, whether what was chosen, a change of design where the cause lies, a fix of the error or a rare case filed, follows from it, nor whether the next round read the whole change. The reviewer of that round judges them (D-182, D-183).
 
-<!-- ont: rule.findings-filed@a0eba5 -->
+<!-- ont: rule.findings-filed@ad03ec -->
 ### A filed finding is trusted to belong where it is filed
 
-The tool checks that a finding filed as `limitation` or `later` names `docs/limitations.md` or a file under `issues/` that holds its class word for word, and refuses it in a verdict of acceptance. It does not see whether the finding is a rare history, whether the step of usual work the notes name is real, whether the finding is outside the approved statement, or whether the text there says what the finding means. The executor decides that (`rule.executor-triage`); the reviewer of the next round, if there is one, may name a wrong filing as a finding (D-164).
+The tool checks that a finding filed as `limitation` or `later` names `docs/limitations.md` or a file under `issues/` that holds its class word for word, and refuses it in a verdict of acceptance. It does not see whether the finding is a rare history, whether the step of usual work the notes name is real, whether the finding is outside the approved statement, or whether the text there says what the finding means. The executor decides that (`rule.executor-triage`); the reviewer of the next round, if there is one, may name a wrong filing as a finding (D-182).
 
-<!-- ont: field.review-round.condition@b7e15c, derived.next-round@324b74 -->
+<!-- ont: field.review-round.condition@b7e15c, derived.next-round@8a140a -->
 ### A full round after a confirmed condition counts as the one round
 
-Once a reviewer of the result has confirmed the goal's condition, the one round allowed after it should be narrow. The tool counts whatever round is recorded next, narrow or full, as that one round: a full round written in its place ends the step when it is clean, and when it is not its findings are fixed with tests as after the narrow round (`rule.fixes-held-by-tests`); it opens no second round (D-164).
+Once a reviewer of the result has confirmed the goal's condition, the one round allowed after it should be narrow. The tool counts whatever round is recorded next, narrow or full, as that one round: a full round written in its place ends the step when it is clean, and when it is not its findings are fixed with tests as after the narrow round (`rule.fixes-held-by-tests`); it opens no second round (D-182).
 
-<!-- ont: rule.executor-triage@6569c2, rule.findings-filed@a0eba5 -->
+<!-- ont: rule.executor-triage@64218d, rule.findings-filed@ad03ec -->
 ### A finding filed in the round that ends the step is seen by no reviewer
 
-The executor files a rare history in the commit of the round's record. When that round is the one that ends the step, the confirmed condition or the one round after it, no later reviewer reads the filing: by the owner's answer "1020 b", the executor decides and the merge follows, so whether such a filing is right rests on the executor alone (D-164).
+The executor files a rare history in the commit of the round's record. When that round is the one that ends the step, the confirmed condition or the one round after it, no later reviewer reads the filing: by the owner's answer "1020 b", the executor decides and the merge follows, so whether such a filing is right rests on the executor alone (D-182).
 
 <!-- ont: inv.named-commits-resolve@ba7f87, inv.acceptance-after-done@3c3c5e -->
 ### A record of acceptance of a wrong commit, corrected later, still fails the check
 
-A round of the result whose verdict of acceptance names a commit that is not the one the record of done is of is refused by the check. A later round that corrects it ends the step, but the refused verdict of the earlier record is still reported by the check until that record is moved or removed (D-164).
+A round of the result whose verdict of acceptance names a commit that is not the one the record of done is of is refused by the check. A later round that corrects it ends the step, but the refused verdict of the earlier record is still reported by the check until that record is moved or removed (D-182).
 
-<!-- ont: rule.findings-filed@a0eba5 -->
+<!-- ont: rule.findings-filed@ad03ec -->
 ### A filing is looked up in the working tree, not in the commit of the record
 
-The tool looks up the file a filed finding names, and the class it holds, in the working tree of the repository, not in the commit of the round's record. A filing written but not yet committed, or removed after the commit, is read as the working tree has it (D-164).
+The tool looks up the file a filed finding names, and the class it holds, in the working tree of the repository, not in the commit of the round's record. A filing written but not yet committed, or removed after the commit, is read as the working tree has it (D-182).
 
 <!-- ont: derived.budget-report@514ac1 -->
 ### The tool prints the marks of the budget, not that they were sent
