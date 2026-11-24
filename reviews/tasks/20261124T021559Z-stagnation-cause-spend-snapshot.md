@@ -1,0 +1,24 @@
+Seal: v1 45870071f5e3b2c0982ec3056b58662345a52d685523edc3c6af60757f221aac
+Record: spend-snapshot
+Task: stagnation-cause
+Unit: stagnation-cause
+Round: 20261124T021559Z-stagnation-cause-statement-4.md
+Time: 2026-11-24T02:15:59Z
+Unit-start: 2026-11-24T01:50:48Z
+Unit-new: 584876
+Unit-cached: 10380236
+Unit-out: 56155
+Task-new: 584876
+Task-cached: 10380236
+Task-out: 56155
+Round-new: 108139
+Round-cached: 1205374
+Round-out: 9136
+Unit-limit-new: 2400000
+Unit-limit-out: 500000
+Unit-reserve: 1.5
+Unit-statement-hash: 9b763990575c4a0101220a0d6d75bbe1ca3a7a15485060e8b3354ae84dbd6475
+Task-limit-new: 2400000
+Task-limit-out: 500000
+Task-reserve: 1.5
+Task-statement-hash: 9b763990575c4a0101220a0d6d75bbe1ca3a7a15485060e8b3354ae84dbd6475
