@@ -11,6 +11,7 @@ Findings of round 1 of the review of the result of task enforcement-tool-records
 - class "catalogue uses invocation syntax for behavioral cases": three cases of the catalogue name commands (`checks.md` around 187, 266 and 332).
 - class "Catalogue uses invocation syntax for behavioral cases": the same finding as the class above, given again by round 6 with a capital letter.
 - class "Recorded review history omits the cited result review": D-179 cites as round 6 a review of commit 8c25fd8 that was run but not recorded, because its brief was given as a file and not in the message, so the round writer found no session that held the brief; the record of rounds holds no text of it (`decisions.md` around 1800).
+- class "Gate-change refresh carries a missing clause into the approved version" (round 6), and class "Gate refresh fault filed as a design limitation" (round 7), which moved it here from `docs/limitations.md`: `gate-record.mjs change` checks that an item it is given is in the statement, while a refresh of the existing records copies their items onto the new version without that check; it needs a revision of an approved statement that drops or renumbers an item of What to do while gate-change records exist (`tools/ont-check/gate-record.mjs` around 74 and 79).
 
 ## Slice
 
