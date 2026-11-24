@@ -275,10 +275,24 @@ export function recordProblems({ cfg, top, b, h, mb }) {
   return problems;
 }
 
+// The branch of main the rule file names in its ruleset, main when none is named, as the clone has it:
+// origin's first, or else its own; null when the clone has neither.
+export function mainRef(cfg, top) {
+  let branch = "main";
+  try {
+    const include = JSON.parse(readFileSync(cfg.mergeGate?.rules ?? "", "utf8"))?.ruleset?.conditions?.ref_name?.include ?? [];
+    const named = include.find((r) => /^refs\/heads\/[^*~]+$/.test(r));
+    if (named) branch = named.slice("refs/heads/".length);
+  } catch {}
+  return [`origin/${branch}`, branch].find((ref) => out(git(top, "rev-parse", "--verify", "--quiet", `${ref}^{commit}`))) ?? null;
+}
+
 // The notes of the full check and of pre-commit on the records of the working tree (D-167): information
 // only, never an error, so that the refusal of a merge for a seal is the guard's alone. A record of HEAD
-// changed or removed in the working tree, and, where the configuration at HEAD sets records.sealsFrom, a
-// record with a time after the start of seals whose seal is missing or wrong.
+// changed or removed in the working tree, and, where the configuration at the base of the pull request sets
+// records.sealsFrom, a record with a time after the start of seals whose seal is missing or wrong. The base
+// is the one the guard reads, pull_request.base.sha, the tip of main, never HEAD, so that a branch that
+// brings the key is told of no refusal the guard would not give (D-181).
 export function localRecordNotes(cfg) {
   const top = out(git(cfg.base, "rev-parse", "--show-toplevel"))?.trim();
   if (!top || !out(git(top, "rev-parse", "--verify", "--quiet", "HEAD"))) return [];
@@ -292,11 +306,20 @@ export function localRecordNotes(cfg) {
     if (/M/.test(code)) notes.push(`${path}: a record of HEAD is changed in the working tree (the guard refuses it, RECORD_CHANGED)`);
     if (/D/.test(code)) notes.push(`${path}: a record of HEAD is removed in the working tree (the guard refuses it, RECORD_REMOVED)`);
   }
-  const start = sealsStart(top, "HEAD", relative(top, cfg.file).split("\\").join("/"));
+  const cfgPath = relative(top, cfg.file).split("\\").join("/");
+  const main = mainRef(cfg, top);
+  const base = main && out(git(top, "merge-base", "HEAD", main)) ? main : null;
+  if (!base) {
+    if (sealsStart(top, "HEAD", cfgPath)) notes.push(`no base of the pull request is found, ${main ? `HEAD and ${main} have no common commit` : "the clone has no main branch"}: which records the guard refuses for their seals is not said`);
+    return notes;
+  }
+  const start = sealsStart(top, base, cfgPath);
   if (start)
     for (const dir of dirs) {
       const listed = lines0(git(top, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", dir).stdout).filter((p) => isRecordPath(p, dirs));
       for (const path of listed) {
+        // A record main holds is not one the pull request adds: the guard reads only those for a seal.
+        if (blobId(top, base, path)) continue;
         let text;
         try {
           text = readFileSync(join(top, path), "utf8");

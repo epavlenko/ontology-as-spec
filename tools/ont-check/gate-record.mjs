@@ -2,7 +2,7 @@
 // The writer of the records of a gate (D-170): a gate change, and a gate proof.
 //   node tools/ont-check/gate-record.mjs change <task> --statement FILE --clause N --paths <path,path> --base REF [--config ont.config.json]
 //   node tools/ont-check/gate-record.mjs change <task> --refresh --statement FILE --base REF [--config ont.config.json]
-//   node tools/ont-check/gate-record.mjs proof <task> --gate <gate> --check <required check> --pr N --kind refusal|pass --repo <owner>/<repo> [--response FILE] [--config ont.config.json]
+//   node tools/ont-check/gate-record.mjs proof <task> --gate <gate> --check <required check> --pr N --kind refusal|pass --repo <owner>/<repo> [--response FILE] [--base <commit>] [--config ont.config.json]
 // change writes a record of a gate change for those gate paths of the final diff of the branch, from the
 // merge base of --base and HEAD to HEAD, with HEAD as the commit of the change, named
 // <time>-<task>-gate-change-<item>.md; it refuses with no approval in force for the version of the
@@ -15,8 +15,12 @@
 // gh api (the command ONT_GH_CMD names, gh by default): a refusal counts only when the check given is red
 // on the head, its output holds a code of this gate's (mergeGate.codes) and no code of another gate, every
 // other required check is green on that head, and GitHub's answer, --response, refuses the merge; a pass,
-// when the pull request was merged and the check was green. It is allowed whenever the task has a record of
-// done whose commit is on main, never by the task's next action.
+// when the pull request was merged and the check was green. The base is the one the checks ran on, never
+// the base read back after the merge (field.gate-proof.base, D-180): of a pass, the first parent of the
+// merge commit, refused when the merge's second parent is not the head or that parent is not an ancestor
+// of the head; of a refusal, the commit --base gives, read before main moves on, or else the base of the
+// open pull request. The run is the workflow run of the check's own check suite. It is allowed whenever
+// the task has a record of done whose commit is on main, never by the task's next action.
 // ont: action.record-gate-change, action.record-gate-proof, ent.gate-change, ent.gate-proof, inv.gate-change-approved, rule.records-by-tool
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -28,7 +32,6 @@ import { TASK_NAME } from "./review-rounds.mjs";
 import { timeAfter, writeSealed } from "./seal.mjs";
 import { approvedHash, readStatement, readTaskInputs } from "./tasks.mjs";
 
-const now = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 const compact = (t) => t.replace(/[-:]/g, "");
 
 // The numbers of the items of What to do of a statement, under any heading the configuration gives.
@@ -154,6 +157,9 @@ function proofMode({ cfg, argv, value, refuse, git }) {
       return refuse(`${respFile} is not GitHub's answer as JSON`);
     }
   } else if (kind === "refusal") return refuse("a refusal keeps GitHub's answer to the attempt to merge: give --response FILE");
+  const givenBase = value("--base");
+  if (givenBase !== undefined && !/^[0-9a-f]{40}$/.test(givenBase)) return refuse("give --base as the full commit of main the checks ran on, read before main moves on");
+  if (givenBase !== undefined && kind === "pass") return refuse("a pass takes its base from the first parent of its merge commit: give no --base");
   let p, runs, wf, log;
   try {
     p = ghApi(`repos/${repo}/pulls/${pr}`);
@@ -170,8 +176,25 @@ function proofMode({ cfg, argv, value, refuse, git }) {
   const allCodes = [...new Set([...GUARD_CODES, ...Object.values(cfg.mergeGate?.codes ?? {}).flat()])];
   const why = proofWrong({ kind, check, run, log, others, response, gateCodes, allCodes, merged: p.merged === true });
   if (why) return refuse(why);
-  const w = wf.find((x) => x.name === check) ?? wf[0];
-  const time = now();
+  // The base the checks ran on (D-180): never the pull request's base read back after the merge.
+  let base = givenBase ?? p.base.sha;
+  if (kind === "pass") {
+    try {
+      const merge = ghApi(`repos/${repo}/commits/${p.merge_commit_sha}`);
+      const parents = (merge.parents ?? []).map((x) => x.sha);
+      if (parents.length !== 2 || parents[1] !== p.head.sha) return refuse(`the merge commit ${String(p.merge_commit_sha).slice(0, 12)} is not a merge of the head ${p.head.sha.slice(0, 12)} into main: its parents are ${parents.map((x) => x.slice(0, 12)).join(", ") || "none"}`);
+      base = parents[0];
+      const cmp = ghApi(`repos/${repo}/compare/${base}...${p.head.sha}`);
+      if (!["ahead", "identical"].includes(cmp.status)) return refuse(`the first parent of the merge, ${base.slice(0, 12)}, is not an ancestor of the head ${p.head.sha.slice(0, 12)} (${cmp.status ?? "no status"}): the branch was not up to date with the main its checks ran against`);
+    } catch (e) {
+      return refuse(e.message);
+    }
+  }
+  // The workflow run of the check's own check suite, or else that check's run.
+  const w = wf.find((x) => run.check_suite?.id != null && x.check_suite_id === run.check_suite.id) ?? wf.find((x) => x.name === check);
+  // After the gate's earlier proofs, so that two proofs of one gate never share the second of their name,
+  // which the reader holds to <time>-<gate>-gate-proof.md.
+  const time = timeAfter(...records.gateProofs.filter((g) => g.gate === gate).map((g) => g.time));
   const body = [
     "Record: gate-proof",
     `Gate: ${gate}`,
@@ -180,7 +203,7 @@ function proofMode({ cfg, argv, value, refuse, git }) {
     `Result: ${kind === "refusal" ? "refused" : "merged"}`,
     ...(kind === "refusal" ? [`Refused-by: ${check}`] : []),
     `Head: ${p.head.sha}`,
-    `Base: ${p.base.sha}`,
+    `Base: ${base}`,
     `Check: ${check} · ${run.conclusion}`,
     `Run: ${w?.id ?? run.id} · ${w?.html_url ?? run.html_url ?? `https://github.com/${repo}/pull/${pr}`}`,
     `Required: ${check} · ${run.conclusion}`,

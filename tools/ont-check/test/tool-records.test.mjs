@@ -255,6 +255,30 @@ test("[check.process-record.check-informs] the full check names a record edited 
   assert.match(r.out, /info · records of the process with no valid seal after seals start, or changed in the working tree/);
 });
 
+test("[check.process-record.check-predicts-guard] a branch that brings the key while its base has none is told of no refusal; after its merge, a later record without a seal is named as refused", () => {
+  const p = project({ fromLogs: false });
+  p.git("checkout", "-q", "-b", "task");
+  const c = JSON.parse(readFileSync(join(p.dir, "ont.config.json"), "utf8"));
+  c.records.sealsFrom = true;
+  p.put("ont.config.json", JSON.stringify(c, null, 2));
+  p.commit("the key");
+  p.put("reviews/rounds/x-t-statement-1.md", cleanStatementRound("t", sha256("a"), later()));
+  p.commit("a round by hand");
+  // The guard of main reads the start at the base, which has no key: it refuses nothing, and neither is said.
+  const onTask = localRecordNotes(p.config());
+  assert.deepEqual(onTask.filter((n) => /the guard refuses/.test(n)), [], onTask.join("\n"));
+  assert.equal(guard({ cfg: p.config(), base: p.git("rev-parse", "main"), head: p.git("rev-parse", "HEAD") }).records.length, 0);
+  p.git("checkout", "-q", "main");
+  p.git("merge", "-q", "--no-ff", "-m", "merge the task", "task");
+  p.git("checkout", "-q", "-b", "next");
+  p.put("reviews/rounds/y-t-statement-2.md", cleanStatementRound("t", sha256("b"), later(), 2));
+  p.commit("a later round by hand");
+  const onNext = localRecordNotes(p.config());
+  assert.ok(onNext.some((n) => /y-t-statement-2\.md: .*the guard refuses it \(SEAL_MISSING\)/.test(n)), onNext.join("\n"));
+  assert.ok(!onNext.some((n) => /x-t-statement-1\.md/.test(n)), onNext.join("\n"));
+  assert.deepEqual(guard({ cfg: p.config(), base: p.git("rev-parse", "main"), head: p.git("rev-parse", "HEAD") }).records.map((x) => `${x.code} ${x.path}`), ["SEAL_MISSING reviews/rounds/y-t-statement-2.md"]);
+});
+
 // ── Rounds: the brief and the record ──────────────────────────────────────────────────────────────
 
 // A project with task t approved by a clean round of its statement, as before the writers.
@@ -1374,6 +1398,44 @@ test("[check.gate-proof.writer] a refusal whose check passed, holds another gate
   // A task with no record of done on main: not merged.
   const q = approved();
   assert.match(q.p.tool("gate-record.mjs", ["proof", "t", "--gate", "t", "--check", "ont-gate-guard", "--pr", "7", "--kind", "refusal", "--repo", "o/r", "--response", response], { ONT_GH_CMD: ghStub(answers("failure", "CODE SEAL_MISSING")) }).out, /the task t is not merged/);
+});
+
+test("[check.gate-proof.checked-base] a pass records the first parent of its merge commit, not the base read back after the merge, and is refused when that parent is not an ancestor of the head; a refusal records the base it is given", () => {
+  const { p, st } = approved();
+  doneRecord(p, p.git("rev-parse", "HEAD"), st, at(10));
+  p.commit("done");
+  const [H, CHECKED, LATER, M] = ["a", "c", "d", "e"].map((x) => x.repeat(40));
+  const answers = ({ status = "ahead", parents = [CHECKED, H], kind = "pass" } = {}) => ({
+    "pulls/7": { head: { sha: H }, base: { sha: LATER }, merged: kind === "pass", merge_commit_sha: kind === "pass" ? M : null },
+    "check-runs": { check_runs: [{ name: "ont-gate-guard", conclusion: kind === "pass" ? "success" : "failure", id: 11, check_suite: { id: 5 } }, { name: "ont-check", conclusion: "success", id: 12, check_suite: { id: 6 } }] },
+    "actions/runs": { workflow_runs: [{ name: "ont-check", id: 98, check_suite_id: 6, html_url: "https://github.com/o/r/actions/runs/98" }, { name: "guard", id: 99, check_suite_id: 5, html_url: "https://github.com/o/r/actions/runs/99" }] },
+    "jobs/11/logs": kind === "pass" ? "GATE_OK" : "CODE SEAL_MISSING\nGATE_REFUSED",
+    [`commits/${M}`]: { sha: M, parents: parents.map((sha) => ({ sha })) },
+    [`compare/${CHECKED}...${H}`]: { status },
+  });
+  const proof = (a, extra = []) => p.tool("gate-record.mjs", ["proof", "t", "--gate", "t", "--check", "ont-gate-guard", "--pr", "7", "--repo", "o/r", ...extra], { ONT_GH_CMD: ghStub(a) });
+  const written = () => readdirSync(join(p.dir, "reviews/tasks")).filter((x) => /-t-gate-proof(-\d+)?\.md$/.test(x)).sort();
+  const behind = proof(answers({ status: "diverged" }), ["--kind", "pass"]);
+  assert.equal(behind.code, 1, behind.out);
+  assert.match(behind.out, /the first parent of the merge, cccccccccccc, is not an ancestor of the head aaaaaaaaaaaa \(diverged\)/);
+  assert.match(proof(answers({ parents: [CHECKED, LATER] }), ["--kind", "pass"]).out, /is not a merge of the head aaaaaaaaaaaa into main/);
+  assert.deepEqual(written(), []);
+  const ok = proof(answers(), ["--kind", "pass"]);
+  assert.equal(ok.code, 0, ok.out);
+  const text = readFileSync(join(p.dir, "reviews/tasks", written()[0]), "utf8");
+  assert.equal(sealState(text).state, "valid");
+  assert.match(text, new RegExp(`^Base: ${CHECKED}$`, "m"));
+  assert.doesNotMatch(text, new RegExp(LATER));
+  assert.match(text, new RegExp(`^Merge: ${M}$`, "m"));
+  assert.match(text, /^Run: 99 · https:\/\/github\.com\/o\/r\/actions\/runs\/99$/m);
+  // A refusal records the base read before main moved on, given with --base.
+  const response = writeFile(JSON.stringify({ message: "Repository rule violations found. Required status check \"ont-gate-guard\" is failing." }));
+  const refusal = proof(answers({ kind: "refusal" }), ["--kind", "refusal", "--response", response, "--base", CHECKED]);
+  assert.equal(refusal.code, 0, refusal.out);
+  const r = written().map((f) => readFileSync(join(p.dir, "reviews/tasks", f), "utf8")).find((x) => /^Kind: refusal$/m.test(x));
+  assert.match(r, new RegExp(`^Base: ${CHECKED}$`, "m"));
+  assert.match(proof(answers(), ["--kind", "pass", "--base", CHECKED]).out, /a pass takes its base from the first parent of its merge commit/);
+  assert.deepEqual(inputsOf(p).records.malformed, []);
 });
 
 // ── The usual path ────────────────────────────────────────────────────────────────────────────────

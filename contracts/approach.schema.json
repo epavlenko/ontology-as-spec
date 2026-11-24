@@ -936,7 +936,7 @@
           "type": "string"
         },
         "base": {
-          "description": "For a pull request, the commit of main it was based on when its checks ran, in full; for a refusal for being behind, read before main moves on.",
+          "description": "For a pull request, the commit of main it was based on when its checks ran, in full: for a pass, the first parent of its merge commit, which the branch being up to date with main makes the main its checks ran against, and an ancestor of its head; for a refusal, read before main moves on and given to the writer, or else read while the pull request is open; for a refusal for being behind, read before main moves on.",
           "x-ont": "field.gate-proof.base",
           "type": "string"
         },
