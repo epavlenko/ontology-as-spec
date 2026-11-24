@@ -85,3 +85,5 @@ Traps:
 
 - A release that is intact is not a release that ran: integrity alone does not show that its checks pass on its commit (`rule.intact-is-not-run`); only `--verify` runs them.
 - `--verify` runs the tool of the release's commit, not the copy of today; a commit without its tool cannot be verified, and the output says so: report it as `not-run` with that reason.
+
+Probe line, not to be merged.
