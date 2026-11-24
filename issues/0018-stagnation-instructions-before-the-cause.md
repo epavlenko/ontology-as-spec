@@ -8,6 +8,8 @@ Finding of round 6 of the review of the result of task enforcement-tool-records,
 - class "Stagnating confirmation briefs the narrow round as full" (round 4, there before): after a confirmation of the condition that stagnates, `round.mjs brief` marks the brief full while `NEXT` names the narrow round (`tools/ont-check/round.mjs` around 102, `tools/ont-check/review-rounds.mjs` around 364).
 - class "Multiple repeated classes can require different remedies" (round 3): the analysis and the choice for each of several repeated classes.
 - class "Post-analysis filing can reset the comparison window" (round 3): filing after the analysis a finding already recorded, and its effect on the count of stagnation.
+- class "Post-stagnation round choice is repeated in the guide" (result round 1): `docs/parts/agent-rules.md` around 109 restates the full or narrow round after stagnation that `NEXT` gives; the text agrees with `NEXT` today.
+- class "New catalogue cases are phrased as CLI invocations" (result round 1): two cases of `checks.md` around 354 and 358 name command flags.
 
 ## Slice
 
