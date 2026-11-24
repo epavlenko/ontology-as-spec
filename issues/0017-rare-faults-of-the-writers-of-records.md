@@ -11,6 +11,9 @@ Findings of round 1 of the review of the result of task enforcement-tool-records
 - class "Catalogue uses invocation syntax for behavioral cases": the same finding as the class above, given again by round 6 with a capital letter.
 - class "Recorded review history omits the cited result review": D-179 cites as round 6 a review of commit 8c25fd8 that was run but not recorded, because its brief was given as a file and not in the message, so the round writer found no session that held the brief; the record of rounds holds no text of it (`decisions.md` around 1800).
 - class "Gate-change refresh carries a missing clause into the approved version" (round 6), and class "Gate refresh fault filed as a design limitation" (round 7), which moved it here from `docs/limitations.md`: `gate-record.mjs change` checks that an item it is given is in the statement, while a refresh of the existing records copies their items onto the new version without that check; it needs a revision of an approved statement that drops or renumbers an item of What to do while gate-change records exist (`tools/ont-check/gate-record.mjs` around 74 and 79).
+- class "Gate proof can cite a run from another suite" (narrow round 2): `gate-record.mjs proof` falls back to a workflow run of the same name when no run of the check's suite is in the workflow results (`tools/ont-check/gate-record.mjs` around 194).
+- class "Gate proof decision bundles independent choices" (narrow round 2): D-180 also chooses the fallback of the run and the order of the proofs' times, with a reason for the base only (`decisions.md` around 1814).
+- class "Gate proof field implementation is missing from its row" (narrow round 2): the implementation row of the base and the run of a gate proof names the parser only, and the writer does not name `field.gate-proof.base` and `field.gate-proof.run` (`ontology.md` around 988, `tools/ont-check/gate-record.mjs` around 24).
 
 ## Fixed, no longer rare
 
