@@ -232,7 +232,7 @@ The writer of a round's brief checks that the next action is a round, but not th
 <!-- ont: -->
 ### The rules of this repository's agents are longer than one screen
 
-The Rules section of `AGENTS.md` has grown past one screen with the rules of the merge gate and of the records written by the tool (class "Agent rules exceed the one-screen check"); each row still names its command or file, and the rules of the process are explained in `docs/parts/agent-rules.md`.
+The Rules section of `AGENTS.md` has grown past one screen with the rules of the merge gate and of the records written by the tool (class "Agent rules exceed the one-screen check", and in a later round "Agent rules exceed one screen"); each row still names its command or file, and the rules of the process are explained in `docs/parts/agent-rules.md`.
 
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet

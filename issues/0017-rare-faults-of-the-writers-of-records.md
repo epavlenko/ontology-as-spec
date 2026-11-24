@@ -9,6 +9,8 @@ Findings of round 1 of the review of the result of task enforcement-tool-records
 - class "rollout diagnostics predict the wrong guard result": on the transition pull request the full check says the guard refuses records that the guard of main accepts (`tools/ont-check/merge-gate.mjs` around 295 and 309).
 - class "Spend scope implementation is missing from its row": the choice of the scope of budget in `tools/ont-check/tasks.mjs` and its call in `tools/ont-check/ont-check.mjs` are not in the implementation row of the spend from the logs (`ontology.md` around 1016).
 - class "catalogue uses invocation syntax for behavioral cases": three cases of the catalogue name commands (`checks.md` around 187, 266 and 332).
+- class "Catalogue uses invocation syntax for behavioral cases": the same finding as the class above, given again by round 6 with a capital letter.
+- class "Recorded review history omits the cited result review": D-179 cites as round 6 a review of commit 8c25fd8 that was run but not recorded, because its brief was given as a file and not in the message, so the round writer found no session that held the brief; the record of rounds holds no text of it (`decisions.md` around 1800).
 
 ## Slice
 
