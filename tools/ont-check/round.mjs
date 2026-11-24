@@ -22,7 +22,7 @@
 // finding of acceptance filed. Where spend is counted from the logs, it finds the reviewer's session by the
 // brief, refusing when none holds it, and writes a snapshot of spend with the round, which names it.
 // fixes writes a record of the tests that hold the fixes of a round's findings, by class.
-// ont: field.review-round.brief-time, field.review-round.done, field.review-round.spend-record, action.brief-round, action.record-round, action.record-fixes, ent.round-brief, ent.fixes-record, rule.records-by-tool, rule.executor-triage, rule.findings-filed
+// ont: field.review-round.gate-paths, field.task-statement.gate-paths, field.review-round.brief-time, field.review-round.done, field.review-round.spend-record, action.brief-round, action.record-round, action.record-fixes, ent.round-brief, ent.fixes-record, rule.records-by-tool, rule.executor-triage, rule.findings-filed
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -243,6 +243,9 @@ function main(argv) {
       Goal: statement.goal ?? undefined,
       // The statement's limits and reserve, which record takes with the goal (D-174).
       ...Object.fromEntries(BUDGET_ALL.map(([k, name]) => [name, String(statement.budget?.[k] ?? "none")])),
+      // The gate paths of the statement, on a round of its review, which record carries into the round, so
+      // that a clean round approves them with the version (field.review-round.gate-paths, D-182).
+      "Gate-paths": step === "statement-review" && statement.gatePaths.length ? statement.gatePaths.join(", ") : undefined,
       Commits: step === "result-review" ? ok.done.commit : head,
       Done: step === "result-review" ? ok.done.file : undefined,
       "Brief-time": now(),
@@ -327,6 +330,7 @@ function main(argv) {
     ...(brief.Done ? [`Done: ${brief.Done}`] : []),
     `By: ${reply.by}`,
     `Statement-hash: ${brief["Statement-hash"]}`,
+    ...(brief["Gate-paths"] ? [`Gate-paths: ${brief["Gate-paths"]}`] : []),
     `Brief-time: ${brief["Brief-time"]}`,
     ...(roundSum ? [`Tokens-new: ${roundSum.new}`, `Tokens-cached: ${roundSum.cached}`, `Tokens-out: ${roundSum.out}`] : []),
     ...(snapshot ? [`Spend-record: ${snapshot}`] : []),

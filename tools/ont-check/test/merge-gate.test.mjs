@@ -85,7 +85,7 @@ test("[check.merge-gate.base-missing] the step that guards decisions fails on a 
   assert.match(ok.stdout, /GUARD_OK/);
 });
 
-test("[check.merge-gate.guard-from-main] the guard runs on pull_request_target from main, reads the event through the environment and runs main's guard", () => {
+test("[check.merge-gate.guard-from-main] the guard runs on pull_request_target from main, reads the event through the environment and runs main's guard, then main's comparison of the rules", () => {
   assert.deepEqual(onBlock(GUARD).trim().split("\n").map((l) => l.trim()), ["pull_request_target:", "types: [opened, synchronize, reopened, edited]"]);
   assert.deepEqual(jobs(GUARD), ["ont-gate-guard"]);
   assert.match(GUARD, /^ {4}name: ont-gate-guard$/m);
@@ -99,6 +99,7 @@ test("[check.merge-gate.guard-from-main] the guard runs on pull_request_target f
   assert.deepEqual(runs(GUARD), [
     'git fetch --no-tags --quiet "https://github.com/$REPO" "$HEAD_SHA" "$BASE_SHA"',
     'node tools/ont-check/merge-gate.mjs guard --base "$BASE_SHA" --head "$HEAD_SHA"',
+    'node tools/ont-check/merge-gate.mjs rules --repo "$REPO" --fields token',
   ]);
 });
 
@@ -851,8 +852,21 @@ test("[check.merge-gate.commands-run] the commands of merge-gate.mjs the rules, 
   const head = spawnSync("git", ["-C", TOP, "rev-parse", "HEAD"], { encoding: "utf8", env: GIT_ENV }).stdout.trim();
   const readme = read("tools/ont-check/README.md");
   const commands = [];
-  for (const file of ["AGENTS.md", "docs/lifecycle.md"]) for (const m of read(file).matchAll(/`([^`]*merge-gate\.mjs (?:guard|records-only|ruleset|switch-on)[^`]*)`/g)) commands.push([file, m[1]]);
+  for (const file of ["AGENTS.md", "docs/lifecycle.md"]) for (const m of read(file).matchAll(/`([^`]*merge-gate\.mjs (?:guard|records-only|ruleset|switch-on|rules)[^`]*)`/g)) commands.push([file, m[1]]);
   for (const m of readme.matchAll(/^(node tools\/ont-check\/merge-gate\.mjs [^#\n]*)/gm)) commands.push(["tools/ont-check/README.md", m[1]]);
+  // rules reads GitHub through gh api: here a command that answers as GitHub does when its rules are the
+  // rule file's (D-182).
+  const rules = JSON.parse(read(".github/merge-gate.json"));
+  const stub = join(mkdtempSync(join(tmpdir(), "gh-rules-")), "gh.mjs");
+  const answers = {
+    rulesets: [{ id: 1, name: rules.ruleset.name }],
+    "rulesets/1": rules.ruleset,
+    "actions/permissions": rules.actions.permissions,
+    "actions/permissions/workflow": rules.actions.workflow,
+    "actions/policies": { policies: rules.actions.policies.map((x, i) => ({ id: 5 + i, name: x.name })) },
+    ...Object.fromEntries(rules.actions.policies.map((x, i) => [`actions/policies/${5 + i}`, x])),
+  };
+  writeFileSync(stub, `const a = ${JSON.stringify(answers)};\nconst k = Object.keys(a).find((x) => process.argv[3].endsWith(x));\nif (!k) process.exit(1);\nprocess.stdout.write(JSON.stringify(a[k]));\n`);
   assert.ok(commands.filter(([, c]) => /records-only/.test(c)).length >= 3, JSON.stringify(commands));
   for (const [file, text] of commands) {
     const cmd = text
@@ -864,7 +878,7 @@ test("[check.merge-gate.commands-run] the commands of merge-gate.mjs the rules, 
     const argv = cmd.split(/\s+/);
     if (argv[0] !== "node") argv.unshift("node");
     argv[1] = argv[1].replace(/^(?:tools\/ont-check\/)?merge-gate\.mjs$/, "tools/ont-check/merge-gate.mjs");
-    const r = spawnSync(argv[0], argv.slice(1), { cwd: TOP, encoding: "utf8", env: GIT_ENV });
+    const r = spawnSync(argv[0], argv.slice(1), { cwd: TOP, encoding: "utf8", env: { ...GIT_ENV, ONT_GH_CMD: `${process.execPath} ${stub}` } });
     assert.equal(r.status, 0, `${file}: ${text}\n${r.stdout}`);
     assert.doesNotMatch(r.stdout, /ERROR/, `${file}: ${text}`);
   }

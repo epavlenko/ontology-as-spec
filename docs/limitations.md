@@ -40,12 +40,12 @@ The check confirms that the files named in the table exist and which of them nam
 
 A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at most two digits after the point, so the cap of a task's budget is exact. The configuration is JSON, and its parser rounds a long fraction to a number before the tool reads it, so a value that rounds to two digits passes the check. A record of done that `done.mjs` itself wrote before the rule, with a reserve of three digits such as `1.125`, is refused by the check even beside a later, correct one. If the approved statement still gives that reserve, correct the statement and have the corrected version approved first; then remove the old record, record done again, and give again in a new round the acceptance given for it. An `Overspend:` line in the earlier text is refused and written again. Each arises from a configuration edited by hand or a record the earlier tool wrote (D-150).
 
-<!-- ont: derived.approval@7ae7ed, derived.statement-state@749d42 -->
+<!-- ont: derived.approval@601007, derived.statement-state@749d42 -->
 ### A later version of a statement is trusted to keep the owner's items
 
 A finding `not fixable` is a question to the owner, and only his record of approval of a new version answers it; a clean round of review cannot. When the author edits a statement for any other reason, a clean round of its review approves the new version. The tool compares versions by their hash only: it does not see whether a version approved by a round still holds every item the owner decided, with its source, nor whether an edit changed one of them, which would need his approval. The reviewer of the new version judges that, against the owner's words (D-152).
 
-<!-- ont: rule.rounds-converge@fe1007, derived.next-round@324b74 -->
+<!-- ont: rule.rounds-converge@fe1007, derived.next-round@ade077 -->
 ### The tool does not see whether the design changed after stagnation
 
 When the rounds stagnate, `--task` and `--rounds` say to change the design of the solution rather than patch it, and then what `derived.next-round` names follows, except after the one round that follows a confirmed condition, after which no round follows and its findings are fixed with tests (`rule.fixes-held-by-tests`, D-164). The tool reads only the records of rounds: it cannot tell a new design from another patch, nor whether the next round read the whole change. The reviewer of that round judges both (D-152).
@@ -55,7 +55,7 @@ When the rounds stagnate, `--task` and `--rounds` say to change the design of th
 
 The tool checks that a finding filed as `limitation` or `later` names `docs/limitations.md` or a file under `issues/` that holds its class word for word, and refuses it in a verdict of acceptance. It does not see whether the finding is a rare history, whether the step of usual work the notes name is real, whether the finding is outside the approved statement, or whether the text there says what the finding means. The executor decides that (`rule.executor-triage`); the reviewer of the next round, if there is one, may name a wrong filing as a finding (D-164).
 
-<!-- ont: field.review-round.condition@b7e15c, derived.next-round@324b74 -->
+<!-- ont: field.review-round.condition@b7e15c, derived.next-round@ade077 -->
 ### A full round after a confirmed condition counts as the one round
 
 Once a reviewer of the result has confirmed the goal's condition, the one round allowed after it should be narrow. The tool counts whatever round is recorded next, narrow or full, as that one round: a full round written in its place ends the step when it is clean, and when it is not its findings are fixed with tests as after the narrow round (`rule.fixes-held-by-tests`); it opens no second round (D-164).
@@ -104,6 +104,8 @@ The tool cannot parse the syntax of every language and test framework, so it rea
 ### Readiness reads names, not intent
 
 The tool learns that a target waits from the decision log, by the entries that name it. A tentative entry that describes a concept without its ID leaves the concept looking ready, and an accepted entry that mentions a concept in passing counts as naming it. A target that no entry names counts as agreed, since the ontology is the agreed target.
+
+In this repository no target waits for the owner or for another goal on the usual path: every concept but one is implemented, and the one goal left is in a ticket, so the check does not tell a concept implemented while it waits from one that was ready (D-182). A project that keeps targets waiting for its owner reads their readiness from its log, with this weakness.
 
 <!-- ont: ent.reference-page@b1ec8f -->
 ### Reference pages show the target
@@ -195,7 +197,7 @@ Where a project sets `verdicts.require`, a fix after the narrow round that chang
 
 When a narrow round has findings but no verdict of acceptance and the acceptance is given again on the same result, the reader takes the new record as the last round and can lose the narrow round's findings from the next action (class "reissued acceptance drops the narrow-round findings"); it needs a reviewer who leaves the verdict of acceptance out, and the executor reads the narrow round's findings from its record. Where `verdicts.require` is set, a clean update with main after the record of done compares the head with that record's commit directly and reports a verdict of the one issue as missing (class "clean update from main invalidates verdicts in the fix range"); this repository reports it as information. The record of done named its commands and their results, not the rows of the catalogue a task changed (class "done omits the catalogue changes required for acceptance"); since D-166 it carries them, and whatever else the statement asks it to name, under `Evidence:`, which `done.mjs --evidence` writes (`field.task-result.evidence`). The faults of the tool among these cases are filed in [ticket 16](../issues/0016-faults-of-the-range-of-fixes.md), as `rule.findings-filed` routes a fault of the tool, rather than kept here (class "tool faults filed as limitations"). A record of a round of the review of a result says which of its findings the executor holds of the usual path, but the step each breaks only where its notes say it (class "usual-path triage without the step in the round record"); the record of done can name them in its evidence.
 
-<!-- ont: inv.record-sealed@8b4426, rule.records-by-tool@1db488 -->
+<!-- ont: inv.record-sealed@8b4426, rule.records-by-tool@958f81 -->
 ### A seal does not stop a deliberate forgery
 
 A record of the process carries a seal, the hash of its text after a prefix every copy of the tool knows, so an agent with access to the files can compute the seal of a record it wrote by hand, and an agent with the rights of an administrator can change the rules on GitHub. The seal holds the usual path: records the writers wrote, steps the writers refused, and no record edited after its commit. The owner accepted that it is no more (his answer to question 1036, a); keys and separate accounts for agents, option b of that question, are not part of the approach (D-167). A writer that reads the registry of the owner's answers or the session logs trusts what the command and the files of the environment give it.
@@ -238,6 +240,31 @@ The Rules section of `AGENTS.md` has grown past one screen with the rules of the
 ### The line `Goal:` is the same in every version of a task's statement
 
 The readers of a task's budget combine its versions: the limits of the version in force with the statement given while a revision is under review, and the other way after an approval. They give the right unit where every version carries the same line `Goal:`, or none does; a revision that adds, drops or changes the line can pair the limits of one version with the goal of another (class "Goal membership without a Goal line changes the approved budget unit", round 6). It needs a task moved into or out of a goal between versions of its statement; the statements of a goal carry its line from the first version.
+
+<!-- ont: inv.rules-match-file@d929a1, field.merge-gate.drift-workflow@795ef7 -->
+### The guard's token does not see who may bypass the rules
+
+The guard compares the rules of main on GitHub with the rule file on each pull request by the fields its read-only token reads (D-182). GitHub gives the actors that bypass a ruleset only to a reader with the right to write, so an actor added to bypass it is no difference to the guard; `--task` compares it before each step with the executor's `gh`, and the daily workflow `ont-rules-drift` says, on a line of its report, each field its own token does not read. A change of the rules by an agent with the rights of an administrator is refused by no gate, as the owner accepted (his answer to question 1036, a); the comparison makes it seen, and only the owner changes the rules back.
+
+<!-- ont: ent.publish-permission@fecd62, action.record-publication@eb7ff4 -->
+### A permission to publish is compared with the registry by its writer, not by CI
+
+The owner's answers are kept in a registry outside the repository, which CI does not read. `approve.mjs --kind publish` compares the answer with the registry when it writes the record, and the guard checks the record's seal, its kind and its scope (D-182). A record forged by an agent that computes the seal itself, or a registry's command that answers wrongly, is not caught; the owner accepted that the records hold no more than this (his answer to question 1036, a).
+
+<!-- ont: rule.merge-by-task-state@49929e -->
+### Committer time is the committer's word
+
+The guard refuses a commit of the work made before the task's first approval by the time its committer gave it (D-182). Git takes that time from the committer's clock or from what the committer sets, so a commit dated after the approval passes whenever it was written; the owner accepted that the gate does not stop a deliberate forgery of records or times (his answer to question 1036, a).
+
+<!-- ont: derived.statement-state@749d42 -->
+### A statement edited after its approval is seen only where its file is given
+
+The statement may live outside the repository, so the guard and the full check read its version only from the records: the version of the record of done and of the round that ends the task is the version in force, and the guard holds that (D-182). A file edited after its approval with no new round is seen only by `done.mjs` and `--task`, which are given the file and refuse it; a merge after such an edit, with no new step, is not refused by the server.
+
+<!-- ont: action.cut-slice@2b0910, derived.gap@14d3ee, derived.next-slice@187668, derived.slice-done@debd06 -->
+### Here the work is cut by statements, not by slices
+
+The chain the guard holds proves that a task's statement was reviewed and approved and that its result was accepted against it; it does not prove that a ticket has the limits and permissions of its template, that a slice was taken from `--gap` and `--next`, or that a ticket was closed only on `SLICE_DONE` (D-182). In this repository the work is cut by the statements of tasks: every concept but one is implemented, the one goal left is in a ticket and the later tickets hold findings put off, so no slice is cut or closed on the usual path. In a project that adopts the approach this step is usual, and its proof is the end-to-end check of a project made from the templates.
 
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet

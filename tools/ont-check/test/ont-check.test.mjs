@@ -739,6 +739,19 @@ test("[check.agent-rules.unknown-entry] fails on an entry the agent instructions
   assert.match(r.out, /superseded decision entries the agent instructions cite \(cite the entry in force\) \(1\):\n {2}AGENTS\.md: D-04, superseded by D-17\n/);
 });
 
+test("[check.agent-rules.skills-checked] the approach checks the instructions of its skills, and a skill that cites a superseded entry fails the check", () => {
+  const approach = JSON.parse(readFileSync(fileURLToPath(new URL("../../../ont.config.json", import.meta.url)), "utf8"));
+  for (const f of ["skills/ontology-as-spec/SKILL.md", "skills/change-review/SKILL.md"]) assert.ok(approach.agentInstructions.includes(f), f);
+  const r = run((p, dir) => {
+    p("ont.config.json", '"agentInstructions": ["AGENTS.md"],', '"agentInstructions": ["AGENTS.md", "skills/review/SKILL.md"],');
+    mkdirSync(join(dir, "skills/review"), { recursive: true });
+    writeFileSync(join(dir, "skills/review/SKILL.md"), "# Review\n\nThere is no ceiling of rounds (D-04).\n");
+    p("decisions.md", "## Tentative", entry("17", ["Supersedes: D-04", "Decision: renewal is shown differently."]));
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /superseded decision entries the agent instructions cite \(cite the entry in force\) \(1\):\n {2}skills\/review\/SKILL\.md: D-04, superseded by D-17\n/);
+});
+
 test("[check.decision.departure-malformed] fails on an entry that extends or overrides the approach wrongly", () => {
   const ok = run((p) =>
     p("decisions.md", "## Tentative", entry("17", ["Layer: process", "Overrides: `rule.commit-finished-work`", "Decision: agents leave commits to the owner."])),

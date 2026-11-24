@@ -56,7 +56,7 @@ import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.m
 import { renderRounds } from "./review-rounds.mjs";
 import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { goalLineProblem } from "./spend.mjs";
-import { localRecordNotes, recordDirs } from "./merge-gate.mjs";
+import { compareRules, githubRepo, localRecordNotes, recordDirs } from "./merge-gate.mjs";
 import { briefsDir, pendingBriefs } from "./briefs.mjs";
 import { sealed } from "./seal.mjs";
 import { PERFORMERS, outsideRecord as outsideRecordText } from "./manual-runs.mjs";
@@ -1590,8 +1590,30 @@ if (cfg.reviewRounds) {
     const statement = file ? readStatement(file) : null;
     // The spend from the session logs first, where the configuration counts it so (D-169).
     const spendNow = spendOf({ cfg, task, statement, inputs: { rounds, records } });
-    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement, malformed, gatesFrom, head, spendNow, snapshots: records.snapshots, pending });
-    console.log(st.lines.join("\n"));
+    // The rules of main on GitHub compared with the rule file, every field, with the executor's gh, before
+    // each step (inv.rules-match-file, D-182): a difference is the question to the owner; where they cannot
+    // be compared, a line says why, and the next action stays.
+    // ont: inv.rules-match-file, action.compare-rules
+    const rulesNow = (() => {
+      if (!cfg.mergeGate?.rules) return null;
+      const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim();
+      const repo = top ? githubRepo(top) : null;
+      if (!repo) return { line: `RULES ${task}: rules not compared: the clone has no remote origin on GitHub` };
+      let file;
+      try {
+        file = JSON.parse(readFileSync(cfg.mergeGate.rules, "utf8"));
+      } catch (e) {
+        return { line: `RULES ${task}: rules not compared: the rule file cannot be read: ${e.message}` };
+      }
+      const r = compareRules({ rules: file, repo, fields: "all" });
+      if (r.drift.length) return { line: `RULES ${task}: the rules of main on ${repo} differ from the rule file: ${r.drift.join("; ")}`, drift: r.drift };
+      if (r.unread.length) return { line: `RULES ${task}: rules not compared: ${r.unread.join("; ")}` };
+      return { line: `RULES ${task}: the rules of main on ${repo} are the rule file's, ${r.read.length} fields${r.notRead.length ? `; not read: ${r.notRead.join("; ")}` : ""}` };
+    })();
+    const st = taskState({ rounds, spend: records.spend, done: records.done, approvals: records.approvals, task, defaults: cfg.budget, statement, malformed, gatesFrom, head, spendNow, snapshots: records.snapshots, pending, rules: rulesNow?.drift ? { drift: rulesNow.drift } : null });
+    const shown = [...st.lines];
+    if (rulesNow) shown.splice(shown.length - 1, 0, rulesNow.line);
+    console.log(shown.join("\n"));
     report("task records that do not say what --task found", st.errors);
   }
 } else if (flag("--rounds") > 0 || flag("--task") > 0) fail("--rounds and --task need reviewRounds in the configuration");
