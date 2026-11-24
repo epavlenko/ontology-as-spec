@@ -89,16 +89,21 @@ Checks: <n> of the project, <m> of the approach
 | ----- | ------- | ------------------ |
 | check.loan.renew-explained | fail | help/borrowing.md:12 says renewal is always possible; THEN expects the reason it is refused |
 
-Findings:
-- <what misleads or breaks, file:line, the check or rule> · usual | rare
+| Class | Weight | Origin | Path | Fixability | Evidence |
+| ----- | ------ | ------ | ---- | ---------- | -------- |
+| <class of problem> | important or nit | change or before | usual: <the step it breaks> or rare | fixable or not fixable | <what misleads or breaks, file:line, the check or rule> |
 
+Acceptance: clean | refused: <why>   (a review of the result only)
+- <class> · important | nit · change | before   (under refused, one line for each item not met)
 Condition: holds | not yet   (a review of the result only)
 Verdict: ready to merge | fix first | cannot tell (with what is missing)
 ```
 
+The findings are the rows of the table of findings, one finding a row, in its six columns: its class, its weight, `change` when it is of this change or `before` when it was there before it, your mark `usual` with the step or `rare`, whether it can be fixed, and its evidence. On a review of the result the verdict of acceptance is `Acceptance: clean`, or `Acceptance: refused` with why on the same line and, directly under it, a line for each item of the approved statement the result does not meet; a refusal with no line under it cannot be recorded.
+
 `ready to merge` only when no check fails and no finding of this change remains. A check that already failed on the base and that the change does not touch is an earlier problem: report it, and do not let it block. A `not run` check does not block on its own, but say who has to run it before the merge. A verdict given in an earlier round of the same change still counts while the stamp `--review` prints for its check is the stamp it was given at and the commits since change none of the files you read for it. Give a new verdict to the checks whose stamp or files changed, and always read the new diff for errors and security. The one exception is the range of fixes after the narrow round that follows a confirmed condition, as step 5 says (`rule.fixes-held-by-tests`, D-164, D-165): there a fail or a finding of the usual path of the one issue of verdicts on the diff of the fixes holds no merge once the author fixed it with a test, the verdicts of that issue count though the files you read for them change by those fixes, and you read the diff of the fixes for errors and security once, in that issue, not again on each later fix.
 
-<!-- ont: ent.manual-run@1f6ae3, rule.run-recorded@23e83d, action.record-verdicts@dd6ebf, rule.records-english-in-repo@326bd9 -->
+<!-- ont: ent.manual-run@1f6ae3, rule.run-recorded@23e83d, action.record-verdicts@51eb82, rule.records-english-in-repo@326bd9 -->
 ## 4. Record each verdict
 
 If the configuration has `verdicts` (or its earlier name `manualRuns`), put your table of verdicts in a file outside the change, with a line `By: <your model and provider>` above it, and let the tool write the records from it (D-100). Write the table with paths inside the repository only, such as `tools/ont-check/lib.mjs:12`, whatever the rest of your answer is: its rows are recorded in the repository, and the tool refuses a table with an absolute path or a path that leaves the repository by `..`. Where the configuration sets `records.latinOnly`, as a project whose records are in English does, write it in English: the tool then refuses a letter of another script too. Name what you keep outside in words, such as "the reviewer's log, kept outside the repository"; a URL of the web, http or https, is allowed, while a URL of another scheme, such as `file:`, `mailto:` or a link into a local app, with or without `//`, is refused; so is any path with `..` in it, so name a file from the repository's root, such as `docs/README.md`, never `docs/../docs/README.md`. Put the `By:` value on the `By:` line itself (`rule.records-english-in-repo`, D-151).
@@ -125,7 +130,7 @@ Evidence such as screenshots or data stays outside the repository; the record on
 <!-- ont: ent.review-round@21a841, rule.round-recorded@649657, derived.next-round@324b74, rule.rounds-converge@fe1007, rule.findings-filed@a0eba5 -->
 ## 5. Record the round
 
-If the configuration has `reviewRounds`, the author writes a record of each round of review in that directory, one file per round, and `ont-check --rounds` says what follows it:
+If the configuration has `reviewRounds`, no one writes the record of a round by hand (D-168). The author gives you the lines `round.mjs brief` printed at the top of your brief, `Task:`, `Step:`, `Narrow:`, `Number:`, `Statement-hash:`, `Goal:` where the statement names one, `Budget-new-input:`, `Budget-output:`, `Budget-reserve:`, `Commits:`, for a result `Done:`, and `Brief-time:`. Begin your reply with those lines word for word, then `By: <your model and provider>`, then your answer in the form of step 4: `round.mjs record` reads its line `Condition:`, its line `Acceptance: clean`, or `Acceptance: refused` with the lines of the items not met under it, and the rows of the table of findings by their first three columns, class, weight and origin, the others being your advice; `Acceptance: pass` and `Acceptance: fail` and a table of those three columns alone are read the same (D-172). The author records it with `round.mjs record`, which refuses a reply that does not begin with the brief, adds the author's triage of each finding and writes the record with its seal in that directory, one file per round, and `ont-check --rounds` says what follows it:
 
 ```
 Task: <the task, named the same in every round>
@@ -134,7 +139,9 @@ Narrow: true | false
 Number: <the round's number in its step, full and narrow rounds counted apart>
 Time: <UTC time to the second>
 Commits: <the commits reviewed>
+Done: <the record of done reviewed, on a review of the result>
 By: <the reviewer's model and provider>
+Brief-time: <when the brief was given>
 Tokens-new: <if known>
 Tokens-cached: <if known>
 Tokens-out: <if known>
@@ -149,8 +156,8 @@ There is no ceiling of rounds (D-152). The rounds go on while each finds fewer i
 
 After the one narrow round that follows a confirmed condition there is no further round and no question to the owner, but on a finding `not fixable` or a spent budget. What follows it, a merge at once after a clean one, or the fixes, one issue of verdicts on their diff, which you may be asked to give (`ont-check --review <the narrow round's commit> --record`, the check of errors in code given there once, its findings marked `usual` or `rare`, and its verdicts counting for the merge though the fixes change the files you read), and a record of done after one with findings, is said in one place, `docs/parts/agent-rules.md`, "After the narrow round" (`rule.ready-after-clean-round`, `rule.fixes-held-by-tests`, D-164, D-165).
 
-<!-- ont: edge.review-round.statement@914220, field.review-round.contribution@51b2a4, field.review-round.acceptance@ca2653, rule.acceptance-against-approved@cd1e90, rule.budget-before-next@603840 -->
-A round also gives, when known, `Start:` and `Contribution: <provider> · <session or task ID>`, which go together, and on a review of a statement or of a result `Statement-hash: <SHA-256 of the statement's file>`, the version read. A round of either step at or after `reviewRounds.gatesFrom` always gives it, or it cannot be read, and the version of a round of the result is the one approved when the round ends: a round of an older version after a newer approval is a late record, which blocks every task until it is moved or removed (D-152). On a review of a result, after the executor's record of done, give the verdict of acceptance beside your verdict on merging: check the result against the approved version of the statement, each item of what to do and of done when and the owner's sources, and write `Acceptance: clean`, or `Acceptance:` and a finding line for each item the result does not meet (D-152). Such a round names on `Commits:` the commit the record of done is of, the last of a range; the check refuses the acceptance otherwise (D-164). The round is clean only when both are, and a round of the result that gives no verdict of acceptance does not end the step (D-164). Before each round the author runs `ont-check --task <task> --statement <file>`; when it says the budget is exhausted, the round waits for the owner (D-108). Its line `NEXT <task>:`, the same in `--rounds`, is the task's one next action; every other line says a state. Its line `REPORT` names the marks of half the limit and the limit that the spend has passed; the author reports them to the owner and does what `NEXT` says.
+<!-- ont: edge.review-round.statement@914220, field.review-round.contribution@51b2a4, field.review-round.acceptance@ca2653, rule.acceptance-against-approved@cd1e90, rule.budget-before-next@367985 -->
+A round also gives, when known, `Start:` and `Contribution: <provider> · <session or task ID>`, which go together, and on a review of a statement or of a result `Statement-hash: <SHA-256 of the statement's file>`, the version read. A round of either step at or after `reviewRounds.gatesFrom` always gives it, or it cannot be read, and the version of a round of the result is the one approved when the round ends: a round of an older version after a newer approval is a late record, which blocks every task until it is moved or removed (D-152). On a review of a result, after the executor's record of done, give the verdict of acceptance beside your verdict on merging: check the result against the approved version of the statement, each item of what to do and of done when and the owner's sources, and write `Acceptance: clean`, or `Acceptance:` and a finding line for each item the result does not meet (D-152). Such a round names on `Commits:` the commit the record of done is of, the last of a range; the check refuses the acceptance otherwise (D-164). The round is clean only when both are, and a round of the result that gives no verdict of acceptance does not end the step (D-164). Before each round the author runs `ont-check --task <task> --statement <file>`; when it says the budget is exhausted, the round waits for the owner (D-108). Its line `NEXT <task>:`, the same in `--rounds` but for the actions by the budget, which `--rounds` does not name where spend is counted from the logs, is the task's one next action; every other line says a state. Its line `REPORT` names the marks of half the limit and the limit that the spend has passed; the author reports them to the owner and does what `NEXT` says.
 
 <!-- ont: -->
 ## Licence

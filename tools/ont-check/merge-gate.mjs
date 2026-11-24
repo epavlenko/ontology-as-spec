@@ -22,7 +22,12 @@
 // ruleset prints the ruleset of the rule file (mergeGate.rules) as the GitHub API takes it.
 // switch-on prints the steps that switch the gate on after the merge of the task that brings it, in their
 // order, each with its calls of gh api, from the rule file (rule.gate-switched-on, D-163).
+// The guard also holds the records of the process (D-167): a record the base holds is never changed or
+// removed, a record the pull request adds is at the head as the commit that added it wrote it, and, where
+// the configuration at the base sets records.sealsFrom, a record it adds whose time is after the start of
+// seals has a valid seal. It prints one code for each rule a pull request breaks (field.process-record.refusal-code).
 // ont: ent.merge-gate, field.merge-gate.guard, field.merge-gate.gate-paths, field.merge-gate.rule-file, edge.merge-gate.changes
+// ont: inv.record-sealed, inv.records-immutable, field.process-record.seals-from, field.process-record.refusal-code
 // ont: rule.ci-from-main, inv.gate-change-approved, rule.merge-what-was-checked, rule.main-through-gate, rule.gate-switched-on, rule.fixes-held-by-tests
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -31,10 +36,17 @@ import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gitEnv, loadConfig } from "./lib.mjs";
 import { LATER_DIR, LIMITATIONS_FILE, parseRounds } from "./review-rounds.mjs";
+import { recordTime, sealState, sealsStart } from "./seal.mjs";
 import { approvedHash, fixesRange, parseTaskRecords } from "./tasks.mjs";
 
 // The directory of the records of the process: commits that change only files under it change no gate.
 export const RECORDS_DIR = "reviews/";
+
+// The codes the guard prints, one for each rule a pull request breaks (field.process-record.refusal-code):
+// a gate path changed without an approval; a record added after the start of seals without a seal, or with
+// one that is not its text's; a record of the base, or one the pull request added earlier, changed; and
+// one removed. A gate proof of a refusal names the gate whose code alone is in the guard's output.
+export const GUARD_CODES = ["GATE_PATH_UNAPPROVED", "SEAL_MISSING", "SEAL_WRONG", "RECORD_CHANGED", "RECORD_REMOVED"];
 
 // Whether a path of the repository is a gate path: a pattern ending in "/" names everything under it,
 // and "*" any name within one part of a path; any other pattern names that path alone.
@@ -210,6 +222,119 @@ export function comparedWith({ cfg, top, reviewed, head }) {
   }
 }
 
+// The directories of the records of the process, from the root of the repository, each ending in "/": the
+// rounds, the task records and the verdicts the configuration names (D-167).
+export const recordDirs = (cfg, top) =>
+  [cfg.reviewRounds?.dir, cfg.taskRecords?.dir, cfg.manualRuns?.dir].filter(Boolean).map((d) => `${relative(top, d).split("\\").join("/")}/`);
+// Whether a path is a record of the process: a Markdown file under one of those directories, never README.md.
+export const isRecordPath = (p, dirs) => dirs.some((d) => p.startsWith(d)) && p.endsWith(".md") && !p.endsWith("/README.md");
+const blobId = (top, commit, path) => out(git(top, "rev-parse", "--verify", "--quiet", `${commit}:${path}`))?.trim() ?? null;
+
+// What the pull request from b to h, with merge base mb, does to the records of the process that a rule of
+// D-167 refuses, each with its code (inv.records-immutable, inv.record-sealed): a record of the base
+// changed or removed; a record added by a commit of the pull request that is not at the head as that commit
+// wrote it, or is gone; and, where the configuration at b sets records.sealsFrom, a record the pull request
+// adds whose Time: is after the start of seals with no seal, or with one that is not its text's. The seal is
+// computed by this code, main's, never the pull request's.
+export function recordProblems({ cfg, top, b, h, mb }) {
+  const dirs = recordDirs(cfg, top);
+  if (!dirs.length) return [];
+  const problems = [];
+  const status = lines0(must(top, "diff", "--no-renames", "--name-status", "-z", mb, h, "--", ...dirs));
+  const added = [];
+  for (let i = 0; i < status.length; i += 2) {
+    const [st, path] = [status[i], status[i + 1]];
+    if (!isRecordPath(path, dirs)) continue;
+    if (st === "M" || st === "T") problems.push({ code: "RECORD_CHANGED", path, why: "a record of the base is changed: a record is never edited, a new one is written" });
+    else if (st === "D") problems.push({ code: "RECORD_REMOVED", path, why: "a record of the base is removed" });
+    else if (st === "A") added.push(path);
+  }
+  // Every record a commit of the pull request added, with the first commit that added it.
+  const firstAdd = new Map();
+  let commit = null;
+  for (const line of must(top, "log", "--no-renames", "--diff-filter=A", "--format=@%H", "--name-only", h, `^${b}`, "--", ...dirs).split("\n")) {
+    if (line.startsWith("@")) commit = line.slice(1);
+    else if (line && isRecordPath(line, dirs)) firstAdd.set(line, commit);
+  }
+  for (const [path, c] of firstAdd) {
+    const now = blobId(top, h, path);
+    if (!now) problems.push({ code: "RECORD_REMOVED", path, why: `added by commit ${c.slice(0, 12)} of the pull request and removed since` });
+    else if (now !== blobId(top, c, path)) problems.push({ code: "RECORD_CHANGED", path, why: `not as commit ${c.slice(0, 12)} of the pull request added it: a record is never edited, a new one is written` });
+  }
+  const cfgPath = relative(top, cfg.file).split("\\").join("/");
+  const start = sealsStart(top, b, cfgPath);
+  if (start)
+    for (const path of added) {
+      const text = must(top, "cat-file", "blob", `${h}:${path}`);
+      const time = recordTime(text);
+      if (time && time <= start) continue;
+      const s = sealState(text);
+      if (s.state === "missing") problems.push({ code: "SEAL_MISSING", path, why: `written after seals start (${start}) with no seal: records of the process are written by the tool's writers` });
+      else if (s.state === "wrong") problems.push({ code: "SEAL_WRONG", path, why: `${s.why}` });
+    }
+  return problems;
+}
+
+// The branch of main the rule file names in its ruleset, main when none is named, as the clone has it:
+// origin's first, or else its own; null when the clone has neither.
+export function mainRef(cfg, top) {
+  let branch = "main";
+  try {
+    const include = JSON.parse(readFileSync(cfg.mergeGate?.rules ?? "", "utf8"))?.ruleset?.conditions?.ref_name?.include ?? [];
+    const named = include.find((r) => /^refs\/heads\/[^*~]+$/.test(r));
+    if (named) branch = named.slice("refs/heads/".length);
+  } catch {}
+  return [`origin/${branch}`, branch].find((ref) => out(git(top, "rev-parse", "--verify", "--quiet", `${ref}^{commit}`))) ?? null;
+}
+
+// The notes of the full check and of pre-commit on the records of the working tree (D-167): information
+// only, never an error, so that the refusal of a merge for a seal is the guard's alone. A record of HEAD
+// changed or removed in the working tree, and, where the configuration at the base of the pull request sets
+// records.sealsFrom, a record with a time after the start of seals whose seal is missing or wrong. The base
+// is the one the guard reads, pull_request.base.sha, the tip of main, never HEAD, so that a branch that
+// brings the key is told of no refusal the guard would not give (D-181).
+export function localRecordNotes(cfg) {
+  const top = out(git(cfg.base, "rev-parse", "--show-toplevel"))?.trim();
+  if (!top || !out(git(top, "rev-parse", "--verify", "--quiet", "HEAD"))) return [];
+  const dirs = recordDirs(cfg, top);
+  if (!dirs.length) return [];
+  const notes = [];
+  const st = git(top, "status", "--porcelain", "--no-renames", "-z", "--", ...dirs);
+  for (const entry of lines0(st.stdout)) {
+    const [code, path] = [entry.slice(0, 2), entry.slice(3)];
+    if (!isRecordPath(path, dirs)) continue;
+    if (/M/.test(code)) notes.push(`${path}: a record of HEAD is changed in the working tree (the guard refuses it, RECORD_CHANGED)`);
+    if (/D/.test(code)) notes.push(`${path}: a record of HEAD is removed in the working tree (the guard refuses it, RECORD_REMOVED)`);
+  }
+  const cfgPath = relative(top, cfg.file).split("\\").join("/");
+  const main = mainRef(cfg, top);
+  const base = main && out(git(top, "merge-base", "HEAD", main)) ? main : null;
+  if (!base) {
+    if (sealsStart(top, "HEAD", cfgPath)) notes.push(`no base of the pull request is found, ${main ? `HEAD and ${main} have no common commit` : "the clone has no main branch"}: which records the guard refuses for their seals is not said`);
+    return notes;
+  }
+  const start = sealsStart(top, base, cfgPath);
+  if (start)
+    for (const dir of dirs) {
+      const listed = lines0(git(top, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", dir).stdout).filter((p) => isRecordPath(p, dirs));
+      for (const path of listed) {
+        // A record main holds is not one the pull request adds: the guard reads only those for a seal.
+        if (blobId(top, base, path)) continue;
+        let text;
+        try {
+          text = readFileSync(join(top, path), "utf8");
+        } catch {
+          continue;
+        }
+        const time = recordTime(text);
+        if (time && time <= start) continue;
+        const s = sealState(text);
+        if (s.state !== "valid") notes.push(`${path}: ${s.why}, after seals start (${start}); the guard refuses it (${s.state === "missing" ? "SEAL_MISSING" : "SEAL_WRONG"})`);
+      }
+    }
+  return notes;
+}
+
 // The guard: what the pull request from base to head changes among the gate paths, and which of those
 // changes no record of a gate change approves, with the reason. A Git command that fails is an error.
 export function guard({ cfg, base, head }) {
@@ -225,11 +350,12 @@ export function guard({ cfg, base, head }) {
     if (!mb) return { errors: [`the base ${b} and the head ${h} have no common commit`] };
     const changed = changedBetween(top, mb, h);
     const gated = changed.filter((p) => isGatePath(p, cfg.mergeGate.paths));
-    if (!gated.length) return { changed, gated, approved: [], refused: [], notes: [] };
+    const records = recordProblems({ cfg, top, b, h, mb });
+    if (!gated.length) return { changed, gated, approved: [], refused: [], notes: [], records };
     // The records at the head, read from Git's objects as data.
     const at = recordsAt({ cfg, top, head: h, tmp });
     if (at.errors) return { errors: at.errors };
-    const { rounds, records, recordsPath } = at;
+    const { rounds, records: atHead, recordsPath } = at;
     // The commits of the pull request by their parents, so that the commit right after a named one is found.
     const children = new Map();
     for (const line of must(top, "rev-list", "--parents", h, `^${b}`).split("\n").filter(Boolean)) {
@@ -238,18 +364,20 @@ export function guard({ cfg, base, head }) {
     }
     const notes = [];
     const valid = [];
-    for (const g of records.gateChanges) {
+    // Of the records of a gate change the pull request adds, the latest by time for each task and item: an
+    // earlier one, written before a later commit outside reviews/, is kept, never edited, and speaks no more.
+    const added = atHead.gateChanges.filter((g) => changed.includes(`${recordsPath}/${g.file}`));
+    const latest = added.filter((g) => !added.some((o) => o !== g && o.task === g.task && o.item === g.item && (o.time > g.time || (o.time === g.time && o.file > g.file))));
+    for (const g of latest) {
       const file = `${recordsPath}/${g.file}`;
-      // Only a record the pull request adds speaks for it; one already on main approved an earlier change.
-      if (!changed.includes(file)) continue;
       const why = [];
-      const approved = approvedHash(rounds, g.task, null, records.approvals);
+      const approved = approvedHash(rounds, g.task, null, atHead.approvals);
       if (approved !== g.statementHash) why.push(`version ${g.statementHash.slice(0, 12)} of the statement of ${g.task} is not approved in force${approved ? ` (${approved.slice(0, 12)} is)` : ""}`);
       why.push(...unbound(top, { g, file, b, h, mb, children }));
       if (why.length) notes.push(`${g.file}: approves nothing: ${why.join("; ")}`);
       else valid.push(g);
     }
-    const malformed = records.malformed.filter((m) => /gate-change/.test(m));
+    const malformed = atHead.malformed.filter((m) => /gate-change/.test(m));
     notes.push(...malformed.map((m) => `${m} (cannot be read)`));
     const approved = [];
     const refused = [];
@@ -258,7 +386,7 @@ export function guard({ cfg, base, head }) {
       if (by.length) approved.push({ path: p, by: by.map((g) => g.file) });
       else refused.push({ path: p, why: valid.length ? "no record of a gate change of the pull request names it" : "no record of a gate change of the pull request approves it" });
     }
-    return { changed, gated, approved, refused, notes };
+    return { changed, gated, approved, refused, notes, records };
   } catch (e) {
     if (e instanceof GitError) return { errors: [e.message] };
     throw e;
@@ -398,6 +526,12 @@ function main(argv) {
     if (r.refused.length) {
       lines.push(`ERROR · gate paths changed without an approval (${r.refused.length}):`, ...r.refused.map((x) => `  ${x.path}: ${x.why}`));
       lines.push("A change of a gate path needs a record of a gate change in the pull request, for the approved version of its task's statement, naming the path and the commit after which only records follow (D-158).");
+    }
+    if (r.records.length) lines.push(`ERROR · records of the process the pull request writes by hand, edits or removes (${r.records.length}):`, ...r.records.map((x) => `  ${x.path}: ${x.why}`));
+    // One code for each rule broken, once, on a line of its own (field.process-record.refusal-code).
+    const codes = [...(r.refused.length ? ["GATE_PATH_UNAPPROVED"] : []), ...new Set(r.records.map((x) => x.code))];
+    if (codes.length) {
+      for (const c of GUARD_CODES.filter((c) => codes.includes(c))) lines.push(`CODE ${c}`);
       lines.push("GATE_REFUSED");
       return say(lines), 1;
     }

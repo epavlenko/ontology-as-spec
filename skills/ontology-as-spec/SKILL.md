@@ -141,7 +141,7 @@ A ticket is a slice of the gap: an `IDs:` line, a `Checks:` line, what is out of
 
 Later parts, when the product has them: the mockup, the first implementation of the interface, written from the ontology, with each element labelled by `data-ont` and a map that links elements to concepts, and anchoring help pages so the check says which sections to reread after a definition changed. Both are described in `docs/parts/` of the repository.
 
-<!-- ont: rule.start-from-ids@8804d9, rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@8f811c, rule.work-under-approval@619f52, rule.budget-before-next@603840 -->
+<!-- ont: rule.start-from-ids@8804d9, rule.ontology-changes-first@a547a8, rule.reviewed-before-merge@8f811c, rule.work-under-approval@619f52, rule.budget-before-next@367985 -->
 ## Rules for you, the agent
 
 - **Start every task from the IDs it touches.** If a concept you need has no ID, propose its definition row, in its entity's table, before writing code or markup.

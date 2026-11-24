@@ -7,6 +7,12 @@ import { createHash } from "node:crypto";
 import { basename } from "node:path";
 import { listFiles, read } from "./lib.mjs";
 import { stampOf } from "./docs.mjs";
+import { sealed } from "./seal.mjs";
+
+// Who wrote a verdict record (D-171): the reviewer, by --review --record, or the run of a check of run
+// outside a review, by --run-record; a record without the line is the reviewer's, as before.
+// ont: field.manual-run.origin
+export const ORIGINS = ["review", "run"];
 
 export const VERDICTS = ["pass", "fail", "not-run", "not-applicable"];
 // Who carried a check out (D-157), given on a pass or a fail only.
@@ -103,7 +109,7 @@ export function parseRuns(dir, known, opts = {}) {
     const text = read(f);
     const pairs = text
       .split("\n")
-      .map((l) => l.match(/^(Check|Time|Commit|Stamp|Verdict|By|Performer|Evidence):\s*(.*?)\s*$/))
+      .map((l) => l.match(/^(Seal|Check|Time|Commit|Stamp|Verdict|By|Performer|Evidence|Origin):\s*(.*?)\s*$/))
       .filter(Boolean)
       .map((m) => [m[1].toLowerCase(), m[2].replace(/^`|`$/g, "")]);
     const fields = Object.fromEntries(pairs);
@@ -123,12 +129,14 @@ export function parseRuns(dir, known, opts = {}) {
       // ont: inv.manual-runs-well-formed
       fields.performer !== undefined && VERDICTS.includes(fields.verdict) && fields.verdict !== "pass" && fields.verdict !== "fail" && `a performer is given on a pass or a fail only, not on ${fields.verdict}`,
       fields.performer === "person" && !fields.evidence && "performer person without the evidence that names the person",
+      fields.origin !== undefined && !ORIGINS.includes(fields.origin) && `origin ${fields.origin || "(none)"} is not review or run`,
+      fields.origin === "run" && !/^[0-9a-f]{7,40}$/.test(fields.commit ?? "") && `a record of a run outside a review names the commit ${fields.commit ?? "(none)"}, not a commit: a run is made on a committed state`,
       !named && "the name is not <UTC time>-<check>-<4 characters>.md, such as 20261105T143000Z-check.loan.overdue-in-real-time-k3f9.md",
       named && (named[2] !== fields.check || named[1] !== compact(fields.time)) && "the name does not match the record's check and time",
       ...outsideRecord(text, 1, opts),
     ].filter(Boolean);
     if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
-    else runs.push({ file: name, ...fields });
+    else runs.push({ file: name, ...fields, origin: fields.origin ?? "review" });
   }
   const seen = new Map();
   const ambiguous = [];
@@ -145,9 +153,12 @@ export function parseRuns(dir, known, opts = {}) {
 // stamp changed by a fix of the range (rule.fixes-held-by-tests, D-165). not-run and not-applicable are
 // not runs.
 // ont: rule.fixes-held-by-tests
-export const currentRun = (runs, id, stamp, held = () => false) =>
+// A record of a run outside a review, Origin: run, is current only while fresh(run) holds: no file outside
+// the directories of records of the process changed since its commit, in a commit or in the working copy
+// (D-171), so that a change of the mockup or of the map, whatever the stamp says, makes it no longer current.
+export const currentRun = (runs, id, stamp, held = () => false, fresh = () => true) =>
   runs
-    .filter((r) => r.check === id && (r.stamp === stamp || held(r)) && (r.verdict === "pass" || r.verdict === "fail"))
+    .filter((r) => r.check === id && (r.stamp === stamp || held(r)) && (r.verdict === "pass" || r.verdict === "fail") && (r.origin !== "run" || fresh(r)))
     .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file))
     .at(-1);
 
@@ -165,7 +176,11 @@ const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
 // A cell of a row: anything but a pipe, an escaped one included; read without its escapes and backticks.
 const CELL = String.raw`(?:\\.|[^|\\])*?`;
 const cell = (x) => (x ?? "").replace(/\\\|/g, "|").replace(/^`|`$/g, "");
-export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], source = "the table", latinOnly = false }) {
+// runFresh(run) gives why a record of a run outside a review cannot be carried, or null (D-171): it is
+// carried as a verdict of the reviewer only when its stamp is the check's, its commit is committed, and no
+// file outside the directories of records changed between it and the head of the review, nor differs in
+// the working copy; the files read are not asked for, since the rule is stricter than they are.
+export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], runFresh = () => "the run cannot be compared", source = "the table", latinOnly = false }) {
   // The reviewer is named on the By: line itself; a value on the next line is no value (D-151).
   const by = text.match(/^By:[ \t]*(\S.*?)[ \t]*$/m)?.[1];
   const lines = text.split("\n");
@@ -200,7 +215,10 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
       if (!run) problems.push(`${r.check}: carries ${file || "(no record)"}, which is no record of a run`);
       else if (run.check !== r.check) problems.push(`${r.check}: carries ${file}, a record of ${run.check}`);
       else if (run.stamp !== stamp(c)) problems.push(`${r.check}: carries ${file}, given at stamp ${run.stamp}, and the check's stamp is now ${stamp(c)}`);
-      else if (!files.length) problems.push(`${r.check}: carries ${file} without the files read for it`);
+      else if (run.origin === "run") {
+        const why = runFresh(run);
+        if (why) problems.push(`${r.check}: carries ${file}, a run outside a review, and ${why}`);
+      } else if (!files.length) problems.push(`${r.check}: carries ${file} without the files read for it`);
       // A verdict given on changes not yet committed read files no commit holds, so nothing can show they
       // are the same now; it is given again.
       else if (/\+working-tree$/.test(run.commit)) problems.push(`${r.check}: carries ${file}, given on uncommitted changes (${run.commit}), which no commit holds to compare with`);
@@ -219,7 +237,8 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
       const tail = createHash("sha256").update(`${r.check}|${time}|${by}`).digest("hex").replace(/[^a-z]/g, "").slice(0, 4).padEnd(4, "x");
       return {
         file: `${compact(time)}-${r.check}-${tail}.md`,
-        text: [`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${r.verdict}`, `By: ${by}`, ...(r.verdict === "pass" || r.verdict === "fail" ? [`Performer: ${r.performer || "agent"}`] : []), ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), ""].join("\n"),
+        // Written with its seal and Origin: review (D-167, D-171).
+        text: sealed([`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${r.verdict}`, `By: ${by}`, ...(r.verdict === "pass" || r.verdict === "fail" ? [`Performer: ${r.performer || "agent"}`] : []), ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), "Origin: review", ""].join("\n")),
       };
     });
   return { problems, records, carried: rows.length - records.length };

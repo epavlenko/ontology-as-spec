@@ -35,7 +35,7 @@ A mockup shows a state: overdue, reserved, suspended. It cannot show a loan beco
 
 The check confirms that the files named in the table exist and which of them name the concept in an `ont:` comment, not that they implement it. For the classes that tests must cover, a tagged test is required as well. For the other classes, a row is a claim that a reviewer confirms.
 
-<!-- ont: field.task-statement.budget@86d641, derived.task-budget@43edc0 -->
+<!-- ont: field.task-statement.budget@86d641, derived.task-budget@39b3b5 -->
 ### A task's reserve is read with two decimal digits
 
 A statement's `Budget-reserve:` and the configuration's `budget.reserve` take at most two digits after the point, so the cap of a task's budget is exact. The configuration is JSON, and its parser rounds a long fraction to a number before the tool reads it, so a value that rounds to two digits passes the check. A record of done that `done.mjs` itself wrote before the rule, with a reserve of three digits such as `1.125`, is refused by the check even beside a later, correct one. If the approved statement still gives that reserve, correct the statement and have the corrected version approved first; then remove the old record, record done again, and give again in a new round the acceptance given for it. An `Overspend:` line in the earlier text is refused and written again. Each arises from a configuration edited by hand or a record the earlier tool wrote (D-150).
@@ -75,7 +75,7 @@ A round of the result whose verdict of acceptance names a commit that is not the
 
 The tool looks up the file a filed finding names, and the class it holds, in the working tree of the repository, not in the commit of the round's record. A filing written but not yet committed, or removed after the commit, is read as the working tree has it (D-164).
 
-<!-- ont: derived.budget-report@63246a -->
+<!-- ont: derived.budget-report@514ac1 -->
 ### The tool prints the marks of the budget, not that they were sent
 
 `--task` prints a line `REPORT` with the marks of half the limit and the limit that the spend has passed, each run it is given. It keeps no record of which marks were reported: the executor sends the owner one report with every mark not yet reported, and the tool does not see that it was sent, nor stops when it was not (D-152).
@@ -150,7 +150,7 @@ The pin command writes the commit of the approach into a file of information abo
 
 `pin.mjs` writes the file of information about the copy, `copy.json`, into the tool's directory on every update. A project that already keeps a file of its own by that name there, even listed among the pin's own files, loses it to the update (class "project file overwritten by the pin"). The name is the tool's; a project that needs such a file keeps it elsewhere.
 
-<!-- ont: action.record-verdicts@dd6ebf -->
+<!-- ont: action.record-verdicts@51eb82 -->
 ### The recorder takes some cells its reader refuses
 
 The recorder of a reviewer's table checks that a row of a run given to a person has evidence, but a cell of only spaces in backticks passes it, and the record then fails the check when it is read (class "recorder accepts evidence its reader treats as empty"). A row whose verdict is misspelt with a doubled hyphen, such as `not--run`, is not read as a row at all, so a duplicate or an unlisted check written that way is dropped instead of refused (class "malformed verdict row bypasses validation"). Both need a cell or a spelling no reviewer writes by habit, and the check of the records catches the first.
@@ -185,7 +185,7 @@ After the narrow round that follows a confirmed condition, the tool gives the ra
 
 After the narrow round, the acceptance of the result is the narrow round's verdict together with a later record of done. The rule on missing commits keeps an error for a clean acceptance given after the latest record of done and treats other rounds as information, so a clone that lacks the start commit the narrow round names reads that round without an error (class "missing-commit decision excludes the narrow round that now supplies acceptance"). It needs a clone with the record of done but not the narrow round's start commit; the check of the repository that has both is unchanged.
 
-<!-- ont: derived.current-run@15f782, rule.fixes-held-by-tests@4d76f6 -->
+<!-- ont: derived.current-run@b03841, rule.fixes-held-by-tests@4d76f6 -->
 ### Required verdicts and the fixes after the narrow round
 
 Where a project sets `verdicts.require`, a fix after the narrow round that changes the stamp of a check can be refused by the pre-commit check before the fix is in the range of fixes the exception covers (class "required verdicts still block the first fix commit"). This repository does not set `verdicts.require`; a project that does commits such a fix with the check of required verdicts reported and not refused, or gives the one verdict pass first.
@@ -194,6 +194,50 @@ Where a project sets `verdicts.require`, a fix after the narrow round that chang
 ### Three rare cases of the path after the narrow round
 
 When a narrow round has findings but no verdict of acceptance and the acceptance is given again on the same result, the reader takes the new record as the last round and can lose the narrow round's findings from the next action (class "reissued acceptance drops the narrow-round findings"); it needs a reviewer who leaves the verdict of acceptance out, and the executor reads the narrow round's findings from its record. Where `verdicts.require` is set, a clean update with main after the record of done compares the head with that record's commit directly and reports a verdict of the one issue as missing (class "clean update from main invalidates verdicts in the fix range"); this repository reports it as information. The record of done named its commands and their results, not the rows of the catalogue a task changed (class "done omits the catalogue changes required for acceptance"); since D-166 it carries them, and whatever else the statement asks it to name, under `Evidence:`, which `done.mjs --evidence` writes (`field.task-result.evidence`). The faults of the tool among these cases are filed in [ticket 16](../issues/0016-faults-of-the-range-of-fixes.md), as `rule.findings-filed` routes a fault of the tool, rather than kept here (class "tool faults filed as limitations"). A record of a round of the review of a result says which of its findings the executor holds of the usual path, but the step each breaks only where its notes say it (class "usual-path triage without the step in the round record"); the record of done can name them in its evidence.
+
+<!-- ont: inv.record-sealed@8b4426, rule.records-by-tool@1db488 -->
+### A seal does not stop a deliberate forgery
+
+A record of the process carries a seal, the hash of its text after a prefix every copy of the tool knows, so an agent with access to the files can compute the seal of a record it wrote by hand, and an agent with the rights of an administrator can change the rules on GitHub. The seal holds the usual path: records the writers wrote, steps the writers refused, and no record edited after its commit. The owner accepted that it is no more (his answer to question 1036, a); keys and separate accounts for agents, option b of that question, are not part of the approach (D-167). A writer that reads the registry of the owner's answers or the session logs trusts what the command and the files of the environment give it.
+
+<!-- ont: -->
+### Verdicts are stamped when they are recorded
+
+`--review --record` writes the verdicts of a reviewer's table with the commit and the stamps of the working tree when it runs, not of the moment the reviewer was given the change (class "verdicts still use the snapshot at recording time"). On the usual path the verdicts are recorded right after the review, and the commits in between hold only records of the process, which change no stamp; a verdict recorded after the code changed would carry the wrong snapshot. The executor records the verdicts before any further change of code.
+
+
+<!-- ont: -->
+### Spend of a task counts only the sessions given to it
+
+The tool sums spend from the session logs afresh, from the start of the goal. A task's spend is the sessions whose first message names it: the reviewers of its rounds and the agents it was handed to. The executor's own work in a session shared by several tasks is counted to the goal, where the hard stop is, not to a task; and a round recorded before the round writer has no spend of its own, so its payoff is not known (class "historical rounds still share an attribution key"). Spend counts from the unit's first brief of a round, or, for rounds before the round writer, from its first round, so the drafting of a statement before its first review is not counted. For the rounds before the round writer the count starts at the first round's record, after its reviewer has worked (class "the first legacy review drops out of the goal budget"); one review of the goal is left out. A fresh reader of a run guide is given only the section, not the task, so its session is not found as the task's or the goal's (class "blind review spend omitted from the goal total"); it is a short session, and only a change of a run guide asks for it. The snapshot of spend that the writer of a round commits with the round is a record of the process too; a change of it alone would read as a new result to the brief of the next round (class "round-generated spend counting as a new result"), which needs a record of done and a brief made before the fix. The goal's limit stops all its work whatever the shares say. So the executor's work in the goal's shared session can take a task past its own cap while the goal has room (class "shared executor work escapes the task cap"); the goal's cap still stops it.
+
+
+<!-- ont: -->
+### A late round recorded after a newer version is approved
+
+A reply of a reviewer that comes after a newer version of the statement was approved, and is recorded from its saved brief, makes a late record; the reader asks to move or remove it, which the rule that records are never changed after their commit forbids (class "delayed reply leaving an immutable record that blocks every task"). It needs a review that outlives a new version and an executor who records it anyway; the executor drops such a reply instead of recording it.
+
+
+<!-- ont: -->
+### A retried acceptance leaves the refused verdict in place
+
+When a round's acceptance is refused because it names another commit and the round is retried on the same result, the earlier committed verdict stays, since records are never changed after their commit, and the check still reports it (class "acceptance retry leaving CI red"). It needs a reviewer who names the wrong commit; the executor reads the reply's commit before recording it.
+
+
+<!-- ont: -->
+### The brief of a round takes the step it is given
+
+The writer of a round's brief checks that the next action is a round, but not that the step it is asked for, statement or result, is the one the next action names (class "brief can open the wrong review step"). It needs an executor who asks for the other step; the next action names the step, and the reply is recorded against it.
+
+<!-- ont: -->
+### The rules of this repository's agents are longer than one screen
+
+The Rules section of `AGENTS.md` has grown past one screen with the rules of the merge gate and of the records written by the tool (class "Agent rules exceed the one-screen check", and in a later round "Agent rules exceed one screen"); each row still names its command or file, and the rules of the process are explained in `docs/parts/agent-rules.md`.
+
+<!-- ont: -->
+### The line `Goal:` is the same in every version of a task's statement
+
+The readers of a task's budget combine its versions: the limits of the version in force with the statement given while a revision is under review, and the other way after an approval. They give the right unit where every version carries the same line `Goal:`, or none does; a revision that adds, drops or changes the line can pair the limits of one version with the goal of another (class "Goal membership without a Goal line changes the approved budget unit", round 6). It needs a task moved into or out of a goal between versions of its statement; the statements of a goal carry its line from the first version.
 
 <!-- ont: -->
 ## Kinds of checks the approach does not run yet

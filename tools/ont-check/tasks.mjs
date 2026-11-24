@@ -9,6 +9,8 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
+import { pendingBriefs } from "./briefs.mjs";
+import { logSpend, overspendOf, snapshotSpend, spendLines, spendMarks } from "./spend.mjs";
 import { BUDGET_QUESTION, SHA256, TASK_NAME, blockAt, blockLines, blockedSay, byTime, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
 
 export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
@@ -36,7 +38,123 @@ export function readStatement(file) {
   // A line of the budget the statement gives that the tool cannot read: --task names it, rather than
   // stopping by the configuration's number in its place (D-150).
   const wrong = BUDGET_ALL.filter(([k, name]) => value(name)[0] !== undefined && budget[k] === null).map(([, name]) => `${name}: ${value(name)[0]} is not ${name === RESERVE_LINE ? "a number of 1 or more, a whole number or a decimal with a point" : "a whole number"}`);
-  return { file, hash: sha256(text), doneWhen: value("Done-when").filter(Boolean), budget, wrong };
+  // The goal the task is part of, its unit of budget where spend is counted from the logs (D-169).
+  const goal = value("Goal")[0] ?? null;
+  if (goal !== null && !TASK_NAME.test(goal)) wrong.push(`Goal: ${goal} is not lower-case letters, digits and hyphens`);
+  return { file, hash: sha256(text), doneWhen: value("Done-when").filter(Boolean), budget, wrong, goal, text: text.toString("utf8") };
+}
+
+// The state of spend of a task from the session logs (D-169), by spend.mjs logSpend, with the records the
+// check reads; null where the configuration does not set spend.fromLogs. Where the environment gives no
+// logs, as in CI, the latest snapshot of spend of the task whose Task-statement-hash: is the version that
+// applies, with the inputs that are missing: a reader with no logs compares what the writer saw; with no
+// snapshot of that version, none, and the limits are the version's own as versionLimits gives them, the
+// configuration's where no record of it holds them, never a snapshot of another version (D-175).
+// version is the version of the statement whose limits apply (D-174): round.mjs record gives its brief's;
+// given none, the version in force, as --task, round.mjs brief, --rounds and done.mjs read it (versionInForce,
+// D-175). The unit is the goal the task's line Goal: names, by goalLineOf, from the statement given or else
+// from the task's records of that version, or of another only where none of that version copies the budget,
+// or else the task itself (D-179).
+// ont: derived.task-budget, derived.log-spend
+export function spendOf({ cfg, task, statement = null, version, inputs = null, env = process.env }) {
+  if (cfg.spend?.fromLogs !== true) return null;
+  const { rounds, records } = inputs ?? readTaskInputs(cfg);
+  const pending = pendingBriefs(cfg.base);
+  const v = version !== undefined ? version : versionInForce({ rounds, approvals: records.approvals, task, statement, pending });
+  const l = versionLimits({ task, version: v, statement, pending, done: records.done, approvals: records.approvals, snapshots: records.snapshots, defaults: cfg.budget });
+  const limits = { newInput: l.newInput, output: l.output, reserve: l.reserve, hash: l.version };
+  const goalLine = goalLineOf({ task, statement, version: v, pending, done: records.done, snapshots: records.snapshots });
+  const sp = logSpend({ cfg, task, goalLine, rounds, pending, limits, approvedOf: (t) => approvedHash(rounds, t, null, records.approvals), readStatementFile: readStatement, env });
+  if (sp?.missing?.length && !sp.errors?.length) {
+    const snap = (records.snapshots ?? []).filter((x) => x.task === task && v && x.limits?.task?.hash === v).sort(byTimeFile).at(-1);
+    if (snap) return { ...snapshotSpend(snap), missing: sp.missing };
+  }
+  return sp;
+}
+
+// What is wrong with the line Overspend: of a round written with a snapshot of spend (D-169): it is the
+// text the snapshot it names gives, by its sums and limits, and absent when the snapshot is within them;
+// CI, which has no logs, compares it so, and a later spend does not change it.
+export function snapshotOverspendProblems(end, snapshots = []) {
+  const name = `${end.file}: the record of acceptance`;
+  const snap = snapshots.find((x) => x.file === end.spendRecord);
+  if (!snap) return [`${name} names the snapshot of spend ${end.spendRecord}, which is not a record of the task records`];
+  const want = overspendOf(snapshotSpend(snap));
+  if (want && !end.overspend) return [`${name} does not name the overspend its snapshot gives (${want})`];
+  if (want && end.overspend !== want) return [`${name} names the overspend as "${end.overspend}", not as its snapshot gives it, "${want}"`];
+  if (!want && end.overspend) return [`${name} names an overspend, "${end.overspend}", where its snapshot gives none`];
+  return [];
+}
+
+// The task's line Goal:, { line, of }, from which goalOf of spend.mjs gives the unit of its budget
+// (field.task-statement.goal, D-179): the statement's where a file is given, its line or none. With no file,
+// as CI and round.mjs record read, that of the records of version, the version that applies, that copy the
+// statement's lines of the budget: its kept brief of the version, or else its latest record of done of it,
+// or else its latest snapshot of spend of it, whose Unit: is the goal where it is not the task; the record's
+// line decides, and so does its absence, the task's own unit, whatever an older version named. Only where no
+// record of the version copies those lines, as for a version whose only record is the owner's approval, the
+// latest by time of the task's records of another version that carries a line; line null where none does,
+// and the task is its own unit.
+export function goalLineOf({ task, statement = null, version = null, pending = [], done = [], snapshots = [] }) {
+  if (statement) return { line: statement.goal ?? null, of: "the statement" };
+  const briefOf = (b) => ({ line: b.brief.Goal ?? null, time: b.briefTime ?? "", of: `the kept brief of ${task}, ${b.step}` });
+  const doneOf = (d) => ({ line: d.goal ?? null, time: d.time, of: `the record of done ${d.file}` });
+  const snapOf = (x) => ({ line: x.unit && x.unit !== task ? x.unit : null, time: x.time, of: `the snapshot of spend ${x.file}` });
+  const briefs = pending.filter((b) => b.task === task && b.brief);
+  const dones = done.filter((d) => d.task === task).sort(byTimeFile);
+  const snaps = snapshots.filter((x) => x.task === task).sort(byTimeFile);
+  if (version) {
+    const own =
+      briefs.filter((b) => b.brief["Statement-hash"] === version && b.brief["Budget-new-input"] !== undefined).map(briefOf).at(-1) ??
+      dones.filter((d) => d.statementHash === version && d.budget).map(doneOf).at(-1) ??
+      snaps.filter((x) => x.limits?.task?.hash === version).map(snapOf).at(-1);
+    if (own) return { line: own.line, of: own.of };
+  }
+  const last = [...briefs.map(briefOf), ...dones.map(doneOf), ...snaps.map(snapOf)].filter((x) => x.line).sort((a, b) => a.time.localeCompare(b.time)).at(-1);
+  return last ? { line: last.line, of: last.of } : { line: null, of: "no record" };
+}
+
+// The version of a task's statement whose limits apply where the reader reads the task as it stands
+// (derived.task-budget, D-174): the version of the approval in force; with none, the file given, the
+// version under review; with neither, the version of the task's kept brief, the round under way, or else
+// the version its latest round names. null for a task whose records name no version.
+export function versionInForce({ rounds = [], approvals = [], task, statement = null, pending = [] }) {
+  const approved = approvedHash(rounds, task, null, approvals);
+  if (approved) return approved;
+  if (statement?.hash) return statement.hash;
+  const kept = pending.find((b) => b.task === task && b.brief?.["Statement-hash"]);
+  if (kept) return kept.brief["Statement-hash"];
+  return rounds.filter((r) => r.task === task && r.statementHash).sort((a, b) => a.time.localeCompare(b.time)).at(-1)?.statementHash ?? null;
+}
+
+// The limits and the reserve of one version of a task's statement (derived.task-budget, D-174, D-176): the
+// one function every reader asks, given the version that applies to what it reads. They are that version's
+// own lines, from the file of that version where it is given, or else as a record of that version copies
+// them: the task's kept brief that names the version, with its lines Budget-, its latest record of done of
+// the version that carries them, or its latest record of the owner's approval of the version that carries
+// them; or else, where none holds the lines, the limits of the task's latest snapshot of spend whose
+// Task-statement-hash: is the version, which its writer compared with. A record of another version gives
+// nothing. Each limit and the reserve the configuration's where none of these holds it, or the version
+// holds none. from says where they came from: statement, brief, done, approval, snapshot or configuration;
+// file the record's file. The goal is no part of a version: goalLineOf reads it (D-179).
+const byTimeFile = (a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file);
+const briefNumber = (v) => (v === undefined || v === "none" || !/^\d+$/.test(v) ? null : Number(v));
+export function versionLimits({ task, version, statement = null, pending = [], done = [], approvals = [], snapshots = [], defaults }) {
+  const of = (() => {
+    if (!version) return null;
+    if (statement?.hash === version) return { budget: statement.budget, from: "statement" };
+    const b = pending.find((x) => x.task === task && x.brief?.["Statement-hash"] === version && x.brief["Budget-new-input"] !== undefined)?.brief;
+    if (b) return { budget: { newInput: briefNumber(b["Budget-new-input"]), output: briefNumber(b["Budget-output"]), reserve: reserveOf(b["Budget-reserve"]) }, from: "brief" };
+    const d = done.filter((x) => x.task === task && x.statementHash === version && x.budget).sort(byTimeFile).at(-1);
+    if (d) return { budget: d.budget, from: "done", file: d.file };
+    const a = approvals.filter((x) => x.task === task && x.statementHash === version && x.budget).sort(byTimeFile).at(-1);
+    if (a) return { budget: a.budget, from: "approval", file: a.file };
+    const s = snapshots.filter((x) => x.task === task && x.limits?.task?.hash === version).sort(byTimeFile).at(-1);
+    if (s) return { budget: s.limits.task, from: "snapshot", file: s.file };
+    return null;
+  })();
+  const own = of?.budget ?? {};
+  return { newInput: own.newInput ?? defaults?.newInput ?? null, output: own.output ?? defaults?.output ?? null, reserve: own.reserve ?? defaults?.reserve ?? null, version: version ?? null, from: of?.from ?? "configuration", ...(of?.file ? { file: of.file } : {}) };
 }
 
 // The reserve of a statement or of a record of done (field.task-statement.budget, D-150): the multiplier
@@ -61,12 +179,14 @@ export const budgetLines = (budget) => BUDGET_ALL.map(([k, name]) => `${name}: $
 // counts the same for each. records.done holds only the records of done whose commit resolves.
 // A late record (lateRecords) is given to no reader: it is in malformed, which blocks every task.
 export function readTaskInputs(cfg) {
-  const { rounds: parsedRounds, malformed: unreadable, top } = readRoundRecords(cfg);
-  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir, { latinOnly: cfg.records.latinOnly }) : { spend: [], done: [], approvals: [], gateChanges: [], gateProofs: [], malformed: [] };
-  const late = lateRecords({ rounds: parsedRounds, done: parsed.done, approvals: parsed.approvals, gatesFrom: cfg.reviewRounds.gatesFrom ?? null });
+  const { rounds: parsedRounds0, malformed: unreadable, top } = readRoundRecords(cfg);
+  const parsed = cfg.taskRecords ? parseTaskRecords(cfg.taskRecords.dir, { latinOnly: cfg.records.latinOnly }) : { spend: [], done: [], approvals: [], gateChanges: [], gateProofs: [], snapshots: [], fixes: [], malformed: [] };
+  // The tests of the findings that records of fixes give (D-168), before any reader sees the rounds.
+  const withTests = applyFixes(parsedRounds0, parsed.fixes);
+  const late = lateRecords({ rounds: withTests, done: parsed.done, approvals: parsed.approvals, gatesFrom: cfg.reviewRounds.gatesFrom ?? null });
   const kept = (x) => !late.some((l) => l.record === x);
   const malformed = [...unreadable, ...late.map((l) => l.text)];
-  const resolved = resolveRecords(top, { done: parsed.done.filter(kept), rounds: parsedRounds.filter(kept), approvals: parsed.approvals });
+  const resolved = resolveRecords(top, { done: parsed.done.filter(kept), rounds: withTests.filter(kept), approvals: parsed.approvals });
   return { rounds: resolved.rounds, malformed, top, resolved, records: { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] } };
 }
 
@@ -85,6 +205,25 @@ export function lateRecords({ rounds, done = [], approvals = [], gatesFrom = nul
   });
 }
 
+// The limits and the reserve a record of done or of the owner's approval carries (field.task-result.budget,
+// field.owner-approval.budget), with what is wrong with its lines: a record made before the lines existed
+// carries no limits, budget null (D-147, D-176); one made before the line of the reserve carries none, as one
+// whose statement gives none (D-150).
+// ont: field.task-result.budget, field.owner-approval.budget
+function recordLimits(field) {
+  const limits = BUDGET_LINES.map(([k, name]) => [k, name, field(name)]);
+  const given = limits.filter(([, , v]) => v !== null);
+  const reserveLine = field(RESERVE_LINE);
+  const wrong = [
+    given.length === 1 && `${given[0][1]} is given without ${limits.find(([, , v]) => v === null)[1]}`,
+    ...given.filter(([, , v]) => v !== "none" && !/^\d+$/.test(v)).map(([, name, v]) => `${name.toLowerCase()} ${v} is not a whole number or none`),
+    reserveLine !== null && !given.length && `${RESERVE_LINE} is given without the limits`,
+    reserveLine !== null && reserveLine !== "none" && reserveOf(reserveLine) === null && `${RESERVE_LINE.toLowerCase()} ${reserveLine} is not a number of 1 or more, or none`,
+  ].filter(Boolean);
+  const budget = given.length ? { ...Object.fromEntries(limits.map(([k, , v]) => [k, v === "none" ? null : Number(v)])), reserve: reserveOf(reserveLine) } : null;
+  return { budget, wrong };
+}
+
 // Records of done, of spend, of the owner's approval, of a gate change and of a gate proof, with what is
 // wrong with each. opts.latinOnly is the configuration's records.latinOnly: where it is set, a record of
 // a gate change or of a gate proof holds only English text and paths of the repository, as a record of a
@@ -99,6 +238,8 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
   const approvals = [];
   const gateChanges = [];
   const gateProofs = [];
+  const snapshots = [];
+  const fixes = [];
   const malformed = [];
   for (const f of listFiles(dir, /\.md$/)) {
     const text = read(f);
@@ -133,14 +274,9 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
       // What the statement asks the record to name besides the commands, under Evidence: (D-166).
       const evidenceAt = blockAt(text, "Evidence");
       const evidence = (evidenceAt ?? []).map((b) => b.line.replace(/^-\s*/, "").trim());
-      const limits = BUDGET_LINES.map(([k, name]) => [k, name, field(name)]);
-      const given = limits.filter(([, , v]) => v !== null);
-      const reserveLine = field(RESERVE_LINE);
+      const lim = recordLimits(field);
       const wrong = [
-        given.length === 1 && `${given[0][1]} is given without ${limits.find(([, , v]) => v === null)[1]}`,
-        ...given.filter(([, , v]) => v !== "none" && !/^\d+$/.test(v)).map(([, name, v]) => `${name.toLowerCase()} ${v} is not a whole number or none`),
-        reserveLine !== null && !given.length && `${RESERVE_LINE} is given without the limits`,
-        reserveLine !== null && reserveLine !== "none" && reserveOf(reserveLine) === null && `${RESERVE_LINE.toLowerCase()} ${reserveLine} is not a number of 1 or more, or none`,
+        ...lim.wrong,
         !task && "no task",
         task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
         !/^[0-9a-f]{40}$/.test(commit ?? "") && `commit ${commit ?? "(none)"} is not a full commit`,
@@ -154,16 +290,22 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
       else {
-        // A record made before the lines existed carries no limits: budget is null (D-147); one made
-        // before the line of the reserve carries none, as one whose statement gives none (D-150).
-        const budget = given.length ? { ...Object.fromEntries(limits.map(([k, , v]) => [k, v === "none" ? null : Number(v)])), reserve: reserveOf(reserveLine) } : null;
-        done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence });
+        const budget = lim.budget;
+        // The goal the statement names on Goal:, from which a reader given no file reads the scope of the
+        // budget, held to the configuration's goals (goalLineOf, D-179); a record made before the line names none.
+        const goal = field("Goal");
+        if (goal !== null && !TASK_NAME.test(goal)) malformed.push(`${name}: goal ${goal} is not lower-case letters, digits and hyphens`);
+        else done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence, goal });
       }
     } else if (kind === "approval") {
       // The owner's approval of a version of a statement (D-121): valid only by the owner and with the
       // owner's words it rests on.
       const [hash, by, source, time] = [field("Statement-hash"), field("By"), field("Source"), field("Time")];
+      // The limits and the reserve of the version it approves, as approve.mjs copies them (D-176); a record
+      // written before the lines carries none and reads as before.
+      const lim = recordLimits(field);
       const wrong = [
+        ...lim.wrong,
         !task && "no task",
         task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
         !SHA256.test(hash ?? "") && `statement hash ${hash ?? "(none)"} is not a SHA-256`,
@@ -172,7 +314,15 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
       ].filter(Boolean);
       if (wrong.length) malformed.push(`${name}: ${wrong.join("; ")}`);
-      else approvals.push({ file: name, task, statementHash: hash, by, source, time });
+      else approvals.push({ file: name, task, statementHash: hash, by, source, time, kind: field("Kind") ?? "approval", question: field("Question"), round: field("Round"), budget: lim.budget });
+    } else if (kind === "spend-snapshot") {
+      const g = snapshotOf(text, name);
+      if (g.wrong.length) malformed.push(`${name}: ${g.wrong.join("; ")}`);
+      else snapshots.push(g.record);
+    } else if (kind === "fixes") {
+      const g = fixesOf(text, name);
+      if (g.wrong.length) malformed.push(`${name}: ${g.wrong.join("; ")}`);
+      else fixes.push(g.record);
     } else if (kind === "gate-change") {
       const g = gateChangeOf(text, name, { latinOnly });
       if (g.wrong.length) malformed.push(`${name}: ${g.wrong.join("; ")}`);
@@ -181,9 +331,88 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
       const g = gateProofOf(text, name, { latinOnly });
       if (g.wrong.length) malformed.push(`${name}: ${g.wrong.join("; ")}`);
       else gateProofs.push(g.record);
-    } else malformed.push(`${name}: Record ${kind ?? "(none)"} is not spend, done, approval, gate-change or gate-proof`);
+    } else malformed.push(`${name}: Record ${kind ?? "(none)"} is not spend, spend-snapshot, done, approval, fixes, gate-change or gate-proof`);
   }
-  return { spend, done, approvals, gateChanges, gateProofs, malformed };
+  return { spend, done, approvals, gateChanges, gateProofs, snapshots, fixes, malformed };
+}
+
+// A snapshot of spend (D-169): the three sums of a unit of budget, of its task and of one round, from the
+// session logs at the time a writer ran, with the limits and the reserve they were compared with and the
+// versions of the approved statements those came from; round.mjs record writes it with the round, which
+// names it on Spend-record:. The file is <time>-<task>-spend-snapshot.md.
+// ont: ent.spend-snapshot, field.spend-snapshot.unit, field.spend-snapshot.sums, field.spend-snapshot.limits, field.spend-snapshot.round, edge.spend-snapshot.task, edge.spend-snapshot.round
+export const SNAPSHOT_SUMS = ["Unit", "Task", "Round"];
+export const SNAPSHOT_COUNTS = ["new", "cached", "out"];
+export const SNAPSHOT_LIMITS = ["Unit", "Task"];
+export function snapshotOf(text, name) {
+  const f = (k) => lineOf(text, k);
+  const [task, unit, round, time, start] = ["Task", "Unit", "Round", "Time", "Unit-start"].map(f);
+  const sums = Object.fromEntries(SNAPSHOT_SUMS.map((s) => [s.toLowerCase(), Object.fromEntries(SNAPSHOT_COUNTS.map((c) => [c, f(`${s}-${c}`)]))]));
+  const limits = Object.fromEntries(
+    SNAPSHOT_LIMITS.map((s) => [s.toLowerCase(), { newInput: f(`${s}-limit-new`), output: f(`${s}-limit-out`), reserve: f(`${s}-reserve`), hash: f(`${s}-statement-hash`) }]),
+  );
+  const wrong = [
+    !task && "no task",
+    task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
+    !unit && "no unit",
+    unit && !TASK_NAME.test(unit) && `unit ${unit} is not lower-case letters, digits and hyphens`,
+    !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
+    start !== null && start !== "none" && !realTime(start) && `unit start ${start} is not a UTC time to the second or none`,
+    ...Object.entries(sums).flatMap(([s, c]) => Object.entries(c).filter(([, v]) => v !== null && !/^\d+$/.test(v)).map(([k, v]) => `${s} ${k} ${v} is not a whole number`)),
+    ...Object.values(sums.unit).some((v) => v === null) ? ["the sums of the unit are not all given"] : [],
+    ...Object.entries(limits).flatMap(([s, l]) => [
+      ...["newInput", "output"].filter((k) => l[k] !== null && l[k] !== "none" && !/^\d+$/.test(l[k])).map((k) => `${s} limit ${l[k]} is not a whole number or none`),
+      l.reserve !== null && l.reserve !== "none" && reserveOf(l.reserve) === null && `${s} reserve ${l.reserve} is not a number of 1 or more, or none`,
+      l.hash !== null && l.hash !== "none" && !SHA256.test(l.hash) && `${s} statement hash ${l.hash} is not a SHA-256 or none`,
+    ]),
+  ].filter(Boolean);
+  const n = (v) => (v === null ? null : Number(v));
+  const lim = (l) => ({ newInput: l.newInput === null || l.newInput === "none" ? null : Number(l.newInput), output: l.output === null || l.output === "none" ? null : Number(l.output), reserve: reserveOf(l.reserve), hash: l.hash === "none" ? null : l.hash });
+  return {
+    wrong,
+    record: {
+      file: name, task, unit, round: round === "none" ? null : round, time, start: start === "none" ? null : start,
+      sums: Object.fromEntries(Object.entries(sums).map(([s, c]) => [s, c.new === null ? null : { new: n(c.new), cached: n(c.cached), out: n(c.out) }])),
+      limits: { unit: lim(limits.unit), task: lim(limits.task) },
+    },
+  };
+}
+
+// A record of the tests of the fixes of a round (D-168): Record: fixes, the round's file on Round:, and
+// under Tests: one line for each class of a finding of that round, word for word, with the test that
+// holds its fix, "- class · file · name". The record of the round is not changed: the reader of rounds
+// takes the test of a finding from here when the round's record gives none (applyFixes).
+// ont: ent.fixes-record, field.fixes-record.round, field.fixes-record.tests, edge.fixes-record.round
+export function fixesOf(text, name) {
+  const [task, round, time] = ["Task", "Round", "Time"].map((k) => lineOf(text, k));
+  const tests = (blockLines(text, "Tests") ?? []).map((l) => {
+    const [cls, file, test] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
+    return { cls, file, test };
+  });
+  const wrong = [
+    !task && "no task",
+    task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
+    !round && "no round: the file of the round whose findings it tests",
+    round && !/^[^/\\]+\.md$/.test(round) && `round ${round} is not the file name of a record of a round`,
+    !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
+    !tests.length && "no line under Tests:",
+    ...tests.filter((t) => !t.cls || !t.file || !t.test).map((t) => `the line "${[t.cls, t.file, t.test].filter(Boolean).join(" · ")}" is not "class · file · name"`),
+    ...tests.filter((t) => t.file && !repoPath(t.file)).map((t) => `${t.file} is not a path of the repository`),
+  ].filter(Boolean);
+  return { wrong, record: { file: name, task, round, time, tests } };
+}
+
+// The rounds with the tests the records of fixes give (D-168): a finding fixable with no test of its own
+// takes the test of the latest record of fixes of its round that names its class, as "file · name".
+export function applyFixes(rounds, fixes = []) {
+  if (!fixes.length) return rounds;
+  return rounds.map((r) => {
+    const of = fixes.filter((f) => f.round === r.file && f.task === r.task).sort((a, b) => a.time.localeCompare(b.time));
+    if (!of.length) return r;
+    const testOf = (cls) => of.flatMap((f) => f.tests).filter((t) => t.cls === cls).at(-1);
+    const fill = (x) => (x.fixable && !x.test && testOf(x.cls) ? { ...x, test: `${testOf(x.cls).file} · ${testOf(x.cls).test}` } : x);
+    return { ...r, findings: r.findings.map(fill), acceptance: r.acceptance && { findings: r.acceptance.findings.map(fill) } };
+  });
 }
 
 const FULL_COMMIT = /^[0-9a-f]{40}$/;
@@ -202,7 +431,7 @@ export function gateChangeOf(text, name, { latinOnly = false } = {}) {
   const wrong = [
     !task && "no task",
     task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
-    task && TASK_NAME.test(task) && !new RegExp(`^\\d{8}T\\d{6}Z-${task}-gate-change\\.md$`).test(name) && `the file is not named <time>-${task}-gate-change.md`,
+    task && TASK_NAME.test(task) && !new RegExp(`^\\d{8}T\\d{6}Z-${task}-gate-change(?:-[0-9]+){0,2}\\.md$`).test(name) && `the file is not named <time>-${task}-gate-change.md or <time>-${task}-gate-change-<item>.md`,
     !SHA256.test(hash ?? "") && `statement hash ${hash ?? "(none)"} is not a SHA-256`,
     !item && "no item of What to do that allows the change",
     !FULL_COMMIT.test(commit ?? "") && `commit ${commit ?? "(none)"} is not a full commit`,
@@ -517,30 +746,14 @@ export function acceptanceProblems(rounds, done, approvals = []) {
 // The latest record of done of a task, whatever follows it.
 export const latestDone = (done, task) => done.filter((d) => d.task === task).sort((a, b) => a.time.localeCompare(b.time)).at(-1) ?? null;
 
-// The limits that apply to a task (derived.task-budget, D-147): the one function --task, --rounds, the
-// check and the text of an overspend all ask. They are those of the approval in force, of the version of
-// the statement it names: that version's file when it is the file given, as to --task; otherwise that
-// version's limits as the latest record of done of that version carries them. A record of done of
-// another version gives none: the limits of an older version are not the newer one's. With no approval
-// in force, the file given, the version under review. Each limit the configuration's where the
-// statement gives none, or where no record of its version carries them yet. The reserve is read the same
-// way, from the same place, as the limits (D-150): the statement's line Budget-reserve:, else the
-// configuration's budget.reserve, else none, which taskBudget reads as 1.
-export function taskLimits({ statement = null, rounds = [], approvals = [], done = [], task, defaults }) {
-  const version = approvedHash(rounds, task, null, approvals) ?? statement?.hash ?? null;
-  const own =
-    statement && statement.hash === version
-      ? statement.budget
-      : (latestDone(
-          done.filter((d) => d.statementHash === version),
-          task,
-        )?.budget ?? {});
-  return { newInput: own?.newInput ?? defaults?.newInput ?? null, output: own?.output ?? defaults?.output ?? null, reserve: own?.reserve ?? defaults?.reserve ?? null, version };
-}
-
 // A task's spend against its limits (derived.task-budget); null when no limit is set.
-export function taskBudget({ rounds, spend, done = [], approvals = [], task, defaults, statement }) {
-  const { version, reserve: given, ...limits } = taskLimits({ statement, rounds, approvals, done, task, defaults });
+// The limits are those of version, the version that applies to what the reader reads, or, given none, of
+// the version in force (versionInForce), by versionLimits (D-174); the reserve is read the same way, from
+// the same place, as the limits, or 1 where neither the version nor the configuration sets one (D-150).
+export function taskBudget({ rounds, spend, done = [], approvals = [], task, defaults, statement, version, pending = [], snapshots = [] }) {
+  const v = version !== undefined ? version : versionInForce({ rounds, approvals, task, statement, pending });
+  const { newInput, output, reserve: given } = versionLimits({ task, version: v, statement, pending, done, approvals, snapshots, defaults });
+  const limits = { newInput, output };
   if (limits.newInput === null && limits.output === null) return null;
   const reserve = given ?? 1;
   // The reserve as a fraction of whole numbers, num / den, from its decimal digits, so that the cap and
@@ -604,7 +817,7 @@ export const overspendText = (b) =>
 
 // What is wrong with the line Overspend: of the round that ends a task (field.review-round.overspend,
 // D-128, D-147): it is exactly overspendText of the task's budget when the spend is past the limit, and
-// absent otherwise. --task and the check compare it alike, the budget's limits given by taskLimits.
+// absent otherwise. --task and the check compare it alike, the budget's limits given by versionLimits.
 export function overspendProblems(end, b) {
   const line = end.overspend;
   const name = `${end.file}: the record of acceptance`;
@@ -705,13 +918,30 @@ export const NO_FILE = "give --statement <file> to compare the version it names 
 // ont: derived.task-next, rule.ready-after-clean-round
 const CLEAN_DONE = "done: the last round and its acceptance are clean: merge (rule.ready-after-clean-round)";
 // The action of the branch done: the merge, and past the budget its overspend reported with it, never in
-// its place (derived.task-next, rule.ready-after-clean-round).
-const doneSay = (result, b) => {
+// its place (derived.task-next, rule.ready-after-clean-round). over is the text of the overspend, or null.
+const doneSay = (result, over) => {
   const merge = result.fixes ? result.say : CLEAN_DONE.replace(/^done: /, "");
-  return b?.over ? `done, with an overspend: ${overspendText(b)}; report it to the owner, and ${merge}` : `done: ${merge}`;
+  return over ? `done, with an overspend: ${over}; report it to the owner, and ${merge}` : `done: ${merge}`;
 };
-export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false, head = null }) {
-  const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement });
+// The overspend the branch done reports, by the state of spend the budget question reads (D-169): where
+// spend is counted from the logs, spendNow, the sums of the goal and of the task; with none given, the
+// snapshot of spend the round that ends the task names, which its writer and the check compare its line
+// Overspend: with; or else the task's budget summed from the records (derived.task-next).
+export function doneOverspend({ b, spendNow = null, end = null, snapshots = [] }) {
+  if (spendNow?.used) return overspendOf(spendNow);
+  const snap = end?.spendRecord ? snapshots.find((x) => x.file === end.spendRecord) : null;
+  if (snap) return overspendOf(snapshotSpend(snap));
+  return b?.over ? overspendText(b) : null;
+}
+// spendNow: the state of spend from the logs, or from a snapshot, where the configuration counts spend from
+// the logs (D-169); budgetActions: false for --rounds, which shows the sums and names no action by the
+// budget, neither the question nor the overspend to report on the branch done; only --task, run before
+// each step, does.
+// version, pending and snapshots: the version whose limits apply, as a round's writer gives its brief's,
+// and the kept briefs and snapshots of spend versionLimits reads them from (D-174).
+export function taskNext({ rounds, spend = [], done = [], approvals = [], task, defaults, statement = null, malformed = [], needFile = false, gatesFrom = null, forWork = false, head = null, spendNow = null, budgetActions = true, version, pending = [], snapshots = [] }) {
+  const b = taskBudget({ rounds, spend, done, approvals, task, defaults, statement, version, pending, snapshots });
+  const spent = spendNow?.used ? spendNow.exhausted : b?.exhausted;
   const unreadable = (statement?.wrong ?? []).length > 0;
   // The approved version of the file gives no command of done: no result can be recorded or accepted
   // under it, a question to the owner, as an unreadable line of its budget is (D-152).
@@ -740,7 +970,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
     done: () =>
       !forWork &&
       (window ? view.results.length && (!needFile || statement?.hash === window.hash) : rr.length) &&
-      result?.next === "clean" && doneSay(result, b),
+      result?.next === "clean" && doneSay(result, budgetActions ? doneOverspend({ b, spendNow, end: view.results.at(-1), snapshots }) : null),
     "budget question": () =>
       unreadable
         ? `a line of the statement's budget cannot be read: a question to the owner, with no next round (${statement.wrong.join("; ")})`
@@ -748,7 +978,7 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
           ? "the approved statement has no line Done-when: with a command of done: a question to the owner, with no next round"
           : b?.conflict?.length
           ? `the spend cannot be summed while records of one contribution overlap: ${BUDGET_QUESTION}, until the records are corrected`
-          : b?.exhausted && BUDGET_QUESTION,
+          : budgetActions && spent && (spendNow?.used && spendNow.which?.length ? `${BUDGET_QUESTION} (the reserve of ${spendNow.which.join(" and ")} is spent)` : BUDGET_QUESTION),
     "no review": () => versioned && !last && "it needs a review of the statement",
     "under review": () => versioned && last?.kind === "round" && !isClean(last.round) && step("statement-review").say,
     "no version": () => versioned && needFile && !statement && NO_FILE,
@@ -780,8 +1010,8 @@ export function taskNext({ rounds, spend = [], done = [], approvals = [], task, 
 // its one next action on a line of its own, NEXT; and the errors of its records that only --task can
 // see (derived.statement-state, rule.budget-before-next, derived.task-next). --rounds prints the same
 // lines, given no file and needFile false (D-152).
-export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true, head = null }) {
-  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom, head });
+export function taskState({ rounds, spend, done = [], approvals = [], task, defaults, statement, malformed = [], gatesFrom = null, needFile = true, head = null, spendNow = null, budgetActions = true, snapshots = [], pending = [] }) {
+  const next = taskNext({ rounds, spend, done, approvals, task, defaults, statement, malformed, needFile, gatesFrom, head, spendNow, budgetActions, pending, snapshots });
   const b = next.budget;
   const say = (part, text) => `TASK ${task} · ${part}: ${text}`;
   const { view } = next;
@@ -825,7 +1055,10 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
       : `the last round of its review, ${end.file}, ${isClean(end) ? "is clean on merging" : "found findings of the change"}${acceptanceLabel(end)}`;
   // After the narrow round no round ends the task: its record of done does, and no record carries the line
   // Overspend: then (docs/limitations.md).
-  if (next.branch === "done" && !next.result?.fixes) errors.push(...overspendProblems(end, b));
+  if (next.branch === "done" && !next.result?.fixes) errors.push(...(end.spendRecord ? snapshotOverspendProblems(end, snapshots) : overspendProblems(end, b)));
+  // A goal a statement names that the configuration does not list, or a task it does not list in it, is an
+  // error of --task (D-169).
+  if (spendNow?.errors?.length) errors.push(...spendNow.errors);
   const lines = [say("statement", statementLine), say("result", resultLine)];
   errors.push(...(statement?.wrong ?? []).map((w) => `the statement's line ${w}`));
   const latest = view.done.at(-1) ?? null;
@@ -852,9 +1085,15 @@ export function taskState({ rounds, spend, done = [], approvals = [], task, defa
         (b.noReserve ? "; neither Budget-reserve: of the statement nor budget.reserve is set, so the reserve is 1" : "") +
         (b.over ? `; overspend: ${overspendText(b)}` : b.exhausted ? "; exhausted" : ""),
     );
-    // No mark where no spend is measured: a line of the budget the tool cannot read (D-150).
-    const marks = next.unreadable ? [] : budgetMarks(b);
+    // No mark where no spend is measured: a line of the budget the tool cannot read (D-150). Where spend is
+    // counted from the logs, the marks are of its sums (D-169).
+    const marks = next.unreadable || spendNow?.used ? [] : budgetMarks(b);
     if (marks.length) lines.push(`REPORT ${task}: ${marks.map((m) => `${LABEL[m.kind]} ${num(b.used[m.kind])} of ${num(b.limits[m.kind])}: ${m.marks.join(", ")}`).join(" · ")}`);
+  }
+  if (spendNow) {
+    lines.push(...spendLines(task, spendNow));
+    const marks = next.unreadable ? [] : spendMarks(spendNow);
+    if (marks.length) lines.push(`REPORT ${task}: ${marks.join(" · ")}`);
   }
   lines.push(`NEXT ${task}: ${next.say}`);
   return { lines, errors, approved: next.approved, budget: b, next };

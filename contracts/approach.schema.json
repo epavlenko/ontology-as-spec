@@ -401,6 +401,14 @@
           "x-ont": "field.manual-run.evidence",
           "type": "string"
         },
+        "origin": {
+          "description": "Who wrote the record: review, the reviewer's verdict by --review --record, or run, a run of a check of run outside a review by --run-record; a record without the line is the reviewer's, as before.",
+          "x-ont": "field.manual-run.origin",
+          "enum": [
+            "review",
+            "run"
+          ]
+        },
         "check": {
           "description": "The check the verdict is on, from the project's catalogue or the approach's.",
           "x-ont": "edge.manual-run.check",
@@ -526,8 +534,24 @@
           "type": "string"
         },
         "overspend": {
-          "description": "On the round that ends the task, what it spent past its budget with reserve, new input and output each, exactly as --task prints it, new input N of L, output N of L: the spend and the limit the tool computes, by the limits derived.task-budget gives, each number written one way, a whole number or a decimal with a point, such as 151.5; required past the limit and absent within it, by --task and the check alike.",
+          "description": "On the round that ends the task, what it spent past its budget with reserve, new input and output each, exactly as --task prints it, new input N of L, output N of L: the spend and the limit the tool computes, by the limits derived.task-budget gives, each number written one way, a whole number or a decimal with a point, such as 151.5; required past the limit and absent within it, by --task and the check alike. A round written with a snapshot of spend, Spend-record:, is compared with that snapshot's sums and limits, by --task and the check alike, so that CI, with no logs, and a later spend leave it as it was written (D-169). For a task of a goal past the goal's reserve, the goal's part follows, ; goal <goal>: new input N of L, output N of L; a goal itself, its own unit, is one sum against one set of limits and has the task's part alone, by the state of spend from the logs and by its snapshot alike (D-179).",
           "x-ont": "field.review-round.overspend",
+          "type": "string"
+        },
+        "briefTime": {
+          "description": "When round.mjs brief gave the round's brief, copied from it by round.mjs record; the start of the unit of budget is the earliest of them.",
+          "x-ont": "field.review-round.brief-time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "done": {
+          "description": "On a round of the result written by round.mjs record, the record of done it reviewed, whose commit Commits: gives.",
+          "x-ont": "field.review-round.done",
+          "type": "string"
+        },
+        "spendRecord": {
+          "description": "The snapshot of spend round.mjs record wrote with the round, by its file name; the round's tokens are its sums of the round, and its Overspend: is compared with it.",
+          "x-ont": "field.review-round.spend-record",
           "type": "string"
         },
         "runs": {
@@ -589,6 +613,11 @@
           "description": "The task's own limits of new input and output tokens, on the lines Budget-new-input: and Budget-output:, and its reserve, the multiplier of the limits at which it stops, on the line Budget-reserve:, a number of 1 or more written as a whole number or a decimal with a point, such as 1.5, each in place of the project's default; a line given that cannot be read is named by --task.",
           "x-ont": "field.task-statement.budget",
           "type": "string"
+        },
+        "goal": {
+          "description": "The goal the task is part of, on a line Goal: <goal>: its unit of budget where spend is counted from the logs. The unit of a task is the goal only when its statement names it so; a statement with no line is its own unit, with its own limits, and no error (D-179). The line is read from the statement file given, its line or its absence; with no file given, as in CI and round.mjs record, from the records of the version that applies (derived.task-budget) that copy the statement's lines of the budget, the task's kept brief of that version, or else its latest record of done of it, or else its latest snapshot of spend of it, whose Unit: is the goal where it is not the task, by the record's line or its absence, so that a version with no line is its own unit whatever an older version named; only where no record of that version copies those lines, as for a version whose only record is the owner's approval, from the latest of the task's records of another version that carries a line; with no line there the task is its own unit (D-179). The configuration lists each goal's tasks under goals, its composition: a line that names a goal the configuration does not list, or a goal whose list does not hold the task, is an error of --task, round.mjs and done.mjs, and a record of done or a kept brief whose line is so is an error of the check; a task listed under two goals is an error. The commands of a goal, --task <goal>, the goal's record of done and the brief of its acceptance, count it whole by that composition, its tasks whose statements have no line included.",
+          "x-ont": "field.task-statement.goal",
+          "type": "string"
         }
       },
       "required": [
@@ -626,6 +655,29 @@
           "type": "string",
           "format": "date-time"
         },
+        "kind": {
+          "description": "approval, the owner's approval of the version, or gate, his answer to the gate of a round, which closes it; a record without the line is an approval.",
+          "x-ont": "field.owner-approval.kind",
+          "enum": [
+            "approval",
+            "gate"
+          ]
+        },
+        "question": {
+          "description": "The number of the question of the registry whose answer the record carries.",
+          "x-ont": "field.owner-approval.question",
+          "type": "integer"
+        },
+        "round": {
+          "description": "For an answer to a gate, the file of the round whose gate it closes.",
+          "x-ont": "field.owner-approval.round",
+          "type": "string"
+        },
+        "budget": {
+          "description": "The limits and the reserve of the version the record names, as approve.mjs copies them from the lines Budget-new-input:, Budget-output: and Budget-reserve: of its statement, as done.mjs does, each a number or none, so that a record of the approval is a record of that version for derived.task-budget; a record written before these lines carries none and reads as before (D-179).",
+          "x-ont": "field.owner-approval.budget",
+          "type": "string"
+        },
         "statement": {
           "description": "The version approved, by the SHA-256 of its file.",
           "x-ont": "edge.owner-approval.statement",
@@ -658,7 +710,7 @@
           "type": "string"
         },
         "budget": {
-          "description": "The statement's own limits and reserve, as done.mjs copies them from its lines Budget-new-input:, Budget-output: and Budget-reserve:, each a number or none; the check and --rounds, given no statement, read the limits of the version the approval in force names from the latest record of done of that version, and --task refuses the latest record of done of its statement's file's version whose limits or reserve are not the file's; a record of done of another version is not compared with the file. A record made before these lines carries none, and one made before the line of the reserve carries no reserve.",
+          "description": "The statement's own limits and reserve, as done.mjs copies them from its lines Budget-new-input:, Budget-output: and Budget-reserve:, each a number or none; a reader given no file of that version reads its limits from them by derived.task-budget, and --task refuses the latest record of done of its statement's file's version whose limits or reserve are not the file's; a record of done of another version is not compared with the file. With them, the statement's goal, Goal:, where it names one, from which a reader given no file reads the scope of the budget, held to the configuration's goals (field.task-statement.goal, D-179). A record made before these lines carries none, and one made before the line of the reserve carries no reserve.",
           "x-ont": "field.task-result.budget",
           "type": "string"
         },
@@ -884,7 +936,7 @@
           "type": "string"
         },
         "base": {
-          "description": "For a pull request, the commit of main it was based on when its checks ran, in full; for a refusal for being behind, read before main moves on.",
+          "description": "For a pull request, the commit of main it was based on when its checks ran, in full: for a pass, the first parent of its merge commit, which the branch being up to date with main makes the main its checks ran against, and an ancestor of its head; for a refusal, read before main moves on and given to the writer, or else read while the pull request is open; for a refusal for being behind, read before main moves on.",
           "x-ont": "field.gate-proof.base",
           "type": "string"
         },
@@ -937,6 +989,136 @@
         "result",
         "time",
         "gate"
+      ]
+    },
+    "process-record": {
+      "title": "Process record",
+      "description": "A record of the process that a writer of the tool writes: a round of review, a verdict, a record of done, the owner's approval or answer to a gate, a snapshot of spend, a record of fixes, a gate change or a gate proof; a file in the directory of rounds, of verdicts or of task records the configuration names.",
+      "x-ont": "ent.process-record",
+      "type": "object",
+      "properties": {
+        "seal": {
+          "description": "The first line of the record, Seal: v1 <sha256>: the SHA-256 of the prefix of its format, ont-check seal v1, a line feed and the rest of the file. It depends on the format and not on the version of the tool, so the guard of main and a writer on a branch compute it alike; a later format is v2, and v1 is still read.",
+          "x-ont": "field.process-record.seal",
+          "type": "string"
+        },
+        "sealsFrom": {
+          "description": "The key records.sealsFrom of the configuration: where the configuration at the base of a pull request sets it, a record the pull request adds whose Time: is after the committer time of the commit of the base's first-parent history that brought the key in, its merge into main, needs a valid seal; a record before it, in the base or on the branch of the task that brought the key, reads as before.",
+          "x-ont": "field.process-record.seals-from",
+          "type": "boolean"
+        },
+        "refusalCode": {
+          "description": "What the guard prints on a line CODE <code>, once for each rule a pull request breaks: GATE_PATH_UNAPPROVED, SEAL_MISSING, SEAL_WRONG, RECORD_CHANGED and RECORD_REMOVED; the configuration lists under mergeGate.codes the codes of each task's gate, which a gate proof of a refusal compares with the output of the check.",
+          "x-ont": "field.process-record.refusal-code",
+          "type": "string"
+        },
+        "guard": {
+          "description": "The gate whose guard refuses a record of the process written by hand, edited or removed.",
+          "x-ont": "edge.process-record.guard",
+          "type": "string",
+          "x-ont-ref": "ent.merge-gate"
+        }
+      },
+      "required": [
+        "seal",
+        "refusalCode",
+        "guard"
+      ]
+    },
+    "round-brief": {
+      "title": "Round brief",
+      "description": "The brief of one round of review that round.mjs brief gives: its lines, kept once in ont-briefs/ of the Git directory of the working copy, never in the tree, so that a linked worktree keeps its own; the executor puts them first in the reviewer's brief, and the reviewer's reply begins with them word for word.",
+      "x-ont": "ent.round-brief",
+      "type": "object",
+      "properties": {
+        "lines": {
+          "description": "Task:, Step:, Narrow:, Number:, Statement-hash:, Goal: where the statement names one, from which a reader given no file reads the scope of the budget, held to the configuration's goals (field.task-statement.goal, D-179), Budget-new-input:, Budget-output: and Budget-reserve:, the statement's limits and reserve, each a number or none, the limits of the brief's version, which round.mjs record reads by derived.task-budget for that version, whatever version is approved in force, Commits:, for a round of the result Done:, the record of done it reviews, whose commit Commits: gives, and Brief-time:, when the brief was given.",
+          "x-ont": "field.round-brief.lines",
+          "type": "string"
+        },
+        "round": {
+          "description": "The round whose record round.mjs record writes from the brief and the reviewer's reply.",
+          "x-ont": "edge.round-brief.round",
+          "type": "string",
+          "x-ont-ref": "ent.review-round"
+        },
+        "statement": {
+          "description": "The version of the statement the round reads, by the SHA-256 of its file.",
+          "x-ont": "edge.round-brief.statement",
+          "type": "string",
+          "x-ont-ref": "ent.task-statement"
+        }
+      },
+      "required": [
+        "lines",
+        "round",
+        "statement"
+      ]
+    },
+    "fixes-record": {
+      "title": "Fixes record",
+      "description": "The record of the tests that hold the fixes of the findings of one round: Record: fixes, one file <time>-<task>-fixes.md in the directory the configuration names under taskRecords, with its seal.",
+      "x-ont": "ent.fixes-record",
+      "type": "object",
+      "properties": {
+        "round": {
+          "description": "The round whose findings it tests, by its file on Round:.",
+          "x-ont": "edge.fixes-record.round",
+          "type": "string",
+          "x-ont-ref": "ent.review-round"
+        },
+        "tests": {
+          "description": "Under Tests:, one line for each class of a fixable finding of that round, word for word, with the file and the name of its test, - class · file · name; the reader of rounds takes the test of a finding from it when the round's record gives none, so that derived.next-round sees the fix held, and the record of the round is never changed.",
+          "x-ont": "field.fixes-record.tests",
+          "type": "string"
+        }
+      },
+      "required": [
+        "round",
+        "tests",
+        "round"
+      ]
+    },
+    "spend-snapshot": {
+      "title": "Spend snapshot",
+      "description": "The spend of a unit of budget at the time a writer ran: Record: spend-snapshot, one file <time>-<task>-spend-snapshot.md in the directory the configuration names under taskRecords, which round.mjs record writes with its round.",
+      "x-ont": "ent.spend-snapshot",
+      "type": "object",
+      "properties": {
+        "unit": {
+          "description": "The unit of budget, Unit:: the goal the statement names on Goal:, or the task; and Unit-start:, when the unit began.",
+          "x-ont": "field.spend-snapshot.unit",
+          "type": "string"
+        },
+        "sums": {
+          "description": "New input, cached input and output, each a whole number, of the unit, of the task and of the round: Unit-new:, Unit-cached:, Unit-out:, the same with Task- and Round-.",
+          "x-ont": "field.spend-snapshot.sums",
+          "type": "string"
+        },
+        "limits": {
+          "description": "The limits and the reserve the sums were compared with, of the unit and of the task, with the versions of the statements they are of, the goal's approved version and, for the task, the version that applies to the writer, a round's brief's (derived.task-budget): Unit-limit-new:, Unit-limit-out:, Unit-reserve:, Unit-statement-hash:, the same with Task-, each a number or none.",
+          "x-ont": "field.spend-snapshot.limits",
+          "type": "string"
+        },
+        "round": {
+          "description": "The round it was written with, which names it on Spend-record:.",
+          "x-ont": "edge.spend-snapshot.round",
+          "type": "string",
+          "x-ont-ref": "ent.review-round"
+        },
+        "task": {
+          "description": "The task whose writer wrote it, named as in its rounds.",
+          "x-ont": "edge.spend-snapshot.task",
+          "type": "string",
+          "x-ont-ref": "ent.task-statement"
+        }
+      },
+      "required": [
+        "unit",
+        "sums",
+        "limits",
+        "round",
+        "task"
       ]
     },
     "test": {

@@ -9,7 +9,8 @@ import { outsideRecord } from "./manual-runs.mjs";
 
 export const STEPS = ["statement-review", "result-review"];
 // The line Ceiling: of a record made before D-152 is read, as a whole number, and decides nothing.
-const FIELDS = ["Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "By", "Contribution", "Statement-hash", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Overspend", "Condition"];
+// Seal:, Brief-time:, Done: and Spend-record: are written by round.mjs record (D-167, D-168, D-169).
+const FIELDS = ["Seal", "Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "Done", "By", "Contribution", "Statement-hash", "Brief-time", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Spend-record", "Overspend", "Condition"];
 const COUNTS = ["number", "ceiling", "tokens-new", "tokens-cached", "tokens-out", "checks-listed", "checks-given", "checks-carried"];
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 // A time is real when it reads back as itself: 2026-99-99T99:99:99Z has the shape and is no time.
@@ -163,6 +164,8 @@ export function parseRounds(dir, opts = {}) {
       fields.narrow && !["true", "false"].includes(fields.narrow) && `narrow ${fields.narrow} is not true or false`,
       !realTime(fields.time) && `time ${fields.time ?? "(none)"} is not a UTC time to the second`,
       fields.start !== undefined && !realTime(fields.start) && `start ${fields.start} is not a UTC time to the second`,
+      fields["brief-time"] !== undefined && !realTime(fields["brief-time"]) && `brief time ${fields["brief-time"]} is not a UTC time to the second`,
+      realTime(fields["brief-time"]) && realTime(fields.time) && fields["brief-time"] > fields.time && `brief time ${fields["brief-time"]} is after its time ${fields.time}`,
       fields.contribution !== undefined && !contribution && `contribution ${fields.contribution} is not "provider · ID"`,
       fields.contribution !== undefined && fields.start === undefined && "a contribution without a start",
       realTime(fields.start) && realTime(fields.time) && fields.start > fields.time && `start ${fields.start} is after its time ${fields.time}`,
@@ -214,6 +217,9 @@ export function parseRounds(dir, opts = {}) {
       acceptance: acceptance && { findings: acceptance.findings },
       condition: fields.condition === "holds",
       overspend: fields.overspend ?? null,
+      briefTime: fields["brief-time"] ?? null,
+      spendRecord: fields["spend-record"] ?? null,
+      doneFile: fields.done ?? null,
     });
   }
   const seen = new Map();
@@ -384,10 +390,15 @@ export const blockedSay = (malformed) => `${BLOCKED} (${malformed.map((m) => m.s
 // For each step with ten applications or more, one step of one task with its rounds taken together:
 // the rounds, the tokens that are known and the findings of the change by weight (derived.step-payoff).
 export const PAYOFF_AFTER = 10;
-export function stepPayoff(rounds) {
+// The tokens of a round are read by its full identity, task, step, narrow or not, and number (D-169): a
+// round of the review of the result and one of the statement with the same number never share their
+// sums; tokensOf gives them, by default the round's own record, which round.mjs record writes from the logs.
+export const roundKey = (r) => `${r.task}|${r.step}|${r.narrow ? "narrow" : "full"}|${r.number}`;
+export function stepPayoff(rounds, { tokensOf = (r) => r.tokens } = {}) {
   const out = [];
+  const byKey = new Map(rounds.map((r) => [roundKey(r), r]));
   for (const step of STEPS) {
-    const of = rounds.filter((r) => r.step === step);
+    const of = [...byKey.values()].filter((r) => r.step === step).map((r) => ({ ...r, tokens: tokensOf(r) ?? { new: null, cached: null, out: null } }));
     const tasks = [...new Set(of.map((r) => r.task))];
     if (tasks.length < PAYOFF_AFTER) continue;
     // A sum of what is known, with how many rounds did not say: a count left out is never a zero.
@@ -413,7 +424,7 @@ export function stepPayoff(rounds) {
 // taskState, the function --task prints, given no file: its lines of state and its one NEXT line, so the
 // two cannot differ but by the file. A record that cannot be read blocks every task there too; with no
 // task, the blocking line stands alone.
-export function renderRounds(rounds, { tasks = [...new Set(rounds.map((r) => r.task))].sort(), stateOf = () => [], malformed = [] } = {}) {
+export function renderRounds(rounds, { tasks = [...new Set(rounds.map((r) => r.task))].sort(), stateOf = () => [], malformed = [], tokensOf } = {}) {
   const lines = [];
   for (const t of tasks) {
     for (const step of STEPS) {
@@ -425,7 +436,7 @@ export function renderRounds(rounds, { tasks = [...new Set(rounds.map((r) => r.t
     lines.push(...stateOf(t));
   }
   if (malformed.length && !tasks.length) lines.push(`NEXT: ${blockedSay(malformed)}`);
-  for (const p of stepPayoff(rounds))
+  for (const p of stepPayoff(rounds, tokensOf ? { tokensOf } : {}))
     lines.push(
       `PAYOFF ${p.step}: ${p.applications} applications, ${p.rounds} rounds, tokens ` +
         ["new", "cached", "out"]
