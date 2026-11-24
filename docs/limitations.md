@@ -235,6 +235,16 @@ The writer of a round's brief checks that the next action is a round, but not th
 The Rules section of `AGENTS.md` has grown past one screen with the rules of the merge gate and of the records written by the tool (class "Agent rules exceed the one-screen check", and in a later round "Agent rules exceed one screen"); each row still names its command or file, and the rules of the process are explained in `docs/parts/agent-rules.md`.
 
 <!-- ont: -->
+### The line `Goal:` is the same in every version of a task's statement
+
+The readers of a task's budget combine its versions: the limits of the version in force with the statement given while a revision is under review, and the other way after an approval. They give the right unit where every version carries the same line `Goal:`, or none does; a revision that adds, drops or changes the line can pair the limits of one version with the goal of another (class "Goal membership without a Goal line changes the approved budget unit", round 6). It needs a task moved into or out of a goal between versions of its statement; the statements of a goal carry its line from the first version.
+
+<!-- ont: -->
+### A refresh of gate-change records keeps the clauses it had
+
+`gate-record.mjs change` checks that a clause it is given is in the statement; a refresh of the existing records copies their clauses onto the new version without that check (class "Gate-change refresh carries a missing clause into the approved version", round 6). It needs a revision of an approved statement that drops or renumbers a clause of «What to do» while gate-change records of the task exist; the owner approves the revised version, and the reviewer reads the records against it at the next round.
+
+<!-- ont: -->
 ## Kinds of checks the approach does not run yet
 
 A check of the approach is proven by a test, by a test whose output a model judges, by a reviewer's verdict on a change, or by an agent's run on the product. The industry uses more kinds of checks than these, and the approach has no concept, no gate and no record for the following ones yet. A project can run them on its own; the approach does not ask for them, does not see them and does not count them.
