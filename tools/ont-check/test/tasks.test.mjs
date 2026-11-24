@@ -1035,9 +1035,9 @@ test("[check.review-round.stagnation-reset] only a round of the result whose acc
   // first finding after it.
   assert.equal(next(finalRound({ number: 2 }), [{ time: T(11) }]), "narrow");
   // No record of done: the acceptance is refused, nothing ended, class 0 repeats.
-  assert.equal(next(finalRound({ number: 2 }), []), "redesign");
+  assert.equal(next(finalRound({ number: 2 }), []), "cause");
   // Clean on merging with no acceptance: nothing ended either.
-  assert.equal(next(finalRound({ number: 2, acceptance: undefined }), [{ time: T(11) }]), "redesign");
+  assert.equal(next(finalRound({ number: 2, acceptance: undefined }), [{ time: T(11) }]), "cause");
 });
 
 // done.mjs in a repository of its own, the statement outside it.
@@ -1784,7 +1784,7 @@ function readers(h, budget = null, { skipDone = false, args = null } = {}) {
 }
 const ENDS = /^NEXT t: done/;
 const NARROW = /^NEXT t: the reviewer confirmed the goal's condition in r\d+\.md: narrow round 1, the one round after it/;
-// After the round after C that did not end the step, neither a question nor a round (D-164): its fixes held
+// After the round after C that did not end the step, neither a question nor a round (D-182): its fixes held
 // by tests, or, with no verdict of acceptance or one refused, that verdict again on the same result.
 const FIXES = /^NEXT t: the reviewer confirmed the goal's condition in r1\.md and r2\.md is the one round after it: fix its findings of the usual path with tests, get one issue of verdicts on the diff of the fixes \(--review [0-9a-f]{7} --record\), fix the findings of the usual path of that issue with tests, then record done with done\.mjs; no round and no question follow \(rule\.fixes-held-by-tests\)$/;
 const AGAIN = (why) => new RegExp(`^NEXT t: r2\\.md, the one round after the confirmed condition in r1\\.md, ${why}: its reviewer gives it (again )?on the same result, recorded after it as the narrow round's; no new round \\(rule\\.fixes-held-by-tests\\)$`);
@@ -1905,7 +1905,7 @@ test("[check.review-round.fixes-after-narrow] --task and --rounds end the range 
   }
 });
 
-// The path after the narrow round (rule.fixes-held-by-tests, D-164), items (a), (b), (v), (g) and (d) of item 3 of the
+// The path after the narrow round (rule.fixes-held-by-tests, D-182), items (a), (b), (v), (g) and (d) of item 3 of the
 // statement of task enforcement-after-condition, its letters transliterated; (e) and (zh) are in condition-gate: what --task, --rounds, the check and done.mjs give.
 test("[check.review-round.fixes-after-narrow] after C and the narrow round, its findings are fixed with tests and recorded done, then the merge; with no verdict of acceptance that verdict first, never the merge", () => {
   const C1 = resultV(1, { condition: true, found: 1 });

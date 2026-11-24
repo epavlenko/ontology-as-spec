@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// The writer of the records of rounds (D-168), in two steps, and of the tests of their fixes.
-//   node tools/ont-check/round.mjs brief <task> --step statement|result --statement FILE [--config ont.config.json]
+// The writer of the records of rounds (D-183), in two steps, and of the tests of their fixes.
+//   node tools/ont-check/round.mjs brief <task> --step statement|result --statement FILE [--cause FILE] [--config ont.config.json]
 //   node tools/ont-check/round.mjs record <task> --from REPLY --triage FILE [--step statement|result] [--statement FILE] [--config ont.config.json]
 //   node tools/ont-check/round.mjs fixes <task> --round FILE --from FILE [--config ont.config.json]
 // brief refuses unless the task's next action, as --task gives it, is a round of that step: for the
@@ -8,10 +8,12 @@
 // the result, it needs a record of done newer than the step's last round on a commit whose tree differs,
 // the records of that step's own rounds aside, from the commit of the record of done that round checked,
 // except for a round that gives the verdict of acceptance alone, on the same result, when the last round
-// has none or one the tool refuses. It writes the brief into ont-briefs/ of the Git directory and prints
-// its lines, which the executor puts at the top of the reviewer's brief.
+// has none or one the tool refuses. When the next action names stagnation, it needs --cause FILE, the
+// analysis of the cause (D-182), whose SHA-256 the brief carries on Cause: and whose text it prints after the
+// lines; --cause is refused elsewhere (D-183). It writes the brief into ont-briefs/ of the Git directory and
+// prints its lines, which the executor puts at the top of the reviewer's brief.
 // record takes the brief, used once, and the reviewer's reply, whose first lines are the brief's word for
-// word, then By:, for a round of the result Condition: and Acceptance: clean, or refused with its findings
+// word, Cause: among them, which it copies into the record, then By:, for a round of the result Condition: and Acceptance: clean, or refused with its findings
 // under it, and the table of the findings on merging, as skills/change-review asks for them (D-172); the
 // scope of the budget and the task's limits and reserve of the round's record and its snapshot are those of
 // the brief's version, which its lines Goal: and Budget-, written by brief from the statement, carry
@@ -22,7 +24,7 @@
 // finding of acceptance filed. Where spend is counted from the logs, it finds the reviewer's session by the
 // brief, refusing when none holds it, and writes a snapshot of spend with the round, which names it.
 // fixes writes a record of the tests that hold the fixes of a round's findings, by class.
-// ont: field.review-round.brief-time, field.review-round.done, field.review-round.spend-record, action.brief-round, action.record-round, action.record-fixes, ent.round-brief, ent.fixes-record, rule.records-by-tool, rule.executor-triage, rule.findings-filed
+// ont: field.review-round.brief-time, field.review-round.done, field.review-round.spend-record, action.brief-round, action.record-round, action.record-fixes, ent.round-brief, ent.fixes-record, field.review-round.cause, rule.records-by-tool, rule.executor-triage, rule.findings-filed
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -30,17 +32,18 @@ import { pathToFileURL } from "node:url";
 import { briefText, pendingBriefs, readBrief, removeBrief, writeBrief } from "./briefs.mjs";
 import { gitEnv, loadConfig } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
-import { LATER_DIR, LIMITATIONS_FILE, TASK_NAME, isClean } from "./review-rounds.mjs";
+import { CAUSE, LATER_DIR, LIMITATIONS_FILE, TASK_NAME, isClean } from "./review-rounds.mjs";
 import { timeAfter, writeSealed } from "./seal.mjs";
 import { overspendOf, roundSpend, snapshotLines } from "./spend.mjs";
-import { BUDGET_ALL, readStatement, readTaskInputs, reviewedCommit, spendOf, stepNext, taskNext } from "./tasks.mjs";
+import { BUDGET_ALL, readStatement, readTaskInputs, reviewedCommit, sha256, spendOf, stepNext, taskNext } from "./tasks.mjs";
 
 const STEP = { statement: "statement-review", result: "result-review" };
 const now = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 const compact = (t) => t.replace(/[-:]/g, "");
 
-// The round brief may give (D-168): the step's next action, by the branches of derived.task-next, read
-// for that step; refused with why, or { narrow, number, done } of the round it allows.
+// The round brief may give (D-183): the step's next action, by the branches of derived.task-next, read
+// for that step; refused with why, or { narrow, number, done, cause } of the round it allows, cause true
+// when the next action is the analysis of the cause after stagnation (D-182), which needs --cause.
 export function briefAllowed({ cfg, task, step, statement, inputs, head, spendNow = null, git }) {
   const { rounds, malformed, records } = inputs;
   // The next action by the one call --task makes, with the same inputs: the budget is that of the version
@@ -59,8 +62,8 @@ export function briefAllowed({ cfg, task, step, statement, inputs, head, spendNo
     if (found && found.statementHash === statement.hash) return refuse(`the statement is version ${statement.hash.slice(0, 12)}, the version ${found.file} found findings in: correct it first`);
     if (next.branch !== "under review") return { narrow: false, number: nextOf(false), next };
     const r = stepNext({ rounds, done: records.done, approvals: records.approvals, task, step, statement, gatesFrom: cfg.reviewRounds.gatesFrom, head });
-    if (!["full", "narrow", "redesign"].includes(r.next)) return refuse(`the next action of the review of the statement is not a round: ${r.say}`);
-    return { narrow: r.next === "narrow", number: r.number, next };
+    if (!["full", "narrow", CAUSE].includes(r.next)) return refuse(`the next action of the review of the statement is not a round: ${r.say}`);
+    return { narrow: r.next === CAUSE ? r.narrow : r.next === "narrow", number: r.number, cause: r.next === CAUSE, next };
   }
   if (next.branch !== "step" || next.kind !== "work") return refuse(`the task's next action is not a round of the review of its result: ${next.say}`);
   const view = next.view;
@@ -71,20 +74,20 @@ export function briefAllowed({ cfg, task, step, statement, inputs, head, spendNo
     return d ? { narrow: false, number: nextOf(false), done: d, next } : refuse(`no record of done of version ${view.window.hash.slice(0, 12)} yet: ${next.say}`);
   }
   const last = view.results.at(-1) ?? of.at(-1);
-  // A round for the verdict of acceptance alone, on the same result (D-168).
+  // A round for the verdict of acceptance alone, on the same result (D-183).
   if (["acceptance", "refused"].includes(result?.next)) {
     const d = view.done.find((x) => last && x.commit.startsWith(reviewedCommit(last) ?? "\0")) ?? view.done.at(-1);
     if (!d) return refuse(`no record of done to give the verdict of acceptance for: ${next.say}`);
     return { narrow: Boolean(last?.narrow), number: nextOf(Boolean(last?.narrow)), done: d, acceptanceOnly: true, next };
   }
-  if (!["full", "narrow", "redesign"].includes(result?.next)) return refuse(`the next action of the review of the result is not a round: ${next.say}`);
+  if (!["full", "narrow", CAUSE].includes(result?.next)) return refuse(`the next action of the review of the result is not a round: ${next.say}`);
   // A new result: a record of done after the last round, on a commit whose tree differs, the records of the
   // rounds of this step aside, from the commit of the record of done that round checked.
   const checked = view.done.find((x) => last && x.commit.startsWith(reviewedCommit(last) ?? "\0"));
   const roundsRel = relative(git.top, cfg.reviewRounds.dir).split("\\").join("/");
   const tasksRel = cfg.taskRecords ? relative(git.top, cfg.taskRecords.dir).split("\\").join("/") : null;
   // The records of the rounds of this step, their snapshots of spend and the task's records of done are no
-  // new result: a commit that holds only them gives none (D-168).
+  // new result: a commit that holds only them gives none (D-183).
   const own = new Set([
     ...of.flatMap((r) => [`${roundsRel}/${r.file}`, ...(r.spendRecord && tasksRel ? [`${tasksRel}/${r.spendRecord}`] : [])]),
     ...(tasksRel ? records.done.filter((d) => d.task === task).map((d) => `${tasksRel}/${d.file}`) : []),
@@ -99,10 +102,11 @@ export function briefAllowed({ cfg, task, step, statement, inputs, head, spendNo
     return refuse(
       `no record of done newer than the last round ${last?.file ?? "(none)"} on a commit whose tree differs from ${checked ? `${checked.commit.slice(0, 12)}, the commit of ${checked.file} it checked,` : "the commit it checked"} outside the records of the rounds of this step: fix the findings, commit, record done with done.mjs, then brief the round`,
     );
-  return { narrow: result.next === "narrow", number: result.number, done: fresh, next };
+  // After a stagnating C the one narrow round, after the branch stagnation a full one (derived.next-round).
+  return { narrow: result.next === CAUSE ? result.narrow : result.next === "narrow", number: result.number, done: fresh, cause: result.next === CAUSE, next };
 }
 
-// The reviewer's reply (D-168, D-172), as skills/change-review asks for it: its first lines are the brief's
+// The reviewer's reply (D-183, D-172), as skills/change-review asks for it: its first lines are the brief's
 // word for word; then By:, and for a round of the result Condition: and Acceptance: clean or Acceptance:
 // refused with its reason, the findings of acceptance under it as lines "- class · weight · origin"; the
 // findings on merging as the rows of the table of findings, | class | weight | origin | path | fixability
@@ -158,7 +162,7 @@ export function parseReply(text, brief, step) {
   return { wrong, by, condition, acceptance, findings, acceptFindings };
 }
 
-// The executor's triage (rule.executor-triage, D-168): one line for each finding, "class · usual path:
+// The executor's triage (rule.executor-triage, D-183): one line for each finding, "class · usual path:
 // <step>", "class · not fixable", "class · limitation" or "class · later: issues/NNNN.md". A class is matched
 // to the reply's whatever its case, as a reviewer begins a row of a table with a capital, and recorded as
 // the triage spells it (D-172).
@@ -234,6 +238,14 @@ function main(argv) {
     const head = run("rev-parse", "--verify", "HEAD").stdout.trim() || null;
     const ok = briefAllowed({ cfg, task, step, statement, inputs, head, spendNow: sp, git });
     if (ok.refused) return refuse(ok.refused);
+    // The analysis of the cause after stagnation (D-182, D-183): required when the next action names it,
+    // refused where it does not, so that no round carries an analysis of a stagnation there was not.
+    const causeFile = value("--cause");
+    if (ok.cause && !causeFile) return refuse(`the next action is the analysis of the cause: ${ok.next.say}; write it and give it with --cause FILE`);
+    if (!ok.cause && causeFile) return refuse(`--cause is given, and the next action names no stagnation: ${ok.next.say}`);
+    if (causeFile && !existsSync(causeFile)) return refuse(`--cause ${causeFile} is not a file`);
+    const cause = causeFile ? readFileSync(causeFile) : null;
+    if (cause && !cause.toString("utf8").trim()) return refuse(`--cause ${causeFile} is empty: write the analysis of the cause in it`);
     const brief = {
       Task: task,
       Step: step,
@@ -245,11 +257,14 @@ function main(argv) {
       ...Object.fromEntries(BUDGET_ALL.map(([k, name]) => [name, String(statement.budget?.[k] ?? "none")])),
       Commits: step === "result-review" ? ok.done.commit : head,
       Done: step === "result-review" ? ok.done.file : undefined,
+      Cause: cause ? sha256(cause) : undefined,
       "Brief-time": now(),
     };
     const at = writeBrief(cfg.base, brief);
     console.log(briefText(brief));
-    console.log(`BRIEF ${task}: ${ok.narrow ? "narrow" : "full"} round ${ok.number} of the ${step === "result-review" ? "result" : "statement"}${ok.acceptanceOnly ? ", for the verdict of acceptance alone on the same result" : ""}; the lines above go first in the reviewer's brief, and its reply begins with them word for word (kept in ${at})`);
+    // The analysis goes into the reviewer's brief after the lines, which alone the reply repeats.
+    if (cause) console.log(`\n## The analysis of the cause (Cause: ${brief.Cause})\n\n${cause.toString("utf8").trimEnd()}\n`);
+    console.log(`BRIEF ${task}: ${ok.narrow ? "narrow" : "full"} round ${ok.number} of the ${step === "result-review" ? "result" : "statement"}${ok.acceptanceOnly ? ", for the verdict of acceptance alone on the same result" : ""}${cause ? ", after the analysis of the cause printed above, which goes into the reviewer's brief too" : ""}; the lines above go first in the reviewer's brief, and its reply begins with them word for word (kept in ${at})`);
     return 0;
   }
   // record
@@ -332,6 +347,7 @@ function main(argv) {
     ...(snapshot ? [`Spend-record: ${snapshot}`] : []),
     ...(over ? [`Overspend: ${over}`] : []),
     ...(reply.condition === "holds" ? ["Condition: holds"] : []),
+    ...(brief.Cause ? [`Cause: ${brief.Cause}`] : []),
   ];
   // The step each fixable class breaks, once for the class, given both on merging and under acceptance.
   const fixableNotes = [...new Set(all.filter((f) => tri(f).fix === "fixable").map((f) => `- ${f.cls}: usual path, the step it breaks: ${tri(f).step}`))];

@@ -1,4 +1,4 @@
-// The briefs of rounds (D-168): one file for each round round.mjs brief has given and round.mjs record has
+// The briefs of rounds (D-183): one file for each round round.mjs brief has given and round.mjs record has
 // not yet recorded, in the directory ont-briefs/ of the Git directory of the working copy, so that a
 // linked worktree keeps its own, and nothing of it is in the tree. A brief is used once: the record of
 // its round removes it.
@@ -10,9 +10,10 @@ import { gitEnv } from "./lib.mjs";
 
 // The lines of a brief, in their order; Goal: only when the statement names one, the scope of the budget
 // round.mjs record takes from the brief (D-172), and the statement's limits and reserve, each a number or
-// none, which it takes with it (D-174); Done: only for a round of the review of the result.
+// none, which it takes with it (D-174); Done: only for a round of the review of the result; Cause: only for a
+// round briefed after stagnation, the SHA-256 of the analysis of the cause (D-183).
 export const BRIEF_BUDGET = ["Budget-new-input", "Budget-output", "Budget-reserve"];
-export const BRIEF_FIELDS = ["Task", "Step", "Narrow", "Number", "Statement-hash", "Goal", ...BRIEF_BUDGET, "Commits", "Done", "Brief-time"];
+export const BRIEF_FIELDS = ["Task", "Step", "Narrow", "Number", "Statement-hash", "Goal", ...BRIEF_BUDGET, "Commits", "Done", "Cause", "Brief-time"];
 
 // The directory of the briefs: ont-briefs/ under git rev-parse --git-dir, or null outside Git.
 export function briefsDir(base) {
