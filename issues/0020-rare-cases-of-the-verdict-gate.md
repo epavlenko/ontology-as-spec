@@ -7,6 +7,8 @@ Findings of the review of the statement of task enforcement-verdicts-tests, each
 - class "Release run debt loses merged deferrals" (statement round 5, both replies): a reasoned `not-run` of a check of run, then a tested fix after the narrow round that changes that same check's stamp, then the merge: the release reader drops the deferral at the new stamp; it needs a deferral and a fix of the same check inside one range of fixes.
 - class "Verdict probe depends on the task ending" (statement round 5): a round for the verdict of acceptance alone after a narrow round with findings drops the range of fixes; such a round is briefed only when the reviewer's reply of the narrow round gave no line of acceptance or refused it, and no reply of a round here has done so.
 - class "Cause verdict is bound only by time" (statement round 5): a verdict on `check.review-round.redesign-after-stagnation` recorded after the brief's time by another review stands for this analysis; it needs two reviews of that check of one task in the same window.
+- class "Verdict base is unchecked outside the narrow issue" (statement round 6): a review of a smaller diff than the task's, recorded as `Origin: review` on the same result commit with the same stamp, satisfies the gate of the whole diff; outside the narrow issue, which binds its base, the process here gives the reviewer of the result the whole diff.
+- class "Malformed catalogue row has no valid mark" (statement round 6): a new row of `checks.md` whose ID lacks its backticks is dropped by `parseChecks` without an error, so the catalogue check and the report gate stay green while the new check is absent; it needs a malformed row, which the formatter and the review of the result see.
 
 ## Slice
 
