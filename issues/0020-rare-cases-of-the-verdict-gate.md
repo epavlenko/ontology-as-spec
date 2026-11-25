@@ -9,6 +9,7 @@ Findings of the review of the statement of task enforcement-verdicts-tests, each
 - class "Cause verdict is bound only by time" (statement round 5): a verdict on `check.review-round.redesign-after-stagnation` recorded after the brief's time by another review stands for this analysis; it needs two reviews of that check of one task in the same window.
 - class "Verdict base is unchecked outside the narrow issue" (statement round 6): a review of a smaller diff than the task's, recorded as `Origin: review` on the same result commit with the same stamp, satisfies the gate of the whole diff; outside the narrow issue, which binds its base, the process here gives the reviewer of the result the whole diff.
 - class "Malformed catalogue row has no valid mark" (statement round 6): filed here by mistake and returned to the statement by round 7. The reason given, that the formatter sees the row, was wrong: the formatter reads the ontology, not `checks.md`, and the case is an audit row this task closes.
+- class "Malformed catalogue row has no valid mark" (statement round 8): a new row of `checks.md` whose ID has its opening backtick and lacks the closing one is still skipped without an error by the check version 8 of the statement specifies; it needs that one typo, which the reviewer of the result reads in the diff.
 
 ## Slice
 
