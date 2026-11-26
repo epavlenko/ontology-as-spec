@@ -771,6 +771,36 @@ export function roundWindow({ rounds, done = [], approvals = [], task }) {
   return { all, ends, end: ends.at(-1) ?? null, view };
 }
 
+// The checks of the record of a round (rule.round-verdicts, D-186), whose verdicts the reviewer of the next
+// round gives on the rounds before it in the open window of the step.
+export const ROUND_CHECKS = ["check.review-round.filed-right", "check.review-round.whole-class"];
+export const CAUSE_ROUND_CHECK = "check.review-round.redesign-after-stagnation";
+// The open window of a step of a task (rule.round-verdicts): its rounds after the end of the step, by
+// stepEnds for the result, by the last clean round for the statement, and after the owner's last approval;
+// from is the time it opens at, or null.
+export function openWindow({ rounds, done = [], approvals = [], task, step }) {
+  if (step === "result-review") {
+    const w = roundWindow({ rounds, done, approvals, task });
+    const from = w.end?.time ?? null;
+    return { rounds: w.all.filter((r) => from === null || r.time > from), from };
+  }
+  const since = ownerApprovals(approvals, task).map((a) => a.time).sort().at(-1) ?? null;
+  const of = ofTask(rounds, task, "statement-review").filter((r) => since === null || r.time > since);
+  const end = of.filter((r) => endsStep(r)).at(-1);
+  const from = [since, end?.time].filter(Boolean).sort().at(-1) ?? null;
+  return { rounds: of.filter((r) => from === null || r.time > from), from };
+}
+// A round with a finding of the change, filed or not, which the next round's verdicts of the record of a
+// round look back at.
+export const hasFindings = (r) => [...r.findings, ...(r.acceptance?.findings ?? [])].some((x) => x.ofChange);
+// The latest verdict of the analysis of the cause in a window, by time, when it is a fail no later pass
+// decided: the next rounds of the step, or the one issue after the last narrow round, give it again on the
+// corrected analysis.
+export function failedCause(runs, from) {
+  const of = runs.filter((r) => r.check === CAUSE_ROUND_CHECK && (from === null || r.time > from) && (r.verdict === "pass" || r.verdict === "fail")).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
+  return of.at(-1)?.verdict === "fail" ? of.at(-1) : null;
+}
+
 // Whether a record of done ran exactly the statement's commands of done, in their order (D-123).
 const sameCommands = (d, statement) => {
   const ran = d.checks.map((c) => c.command);

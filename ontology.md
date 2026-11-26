@@ -1155,6 +1155,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `inv.agent-rule-references-resolve` | `tools/ont-check/ont-check.mjs`                               |                                                                          |
 | `inv.approach-ids-current`          | `tools/ont-check/ont-check.mjs`                               |                                                                          |
 | `derived.step-end` | `tools/ont-check/tasks.mjs`, `tools/ont-check/review-rounds.mjs` | `stepEnds` is the one function; `stepNext`, `fixesRange` and `roundWindow` read it |
+| `rule.round-verdicts` | `tools/ont-check/round.mjs`, `tools/ont-check/merge-gate.mjs`, `tools/ont-check/tasks.mjs`, `tools/ont-check/review.mjs`, `tools/ont-check/briefs.mjs` | the brief names them on `Round-checks:`, the writer of the round refuses without them, the guard reads them in the window |
 
 ### Contract
 

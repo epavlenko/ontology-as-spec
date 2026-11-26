@@ -54,7 +54,7 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { CAUSE_CHECK, renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
+import { acceptanceProblems, failedCause, fixesRange, gitEnv, heldByFixes, openWindow, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { goalLineProblem } from "./spend.mjs";
 import { compareRules, githubRepo, isRecordPath, localRecordNotes, recordDirs } from "./merge-gate.mjs";
 import { briefsDir, pendingBriefs } from "./briefs.mjs";
@@ -1378,13 +1378,29 @@ if (flag("--review") > 0) {
     fail("--review needs a base: a branch, a tag or a commit", 2);
   }
   // --json: the list of the change alone, each check with its stamp, on one line, for the guard of the
-  // base (derived.change-list, D-186). No brief is read, and the run ends here, before anything of the
-  // project is imported.
+  // base (derived.change-list, D-186); the guard runs it in a working tree of its own, whose Git directory
+  // keeps no brief. The run ends here, before anything of the project is imported.
   // ont: derived.change-list
   const asJson = flag("--json") > 0;
-  const r = reviewChange({ cfg, base, checks, approachChecks: approach?.checks, implRows, ids, guides: runGuides, ...(asJson ? { briefs: [] } : {}) });
+  const r = reviewChange({ cfg, base, checks, approachChecks: approach?.checks, implRows, ids, guides: runGuides });
   if (r.error) {
     fail(r.error, 2);
+  }
+  // After the last narrow round, a failed verdict of the analysis of the cause in the open window of a
+  // task's result, which no later pass decided, is given again by the one issue of verdicts, on the
+  // corrected analysis whose hash its evidence names (rule.round-verdicts, D-186).
+  // ont: rule.round-verdicts
+  if (!asJson && cfg.mergeGate?.verdicts && cfg.manualRuns && cfg.reviewRounds && cfg.taskRecords && ![...r.project, ...r.approach].some((c) => c.id === CAUSE_CHECK)) {
+    const { rounds, records } = readTaskInputs(cfg);
+    const { runs } = parseRuns(cfg.manualRuns.dir, { has: () => true }, { latinOnly: cfg.records.latinOnly });
+    const pending = [...new Set(rounds.map((x) => x.task))].filter((task) => failedCause(runs, openWindow({ rounds, done: records.done, approvals: records.approvals, task, step: "result-review" }).from));
+    if (pending.length) {
+      const own = checks.find((c) => c.id === CAUSE_CHECK && untested(c.proof));
+      const theirs = (approach?.checks ?? []).find((c) => c.id === CAUSE_CHECK);
+      if (own) r.project.push(own);
+      else if (theirs) r.approach.push(theirs);
+      console.log(`CAUSE ${pending.join(", ")}: a verdict of the analysis of the cause failed in the open window and no later pass decided it: ${CAUSE_CHECK} is listed, for a verdict on the corrected analysis whose hash its evidence names (rule.round-verdicts)`);
+    }
   }
   if (asJson) {
     const list = [...r.project, ...r.approach].map((c) => ({ id: c.id, stamp: stampFor(c), proof: c.proof }));
