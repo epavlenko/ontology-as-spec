@@ -95,7 +95,15 @@ test("[check.check.screen-kept] keeps the snapshot of a view's state by date, vi
     assert.equal(readFileSync(join(screens, "2026-11-05-view.member.loans-empty.txt"), "utf8"), "nothing on loan, no holds\n");
     assert.equal(written.length, 2);
     const none = join(dir, "none");
-    assert.deepEqual(keepScreen({ view: "view.member.loans", state: "empty", text: "x", screens: undefined }), []);
+    // Without a directory, the environment's own included: test:judged sets JUDGE_SCREENS, and done.mjs
+    // runs npm test in that environment too (D-186).
+    const kept = process.env.JUDGE_SCREENS;
+    delete process.env.JUDGE_SCREENS;
+    try {
+      assert.deepEqual(keepScreen({ view: "view.member.loans", state: "empty", text: "x", screens: undefined }), []);
+    } finally {
+      if (kept !== undefined) process.env.JUDGE_SCREENS = kept;
+    }
     assert.ok(!existsSync(none));
   } finally {
     rmSync(dir, { recursive: true, force: true });
