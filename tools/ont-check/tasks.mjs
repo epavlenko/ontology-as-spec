@@ -793,11 +793,17 @@ export function openWindow({ rounds, done = [], approvals = [], task, step }) {
 // A round with a finding of the change, filed or not, which the next round's verdicts of the record of a
 // round look back at.
 export const hasFindings = (r) => [...r.findings, ...(r.acceptance?.findings ?? [])].some((x) => x.ofChange);
-// The latest verdict of the analysis of the cause in a window, by time, when it is a fail no later pass
-// decided: the next rounds of the step, or the one issue after the last narrow round, give it again on the
-// corrected analysis.
-export function failedCause(runs, from) {
-  const of = runs.filter((r) => r.check === CAUSE_ROUND_CHECK && (from === null || r.time > from) && (r.verdict === "pass" || r.verdict === "fail")).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
+// The latest verdict of the analysis of the cause given for a round of the window, by time, when it is a
+// fail no later one decided: the next rounds of the step, or the one issue after the last narrow round, give
+// it again on the corrected analysis. A verdict counts only when a round of the window asked for it on its
+// line Round-checks: and it was given between that round's brief and its record, so that a verdict of
+// another task, or one given before the rule, when no round named the checks of the record of a round, is
+// read as before and asks nothing (rule.round-verdicts, D-186).
+export function failedCause(runs, windowRounds = []) {
+  const asked = windowRounds.filter((r) => r.briefTime && (r.roundChecks ?? []).includes(CAUSE_ROUND_CHECK));
+  const of = runs
+    .filter((x) => x.check === CAUSE_ROUND_CHECK && (x.verdict === "pass" || x.verdict === "fail") && asked.some((r) => x.time >= r.briefTime && x.time <= r.time))
+    .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
   return of.at(-1)?.verdict === "fail" ? of.at(-1) : null;
 }
 

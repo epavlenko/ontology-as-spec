@@ -291,7 +291,7 @@ function main(argv) {
     // ont: rule.round-verdicts
     const win = cfg.mergeGate?.verdicts ? openWindow({ rounds, done: records.done, approvals: records.approvals, task, step }) : null;
     const runs = win && cfg.manualRuns && existsSync(cfg.manualRuns.dir) ? parseRuns(cfg.manualRuns.dir, { has: () => true }).runs : [];
-    const causeFailed = win ? failedCause(runs, win.from) : null;
+    const causeFailed = win ? failedCause(runs, win.rounds) : null;
     if (causeFailed && !causeFile) return refuse(`the verdict of the analysis of the cause ${causeFailed.file} failed in this step and no later pass decided it: give the corrected analysis with --cause FILE (rule.round-verdicts)`);
     if (ok.cause && !causeFile) return refuse(`the next action is the analysis of the cause: ${ok.next.say}; write it and give it with --cause FILE`);
     if (!ok.cause && !causeFailed && causeFile) return refuse(`--cause is given, and the next action names no stagnation: ${ok.next.say}`);

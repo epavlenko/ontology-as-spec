@@ -373,6 +373,9 @@ test("[check.merge-gate.verdict-failed] a late fail after a pass, a fail without
     const { p, st } = approved();
     reviewed(p, st, { [OTHER]: ["fail", "[a gap of meaning] app/work.mjs:2"] });
     const old = readdirSync(join(p.dir, "reviews/runs")).find((f) => f.includes(OTHER));
+    // A later second: two records of done in one second are ordered by file name, and "-done-2.md" sorts
+    // before "-done.md".
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
     p.put("docs/page.md", "# A page\n\nA line that no check reads.\n");
     p.put("docs/limitations.md", "# Limitations\n\n- a gap of meaning\n");
     p.commit("a page");
@@ -915,5 +918,33 @@ test("[check.merge-gate.round-verdicts-held] a failed analysis of the cause in t
     const g = p.gate();
     assert.deepEqual([...new Set(g.codes)], corrected ? [] : ["VERDICT_FAILED"], g.out);
     if (!corrected) assert.match(g.out, /no later pass in the window was given on a corrected analysis/);
+  }
+});
+
+test("[check.review-round.round-verdicts-required] a failed verdict of the analysis of the cause that no round of the window asked for, of another task or given before the rule, does not hold the brief; one a round asked for on Round-checks: does", () => {
+  // Before the start: a failed verdict of the analysis with no round that named it on Round-checks:.
+  {
+    const { p, st } = approved();
+    reviewed(p, st);
+    withFinding(p, st);
+    forge(p, { check: CAUSE, commit: p.git("rev-parse", "--short", "HEAD"), stamp: "00000000", verdict: "fail", evidence: "[a cause not named] an earlier task's analysis", cls: "a cause not named" });
+    p.commit("an old failed verdict of the analysis");
+    const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+    assert.equal(b.code, 0, b.out);
+    assert.doesNotMatch(b.out, /^Cause:/m);
+  }
+  // After the start: the verdict a round asked for holds the next brief until a corrected analysis.
+  {
+    const { p, st } = approved();
+    reviewed(p, st);
+    withFinding(p, st);
+    withFinding(p, st);
+    resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: not yet\nAcceptance: clean", "a slip · usual path: the work\n", { extra: ["--cause", writeFile("The cause is the test.\n")], given: { [CAUSE]: ["fail", "[a cause not named] the analysis names no cause"] } });
+    work(p, "export const after = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+    assert.notEqual(b.code, 0, b.out);
+    assert.match(b.out, /failed in this step and no later pass decided it/);
   }
 });

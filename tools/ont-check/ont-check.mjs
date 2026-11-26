@@ -1393,7 +1393,7 @@ if (flag("--review") > 0) {
   if (!asJson && cfg.mergeGate?.verdicts && cfg.manualRuns && cfg.reviewRounds && cfg.taskRecords && ![...r.project, ...r.approach].some((c) => c.id === CAUSE_CHECK)) {
     const { rounds, records } = readTaskInputs(cfg);
     const { runs } = parseRuns(cfg.manualRuns.dir, { has: () => true }, { latinOnly: cfg.records.latinOnly });
-    const pending = [...new Set(rounds.map((x) => x.task))].filter((task) => failedCause(runs, openWindow({ rounds, done: records.done, approvals: records.approvals, task, step: "result-review" }).from));
+    const pending = [...new Set(rounds.map((x) => x.task))].filter((task) => failedCause(runs, openWindow({ rounds, done: records.done, approvals: records.approvals, task, step: "result-review" }).rounds));
     if (pending.length) {
       const own = checks.find((c) => c.id === CAUSE_CHECK && untested(c.proof));
       const theirs = (approach?.checks ?? []).find((c) => c.id === CAUSE_CHECK);
