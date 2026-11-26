@@ -35,6 +35,8 @@
     "concept.product-layer",
     "derived.approval",
     "derived.budget-report",
+    "derived.change-list",
+    "derived.change-verdict",
     "derived.current-run",
     "derived.deferral-in-force",
     "derived.gap",
@@ -53,6 +55,7 @@
     "derived.running-now",
     "derived.slice-done",
     "derived.statement-state",
+    "derived.step-end",
     "derived.step-payoff",
     "derived.surviving-mutation",
     "derived.target",
@@ -177,6 +180,7 @@
     "field.doc-set.files",
     "field.doc-set.name",
     "field.doc-set.scope",
+    "field.fixes-record.issue",
     "field.fixes-record.round",
     "field.fixes-record.tests",
     "field.gate-change.commit",
@@ -200,6 +204,8 @@
     "field.implementation-row.files",
     "field.implementation-row.note",
     "field.manual-run.by",
+    "field.manual-run.carried",
+    "field.manual-run.class",
     "field.manual-run.commit",
     "field.manual-run.evidence",
     "field.manual-run.origin",
@@ -215,6 +221,7 @@
     "field.merge-gate.guard",
     "field.merge-gate.rule-file",
     "field.merge-gate.task-state",
+    "field.merge-gate.verdicts",
     "field.ontology-tree.built-from",
     "field.ontology-tree.place",
     "field.other-word.word",
@@ -276,6 +283,7 @@
     "field.task-result.checks",
     "field.task-result.commit",
     "field.task-result.evidence",
+    "field.task-result.fix-tests",
     "field.task-result.task",
     "field.task-result.time",
     "field.task-spend.contribution",
@@ -293,6 +301,7 @@
     "field.task-statement.sources",
     "field.task-statement.todo",
     "field.test-suite.cover",
+    "field.test-suite.judged-command",
     "field.test-suite.name",
     "field.ticket.out-of-scope",
     "field.ticket.pre-authorized",
@@ -445,6 +454,7 @@
     "rule.no-default-budget",
     "rule.number-by-role",
     "rule.one-choice",
+    "rule.one-issue-after-narrow",
     "rule.one-mockup",
     "rule.ontology-changes-first",
     "rule.ontology-is-source",
@@ -462,6 +472,7 @@
     "rule.reread-then-stamp",
     "rule.reviewed-before-merge",
     "rule.round-recorded",
+    "rule.round-verdicts",
     "rule.rounds-converge",
     "rule.run-recorded",
     "rule.run-settles-question",
@@ -489,6 +500,7 @@
     "rule.validator-test-breaks",
     "rule.value-checked-against-source",
     "rule.verdict-kept",
+    "rule.verdicts-hold-merge",
     "rule.view-state-judged",
     "rule.whole-class",
     "rule.work-under-approval"
@@ -1045,11 +1057,12 @@
       "id": "check.review-round.ready-after-clean",
       "section": "Review round",
       "concepts": [
-        "rule.ready-after-clean-round"
+        "rule.ready-after-clean-round",
+        "derived.step-end"
       ],
-      "given": "a change about to be merged",
-      "when": "a reviewer reads its rounds",
-      "then": "its last round of the review of the result is clean, or, after the narrow round that follows a confirmed condition, the record of done that ends the range of fixes follows it (`rule.fixes-held-by-tests`), and the merge is one the owner's policy allows",
+      "given": "with `mergeGate.taskState` and `mergeGate.verdicts` at the base, a change of a task whose last round of the review of the result is clean; one after the narrow round that follows a confirmed condition with the record of done that ends the range of fixes; one whose last round has a finding; and one whose step ended clean with a failed verdict of the record of a round in its window",
+      "when": "the guard reads the records at the head",
+      "then": "it passes the first two and refuses the third, `TASK_NOT_DONE`, and the fourth, `VERDICT_FAILED`: readiness is computed from the records, not given by a verdict that would depend on itself",
       "proof": "review"
     },
     {
@@ -1284,9 +1297,9 @@
       "concepts": [
         "rule.reviewed-before-merge"
       ],
-      "given": "a change about to be merged",
-      "when": "a reviewer looks for its review",
-      "then": "an agent of another provider that did not write it gave each check `--review` listed a verdict, and a check it could not run is `not run` with the reason, not `not applicable`; no check that failed and no finding of the change remains, and each verdict was given at the check's stamp now, on files no later commit changed, with the check of code errors given on the last diff; in the range of fixes after the narrow round that follows a confirmed condition, what `rule.fixes-held-by-tests` says instead: the one issue of verdicts on the diff of the fixes, given at the stamps then, its fails and findings of the usual path fixed with tests and its rare ones filed",
+      "given": "with `mergeGate.verdicts` at the base, a change of a task whose records give a verdict to each check of the list of the change, with a not-run with its reason; one with a check of the list without one; one whose latest record of a check is a fail of a class not decided; and one whose check of errors in code was given on a commit of records alone",
+      "when": "the guard reads the records at the head",
+      "then": "it passes the first and refuses the others, `VERDICT_MISSING`, `VERDICT_FAILED` and `VERDICT_NOT_OF_CHANGE`: that the change was reviewed is computed from the records, not given by a verdict that would depend on itself",
       "proof": "review"
     },
     {
