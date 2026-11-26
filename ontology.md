@@ -1154,6 +1154,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `rule.strongest-step`                | `docs/parts/agent-rules.md`, `templates/agents-section.md`    | reviewed, not checked                                                     |
 | `inv.agent-rule-references-resolve` | `tools/ont-check/ont-check.mjs`                               |                                                                          |
 | `inv.approach-ids-current`          | `tools/ont-check/ont-check.mjs`                               |                                                                          |
+| `derived.step-end` | `tools/ont-check/tasks.mjs`, `tools/ont-check/review-rounds.mjs` | `stepEnds` is the one function; `stepNext`, `fixesRange` and `roundWindow` read it |
 
 ### Contract
 

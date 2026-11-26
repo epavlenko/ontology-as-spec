@@ -720,7 +720,9 @@ export function fixesRange({ rounds, done = [], approvals = [], task, head = nul
   const { all, held, view } = resultWindow({ rounds, done, approvals, task });
   const last = all.at(-1);
   if (!last) return null;
-  const window = all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1);
+  // The window of the last round: the rounds after the end of the step before it (derived.step-end).
+  const before = stepEnds({ all, done: view.done, held }).filter((e) => e.time < last.time).at(-1);
+  const window = all.filter((r) => !before || r.time > before.time);
   const at = window.findIndex((r) => r.condition);
   if (at < 0 || at === window.length - 1) return null;
   if (endsStep(last, (r) => !endingWhy(r, { rounds, done, approvals, statement }))) return null;
@@ -730,6 +732,45 @@ export function fixesRange({ rounds, done = [], approvals = [], task, head = nul
   const ends = from ? (view.done.find((d) => d.time > last.time && !d.commit.startsWith(from) && ran(d)) ?? null) : null;
   return { task, c: window[at], narrow: last, from, acceptance: !last.acceptance ? "missing" : why ? "refused" : "held", why, done: ends, end: ends ? ends.commit : head };
 }
+// The ends of the step of the review of a task's result, in their order (derived.step-end, D-186): the one
+// function --task, done.mjs, the guard, the brief, the window of stagnation and the windows of the verdicts
+// of the record of a round read, through stepNext, fixesRange and roundWindow. From the start of the
+// window, or the end before, the step ends at the first of: a round that ended it, held by the records as
+// they were when it was given (endsStep); or, after a round C with Condition: holds and the narrow round
+// right after it that did not end it, the first record of done after that narrow round on another commit,
+// every check of it passed, which ends the range of fixes. The step's end is the last of them.
+// ont: derived.step-end
+export function stepEnds({ all, done = [], held = () => true }) {
+  const ends = [];
+  let from = null;
+  for (;;) {
+    const win = all.filter((r) => from === null || r.time > from);
+    if (!win.length) break;
+    const i = win.findIndex((r) => endsStep(r, held));
+    const c = win.findIndex((r) => r.condition);
+    let end = i >= 0 ? { kind: "round", time: win[i].time, commit: reviewedCommit(win[i]), file: win[i].file, round: win[i] } : null;
+    if (c >= 0 && c + 1 < win.length && (i < 0 || i > c + 1)) {
+      const n = win[c + 1];
+      const f = reviewedCommit(n);
+      const d = f ? done.filter((x) => x.time > n.time && !x.commit.startsWith(f) && x.checks.every((k) => k.result === "pass")).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file))[0] : null;
+      if (d && (!end || d.time < end.time)) end = { kind: "done", time: d.time, commit: d.commit, file: d.file, done: d, narrow: n };
+    }
+    if (!end) break;
+    ends.push(end);
+    from = end.time;
+  }
+  return ends;
+}
+// Whether a commit a record names is the commit of an end, either given in full or abbreviated.
+const sameCommit = (a, b) => Boolean(a && b) && (a.startsWith(b) || b.startsWith(a));
+// The end of the step of a task's result and the window that is open after it, or that the last end closed
+// (derived.step-end, rule.round-verdicts): the rounds after the end before the last one, up to that last end.
+export function roundWindow({ rounds, done = [], approvals = [], task }) {
+  const { all, held, view } = resultWindow({ rounds, done, approvals, task });
+  const ends = stepEnds({ all, done: view.done, held });
+  return { all, ends, end: ends.at(-1) ?? null, view };
+}
+
 // Whether a record of done ran exactly the statement's commands of done, in their order (D-123).
 const sameCommands = (d, statement) => {
   const ran = d.checks.map((c) => c.command);
@@ -922,7 +963,14 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   // The range of fixes after the narrow round, by the one function that reads it (D-164), its end before
   // done head, the working copy's HEAD, as for every other reader of it.
   const fixes = step === "result-review" ? fixesRange({ rounds, done, approvals, task, statement, head }) : null;
-  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, answered, fixes, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  // The ends of the step (derived.step-end, D-186): the window of the last round starts after the end before
+  // it, and a record of done of the window made after the last end on another commit is a new result,
+  // whose next action is one narrow round on it.
+  const seen = step === "result-review" ? byTime(of).filter((r) => since === null || r.time > since) : [];
+  const ends = step === "result-review" ? stepEnds({ all: seen, done: view.done, held }) : [];
+  const lastRound = seen.at(-1);
+  const windowFrom = step !== "result-review" ? undefined : lastRound ? (ends.filter((e) => e.time < lastRound.time).at(-1)?.time ?? null) : null;
+  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, answered, fixes, gatesFrom, windowFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
   if (gates.notFixable.length) return go();
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);
@@ -936,6 +984,12 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   // the version the round read: no statement is given to it, so --task, with a file of a later version,
   // and --rounds, with none, find the same end of the step (D-152). Only the last round, which would end
   // the task now, is held to the file --task is given (D-123).
+  const end = ends.at(-1);
+  const fresh = end && !seen.some((r) => r.time > end.time) ? view.done.filter((d) => d.time > end.time && !sameCommit(d.commit, end.commit)).sort((a, b) => a.time.localeCompare(b.time)).at(-1) : null;
+  if (fresh && !gates.notFixable.length) {
+    const number = Math.max(0, ...all.filter((r) => r.narrow).map((r) => r.number)) + 1;
+    return { next: "narrow", number, branch: "next round", newResult: fresh, say: `the record of done ${fresh.file}, of commit ${fresh.commit.slice(0, 7)}, is a new result after the end of the step at ${end.file}: narrow round ${number}, one round on it, whose clean verdict ends the step (derived.step-end)` };
+  }
   return go();
 }
 

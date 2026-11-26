@@ -631,3 +631,97 @@ test("[check.task-result.fix-tests] done.mjs runs each test of the records of fi
     assert.match(d.out, why);
   }
 });
+
+// ── One end of a step (item 4) ───────────────────────────────────────────────────────────────────────
+
+// Each end of a step by the writers, without the key of verdicts: (1) a clean full round with the condition
+// confirmed; (2) a clean round without it; (3) the condition confirmed with a finding and a clean narrow
+// round; (4) the same with the verdict of acceptance in a round of acceptance alone; (5) a narrow round
+// with a finding and the range ended by a record of done.
+const ENDINGS = {
+  1: (p, st) => {
+    work(p);
+    recordDone(p, st);
+    p.commit("done");
+    resultRound(p, st);
+  },
+  2: (p, st) => {
+    work(p);
+    recordDone(p, st);
+    p.commit("done");
+    resultRound(p, st, "By: m (p)\n\nCondition: not yet\nAcceptance: clean");
+  },
+  3: (p, st) => {
+    work(p);
+    recordDone(p, st);
+    p.commit("done");
+    resultRound(p, st, "By: m (p)\n\n| a gap | important | change |\n\nCondition: holds\nAcceptance: clean", "a gap · usual path: the work\n");
+    work(p, "export const gap = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    resultRound(p, st);
+  },
+  4: (p, st) => {
+    work(p);
+    recordDone(p, st);
+    p.commit("done");
+    resultRound(p, st, "By: m (p)\n\n| a gap | important | change |\n\nCondition: holds\nAcceptance: clean", "a gap · usual path: the work\n");
+    work(p, "export const gap = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    // The narrow round clean on merging with no verdict of acceptance, which round.mjs record refuses to
+    // write: a record of it with its seal, as an earlier writer could leave one (D-167).
+    const t = new Date(Date.now() + 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+    p.put(`reviews/rounds/${t.replace(/[-:]/g, "")}-t-result-narrow-1.md`, sealed(["Task: t", "Step: result-review", "Narrow: true", "Number: 1", `Time: ${t}`, `Commits: ${p.git("rev-parse", "HEAD")}`, "By: m (p)", `Statement-hash: ${st.hash}`, "Condition: holds", ""].join("\n")));
+    p.commit("the narrow round with no acceptance");
+    const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+    assert.match(b.out, /for the verdict of acceptance alone on the same result/, b.out);
+    const r = p.tool("round.mjs", ["record", "t", "--from", reply(briefLines(b.out), "By: m (p)\n\nCondition: holds\nAcceptance: clean")]);
+    assert.equal(r.code, 0, r.out);
+    p.commit("the acceptance alone");
+  },
+  5: (p, st) => {
+    work(p);
+    recordDone(p, st);
+    p.commit("done");
+    resultRound(p, st, "By: m (p)\n\n| a gap | important | change |\n\nCondition: holds\nAcceptance: clean", "a gap · usual path: the work\n");
+    work(p, "export const gap = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: holds\nAcceptance: clean", "a slip · usual path: the work\n");
+    work(p, "export const slip = 1;\n");
+    const fx = p.tool("round.mjs", ["fixes", "t", "--round", narrowFile(p), "--from", writeFile("a slip · app/fix.test.mjs · the fix of the slip\n")]);
+    assert.equal(fx.code, 0, fx.out);
+    recordDone(p, st);
+    p.commit("done ends the range");
+  },
+};
+
+test("[check.review-round.step-end-one] after each end of a step a second record of done on another commit leads --task, the brief and the guard to one narrow round, never to done, the merge or a round of acceptance alone; its clean verdict ends the step", () => {
+  for (const [n, end] of Object.entries(ENDINGS)) {
+    const { p, st } = approved({ verdicts: false });
+    end(p, st);
+    const merged = p.gate();
+    assert.deepEqual(merged.codes, [], `ending ${n}: ${merged.out}`);
+    // A second record of done on another commit, in a later second: a new result.
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
+    work(p, `export const again${n} = 1;\n`);
+    recordDone(p, st);
+    p.commit("a new result");
+    const task = p.tool("ont-check.mjs", ["--task", "t", "--statement", st.file]);
+    const next = task.out.match(/^NEXT t: .*$/m)?.[0] ?? "";
+    assert.match(next, /is a new result after the end of the step at .*: narrow round \d+, one round on it/, `ending ${n}: ${task.out}`);
+    const g = p.gate();
+    assert.deepEqual(g.codes, ["TASK_NOT_DONE"], `ending ${n}: ${g.out}`);
+    assert.ok(g.out.includes(next.replace(/^NEXT t: /, "")), `ending ${n}: the guard and --task give one end: ${g.out}`);
+    const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+    assert.match(b.out, /^Narrow: true$/m, `ending ${n}: ${b.out}`);
+    assert.doesNotMatch(b.out, /for the verdict of acceptance alone/, `ending ${n}`);
+    // Its clean verdict, with the acceptance of the new record of done, ends the step: the merge.
+    const r = p.tool("round.mjs", ["record", "t", "--from", reply(briefLines(b.out), "By: m (p)\n\nCondition: holds\nAcceptance: clean")]);
+    assert.equal(r.code, 0, `ending ${n}: ${r.out}`);
+    p.commit("the narrow round on the new result");
+    const after = p.gate();
+    assert.deepEqual(after.codes, [], `ending ${n}: ${after.out}`);
+  }
+});
