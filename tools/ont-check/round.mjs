@@ -217,6 +217,11 @@ function main(argv) {
     if (!issue && (!from || !existsSync(from))) return refuse("give the tests with --from FILE: one line \"class · file · test name\" for each finding fixed");
     if (from && !existsSync(from)) return refuse(`--from ${from} is not a file`);
     const classes = new Set([...round.findings, ...(round.acceptance?.findings ?? [])].filter((x) => x.fixable).map((x) => x.cls));
+    // The classes of the fails of the verdicts of the record of a round given for this round, after its brief
+    // and before its record, are decided by the tests of its fixes too (rule.round-verdicts, D-186).
+    if (round.briefTime && cfg.manualRuns && existsSync(cfg.manualRuns.dir))
+      for (const r of parseRuns(cfg.manualRuns.dir, { has: () => true }).runs)
+        if (r.verdict === "fail" && r.class && r.time >= round.briefTime && r.time <= round.time) r.class.split(CLASS_SEP).forEach((c) => classes.add(c.trim()));
     // The classes of the issue a record of fixes of the round named before may be decided by a later one.
     for (const f of records.fixes ?? []) if (f.task === task && f.round === round.file) (f.issueFindings ?? []).forEach((c) => classes.add(c));
     const wrong = [];

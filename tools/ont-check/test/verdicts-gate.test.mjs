@@ -82,9 +82,12 @@ function helpers(dir) {
   // The reviewer's table of verdicts recorded by --record, then committed: every check of the list a pass
   // but those given, and those omitted left out of the table.
   const verdicts = (from = "main", given = {}, { omit = [], by = "reviewer (other)" } = {}) => {
-    const rows = list(from)
-      .filter((c) => !omit.includes(c.id))
-      .map((c) => `| ${c.id} | ${given[c.id]?.[0] ?? "pass"} | ${given[c.id]?.[1] ?? "read the change"} |`);
+    // A check given that the list of the change does not hold, as the one --review --record adds after a
+    // failed analysis of the cause, is a row too.
+    const ids = [...new Set([...list(from).map((c) => c.id), ...Object.keys(given)])];
+    const rows = ids
+      .filter((id) => !omit.includes(id))
+      .map((id) => `| ${id} | ${given[id]?.[0] ?? "pass"} | ${given[id]?.[1] ?? "read the change"} |`);
     const r = tool("ont-check.mjs", ["--review", from, "--record", writeFile(`By: ${by}\n\n${rows.join("\n")}\n`)]);
     return r;
   };
@@ -850,4 +853,67 @@ test("[check.review-round.round-verdicts-required] on the step of the statement 
   assert.notEqual(r2.code, 0, r2.out);
   assert.match(r2.brief, new RegExp(`^Round-checks: ${FILED}, ${WHOLE}$`, "m"));
   assert.match(r2.out, /needs the verdicts of the record of a round/);
+});
+
+test("[check.merge-gate.round-verdicts-held] a new result passes with its own verdicts after an earlier range of fixes decided a fail of a verdict of the record of a round with a test", () => {
+  const { p, st } = approved();
+  reviewed(p, st);
+  resultRound(p, st, "By: m (p)\n\n| a gap | important | change |\n\nCondition: holds\nAcceptance: clean", "a gap · usual path: the work\n");
+  work(p, "export const gapFixed = 1;\n");
+  recordDone(p, st);
+  p.commit("done");
+  // The narrow round, after a round with findings: its verdict of the filing fails, with a class.
+  const narrow = resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: holds\nAcceptance: clean", "a slip · usual path: the work\n", { given: { [FILED]: ["fail", "[a slip of filing] the round before filed a gap of the usual path"] } });
+  assert.ok(runs(p).some((t) => /^Check: check\.review-round\.filed-right$/m.test(t) && /^Verdict: fail$/m.test(t)));
+  // The range of fixes decides both classes with a test, the issue and done end it: the merge passes.
+  work(p, "export const slipFixed = 1;\n");
+  issue(p, st, p.git("rev-parse", `${narrow}^`), { tests: "a slip · app/fix.test.mjs · the fix of the slip\na slip of filing · app/fix.test.mjs · the fix of the gap\n" });
+  recordDone(p, st);
+  p.commit("done ends the range");
+  const ended = p.gate();
+  assert.deepEqual(ended.codes, [], ended.out);
+  // A new result after that end: one narrow round on it, the first of its window, which asks no verdicts
+  // of the record of a round; with its own verdicts of the change it passes, the earlier fail not read.
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
+  work(p, "export const newResult = 1;\n");
+  recordDone(p, st);
+  p.commit("a new result");
+  const v = p.verdicts("main");
+  assert.equal(v.code, 0, v.out);
+  p.commit("the verdicts of the new result");
+  const b = round(p, st, "result", "By: m (p)\n\nCondition: holds\nAcceptance: clean", null, [], { verdicts: false });
+  assert.equal(b.code, 0, b.out);
+  assert.doesNotMatch(b.brief, /^Round-checks:/m);
+  p.commit("the narrow round on the new result");
+  const g = p.gate();
+  assert.deepEqual(g.codes, [], g.out);
+});
+
+test("[check.merge-gate.round-verdicts-held] a failed analysis of the cause in the last narrow round is decided by the one issue's pass on the corrected analysis, whose hash its evidence names; the issue's pass on the same analysis leaves VERDICT_FAILED", () => {
+  for (const corrected of [true, false]) {
+    const { p, st } = approved();
+    reviewed(p, st);
+    withFinding(p, st);
+    // The same class again with the condition confirmed: the rounds stagnate, and the one round after C is
+    // a narrow round after the analysis of the cause.
+    resultRound(p, st, "By: m (p)\n\n| a gap | important | change |\n\nCondition: holds\nAcceptance: clean", "a gap · usual path: the work\n");
+    work(p, "export const afterC = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    const analysis = "The fix of a gap did not hold; the cause is the test.\n";
+    const narrow = resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: holds\nAcceptance: clean", "a slip · usual path: the work\n", { extra: ["--cause", writeFile(analysis)], given: { [CAUSE]: ["fail", "[a cause not named] the analysis names no cause of the repeated class"] } });
+    assert.match(readFileSync(join(p.dir, "reviews/rounds", narrowFile(p)), "utf8"), /^Cause: [0-9a-f]{64}$/m);
+    // No round follows the narrow round after C: the one issue gives the verdict on the analysis.
+    work(p, "export const slipFixed = 1;\n");
+    const listed = p.tool("ont-check.mjs", ["--review", p.git("rev-parse", `${narrow}^`)]);
+    assert.match(listed.out, new RegExp(`^CAUSE t: .*${CAUSE} is listed`, "m"), listed.out);
+    const fixedText = "The fix of a gap did not hold because the test read the copy, not the file; one reader now.\n";
+    const hash = sha256(corrected ? fixedText : analysis);
+    issue(p, st, p.git("rev-parse", `${narrow}^`), { given: { [CAUSE]: ["pass", `the analysis ${hash} names the cause and the change follows from it`] } });
+    recordDone(p, st);
+    p.commit("done ends the range");
+    const g = p.gate();
+    assert.deepEqual([...new Set(g.codes)], corrected ? [] : ["VERDICT_FAILED"], g.out);
+    if (!corrected) assert.match(g.out, /no later pass in the window was given on a corrected analysis/);
+  }
 });
