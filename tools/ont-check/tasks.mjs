@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, relative } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
 import { pendingBriefs } from "./briefs.mjs";
@@ -201,7 +201,42 @@ export function readTaskInputs(cfg, at = null) {
   const kept = (x) => !late.some((l) => l.record === x);
   const malformed = [...unreadable, ...late.map((l) => l.text)];
   const resolved = resolveRecords(top, { done: parsed.done.filter(kept), rounds: withTests.filter(kept), approvals: parsed.approvals });
-  return { rounds: resolved.rounds, malformed, top, resolved, records: { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] } };
+  // A record of done made since the start of the gate of verdicts is read by the rule of the new result
+  // (derived.step-end, D-186); one made before it is read as before.
+  const from = verdictsStart(top, cfg);
+  const done = resolved.done.map((d) => ({ ...d, sinceVerdicts: from !== null && d.time >= from }));
+  return { rounds: resolved.rounds, malformed, top, resolved, records: { ...parsed, done, malformed: [...parsed.malformed, ...resolved.malformed] } };
+}
+
+// The start of the gate of verdicts (D-186), as the start of seals (D-181): the time of the oldest commit
+// of the first-parent history of HEAD, among those that change the configuration, from which on every one
+// sets mergeGate.verdicts; null where HEAD's configuration does not set it, or outside Git. The rules of
+// D-186 over records that were made before, the new result among them, read those records as before.
+// ont: derived.step-end, field.merge-gate.verdicts
+export function verdictsStart(top, cfg) {
+  if (!top || !cfg?.file) return null;
+  const path = relative(top, cfg.file).split("\\").join("/");
+  if (path.startsWith("..")) return null;
+  const git = (...a) => spawnSync("git", ["-C", top, ...a], { encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 26 });
+  const keyAt = (c) => {
+    const r = git("show", `${c}:${path}`);
+    if (r.status !== 0) return false;
+    try {
+      return JSON.parse(r.stdout)?.mergeGate?.verdicts === true;
+    } catch {
+      return false;
+    }
+  };
+  if (!keyAt("HEAD")) return null;
+  const log = git("log", "--first-parent", "--format=%H %cI", "HEAD", "--", path);
+  if (log.status !== 0) return null;
+  let start = null;
+  for (const line of log.stdout.split("\n").filter(Boolean)) {
+    const [c, time] = line.split(" ");
+    if (!keyAt(c)) break;
+    start = new Date(time).toISOString().replace(/\.\d{3}Z$/, "Z");
+  }
+  return start;
 }
 
 // The late records of every task (D-152): a round of the review of the result, with its verdict of
@@ -1021,7 +1056,7 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   // and --rounds, with none, find the same end of the step (D-152). Only the last round, which would end
   // the task now, is held to the file --task is given (D-123).
   const end = ends.at(-1);
-  const fresh = end && !seen.some((r) => r.time > end.time) ? view.done.filter((d) => d.time > end.time && !sameCommit(d.commit, end.commit)).sort((a, b) => a.time.localeCompare(b.time)).at(-1) : null;
+  const fresh = end && !seen.some((r) => r.time > end.time) ? view.done.filter((d) => d.sinceVerdicts && d.time > end.time && !sameCommit(d.commit, end.commit)).sort((a, b) => a.time.localeCompare(b.time)).at(-1) : null;
   if (fresh && !gates.notFixable.length) {
     const number = Math.max(0, ...all.filter((r) => r.narrow).map((r) => r.number)) + 1;
     return { next: "narrow", number, branch: "next round", newResult: fresh, say: `the record of done ${fresh.file}, of commit ${fresh.commit.slice(0, 7)}, is a new result after the end of the step at ${end.file}: narrow round ${number}, one round on it, whose clean verdict ends the step (derived.step-end)` };
