@@ -1098,6 +1098,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `inv.suite-covers-classes`    | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
 | `edge.test-suite.checks`      | `tools/ont-check/lib.mjs`, `tools/ont-check/ont-check.mjs` |      |
 | `inv.suite-implements-checks` | `tools/ont-check/ont-check.mjs`                            |      |
+| `field.test-suite.judged-command` | `tools/ont-check/judge.mjs`, `package.json` | the executor runs it; CI does not |
 
 ### Ticket
 

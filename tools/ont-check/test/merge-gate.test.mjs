@@ -55,7 +55,7 @@ test("[check.merge-gate.full-check-steps] the full check runs on pull requests w
   assert.match(FULL, /BASE: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
   assert.ok(commands.includes("npm run --silent test:ci"));
   // Every suite of the three configurations, and the example's system tests, is in test:ci but the judged,
-  // and npm test runs test:ci and the judged.
+  // and npm test runs test:ci, and test:judged the judged.
   const globs = [...PKG.scripts["test:ci"].matchAll(/'([^']+)'/g)].map((m) => m[1]);
   const covered = (file) => globs.some((g) => new RegExp(`^${g.replace(/[.]/g, "\\.").replace(/\*/g, "[^/]*")}$`).test(file));
   for (const c of ["ont.config.json", "example/ont.config.json", "templates/ont.config.json"]) {
@@ -70,7 +70,9 @@ test("[check.merge-gate.full-check-steps] the full check runs on pull requests w
   }
   assert.ok(!globs.some((g) => /judged/.test(g)));
   assert.match(PKG.scripts.test, /npm run --silent test:ci/);
-  assert.match(PKG.scripts.test, /example\/judged\/\*\.judged\.mjs/);
+  // The judged suite runs by its own command, test:judged, which npm test no longer runs (D-186).
+  assert.ok(!/judged/.test(PKG.scripts.test), PKG.scripts.test);
+  assert.match(PKG.scripts["test:judged"], /example\/judged/);
 });
 
 test("[check.merge-gate.base-missing] the step that guards decisions fails on a base that is no commit and passes on a commit", () => {

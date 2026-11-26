@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { blindPrompt, judge, judgePrompt, keepScreen } from "../judge.mjs";
+import { fileURLToPath } from "node:url";
+import { blindPrompt, judge, judgedReport, judgedRunProblems, judgePrompt, keepScreen } from "../judge.mjs";
 
 // A stand-in judge: it keeps what it was given and answers by a rule the test chooses.
 const fixture = () => {
@@ -98,4 +100,53 @@ test("[check.check.screen-kept] keeps the snapshot of a view's state by date, vi
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// The judged command (field.test-suite.judged-command, answer 1042 b, D-186).
+test("[check.test-suite.judged-command] test:judged fails with no JUDGE, with JUDGE_VERDICTS missing or inside the repository, with JUDGE_SCREENS inside it, and with a judge that fails a test; it exits 0 with a judge that passes all; neither test nor test:ci runs the judged suite", () => {
+  const root = fileURLToPath(new URL("../../../", import.meta.url));
+  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assert.match(pkg.scripts["test:judged"], /judge\.mjs --suite example\/judged$/);
+  for (const s of ["test", "test:ci"]) assert.ok(!/judged/.test(pkg.scripts[s]), `${s}: ${pkg.scripts[s]}`);
+  const dir = mkdtempSync(join(tmpdir(), "ont-judged-cmd-"));
+  try {
+    const judgeOf = (word) => {
+      const f = join(dir, `${word}.mjs`);
+      writeFileSync(f, `process.stdin.resume();process.stdin.on("end",()=>console.log("${word} because the output says so"));\n`);
+      return `${process.execPath} ${f}`;
+    };
+    const outside = (k) => join(dir, k);
+    const run = (env) => {
+      const e = { ...process.env, ...env };
+      for (const k of ["JUDGE", "JUDGE_VERDICTS", "JUDGE_SCREENS", "NODE_TEST_CONTEXT"]) if (!(k in env)) delete e[k];
+      const r = spawnSync("npm", ["run", "--silent", "test:judged"], { cwd: root, encoding: "utf8", env: e });
+      return { code: r.status, out: `${r.stdout}${r.stderr}` };
+    };
+    const all = { JUDGE: judgeOf("PASS"), JUDGE_VERDICTS: outside("verdicts"), JUDGE_SCREENS: outside("screens") };
+    const cases = [
+      [{ ...all, JUDGE: undefined }, /JUDGE is not set/],
+      [{ ...all, JUDGE_VERDICTS: undefined }, /JUDGE_VERDICTS is not set/],
+      [{ ...all, JUDGE_VERDICTS: join(root, "tmp-verdicts") }, /JUDGE_VERDICTS is .*inside the repository/],
+      [{ ...all, JUDGE_SCREENS: join(root, "example") }, /JUDGE_SCREENS is .*inside the repository/],
+      [{ ...all, JUDGE: judgeOf("FAIL") }, /failed: not ok/],
+    ];
+    for (const [env, why] of cases) {
+      const r = run(Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined)));
+      assert.notEqual(r.code, 0, r.out);
+      assert.match(r.out, why);
+    }
+    const ok = run(all);
+    assert.equal(ok.code, 0, ok.out);
+    assert.match(ok.out, /^JUDGED \d+ passed in 2 files, none skipped$/m);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("[check.test-suite.judged-command] a report with a skipped or a todo test is refused like a failed one", () => {
+  const r = judgedReport("ok 1 - a # SKIP no judge\nok 2 - b # TODO later\nnot ok 3 - c\nok 4 - d\n");
+  assert.equal(r.failed.length, 1);
+  assert.equal(r.skipped.length, 2);
+  assert.equal(r.passed, 1);
+  assert.deepEqual(judgedRunProblems({ env: {}, root: "/r", files: [], screens: true }).length, 4);
 });
