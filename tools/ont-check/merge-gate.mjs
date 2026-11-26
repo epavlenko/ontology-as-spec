@@ -52,7 +52,7 @@ import { gitEnv, loadConfig } from "./lib.mjs";
 import { CLASS_SEP, CODE_CHECK, parseRuns } from "./manual-runs.mjs";
 import { LATER_DIR, LIMITATIONS_FILE, parseRounds } from "./review-rounds.mjs";
 import { recordTime, sealState, sealsStart } from "./seal.mjs";
-import { approvalEvents, approvalInForce, approvedHash, fixesRange, parseTaskRecords, readTaskInputs, reviewedCommit, taskNext } from "./tasks.mjs";
+import { CAUSE_ROUND_CHECK, approvalEvents, approvalInForce, approvedHash, fixesRange, parseTaskRecords, readTaskInputs, reviewedCommit, roundWindow, taskNext } from "./tasks.mjs";
 
 // The directory of the records of the process: commits that change only files under it change no gate.
 export const RECORDS_DIR = "reviews/";
@@ -572,6 +572,7 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
     problems.push(p);
   };
   hold.failsOn = (c) => fails.has(c);
+  problems.push(...roundVerdictProblems({ inputs, task, runs, ctx: ctxOf(end, null) }));
   const from = mergeBase(top, b, end);
   if (!from) return [{ code: "VERDICT_MISSING", why: `the checked commit ${end.slice(0, 12)} and the base have no common commit` }];
   const list = changeList({ cfg, top, commit: end, from, tmp: join(tmp, "lists") });
@@ -580,6 +581,50 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
     return problems;
   }
   return problems.concat(issueProblems({ cfg, top, b, list, range, fixes, end, tmp, hold, resolve }));
+}
+
+// The verdicts of the record of a round in the window of the step the merged result ended (rule.round-verdicts,
+// D-186): from the end of the step before it up to the round, or the record of done, that ended it. Each round
+// of it whose brief named the checks of the record of a round has a verdict of each, given after its brief and
+// before it; a fail holds the merge unless its classes are decided, and a fail of the analysis of the cause
+// only by a later pass of that check on a corrected analysis, of a round whose Cause: is another, or of the
+// one issue, whose record names the hash of the corrected analysis. A round with no Round-checks:, recorded
+// before the rule, is read as before.
+function roundVerdictProblems({ inputs, task, runs, ctx }) {
+  const w = roundWindow({ rounds: inputs.rounds, done: inputs.records.done, approvals: inputs.records.approvals, task });
+  const closing = w.end;
+  const before = w.ends.at(-2);
+  const win = w.all.filter((r) => (!before || r.time > before.time) && (!closing || r.time <= closing.time));
+  const until = closing?.time ?? "9999";
+  const problems = [];
+  const spanOf = (x) => win.find((r) => r.briefTime && x.time >= r.briefTime && x.time <= r.time);
+  for (const r of win) {
+    for (const id of r.roundChecks ?? []) {
+      const given = runs.filter((x) => x.check === id && r.briefTime && x.time >= r.briefTime && x.time <= r.time).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
+      const v = given.at(-1);
+      if (!v) {
+        problems.push({ code: "VERDICT_MISSING", why: `${id}: no verdict of the record of a round for ${r.file}, given after its brief` });
+        continue;
+      }
+      if (v.verdict === "pass") continue;
+      if (v.verdict === "not-run" || v.verdict === "not-applicable") {
+        if (!v.evidence?.trim()) problems.push({ code: "VERDICT_UNREASONED", why: `${id}: ${v.file}, for ${r.file}, is a ${v.verdict} without its reason` });
+        continue;
+      }
+      if (id === CAUSE_ROUND_CHECK) {
+        const corrected = runs.some((x) => x.check === id && x.verdict === "pass" && x.time > v.time && x.time <= until && (() => {
+          const of = spanOf(x);
+          if (of) return Boolean(of.cause) && of.cause !== r.cause;
+          return [...String(x.evidence ?? "").matchAll(/\b[0-9a-f]{64}\b/g)].some((m) => m[0] !== r.cause);
+        })());
+        if (!corrected) problems.push({ code: "VERDICT_FAILED", why: `${id}: ${v.file} failed the analysis of the cause of ${r.file}, and no later pass in the window was given on a corrected analysis` });
+        continue;
+      }
+      const p = verdictWhy(id, { current: v, elsewhere: [] }, { ...ctx, rounds: win });
+      if (p) problems.push({ ...p, why: `${p.why} (a verdict of the record of a round, for ${r.file})` });
+    }
+  }
+  return problems;
 }
 
 // After a narrow round with findings (rule.one-issue-after-narrow, D-186): the one issue of verdicts, named

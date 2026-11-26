@@ -131,16 +131,23 @@ const copy = (p) => {
   return helpers(dir);
 };
 
-const briefLines = (out) => out.split("\n").filter((l) => /^(Task|Step|Narrow|Number|Statement-hash|Goal|Budget-new-input|Budget-output|Budget-reserve|Gate-paths|Commits|Done|Brief-time|Cause): /.test(l)).join("\n");
+const briefLines = (out) => out.split("\n").filter((l) => /^(Task|Step|Narrow|Number|Statement-hash|Goal|Budget-new-input|Budget-output|Budget-reserve|Gate-paths|Commits|Done|Cause|Round-checks|Brief-time): /.test(l)).join("\n");
 const reply = (lines, rest) => writeFile(`${lines}\n${rest}\n`);
-function round(p, st, step, rest, triage = null, extra = []) {
+// A round by round.mjs; where its brief names the checks of the record of a round, the reviewer's table of
+// verdicts, every check of the list a pass but those given, is recorded after the brief and before the round.
+function round(p, st, step, rest, triage = null, extra = [], { given = {}, verdicts = true } = {}) {
   const b = p.tool("round.mjs", ["brief", "t", "--step", step, "--statement", st.file, ...extra]);
   assert.equal(b.code, 0, b.out);
+  if (verdicts && /^Round-checks: /m.test(b.out)) {
+    const v = p.verdicts("main", given);
+    assert.equal(v.code, 0, v.out);
+  }
   const r = p.tool("round.mjs", ["record", "t", "--from", reply(briefLines(b.out), rest), ...(triage ? ["--triage", writeFile(triage)] : [])]);
+  r.brief = b.out;
   return r;
 }
-const resultRound = (p, st, rest = "By: m (p)\n\nCondition: holds\nAcceptance: clean", triage = null) => {
-  const r = round(p, st, "result", rest, triage);
+const resultRound = (p, st, rest = "By: m (p)\n\nCondition: holds\nAcceptance: clean", triage = null, opts = {}) => {
+  const r = round(p, st, "result", rest, triage, opts.extra ?? [], opts);
   assert.equal(r.code, 0, r.out);
   return p.commit("a round of the result");
 };
@@ -724,4 +731,123 @@ test("[check.review-round.step-end-one] after each end of a step a second record
     const after = p.gate();
     assert.deepEqual(after.codes, [], `ending ${n}: ${after.out}`);
   }
+});
+
+// ── The verdicts of the record of a round (item 5) ───────────────────────────────────────────────────
+
+const FILED = "check.review-round.filed-right";
+const WHOLE = "check.review-round.whole-class";
+const CAUSE = "check.review-round.redesign-after-stagnation";
+// A round of the result with an important finding of the usual path whose fix has no test yet, then the
+// work and a new record of done: the next round is a full one, after a round with findings.
+const withFinding = (p, st, cls = "a gap") => {
+  resultRound(p, st, `By: m (p)\n\n| ${cls} | important | change |\n\nCondition: not yet\nAcceptance: clean`, `${cls} · usual path: the work\n`);
+  work(p, `export const fix${Math.random().toString(36).slice(2, 7)} = 1;\n`);
+  recordDone(p, st);
+  p.commit("done");
+};
+
+test("[check.review-round.round-verdicts-required] a round after a round with findings is refused without the verdicts of the record of a round, and written with them; after stagnation the verdict of the analysis of the cause is asked too; the first round after the end of a step needs none", () => {
+  const { p, st } = approved();
+  reviewed(p, st);
+  withFinding(p, st);
+  const without = round(p, st, "result", "By: m (p)\n\nCondition: holds\nAcceptance: clean", null, [], { verdicts: false });
+  assert.notEqual(without.code, 0, without.out);
+  assert.match(without.brief, new RegExp(`^Round-checks: ${FILED}, ${WHOLE}$`, "m"));
+  assert.match(without.out, new RegExp(`needs the verdicts of the record of a round.*${FILED}, ${WHOLE}`));
+  const v = p.verdicts("main");
+  assert.equal(v.code, 0, v.out);
+  const r = p.tool("round.mjs", ["record", "t", "--from", reply(briefLines(without.brief), "By: m (p)\n\nCondition: holds\nAcceptance: clean")]);
+  assert.equal(r.code, 0, r.out);
+  const rec = readFileSync(join(p.dir, "reviews/rounds", readdirSync(join(p.dir, "reviews/rounds")).filter((f) => /-t-result-/.test(f)).sort().at(-1)), "utf8");
+  assert.match(rec, new RegExp(`^Round-checks: ${FILED}, ${WHOLE}$`, "m"));
+  p.commit("the closing round");
+  assert.deepEqual(p.gate().codes, []);
+  // The first round after the end of a step, on a new result: no verdicts asked.
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
+  work(p, "export const next = 1;\n");
+  recordDone(p, st);
+  p.commit("a new result");
+  const first = round(p, st, "result", "By: m (p)\n\nCondition: holds\nAcceptance: clean", null, [], { verdicts: false });
+  assert.equal(first.code, 0, first.out);
+  assert.doesNotMatch(first.brief, /^Round-checks:/m);
+  // After stagnation the analysis of the cause is asked too.
+  {
+    const { p: q, st: s2 } = approved();
+    reviewed(q, s2);
+    withFinding(q, s2);
+    withFinding(q, s2);
+    const cause = writeFile("The fix of a gap did not hold because the test read the old file; the design keeps one reader.\n");
+    const c = round(q, s2, "result", "By: m (p)\n\nCondition: holds\nAcceptance: clean", null, ["--cause", cause], { verdicts: false });
+    assert.notEqual(c.code, 0, c.out);
+    assert.match(c.brief, new RegExp(`^Round-checks: ${FILED}, ${WHOLE}, ${CAUSE}$`, "m"));
+    assert.match(c.out, new RegExp(CAUSE));
+  }
+});
+
+test("[check.merge-gate.round-verdicts-held] a clean closing round after a round with findings, its verdicts of the record of a round given, passes; a fail of one of them decided nowhere, a fail of the analysis of the cause passed again on the same analysis, are VERDICT_FAILED; a later pass on the corrected analysis passes", () => {
+  // Given, all passing.
+  {
+    const { p, st } = approved();
+    reviewed(p, st);
+    withFinding(p, st);
+    resultRound(p, st);
+    assert.deepEqual(p.gate().codes, []);
+  }
+  // A fail of the filing whose class no round filed: held, the closing round clean.
+  {
+    const { p, st } = approved();
+    reviewed(p, st);
+    withFinding(p, st);
+    resultRound(p, st, undefined, null, { given: { [FILED]: ["fail", "[a filing of the usual path as rare] the round before filed a gap as later"] } });
+    const g = p.gate();
+    assert.deepEqual([...new Set(g.codes)], ["VERDICT_FAILED"], g.out);
+    assert.match(g.out, /a filing of the usual path as rare/);
+  }
+  // A failed analysis of the cause: the next round must carry an analysis again; given the same one and a
+  // pass, it is not corrected and holds the merge; given a corrected one and a pass, the merge passes.
+  for (const corrected of [false, true]) {
+    const { p, st } = approved();
+    reviewed(p, st);
+    withFinding(p, st);
+    withFinding(p, st);
+    const a = writeFile("The fix did not hold; the cause is the test.\n");
+    resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: not yet\nAcceptance: clean", "a slip · usual path: the work\n", { extra: ["--cause", a], given: { [CAUSE]: ["fail", "[a cause not named] the analysis names no cause of the repeated class"] } });
+    work(p, "export const after = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    const no = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+    assert.notEqual(no.code, 0);
+    assert.match(no.out, /failed in this step and no later pass decided it: give the corrected analysis with --cause/);
+    const b = corrected ? writeFile("The fix did not hold because the test read the copy, not the file; one reader now.\n") : a;
+    resultRound(p, st, undefined, null, { extra: ["--cause", b] });
+    const g = p.gate();
+    assert.deepEqual([...new Set(g.codes)], corrected ? [] : ["VERDICT_FAILED"], g.out);
+  }
+});
+
+test("[check.review-round.ready-after-clean] readiness for the merge is computed from the records: a clean last round passes, a last round with a finding is TASK_NOT_DONE, and a clean step with a failed verdict of the record of a round in its window is VERDICT_FAILED", () => {
+  const { p, st } = approved();
+  reviewed(p, st);
+  withFinding(p, st);
+  const q = copy(p);
+  assert.deepEqual([...new Set(p.gate().codes)], ["TASK_NOT_DONE"]);
+  resultRound(p, st);
+  assert.deepEqual(p.gate().codes, []);
+  resultRound(q, st, undefined, null, { given: { [WHOLE]: ["fail", "[a class seen in one place] the reviewer looked only at the line shown"] } });
+  assert.deepEqual([...new Set(q.gate().codes)], ["VERDICT_FAILED"]);
+});
+
+test("[check.review-round.round-verdicts-required] on the step of the statement too, a round after a round with findings names the checks of the record of a round, and its writer refuses it without them", () => {
+  const p = base();
+  const st = statement();
+  const r1 = round(p, st, "statement", "By: m (p)\n\n| a vague item | important | change |", "a vague item · usual path: the work\n");
+  assert.equal(r1.code, 0, r1.out);
+  p.commit("a round of the statement with a finding");
+  const st2 = { file: st.file };
+  writeFileSync(st2.file, `${readFileSync(st.file, "utf8")}\nThe item made precise.\n`);
+  const r2 = round(p, st2, "statement", "By: m (p)", null, [], { verdicts: false });
+  assert.notEqual(r2.code, 0, r2.out);
+  assert.match(r2.brief, new RegExp(`^Round-checks: ${FILED}, ${WHOLE}$`, "m"));
+  assert.match(r2.out, /needs the verdicts of the record of a round/);
 });

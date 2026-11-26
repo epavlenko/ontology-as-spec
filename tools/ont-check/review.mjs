@@ -211,6 +211,15 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids,
     if (own) project.push(own);
     else if (theirs) approach.push(theirs);
   }
+  // A round whose brief names the checks of the record of a round lists them, whatever the change touches
+  // (rule.round-verdicts, D-186).
+  for (const id of [...new Set(briefs.flatMap((b) => String(b.brief?.["Round-checks"] ?? "").split(/[\s,]+/).filter(Boolean)))]) {
+    if (project.some((c) => c.id === id) || approach.some((c) => c.id === id)) continue;
+    const own = checks.find((c) => c.id === id && untested(c.proof));
+    const theirs = (approachChecks ?? []).find((c) => c.id === id);
+    if (own) project.push(own);
+    else if (theirs) approach.push(theirs);
+  }
   return { changed, touched: [...touched].sort(), kinds: [...kinds], project, approach, cause };
 }
 

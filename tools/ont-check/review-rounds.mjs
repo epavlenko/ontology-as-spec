@@ -12,7 +12,7 @@ export const STEPS = ["statement-review", "result-review"];
 // Seal:, Brief-time:, Done:, Spend-record: and Cause: are written by round.mjs record (D-167, D-183, D-169):
 // Cause: is the SHA-256 of the analysis of the cause a round briefed after stagnation was given (D-182);
 // Gate-paths:, the statement's gate paths on a round of its review, from the brief (D-185).
-const FIELDS = ["Seal", "Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "Done", "By", "Contribution", "Statement-hash", "Gate-paths", "Brief-time", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Spend-record", "Overspend", "Condition", "Cause"];
+const FIELDS = ["Seal", "Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "Done", "By", "Contribution", "Statement-hash", "Gate-paths", "Brief-time", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Spend-record", "Overspend", "Condition", "Cause", "Round-checks"];
 const COUNTS = ["number", "ceiling", "tokens-new", "tokens-cached", "tokens-out", "checks-listed", "checks-given", "checks-carried"];
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 // A time is real when it reads back as itself: 2026-99-99T99:99:99Z has the shape and is no time.
@@ -228,6 +228,8 @@ export function parseRounds(dir, opts = {}) {
       // The gate paths of the version the round read, apart by ", " (field.review-round.gate-paths, D-185).
       gatePaths: fields["gate-paths"] === undefined ? null : [...new Set(fields["gate-paths"].split(/[\s,]+/).filter(Boolean))],
       cause: fields.cause ?? null,
+      // The checks of the record of a round its brief asked verdicts of (rule.round-verdicts, D-186).
+      roundChecks: fields["round-checks"] ? fields["round-checks"].split(/[\s,]+/).filter(Boolean) : [],
     });
   }
   const seen = new Map();

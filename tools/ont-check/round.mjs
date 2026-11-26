@@ -35,7 +35,7 @@ import { CLASS_SEP, outsideRecord, parseRuns } from "./manual-runs.mjs";
 import { CAUSE, LATER_DIR, LIMITATIONS_FILE, TASK_NAME, isClean } from "./review-rounds.mjs";
 import { timeAfter, writeSealed } from "./seal.mjs";
 import { overspendOf, roundSpend, snapshotLines } from "./spend.mjs";
-import { BUDGET_ALL, readStatement, readTaskInputs, reviewedCommit, sha256, spendOf, stepNext, taskNext } from "./tasks.mjs";
+import { BUDGET_ALL, CAUSE_ROUND_CHECK, ROUND_CHECKS, failedCause, hasFindings, openWindow, readStatement, readTaskInputs, reviewedCommit, sha256, spendOf, stepNext, taskNext } from "./tasks.mjs";
 
 const STEP = { statement: "statement-review", result: "result-review" };
 const now = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -279,8 +279,17 @@ function main(argv) {
     // The analysis of the cause after stagnation (D-182, D-183): required when the next action names it,
     // refused where it does not, so that no round carries an analysis of a stagnation there was not.
     const causeFile = value("--cause");
+    // The verdicts of the record of a round (rule.round-verdicts, D-186): where the configuration sets
+    // mergeGate.verdicts, a round whose open window holds an earlier round with findings names the checks
+    // of the record of a round on Round-checks:, and a failed verdict of the analysis of the cause in the
+    // window that no later pass decided asks the corrected analysis of each next round, with --cause.
+    // ont: rule.round-verdicts
+    const win = cfg.mergeGate?.verdicts ? openWindow({ rounds, done: records.done, approvals: records.approvals, task, step }) : null;
+    const runs = win && cfg.manualRuns && existsSync(cfg.manualRuns.dir) ? parseRuns(cfg.manualRuns.dir, { has: () => true }).runs : [];
+    const causeFailed = win ? failedCause(runs, win.from) : null;
+    if (causeFailed && !causeFile) return refuse(`the verdict of the analysis of the cause ${causeFailed.file} failed in this step and no later pass decided it: give the corrected analysis with --cause FILE (rule.round-verdicts)`);
     if (ok.cause && !causeFile) return refuse(`the next action is the analysis of the cause: ${ok.next.say}; write it and give it with --cause FILE`);
-    if (!ok.cause && causeFile) return refuse(`--cause is given, and the next action names no stagnation: ${ok.next.say}`);
+    if (!ok.cause && !causeFailed && causeFile) return refuse(`--cause is given, and the next action names no stagnation: ${ok.next.say}`);
     if (causeFile && !existsSync(causeFile)) return refuse(`--cause ${causeFile} is not a file`);
     const cause = causeFile ? readFileSync(causeFile) : null;
     if (cause && !cause.toString("utf8").trim()) return refuse(`--cause ${causeFile} is empty: write the analysis of the cause in it`);
@@ -299,6 +308,7 @@ function main(argv) {
       Commits: step === "result-review" ? ok.done.commit : head,
       Done: step === "result-review" ? ok.done.file : undefined,
       Cause: cause ? sha256(cause) : undefined,
+      "Round-checks": win ? [...(win.rounds.some(hasFindings) ? ROUND_CHECKS : []), ...(cause ? [CAUSE_ROUND_CHECK] : [])].join(", ") || undefined : undefined,
       "Brief-time": now(),
     };
     const at = writeBrief(cfg.base, brief);
@@ -318,6 +328,13 @@ function main(argv) {
   const from = value("--from");
   if (!from || !existsSync(from)) return refuse("give the reviewer's reply with --from FILE");
   const reply = parseReply(readFileSync(from, "utf8"), brief, step);
+  // The verdicts of the record of a round its brief names, given for it after its brief (rule.round-verdicts).
+  const asked = String(brief["Round-checks"] ?? "").split(/[\s,]+/).filter(Boolean);
+  if (asked.length) {
+    const given = cfg.manualRuns && existsSync(cfg.manualRuns.dir) ? parseRuns(cfg.manualRuns.dir, { has: () => true }).runs : [];
+    const missing = asked.filter((id) => !given.some((r) => r.check === id && r.time >= brief["Brief-time"]));
+    if (missing.length) return refuse(`the round needs the verdicts of the record of a round, given for it after its brief at ${brief["Brief-time"]}: ${missing.join(", ")}; the reviewer gives them in the table of verdicts, recorded with ont-check --review --record (rule.round-verdicts)`);
+  }
   if (reply.wrong.length) return refuse(reply.wrong.join("; "));
   const triageFile = value("--triage");
   const all = [...reply.findings.map((f) => ({ ...f, at: "merge" })), ...reply.acceptFindings.map((f) => ({ ...f, at: "acceptance" }))];
@@ -390,6 +407,7 @@ function main(argv) {
     ...(over ? [`Overspend: ${over}`] : []),
     ...(reply.condition === "holds" ? ["Condition: holds"] : []),
     ...(brief.Cause ? [`Cause: ${brief.Cause}`] : []),
+    ...(brief["Round-checks"] ? [`Round-checks: ${brief["Round-checks"]}`] : []),
   ];
   // The step each fixable class breaks, once for the class, given both on merging and under acceptance.
   const fixableNotes = [...new Set(all.filter((f) => tri(f).fix === "fixable").map((f) => `- ${f.cls}: usual path, the step it breaks: ${tri(f).step}`))];

@@ -1054,18 +1054,6 @@
       "proof": "review"
     },
     {
-      "id": "check.review-round.ready-after-clean",
-      "section": "Review round",
-      "concepts": [
-        "rule.ready-after-clean-round",
-        "derived.step-end"
-      ],
-      "given": "with `mergeGate.taskState` and `mergeGate.verdicts` at the base, a change of a task whose last round of the review of the result is clean; one after the narrow round that follows a confirmed condition with the record of done that ends the range of fixes; one whose last round has a finding; and one whose step ended clean with a failed verdict of the record of a round in its window",
-      "when": "the guard reads the records at the head",
-      "then": "it passes the first two and refuses the third, `TASK_NOT_DONE`, and the fourth, `VERDICT_FAILED`: readiness is computed from the records, not given by a verdict that would depend on itself",
-      "proof": "review"
-    },
-    {
       "id": "check.review-round.redesign-after-stagnation",
       "section": "Review round",
       "concepts": [
