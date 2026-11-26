@@ -31,7 +31,7 @@ import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { briefText, pendingBriefs, readBrief, removeBrief, writeBrief } from "./briefs.mjs";
 import { gitEnv, loadConfig } from "./lib.mjs";
-import { outsideRecord } from "./manual-runs.mjs";
+import { CLASS_SEP, outsideRecord, parseRuns } from "./manual-runs.mjs";
 import { CAUSE, LATER_DIR, LIMITATIONS_FILE, TASK_NAME, isClean } from "./review-rounds.mjs";
 import { timeAfter, writeSealed } from "./seal.mjs";
 import { overspendOf, roundSpend, snapshotLines } from "./spend.mjs";
@@ -203,10 +203,48 @@ function main(argv) {
     const round = rounds.find((r) => r.task === task && r.file === value("--round")?.split("/").at(-1));
     if (!round) return refuse(`--round ${value("--round") ?? "(none)"} is no record of a round of ${task}`);
     const from = value("--from");
-    if (!from || !existsSync(from)) return refuse("give the tests with --from FILE: one line \"class · file · test name\" for each finding fixed");
+    // --issue <commit>: the one issue of verdicts after the narrow round (rule.one-issue-after-narrow,
+    // D-186), with --findings <reply>, the reviewer's answer whose table of findings the record copies, and
+    // --filed FILE, a line "class · limitation|later · file" for each rare one filed; the tests of --from
+    // may then decide the classes of the issue's findings and fails too.
+    // ont: field.fixes-record.issue, rule.one-issue-after-narrow
+    const issueArg = value("--issue");
+    let issue = null;
+    if (argv.includes("--issue")) {
+      issue = issueArg && run("rev-parse", "--verify", "--quiet", `${issueArg}^{commit}`).stdout?.trim();
+      if (!issue) return refuse(`--issue ${issueArg ?? "(none)"} is not a commit`);
+    }
+    if (!issue && (!from || !existsSync(from))) return refuse("give the tests with --from FILE: one line \"class · file · test name\" for each finding fixed");
+    if (from && !existsSync(from)) return refuse(`--from ${from} is not a file`);
     const classes = new Set([...round.findings, ...(round.acceptance?.findings ?? [])].filter((x) => x.fixable).map((x) => x.cls));
-    const lines = readFileSync(from, "utf8").split("\n").map((l) => l.replace(/^-\s*/, "").trim()).filter(Boolean);
+    // The classes of the issue a record of fixes of the round named before may be decided by a later one.
+    for (const f of records.fixes ?? []) if (f.task === task && f.round === round.file) (f.issueFindings ?? []).forEach((c) => classes.add(c));
     const wrong = [];
+    const issueFindings = [];
+    const filed = [];
+    if (issue) {
+      const findingsFile = value("--findings");
+      if (findingsFile && !existsSync(findingsFile)) return refuse(`--findings ${findingsFile} is not a file`);
+      // The rows of the issue's table of findings of this change, by their first three columns.
+      for (const l of findingsFile ? readFileSync(findingsFile, "utf8").split("\n") : []) {
+        const m = l.match(/^\|\s*([^|]*?)\s*\|\s*(important|nit)\s*\|\s*(change|before)\s*\|/);
+        if (m && m[3] === "change" && m[1] && !issueFindings.includes(m[1])) issueFindings.push(m[1]);
+      }
+      // The classes of the fails the records of the issue give.
+      if (cfg.manualRuns && existsSync(cfg.manualRuns.dir))
+        for (const r of parseRuns(cfg.manualRuns.dir, { has: () => true }).runs)
+          if (r.verdict === "fail" && r.class && run("rev-parse", "--verify", "--quiet", `${r.commit}^{commit}`).stdout?.trim() === issue) r.class.split(CLASS_SEP).forEach((c) => classes.add(c.trim()));
+      issueFindings.forEach((c) => classes.add(c));
+      const filedFile = value("--filed");
+      if (filedFile && !existsSync(filedFile)) return refuse(`--filed ${filedFile} is not a file`);
+      for (const l of filedFile ? readFileSync(filedFile, "utf8").split("\n").map((x) => x.replace(/^-\s*/, "").trim()).filter(Boolean) : []) {
+        const [cls, fix, file] = l.split(" · ").map((x) => x.trim());
+        if (!cls || !["limitation", "later"].includes(fix) || !file) wrong.push(`${JSON.stringify(l)} is not "class · limitation or later · file"`);
+        else if (!existsSync(join(top, file)) || !readFileSync(join(top, file), "utf8").includes(cls)) wrong.push(`${file} is not a file of the repository that holds the class ${JSON.stringify(cls)}`);
+        filed.push(`- ${cls} · ${fix} · ${file}`);
+      }
+    }
+    const lines = from ? readFileSync(from, "utf8").split("\n").map((l) => l.replace(/^-\s*/, "").trim()).filter(Boolean) : [];
     const tests = lines.map((l) => {
       const [cls, file, name] = l.split(" · ").map((x) => x.trim());
       if (!cls || !file || !name) wrong.push(`${JSON.stringify(l)} is not "class · file · test name"`);
@@ -214,11 +252,11 @@ function main(argv) {
       else if (!existsSync(join(top, file)) || !readFileSync(join(top, file), "utf8").includes(name)) wrong.push(`${file} is not a file of the repository that holds the test ${JSON.stringify(name)}`);
       return `- ${cls} · ${file} · ${name}`;
     });
-    if (!tests.length) wrong.push(`${from} gives no test`);
-    const outside = cfg.records.latinOnly ? outsideRecord(tests.join("\n"), 1, { latinOnly: true }) : [];
+    if (!tests.length && !issue) wrong.push(`${from} gives no test`);
+    const outside = cfg.records.latinOnly ? outsideRecord([...tests, ...issueFindings, ...filed].join("\n"), 1, { latinOnly: true }) : [];
     if (wrong.length || outside.length) return refuse([...wrong, ...outside].join("; "));
     const time = now();
-    const body = ["Record: fixes", `Task: ${task}`, `Round: ${round.file}`, `Time: ${time}`, "Tests:", ...tests, ""].join("\n");
+    const body = ["Record: fixes", `Task: ${task}`, `Round: ${round.file}`, `Time: ${time}`, ...(issue ? [`Issue: ${issue}`] : []), ...(tests.length ? ["Tests:", ...tests] : []), ...(issueFindings.length ? ["Issue-findings:", ...issueFindings.map((c) => `- ${c}`)] : []), ...(filed.length ? ["Filed:", ...filed] : []), ""].join("\n");
     const file = writeSealed(cfg.taskRecords.dir, (i) => `${compact(time)}-${task}-fixes${i > 1 ? `-${i}` : ""}.md`, body);
     console.log(`RECORDED the tests of the fixes of ${round.file} in ${relative(process.cwd(), join(cfg.taskRecords.dir, file))}`);
     return 0;

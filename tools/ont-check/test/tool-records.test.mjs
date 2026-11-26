@@ -1617,9 +1617,11 @@ test("[check.process-record.usual-path] rounds, a verdict, done, the owner's app
   assert.ok(work);
   // The reviewer's verdicts are among the records the guard and the full check read.
   const reviewed = p.git("diff", "--name-only", base, head, "--", "reviews/runs").split("\n").filter((f) => f.endsWith(".md"));
-  assert.equal(reviewed.length, ids.length - carry.size + 1, reviewed.join("\n"));
+  // A carry writes a record of its own on the commit of the review, Carried: (D-186).
+  assert.equal(reviewed.length, ids.length + 1, reviewed.join("\n"));
   const ofReview = reviewed.map((f) => readFileSync(join(p.dir, f), "utf8")).filter((t) => /^Origin: review$/m.test(t));
-  assert.equal(ofReview.length, ids.length - carry.size);
+  assert.equal(ofReview.length, ids.length);
+  assert.equal(ofReview.filter((t) => /^Carried: /m.test(t)).length, carry.size);
   for (const t of ofReview) assert.equal(sealState(t).state, "valid");
   const g = guard({ cfg: p.config(), base, head });
   assert.deepEqual(g.records, []);

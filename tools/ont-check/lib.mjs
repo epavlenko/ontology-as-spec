@@ -172,7 +172,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "verdicts.dir", "verdicts.require", "records.latinOnly", "records.sealsFrom", "spend.fromLogs", "goals", "statements.todoHeadings", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "mergeGate.paths", "mergeGate.rules", "mergeGate.codes", "mergeGate.taskState", "ci.workflow", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "verdicts.dir", "verdicts.require", "records.latinOnly", "records.sealsFrom", "spend.fromLogs", "goals", "statements.todoHeadings", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "mergeGate.paths", "mergeGate.rules", "mergeGate.codes", "mergeGate.taskState", "mergeGate.verdicts", "ci.workflow", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
@@ -318,7 +318,7 @@ export function loadConfig(configPath, text) {
     // (D-170). taskState: the guard holds the merge by the state of the task where the configuration at the
     // base of a pull request sets it (D-185); the guard reads it from the base, never from here.
     // ont: field.merge-gate.task-state
-    mergeGate: raw.mergeGate && { paths: [...(raw.mergeGate.paths ?? [])], rules: at(raw.mergeGate.rules), codes: Object.fromEntries(Object.entries(raw.mergeGate.codes ?? {}).map(([k, v]) => [k, [...v]])), taskState: raw.mergeGate.taskState === true },
+    mergeGate: raw.mergeGate && { paths: [...(raw.mergeGate.paths ?? [])], rules: at(raw.mergeGate.rules), codes: Object.fromEntries(Object.entries(raw.mergeGate.codes ?? {}).map(([k, v]) => [k, [...v]])), taskState: raw.mergeGate.taskState === true, verdicts: raw.mergeGate.verdicts === true },
     // The workflow file of the project's full check in CI (D-158); a configuration without it is reported.
     ci: raw.ci && { workflow: at(raw.ci.workflow) },
     // The approach's own releases (D-109): the file of their entries, in the approach's repository only.

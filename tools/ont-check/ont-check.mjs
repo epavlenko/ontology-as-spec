@@ -56,7 +56,7 @@ import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.m
 import { renderRounds } from "./review-rounds.mjs";
 import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { goalLineProblem } from "./spend.mjs";
-import { compareRules, githubRepo, localRecordNotes, recordDirs } from "./merge-gate.mjs";
+import { compareRules, githubRepo, isRecordPath, localRecordNotes, recordDirs } from "./merge-gate.mjs";
 import { briefsDir, pendingBriefs } from "./briefs.mjs";
 import { sealed } from "./seal.mjs";
 import { PERFORMERS, outsideRecord as outsideRecordText } from "./manual-runs.mjs";
@@ -1377,9 +1377,19 @@ if (flag("--review") > 0) {
   if (!base || base.startsWith("--")) {
     fail("--review needs a base: a branch, a tag or a commit", 2);
   }
-  const r = reviewChange({ cfg, base, checks, approachChecks: approach?.checks, implRows, ids, guides: runGuides });
+  // --json: the list of the change alone, each check with its stamp, on one line, for the guard of the
+  // base (derived.change-list, D-186). No brief is read, and the run ends here, before anything of the
+  // project is imported.
+  // ont: derived.change-list
+  const asJson = flag("--json") > 0;
+  const r = reviewChange({ cfg, base, checks, approachChecks: approach?.checks, implRows, ids, guides: runGuides, ...(asJson ? { briefs: [] } : {}) });
   if (r.error) {
     fail(r.error, 2);
+  }
+  if (asJson) {
+    const list = [...r.project, ...r.approach].map((c) => ({ id: c.id, stamp: stampFor(c), proof: c.proof }));
+    console.log(`REVIEW_JSON ${JSON.stringify({ base, checks: list })}`);
+    process.exit(0);
   }
   // Where the guide of each check of run is (D-155): a project's own, in its run guides; one of the
   // approach, at the commit its copy came from, which the copy information names, or in the approach's
@@ -1421,7 +1431,22 @@ if (flag("--review") > 0) {
     const listed = new Map([...r.project, ...r.approach].map((c) => [c.id, c]));
     const known = new Set([...checkById.keys(), ...(approach?.checks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
     const { runs } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
-    const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--short", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout.trim();
+    // The commit of the review is the last commit outside the records of the process: HEAD, or, when HEAD
+    // is a commit of records alone over the work, the commit under it that changed something else (D-186).
+    // ont: derived.change-verdict
+    const top = (() => {
+      const g = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
+      const dirs = recordDirs(cfg, g("rev-parse", "--show-toplevel"));
+      let c = g("rev-parse", "HEAD");
+      for (;;) {
+        const parents = g("rev-list", "--parents", "-n", "1", c).split(" ").slice(1);
+        if (parents.length !== 1) break;
+        const paths = g("diff", "--no-renames", "--name-only", parents[0], c).split("\n").filter(Boolean);
+        if (paths.some((p) => !isRecordPath(p, dirs))) break;
+        c = parents[0];
+      }
+      return g("rev-parse", "--short", c);
+    })();
     const dirty = spawnSync("git", ["-C", cfg.base, "status", "--porcelain", "--", ".", `:!${relative(cfg.base, cfg.manualRuns.dir)}`], { encoding: "utf8", env: gitEnv() }).stdout.trim();
     // The files read for a carried verdict that changed since its record's commit, committed or not. A
     // file with no snapshot in that commit, untracked, ignored or absent, cannot be compared, so it counts
@@ -1449,7 +1474,7 @@ if (flag("--review") > 0) {
     // The first verdicts of a project make their directory.
     mkdirSync(cfg.manualRuns.dir, { recursive: true });
     for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text);
-    console.log(`RECORDED ${res.records.length} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
+    console.log(`RECORDED ${res.records.length - res.carried} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
   }
 }
 // --run-start <check> and --run-record <check>: a run of a check of run outside a review, in two steps
