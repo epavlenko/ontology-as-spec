@@ -388,7 +388,8 @@ test("[check.merge-gate.task-not-done] no approval in force, an answer to a gate
     workAndDone(p, st);
     resultRound(p, st, "By: m (p)\n\nCondition: not yet\nAcceptance: clean");
     workAndDone(p, st);
-    assert.match(notDone(p).out, /was made after it and has no acceptance of its own/);
+    // A newer record of done after the end of the step is a new result: one narrow round on it (D-186).
+    assert.match(notDone(p).out, /is a new result after the end of the step at .*: narrow round 1, one round on it/);
   }
   // An open gate of the owner at the head.
   {

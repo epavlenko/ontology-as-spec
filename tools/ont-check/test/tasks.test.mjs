@@ -1293,10 +1293,12 @@ test("[check.task-result.latest-done] a record of done of a newer commit after t
   const sc = scenario({ rounds: [approvedA, finalRound()], done: [{ time: T(11) }, { time: T(13), commit: CC }] });
   const out = state(sc, { statement: fileOf(A) });
   assert.doesNotMatch(out, /the task is done|NEXT t: done/);
-  assert.match(out, new RegExp(`NEXT t: the verdict of acceptance of r1\\.md is refused: the record of done d1\\.md, of commit ${CC.slice(0, 7)}, was made after it and has no acceptance of its own`));
+  // A record of done after the end of the step is a new result: one narrow round on it, not a round of
+  // acceptance alone (derived.step-end, D-186).
+  assert.match(out, new RegExp(`NEXT t: the record of done d1\\.md, of commit ${CC.slice(0, 7)}, is a new result after the end of the step at r1\\.md: narrow round 1, one round on it`));
   assert.match(out, new RegExp(`TASK t · done: recorded in d1\\.md, commit ${CC.slice(0, 7)}, .*no round of the review of the result has followed it yet`));
   const r = checkWith(sc, {}, ["--rounds"]);
-  assert.match(r.stdout, /NEXT t: the verdict of acceptance of r1\.md is refused: the record of done d1\.md/);
+  assert.match(r.stdout, /NEXT t: the record of done d1\.md, of commit [0-9a-f]{7}, is a new result after the end of the step at r1\.md/);
   assert.doesNotMatch(r.stdout, /result-review: .* next: the step ended clean/);
   // The general check does not refuse the acceptance of the earlier record: a newer result waits for its round.
   assert.doesNotMatch(r.stdout, /verdicts of acceptance refused/);
