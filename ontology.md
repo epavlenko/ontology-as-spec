@@ -966,6 +966,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `field.manual-run.origin`, `action.start-run`, `action.record-run` | `tools/ont-check/manual-runs.mjs`, `tools/ont-check/ont-check.mjs` | |
 | `rule.records-english-in-repo` | `tools/ont-check/manual-runs.mjs`, `tools/ont-check/review-rounds.mjs`, `tools/ont-check/tasks.mjs` | |
 | `rule.run-recorded` | `skills/change-review/SKILL.md`, `docs/parts/checks-and-tests.md` | the skill writes the records; that every verdict was recorded is reviewed |
+| `field.manual-run.class`, `field.manual-run.carried` | `tools/ont-check/manual-runs.mjs`, `tools/ont-check/ont-check.mjs` | `--record` writes them and refuses a fail without a class and a not-run or a not-applicable without a reason |
 
 ### Task statement
 
@@ -988,6 +989,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `field.owner-approval.kind`, `field.owner-approval.question`, `field.owner-approval.round`, `field.owner-approval.budget`, `action.record-approval`, `field.owner-approval.gate-paths` | `tools/ont-check/approve.mjs`, `tools/ont-check/tasks.mjs` | |
 | `action.record-done` | `tools/ont-check/done.mjs`, `tools/ont-check/tasks.mjs` | |
 | `rule.acceptance-against-approved` | `tools/ont-check/tasks.mjs`, `skills/change-review/SKILL.md`, `docs/parts/agent-rules.md` | that a round with findings of acceptance is not clean is checked; what the reviewer compared is reviewed |
+| `field.task-result.fix-tests` | `tools/ont-check/done.mjs`, `tools/ont-check/tasks.mjs` | |
 
 ### Publish permission
 
@@ -1026,6 +1028,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `derived.pr-task`, `rule.merge-by-task-state`, `rule.records-only-pr`, `inv.gate-path-in-approval` | `tools/ont-check/merge-gate.mjs` | |
 | `inv.rules-match-file` | `tools/ont-check/merge-gate.mjs`, `.github/workflows/ont-gate-guard.yml`, `.github/workflows/ont-rules-drift.yml`, `tools/ont-check/ont-check.mjs` | the fields a read-only token does not read are compared by `--task` and the daily workflow, as `docs/limitations.md` says |
 | `action.compare-rules` | `tools/ont-check/merge-gate.mjs`, `tools/ont-check/ont-check.mjs` | |
+| `field.merge-gate.verdicts`, `derived.change-list`, `derived.change-verdict`, `rule.verdicts-hold-merge`, `rule.one-issue-after-narrow` | `tools/ont-check/merge-gate.mjs`, `tools/ont-check/ont-check.mjs`, `tools/ont-check/lib.mjs` | the guard of the base computes the list in a working tree of its own and reads the records at the head |
 
 ### Gate change
 
@@ -1061,6 +1064,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | -- | -------------- | ---- |
 | `ent.fixes-record`, `field.fixes-record.round`, `field.fixes-record.tests`, `edge.fixes-record.round` | `tools/ont-check/tasks.mjs`, `tools/ont-check/round.mjs` | |
 | `action.record-fixes` | `tools/ont-check/round.mjs` | |
+| `field.fixes-record.issue` | `tools/ont-check/round.mjs`, `tools/ont-check/tasks.mjs` | |
 
 ### Spend snapshot
 

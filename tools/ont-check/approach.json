@@ -1292,17 +1292,6 @@
       "proof": "review"
     },
     {
-      "id": "check.agent-rules.reviewed-before-merge",
-      "section": "Agent rules",
-      "concepts": [
-        "rule.reviewed-before-merge"
-      ],
-      "given": "with `mergeGate.verdicts` at the base, a change of a task whose records give a verdict to each check of the list of the change, with a not-run with its reason; one with a check of the list without one; one whose latest record of a check is a fail of a class not decided; and one whose check of errors in code was given on a commit of records alone",
-      "when": "the guard reads the records at the head",
-      "then": "it passes the first and refuses the others, `VERDICT_MISSING`, `VERDICT_FAILED` and `VERDICT_NOT_OF_CHANGE`: that the change was reviewed is computed from the records, not given by a verdict that would depend on itself",
-      "proof": "review"
-    },
-    {
       "id": "check.agent-rules.value-checked-against-source",
       "section": "Agent rules",
       "concepts": [

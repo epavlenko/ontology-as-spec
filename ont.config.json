@@ -160,9 +160,11 @@
         "GATE_PATH_OUTSIDE_APPROVAL",
         "RULES_DRIFT",
         "RULES_UNREAD"
-      ]
+      ],
+      "enforcement-verdicts-tests": ["VERDICT_MISSING", "VERDICT_FAILED", "VERDICT_UNREASONED", "VERDICT_NOT_OF_CHANGE", "ISSUE_MISSING", "FIX_UNTESTED"]
     },
-    "taskState": true
+    "taskState": true,
+    "verdicts": true
   },
   "ci": {
     "workflow": ".github/workflows/ont-check.yml"

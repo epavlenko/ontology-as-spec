@@ -289,9 +289,17 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
       // What the statement asks the record to name besides the commands, under Evidence: (D-166).
       const evidenceAt = blockAt(text, "Evidence");
       const evidence = (evidenceAt ?? []).map((b) => b.line.replace(/^-\s*/, "").trim());
+      // The tests of the records of fixes of the range, each run alone by done.mjs, "- file · name · passed"
+      // (field.task-result.fix-tests, D-186).
+      // ont: field.task-result.fix-tests
+      const fixTests = (blockLines(text, "Fix-tests") ?? []).map((l) => {
+        const parts = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
+        return { file: parts[0], test: parts.slice(1, -1).join(" · "), result: parts.at(-1) };
+      });
       const lim = recordLimits(field);
       const wrong = [
         ...lim.wrong,
+        ...fixTests.filter((t) => !t.file || !t.test || t.result !== "passed").map((t) => `the test of a fix "${[t.file, t.test].filter(Boolean).join(" · ")}" is not "file · name · passed"`),
         !task && "no task",
         task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
         !/^[0-9a-f]{40}$/.test(commit ?? "") && `commit ${commit ?? "(none)"} is not a full commit`,
@@ -310,7 +318,7 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         // budget, held to the configuration's goals (goalLineOf, D-179); a record made before the line names none.
         const goal = field("Goal");
         if (goal !== null && !TASK_NAME.test(goal)) malformed.push(`${name}: goal ${goal} is not lower-case letters, digits and hyphens`);
-        else done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence, goal });
+        else done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence, goal, fixTests });
       }
     } else if (kind === "approval" && field("Kind") === "publish") {
       // The owner's permission to publish the work of a goal or of a task (D-185): no version, a scope.
@@ -424,10 +432,18 @@ export function snapshotOf(text, name) {
 // takes the test of a finding from here when the round's record gives none (applyFixes).
 // ont: ent.fixes-record, field.fixes-record.round, field.fixes-record.tests, edge.fixes-record.round
 export function fixesOf(text, name) {
-  const [task, round, time] = ["Task", "Round", "Time"].map((k) => lineOf(text, k));
+  const [task, round, time, issue] = ["Task", "Round", "Time", "Issue"].map((k) => lineOf(text, k));
   const tests = (blockLines(text, "Tests") ?? []).map((l) => {
     const [cls, file, test] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
     return { cls, file, test };
+  });
+  // The one issue of verdicts after the narrow round, the classes of its table of findings, and the rare
+  // findings filed, "- class · limitation|later · file" (field.fixes-record.issue, D-186).
+  // ont: field.fixes-record.issue
+  const issueFindings = (blockLines(text, "Issue-findings") ?? []).map((l) => l.replace(/^-\s*/, "").trim()).filter(Boolean);
+  const filed = (blockLines(text, "Filed") ?? []).map((l) => {
+    const [cls, fix, file] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
+    return { cls, fix, file };
   });
   const wrong = [
     !task && "no task",
@@ -435,11 +451,13 @@ export function fixesOf(text, name) {
     !round && "no round: the file of the round whose findings it tests",
     round && !/^[^/\\]+\.md$/.test(round) && `round ${round} is not the file name of a record of a round`,
     !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
-    !tests.length && "no line under Tests:",
+    !tests.length && !issue && "no line under Tests:",
+    issue !== null && !/^[0-9a-f]{7,40}$/.test(issue) && `issue ${issue} is not a commit`,
+    ...filed.filter((f) => !f.cls || !["limitation", "later"].includes(f.fix) || !f.file || !repoPath(f.file)).map((f) => `the filed line "${[f.cls, f.fix, f.file].filter(Boolean).join(" · ")}" is not "class · limitation or later · file"`),
     ...tests.filter((t) => !t.cls || !t.file || !t.test).map((t) => `the line "${[t.cls, t.file, t.test].filter(Boolean).join(" · ")}" is not "class · file · name"`),
     ...tests.filter((t) => t.file && !repoPath(t.file)).map((t) => `${t.file} is not a path of the repository`),
   ].filter(Boolean);
-  return { wrong, record: { file: name, task, round, time, tests } };
+  return { wrong, record: { file: name, task, round, time, tests, issue, issueFindings, filed } };
 }
 
 // The rounds with the tests the records of fixes give (D-168): a finding fixable with no test of its own
