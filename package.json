@@ -12,7 +12,8 @@
     "gap": "node tools/ont-check/ont-check.mjs --config ont.config.json --gap",
     "next": "node tools/ont-check/ont-check.mjs --config ont.config.json --next",
     "test:ci": "node --test 'tools/ont-check/test/*.test.mjs' 'example/app/*.test.mjs' 'example/e2e/*.test.mjs' 'example/traces/*.test.mjs'",
-    "test": "npm run check && npm run --silent guard && npm run --silent test:ci && node --test 'example/judged/*.judged.mjs'",
+    "test": "npm run check && npm run --silent guard && npm run --silent test:ci",
+    "test:judged": "node tools/ont-check/judge.mjs --suite example/judged",
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true"
   }
 }
