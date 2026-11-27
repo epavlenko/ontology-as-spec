@@ -848,7 +848,8 @@ export function failedCause(runs, windowRounds = []) {
     if (x.verdict === "fail") failed = { run: x, cause };
     else if (failed && cause && cause !== failed.cause) failed = null;
   }
-  return failed?.run ?? null;
+  // With the hash of the analysis the failed verdict was given on, which the next brief may not give again.
+  return failed ? { ...failed.run, analysis: failed.cause } : null;
 }
 
 // Whether a record of done ran exactly the statement's commands of done, in their order (D-123).

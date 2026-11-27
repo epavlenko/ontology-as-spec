@@ -300,6 +300,8 @@ function main(argv) {
     if (!ok.cause && !causeFailed && causeFile) return refuse(`--cause is given, and the next action names no stagnation: ${ok.next.say}`);
     if (causeFile && !existsSync(causeFile)) return refuse(`--cause ${causeFile} is not a file`);
     const cause = causeFile ? readFileSync(causeFile) : null;
+    // The analysis that failed is not given again: the next brief carries a corrected one (rule.round-verdicts).
+    if (causeFailed && cause && causeFailed.analysis && sha256(cause) === causeFailed.analysis) return refuse(`--cause ${causeFile} is the analysis whose verdict ${causeFailed.file} failed: give the corrected analysis (rule.round-verdicts)`);
     if (cause && !cause.toString("utf8").trim()) return refuse(`--cause ${causeFile} is empty: write the analysis of the cause in it`);
     const brief = {
       Task: task,

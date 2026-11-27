@@ -827,7 +827,7 @@ test("[check.review-round.round-verdicts-required] a round after a round with fi
   }
 });
 
-test("[check.merge-gate.round-verdicts-held] a clean closing round after a round with findings, its verdicts of the record of a round given, passes; a fail of one of them decided nowhere, a fail of the analysis of the cause passed again on the same analysis, are VERDICT_FAILED; a later pass on the corrected analysis passes", () => {
+test("[check.merge-gate.round-verdicts-held] a clean closing round after a round with findings, its verdicts of the record of a round given, passes; a fail of one of them decided nowhere is VERDICT_FAILED; after a failed analysis of the cause the writer of the brief refuses the same analysis given again, and a later pass on the corrected analysis passes", () => {
   // Given, all passing.
   {
     const { p, st } = approved();
@@ -861,10 +861,16 @@ test("[check.merge-gate.round-verdicts-held] a clean closing round after a round
     const no = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
     assert.notEqual(no.code, 0);
     assert.match(no.out, /failed in this step and no later pass decided it: give the corrected analysis with --cause/);
-    const b = corrected ? writeFile("The fix did not hold because the test read the copy, not the file; one reader now.\n") : a;
-    resultRound(p, st, undefined, null, { extra: ["--cause", b] });
+    // The same analysis given again: the writer of the brief refuses it, and no round can pass it.
+    if (!corrected) {
+      const same = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file, "--cause", a]);
+      assert.notEqual(same.code, 0, same.out);
+      assert.match(same.out, /is the analysis whose verdict .* failed: give the corrected analysis/);
+      continue;
+    }
+    resultRound(p, st, undefined, null, { extra: ["--cause", writeFile("The fix did not hold because the test read the copy, not the file; one reader now.\n")] });
     const g = p.gate();
-    assert.deepEqual([...new Set(g.codes)], corrected ? [] : ["VERDICT_FAILED"], g.out);
+    assert.deepEqual(g.codes, [], g.out);
   }
 });
 
@@ -1094,9 +1100,8 @@ test("[check.merge-gate.issue-usual-path] an empty list of the issue, without a 
   }
 });
 
-test("[check.merge-gate.round-verdicts-held] a pass on the same analysis does not decide a failed one: the next brief still asks the corrected analysis; and at the merge a pass outside the rounds counts only from the one issue, on its own diff", () => {
-  // The brief: a fail on analysis A, then a round briefed with A again whose pass is given; its findings
-  // are nits alone, so no stagnation asks --cause, and the failed analysis still does.
+test("[check.merge-gate.round-verdicts-held] a failed analysis is not given again: the next brief refuses the same analysis and asks the corrected one; and at the merge a pass outside the rounds counts only from the one issue, on its own diff", () => {
+  // The brief: a fail on analysis A; the next brief refuses A given again, and refuses no analysis at all.
   {
     const { p, st } = approved();
     reviewed(p, st);
@@ -1107,13 +1112,12 @@ test("[check.merge-gate.round-verdicts-held] a pass on the same analysis does no
     work(p, "export const second = 1;\n");
     recordDone(p, st);
     p.commit("done");
-    resultRound(p, st, "By: m (p)\n\n| a typo | nit | change |\n\nCondition: not yet\nAcceptance: clean", "a typo · usual path: the work\n", { extra: ["--cause", a] });
-    work(p, "export const third = 1;\n");
-    recordDone(p, st);
-    p.commit("done");
-    const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
-    assert.notEqual(b.code, 0, b.out);
-    assert.match(b.out, /failed in this step and no later pass decided it/);
+    const same = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file, "--cause", a]);
+    assert.notEqual(same.code, 0, same.out);
+    assert.match(same.out, /is the analysis whose verdict .* failed: give the corrected analysis/);
+    const none = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+    assert.notEqual(none.code, 0, none.out);
+    assert.match(none.out, /failed in this step and no later pass decided it|the next action is the analysis of the cause/);
   }
   // The merge: after the last narrow round, a pass naming a corrected analysis given on another diff of the
   // commit of the issue is no pass of the issue; the issue's own verdict is a not-run: VERDICT_FAILED.
