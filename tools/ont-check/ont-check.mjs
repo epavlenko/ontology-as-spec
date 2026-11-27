@@ -1471,6 +1471,8 @@ if (flag("--review") > 0) {
       const changed = runChanged(run.commit);
       return changed ? `${changed.join(", ")} changed outside the records since its commit ${run.commit}` : null;
     };
+    // Each record names the base of the diff it was given on, Base: (D-186).
+    // ont: field.manual-run.base
     const res = recordVerdicts({ text: read(table), listed, runs, base: fullOf(base), stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly, unlisted: (id) => (id === CAUSE_CHECK ? ": it is listed after stagnation while the round's brief, which carries Cause:, is kept; record the verdicts before round.mjs record removes it (D-184)" : "") });
     if (res.problems.length) {
       fail(`the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`, 1);

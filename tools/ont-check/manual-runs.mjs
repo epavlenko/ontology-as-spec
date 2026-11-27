@@ -178,7 +178,7 @@ export const currentRun = (runs, id, stamp, held = () => false, fresh = () => tr
 // result reaches that commit only by a carry checked here; and each record names on Base: the base of the
 // diff it was given on, so that the one issue after the narrow round is held only by verdicts given on its
 // own diff, from the narrow round's commit (D-186).
-// ont: action.record-verdicts, field.manual-run.class, field.manual-run.carried
+// ont: action.record-verdicts, field.manual-run.class, field.manual-run.carried, field.manual-run.base
 export const CLASS_SEP = " · ";
 export const classesOf = (evidence) => {
   const out = [];
