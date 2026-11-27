@@ -1212,3 +1212,113 @@ test("[check.merge-gate.issue-missing] records of runs outside a review on the c
     assert.match(fx.out, /a gap of another diff is not the class of a fixable finding/);
   }
 });
+
+// ── Findings of round 3 of the review of the result ──────────────────────────────────────────────────
+
+test("[check.merge-gate.verdicts-run-nothing] the guard reads no file out of the checked tree: a link out of it under a directory the configuration names, and a configuration that is itself a link out of it, are refused before anything is read; a link inside the tree is not", () => {
+  const p = base();
+  const outside = join(temp("ont-outside-"), "secret.md");
+  writeFileSync(outside, "# a file outside\n");
+  // A configuration out of the tree that cannot be parsed: had the guard read it, its error would say so.
+  const outsideCfg = join(temp("ont-outside-"), "ont.config.json");
+  writeFileSync(outsideCfg, "not a configuration {\n");
+  const cfg = loadConfig(join(p.dir, "ont.config.json"));
+  const tryList = (edit) => {
+    const q = copy(p);
+    edit(q);
+    const commit = q.commit("a link in the tree");
+    try {
+      return { list: changeList({ cfg: { ...cfg, file: join(q.dir, "ont.config.json") }, top: q.dir, commit, from: q.git("rev-parse", "main"), tmp: temp("ont-list-") }) };
+    } catch (e) {
+      return { error: e.message };
+    }
+  };
+  // A file found under the doc set's directory, help/, that links out of the tree.
+  const under = tryList((q) => symlinkSync(outside, join(q.dir, "help/linked.md")));
+  assert.match(under.error ?? "", /names paths outside its tree/, JSON.stringify(under));
+  assert.match(under.error, /help\/linked\.md \(a link\)/);
+  // The configuration itself a link out of the tree: refused by its path, never parsed.
+  const self = tryList((q) => {
+    rmSync(join(q.dir, "ont.config.json"));
+    symlinkSync(outsideCfg, join(q.dir, "ont.config.json"));
+  });
+  assert.match(self.error ?? "", /names paths outside its tree/, JSON.stringify(self));
+  assert.match(self.error, /ont\.config\.json \(a link\)/);
+  assert.doesNotMatch(self.error, /JSON|Unexpected|token/);
+  // A link whose target is in the tree.
+  const inside = tryList((q) => symlinkSync("thing.md", join(q.dir, "help/alias.md")));
+  assert.ok(Array.isArray(inside.list), JSON.stringify(inside));
+});
+
+test("[check.merge-gate.round-verdicts-held] a fail of a verdict of the record of a round whose class only an earlier round of the window filed is VERDICT_FAILED; filed by the round that ended the step, it passes", () => {
+  for (const filedAtEnd of [false, true]) {
+    const { p, st } = approved();
+    p.put("issues/0004-a-slip-of-filing.md", "# A slip\n\na slip of filing\n");
+    reviewed(p, st);
+    // Round 1 files the class for later, with a gap of the usual path beside it.
+    resultRound(p, st, "By: m (p)\n\n| a slip of filing | nit | change |\n| a gap | important | change |\n\nCondition: not yet\nAcceptance: clean", "a slip of filing · later: issues/0004-a-slip-of-filing.md\na gap · usual path: the work\n");
+    work(p, "export const gapFixed = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    // The closing round's verdict of the whole class fails with the same class; that round files it, or not.
+    const rest = filedAtEnd ? "By: m (p)\n\n| a slip of filing | nit | change |\n\nCondition: not yet\nAcceptance: clean" : "By: m (p)\n\nCondition: not yet\nAcceptance: clean";
+    resultRound(p, st, rest, filedAtEnd ? "a slip of filing · later: issues/0004-a-slip-of-filing.md\n" : null, { given: { [WHOLE]: ["fail", "[a slip of filing] the round before looked at one place of its class"] } });
+    const g = p.gate();
+    assert.deepEqual([...new Set(g.codes)], filedAtEnd ? [] : ["VERDICT_FAILED"], g.out);
+    if (!filedAtEnd) assert.match(g.out, /a slip of filing.*a verdict of the record of a round/);
+  }
+});
+
+test("[check.merge-gate.fix-untested] a fail of the one issue whose class only the narrow round filed is FIX_UNTESTED: only the records of fixes decide the findings of the issue", () => {
+  for (const filedInFixes of [false, true]) {
+    const { p, st } = approved();
+    p.put("issues/0005-a-nit-of-code.md", "# A nit\n\na nit of code\n");
+    reviewed(p, st);
+    resultRound(p, st, "By: m (p)\n\n| a gap | important | change |\n\nCondition: holds\nAcceptance: clean", "a gap · usual path: the work\n");
+    work(p, "export const gapFixed = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    const v = p.verdicts("main");
+    assert.equal(v.code, 0, v.out);
+    p.commit("the verdicts of the fix");
+    // The narrow round files the class for later beside a finding of the usual path.
+    resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n| a nit of code | nit | change |\n\nCondition: holds\nAcceptance: clean", "a slip · usual path: the work\na nit of code · later: issues/0005-a-nit-of-code.md\n");
+    work(p, "export const slipFixed = 1;\n");
+    // The issue fails the check of errors in code with the class the narrow round filed.
+    issue(p, st, narrowCommit(p), { given: { [CODE]: ["fail", "[a nit of code] app/work.mjs:5 names a value twice"] }, ...(filedInFixes ? { filed: "a nit of code · later · issues/0005-a-nit-of-code.md\n" } : {}) });
+    recordDone(p, st);
+    p.commit("done ends the range");
+    const g = p.gate();
+    if (filedInFixes) assert.deepEqual(g.codes, [], g.out);
+    else {
+      assert.deepEqual([...new Set(g.codes)], ["FIX_UNTESTED"], g.out);
+      assert.match(g.out, /a nit of code/);
+    }
+  }
+});
+
+test("[check.merge-gate.round-verdicts-held] after the last narrow round the latest verdict of the analysis of the cause decides it: the issue's pass on the corrected analysis followed by its fail leaves VERDICT_FAILED", () => {
+  const { p, st } = approved();
+  reviewed(p, st);
+  withFinding(p, st);
+  resultRound(p, st, "By: m (p)\n\n| a gap | important | change |\n\nCondition: holds\nAcceptance: clean", "a gap · usual path: the work\n");
+  work(p, "export const afterC = 1;\n");
+  recordDone(p, st);
+  p.commit("done");
+  resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: holds\nAcceptance: clean", "a slip · usual path: the work\n", { extra: ["--cause", writeFile("The fix of a gap did not hold; the cause is the test.\n")], given: { [CAUSE]: ["fail", "[a cause not named] the analysis names no cause of the repeated class"] } });
+  work(p, "export const slipFixed = 1;\n");
+  const hash = sha256("The fix of a gap did not hold because the test read the copy, not the file; one reader now.\n");
+  issue(p, st, narrowCommit(p), { given: { [CAUSE]: ["pass", `the analysis ${hash} names the cause and the change follows from it`] } });
+  p.commit("the record of fixes");
+  // The reviewer of the issue then fails the same check on the issue's own diff, on the commit of the issue.
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
+  const again = p.verdicts(narrowCommit(p), { [CAUSE]: ["fail", `[a cause not named] the analysis ${hash} names no cause either`] });
+  assert.equal(again.code, 0, again.out);
+  assert.ok(runs(p).some((t) => t.includes(CAUSE) && /^Verdict: fail$/m.test(t) && /^Commit: [0-9a-f]{7,40}$/m.test(t) && /names no cause either/.test(t)));
+  p.commit("the latest verdict of the issue");
+  recordDone(p, st);
+  p.commit("done ends the range");
+  const g = p.gate();
+  assert.deepEqual([...new Set(g.codes)], ["VERDICT_FAILED"], g.out);
+  assert.match(g.out, /the latest verdict of the check after it, .* is a fail/);
+});

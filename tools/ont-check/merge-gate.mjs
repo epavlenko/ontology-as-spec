@@ -44,7 +44,7 @@
 // ont: rule.ci-from-main, inv.gate-change-approved, rule.merge-what-was-checked, rule.main-through-gate, rule.gate-switched-on, rule.fixes-held-by-tests
 // ont: field.merge-gate.task-state, edge.publish-permission.guard, rule.merge-by-task-state, rule.records-only-pr, derived.pr-task, inv.gate-path-in-approval, inv.rules-match-file, action.compare-rules
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -497,10 +497,11 @@ export function changeList({ cfg, top, commit, from, tmp }) {
   must(top, "-c", "core.hooksPath=/dev/null", "worktree", "add", "--quiet", "--detach", wt, commit);
   try {
     const cfgRel = relative(top, cfg.file).split("\\").join("/");
-    // Every path the configuration of the checked commit names resolves inside its tree, by its real path,
-    // links followed, or the list is not computed: the base's checker reads nothing outside it (D-187).
+    // The checker of the base reads only the files of the checked tree (D-187, D-188): the configuration's
+    // own path, before it is read, every path it names, and every link of the tree, the ones under a directory
+    // the configuration names among them, resolve inside it by their real paths, or the list is not computed.
     const outside = pathsOutside(join(wt, cfgRel), wt);
-    if (outside.length) throw new GitError(`the configuration at ${commit.slice(0, 12)} names paths outside its tree, which the guard does not read: ${outside.join(", ")}`);
+    if (outside.length) throw new GitError(`the configuration at ${commit.slice(0, 12)} names paths outside its tree, by itself, by a path it names or by a link of the tree, which the guard does not read: ${outside.join(", ")}`);
     const r = spawnSync(process.execPath, [join(TOOL_DIR, "ont-check.mjs"), "--config", join(wt, cfgRel), "--review", from, "--json"], { cwd: wt, encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 28 });
     const line = (r.stdout ?? "").split("\n").find((l) => l.startsWith("REVIEW_JSON "));
     if (!line) throw new GitError(`the list of the change at ${commit.slice(0, 12)} from ${from.slice(0, 12)} cannot be computed: ${`${r.stdout ?? ""}${r.stderr ?? ""}`.trim().split("\n").slice(-3).join(" / ")}`);
@@ -513,16 +514,13 @@ export function changeList({ cfg, top, commit, from, tmp }) {
   }
 }
 
-// The paths a configuration names, as the loader resolves them, that leave the tree at root: by "..", by an
-// absolute path, or by a link whose real path is outside; a configuration that cannot be loaded is one whose
-// paths cannot be told, and is named whole.
+// What of a tree at root would take the checker out of it, each named once (D-188): every link in the tree
+// whose real path, or for a link that resolves to nothing its target, is outside root, at any depth, so that
+// no file a directory of the configuration holds is read from outside; the configuration's file, checked
+// before it is read; and, once it is inside, each path the configuration names, as the loader resolves it,
+// by "..", by an absolute path or by a link. A configuration that cannot be loaded is one whose paths cannot
+// be told, and is named whole. The links are found by lstat, without following any.
 export function pathsOutside(cfgFile, root) {
-  let loaded;
-  try {
-    loaded = loadConfig(cfgFile);
-  } catch (e) {
-    return [`${relative(root, cfgFile)} (${String(e.message ?? e).split("\n")[0]})`];
-  }
   const base = realpathSync(root);
   const realOf = (p) => {
     let at = p;
@@ -533,19 +531,43 @@ export function pathsOutside(cfgFile, root) {
     }
     return join(realpathSync(at), ...rest);
   };
-  const leaves = (p) => {
-    const rel = relative(base, realOf(p));
+  const out = (real) => {
+    const rel = relative(base, real);
     return rel === ".." || rel.startsWith(`..${"/"}`) || rel.startsWith("..\\") || isAbsoluteRel(rel);
   };
+  const leaves = (p) => out(realOf(p));
   const found = new Set();
-  const walk = (v, key) => {
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (dir === root && e.name === ".git") continue;
+      const p = join(dir, e.name);
+      if (e.isSymbolicLink()) {
+        let real;
+        try {
+          real = realpathSync(p);
+        } catch {
+          real = realOf(resolve(dirname(p), readlinkSync(p)));
+        }
+        if (out(real)) found.add(`${relative(root, p)} (a link)`);
+      } else if (e.isDirectory()) walk(p);
+    }
+  };
+  walk(root);
+  if (leaves(cfgFile)) found.add(cfgFile);
+  if (found.size) return [...found].sort();
+  let loaded;
+  try {
+    loaded = loadConfig(cfgFile);
+  } catch (e) {
+    return [`${relative(root, cfgFile)} (${String(e.message ?? e).split("\n")[0]})`];
+  }
+  const named = (v) => {
     if (typeof v === "string") {
       if (v.startsWith("/") && leaves(v)) found.add(v);
-    } else if (Array.isArray(v)) v.forEach((x) => walk(x, key));
-    else if (v && typeof v === "object" && !(v instanceof RegExp)) for (const [k, x] of Object.entries(v)) walk(x, k);
+    } else if (Array.isArray(v)) v.forEach(named);
+    else if (v && typeof v === "object" && !(v instanceof RegExp)) Object.values(v).forEach(named);
   };
-  walk(loaded, null);
-  if (leaves(cfgFile)) found.add(cfgFile);
+  named(loaded);
   return [...found].sort();
 }
 const isAbsoluteRel = (rel) => rel.startsWith("/");
@@ -622,14 +644,17 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
   const inputs = at.inputs();
   const runsDir = filesAt(top, h, rel, join(tmp, "runs"));
   const { runs } = existsSync(runsDir) ? parseRuns(runsDir, { has: () => true }, { latinOnly: cfg.records.latinOnly }) : { runs: [] };
-  const results = next.view?.results ?? [];
   const range = next.result?.fixes?.done ? next.result.fixes : null;
   const fixes = range ? (inputs.records.fixes ?? []).filter((f) => f.task === task && f.round === range.narrow.file) : [];
   const passed = new Set(range ? (range.done.fixTests ?? []).filter((t) => t.result === "passed").map((t) => `${t.file} · ${t.test}`) : []);
-  // A class is filed only by the round that ended the step, the last of the window, or decided in the
-  // records of fixes of its range; a filing of an earlier round waives no later fail (D-187).
-  const ending = [...results].sort((a, b) => a.time.localeCompare(b.time)).at(-1);
-  const ctxOf = (commit, stamp) => ({ commit, stamp, rounds: ending ? [ending] : [], fixes, passed, root: at.root });
+  // A class is filed only by the round that ended the step, by the one function of the end of a step, or,
+  // when the record of done of a range ended it, by the narrow round of that range, the last of the window,
+  // for the verdicts of the result it checked; or decided in the records of fixes of its range. A filing of
+  // an earlier round waives no later fail, and a fail of the one issue is decided only in the records of
+  // fixes (D-187, D-188).
+  const w = roundWindow({ rounds: inputs.rounds, done: inputs.records.done, approvals: inputs.records.approvals, task });
+  const closing = w.end?.kind === "round" ? w.end.round : (w.end?.narrow ?? null);
+  const ctxOf = (commit, stamp, ofIssue = false) => ({ commit, stamp, rounds: closing && !ofIssue ? [closing] : [], fixes, passed, root: at.root });
   const problems = [];
   // A check held on a commit; on the issue, a missing record is an incomplete issue and a class not
   // decided a finding with no decision.
@@ -640,7 +665,7 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
     const of = ofIssue ? runs.filter((r) => r.base && resolve(r.base) === resolve(range.from)) : runs;
     const v = changeVerdict({ top, runs: of, id, stamp, commit, dirs, resolve });
     if (v.current?.verdict === "fail") fails.add(commit);
-    const p = verdictWhy(id, v, ctxOf(commit, stamp));
+    const p = verdictWhy(id, v, ctxOf(commit, stamp, ofIssue));
     if (!p) return;
     if (ofIssue && p.code === "VERDICT_MISSING") p.code = "ISSUE_MISSING";
     if (ofIssue && p.code === "VERDICT_FAILED" && v.current?.class && !v.current.carried) p.code = "FIX_UNTESTED";
@@ -651,7 +676,7 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
   // The one issue the latest record of fixes of the range names, for a pass of the analysis given there.
   const named = fixes.filter((f) => f.issue).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1);
   const ofIssue = (x) => Boolean(range && named && resolve(x.commit) && resolve(x.commit) === resolve(named.issue) && x.base && resolve(x.base) === resolve(range.from));
-  problems.push(...roundVerdictProblems({ inputs, task, runs, ctx: ctxOf(end, null), ofIssue }));
+  problems.push(...roundVerdictProblems({ w, runs, ctx: ctxOf(end, null), ofIssue }));
   const from = mergeBase(top, b, end);
   if (!from) return [{ code: "VERDICT_MISSING", why: `the checked commit ${end.slice(0, 12)} and the base have no common commit` }];
   const list = changeList({ cfg, top, commit: end, from, tmp: join(tmp, "lists") });
@@ -665,12 +690,14 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
 // The verdicts of the record of a round in the window of the step the merged result ended (rule.round-verdicts,
 // D-187): from the end of the step before it up to the round, or the record of done, that ended it. Each round
 // of it whose brief named the checks of the record of a round has a verdict of each, given after its brief and
-// before it; a fail holds the merge unless its classes are decided, and a fail of the analysis of the cause
-// only by a later pass of that check on a corrected analysis, of a round whose Cause: is another, or of the
-// one issue, whose record names the hash of the corrected analysis. A round with no Round-checks:, recorded
-// before the rule, is read as before.
-function roundVerdictProblems({ inputs, task, runs, ctx, ofIssue = () => false }) {
-  const w = roundWindow({ rounds: inputs.rounds, done: inputs.records.done, approvals: inputs.records.approvals, task });
+// before it; a fail holds the merge unless its classes are decided as a fail of the change is, by the round
+// that ended the step or the records of fixes (ctx), never by a filing of an earlier round of the window; and
+// a fail of the analysis of the cause only when the latest verdict of that check after it in the window, of
+// a round or of the one issue, is a pass on a corrected analysis, of a round whose Cause: is another, or of
+// the one issue, whose record names the hash of the corrected analysis: a later fail, a not-run, or an issue
+// without that check leaves it failed. A round with no Round-checks:, recorded before the rule, is read as
+// before.
+function roundVerdictProblems({ w, runs, ctx, ofIssue = () => false }) {
   const closing = w.end;
   const before = w.ends.at(-2);
   const win = w.all.filter((r) => (!before || r.time > before.time) && (!closing || r.time <= closing.time));
@@ -691,16 +718,18 @@ function roundVerdictProblems({ inputs, task, runs, ctx, ofIssue = () => false }
         continue;
       }
       if (id === CAUSE_ROUND_CHECK) {
-        const corrected = runs.some((x) => x.check === id && x.verdict === "pass" && x.time > v.time && x.time <= until && (() => {
-          const of = spanOf(x);
-          if (of) return Boolean(of.cause) && of.cause !== r.cause;
-          // Outside a round, only a record of the one issue the record of fixes names, given on its own diff.
-          return ofIssue(x) && [...String(x.evidence ?? "").matchAll(/\b[0-9a-f]{64}\b/g)].some((m) => m[0] !== r.cause);
-        })());
-        if (!corrected) problems.push({ code: "VERDICT_FAILED", why: `${id}: ${v.file} failed the analysis of the cause of ${r.file}, and no later pass in the window was given on a corrected analysis` });
+        // The latest verdict of the check after the fail decides it, of a round of the window or, outside a
+        // round, of the one issue the record of fixes names, given on its own diff (D-188).
+        const last = runs
+          .filter((x) => x.check === id && x.time > v.time && x.time <= until && (spanOf(x) || ofIssue(x)))
+          .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file))
+          .at(-1);
+        const of = last && spanOf(last);
+        const corrected = last?.verdict === "pass" && (of ? Boolean(of.cause) && of.cause !== r.cause : [...String(last.evidence ?? "").matchAll(/\b[0-9a-f]{64}\b/g)].some((m) => m[0] !== r.cause));
+        if (!corrected) problems.push({ code: "VERDICT_FAILED", why: `${id}: ${v.file} failed the analysis of the cause of ${r.file}, and no later pass in the window was given on a corrected analysis${last ? `: the latest verdict of the check after it, ${last.file}, is ${last.verdict === "pass" ? "a pass on no corrected analysis" : `a ${last.verdict}`}` : ""}` });
         continue;
       }
-      const p = verdictWhy(id, { current: v, elsewhere: [] }, { ...ctx, rounds: win });
+      const p = verdictWhy(id, { current: v, elsewhere: [] }, ctx);
       if (p) problems.push({ ...p, why: `${p.why} (a verdict of the record of a round, for ${r.file})` });
     }
   }
