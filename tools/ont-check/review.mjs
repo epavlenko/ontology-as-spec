@@ -8,7 +8,7 @@
 // project's where its catalogue has it and else the approach's, since the skill asks for its verdict (D-184).
 // ont: derived.review-checks
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readlinkSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 import { pendingBriefs } from "./briefs.mjs";
 import { parseAnchors } from "./docs.mjs";
@@ -42,6 +42,13 @@ const git = (cwd, ...args) => {
   return r.status === 0 ? r.stdout : null;
 };
 const lines = (s) => (s ?? "").split("\n").filter(Boolean);
+const isLink = (f) => {
+  try {
+    return lstatSync(f).isSymbolicLink();
+  } catch {
+    return false;
+  }
+};
 const inDir = (f, d) => f === d || f.startsWith(d + sep);
 
 // What a section explaining a concept relies on, as in the stamps of doc sections (D-23): its term,
@@ -85,7 +92,8 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids,
     // records of the task, of done, fixes and gate changes, which no reviewer reads as the change (D-186).
     .filter((f) => !(cfg.manualRuns && inDir(f, cfg.manualRuns.dir)) && !(cfg.reviewRounds && inDir(f, cfg.reviewRounds.dir)) && !(cfg.taskRecords && inDir(f, cfg.taskRecords.dir)));
   const before = (f) => git(top, "show", `${base}:${relative(top, f).split(sep).join("/")}`) ?? "";
-  const now = (f) => (existsSync(f) ? readFileSync(f, "utf8") : "");
+  // A link of the tree is read as Git keeps it, its target's name, never followed out of the tree (D-186).
+  const now = (f) => (!existsSync(f) && !isLink(f) ? "" : isLink(f) ? readlinkSync(f) : readFileSync(f, "utf8"));
   const diffLines = (f) =>
     lines(git(top, "diff", base, "--", relative(top, f)))
       .filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---) /.test(l))

@@ -5,11 +5,13 @@
 // ont: field.merge-gate.verdicts, rule.verdicts-hold-merge, derived.change-list, derived.change-verdict, rule.one-issue-after-narrow, field.fixes-record.issue, field.task-result.fix-tests, field.manual-run.class, field.manual-run.carried
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { loadConfig } from "../lib.mjs";
+import { changeList } from "../merge-gate.mjs";
 import { sealed } from "../seal.mjs";
 import { sha256 } from "../tasks.mjs";
 
@@ -1133,4 +1135,34 @@ test("[check.merge-gate.round-verdicts-held] a pass on the same analysis does no
     const g = p.gate();
     assert.ok(g.codes.includes("VERDICT_FAILED") && /no later pass in the window was given on a corrected analysis/.test(g.out), g.out);
   }
+});
+
+// ── Findings of round 2 of the review of the result ──────────────────────────────────────────────────
+
+test("[check.merge-gate.verdicts-run-nothing] the list of the change is computed only from paths inside the checked tree: a configuration at the checked commit that names a path out of it, by \"..\" or by a link, is refused, and nothing out of the tree is read", () => {
+  const p = base();
+  const outside = join(temp("ont-outside-"), "secret.md");
+  writeFileSync(outside, "# a file outside\n");
+  const cfg = JSON.parse(readFileSync(join(p.dir, "ont.config.json"), "utf8"));
+  const tryList = (edit) => {
+    const q = copy(p);
+    const c = structuredClone(cfg);
+    edit(c, q);
+    q.put("ont.config.json", JSON.stringify(c, null, 2));
+    const commit = q.commit("a configuration that names a path");
+    try {
+      return { list: changeList({ cfg: loadConfig(join(q.dir, "ont.config.json")), top: q.dir, commit, from: q.git("rev-parse", "main"), tmp: temp("ont-list-") }) };
+    } catch (e) {
+      return { error: e.message };
+    }
+  };
+  const up = tryList((c) => (c.ontology = "../../outside.md"));
+  assert.match(up.error ?? "", /names paths outside its tree/, JSON.stringify(up));
+  const link = tryList((c, q) => {
+    symlinkSync(outside, join(q.dir, "linked.md"));
+    c.ontology = "linked.md";
+  });
+  assert.match(link.error ?? "", /names paths outside its tree/, JSON.stringify(link));
+  const inside = tryList((c, q) => q.put("notes.md", "# notes\n"));
+  assert.ok(Array.isArray(inside.list), JSON.stringify(inside));
 });

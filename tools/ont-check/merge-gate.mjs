@@ -44,7 +44,7 @@
 // ont: rule.ci-from-main, inv.gate-change-approved, rule.merge-what-was-checked, rule.main-through-gate, rule.gate-switched-on, rule.fixes-held-by-tests
 // ont: field.merge-gate.task-state, edge.publish-permission.guard, rule.merge-by-task-state, rule.records-only-pr, derived.pr-task, inv.gate-path-in-approval, inv.rules-match-file, action.compare-rules
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -497,6 +497,10 @@ export function changeList({ cfg, top, commit, from, tmp }) {
   must(top, "-c", "core.hooksPath=/dev/null", "worktree", "add", "--quiet", "--detach", wt, commit);
   try {
     const cfgRel = relative(top, cfg.file).split("\\").join("/");
+    // Every path the configuration of the checked commit names resolves inside its tree, by its real path,
+    // links followed, or the list is not computed: the base's checker reads nothing outside it (D-186).
+    const outside = pathsOutside(join(wt, cfgRel), wt);
+    if (outside.length) throw new GitError(`the configuration at ${commit.slice(0, 12)} names paths outside its tree, which the guard does not read: ${outside.join(", ")}`);
     const r = spawnSync(process.execPath, [join(TOOL_DIR, "ont-check.mjs"), "--config", join(wt, cfgRel), "--review", from, "--json"], { cwd: wt, encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 28 });
     const line = (r.stdout ?? "").split("\n").find((l) => l.startsWith("REVIEW_JSON "));
     if (!line) throw new GitError(`the list of the change at ${commit.slice(0, 12)} from ${from.slice(0, 12)} cannot be computed: ${`${r.stdout ?? ""}${r.stderr ?? ""}`.trim().split("\n").slice(-3).join(" / ")}`);
@@ -508,6 +512,43 @@ export function changeList({ cfg, top, commit, from, tmp }) {
     git(top, "worktree", "prune");
   }
 }
+
+// The paths a configuration names, as the loader resolves them, that leave the tree at root: by "..", by an
+// absolute path, or by a link whose real path is outside; a configuration that cannot be loaded is one whose
+// paths cannot be told, and is named whole.
+export function pathsOutside(cfgFile, root) {
+  let loaded;
+  try {
+    loaded = loadConfig(cfgFile);
+  } catch (e) {
+    return [`${relative(root, cfgFile)} (${String(e.message ?? e).split("\n")[0]})`];
+  }
+  const base = realpathSync(root);
+  const realOf = (p) => {
+    let at = p;
+    const rest = [];
+    while (!existsSync(at) && dirname(at) !== at) {
+      rest.unshift(at.slice(dirname(at).length + 1));
+      at = dirname(at);
+    }
+    return join(realpathSync(at), ...rest);
+  };
+  const leaves = (p) => {
+    const rel = relative(base, realOf(p));
+    return rel === ".." || rel.startsWith(`..${"/"}`) || rel.startsWith("..\\") || isAbsoluteRel(rel);
+  };
+  const found = new Set();
+  const walk = (v, key) => {
+    if (typeof v === "string") {
+      if (v.startsWith("/") && leaves(v)) found.add(v);
+    } else if (Array.isArray(v)) v.forEach((x) => walk(x, key));
+    else if (v && typeof v === "object" && !(v instanceof RegExp)) for (const [k, x] of Object.entries(v)) walk(x, k);
+  };
+  walk(loaded, null);
+  if (leaves(cfgFile)) found.add(cfgFile);
+  return [...found].sort();
+}
+const isAbsoluteRel = (rel) => rel.startsWith("/");
 
 // The verdict of the change of a check (derived.change-verdict): its latest record, of any verdict, on the
 // commit at the stamp, or a record of a run outside a review at the stamp on a commit from which nothing
