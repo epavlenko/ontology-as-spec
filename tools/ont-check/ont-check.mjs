@@ -56,7 +56,7 @@ import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.m
 import { renderRounds } from "./review-rounds.mjs";
 import { acceptanceProblems, failedCause, fixesRange, gitEnv, heldByFixes, openWindow, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { goalLineProblem } from "./spend.mjs";
-import { compareRules, githubRepo, isRecordPath, localRecordNotes, recordDirs } from "./merge-gate.mjs";
+import { compareRules, githubRepo, localRecordNotes, recordDirs, workCommit } from "./merge-gate.mjs";
 import { briefsDir, pendingBriefs } from "./briefs.mjs";
 import { sealed } from "./seal.mjs";
 import { PERFORMERS, outsideRecord as outsideRecordText } from "./manual-runs.mjs";
@@ -1450,19 +1450,7 @@ if (flag("--review") > 0) {
     // The commit of the review is the last commit outside the records of the process: HEAD, or, when HEAD
     // is a commit of records alone over the work, the commit under it that changed something else (D-186).
     // ont: derived.change-verdict
-    const top = (() => {
-      const g = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() }).stdout?.trim() ?? "";
-      const dirs = recordDirs(cfg, g("rev-parse", "--show-toplevel"));
-      let c = g("rev-parse", "HEAD");
-      for (;;) {
-        const parents = g("rev-list", "--parents", "-n", "1", c).split(" ").slice(1);
-        if (parents.length !== 1) break;
-        const paths = g("diff", "--no-renames", "--name-only", parents[0], c).split("\n").filter(Boolean);
-        if (paths.some((p) => !isRecordPath(p, dirs))) break;
-        c = parents[0];
-      }
-      return g("rev-parse", "--short", c);
-    })();
+    const top = (workCommit(cfg) ?? "").slice(0, 7);
     const dirty = spawnSync("git", ["-C", cfg.base, "status", "--porcelain", "--", ".", `:!${relative(cfg.base, cfg.manualRuns.dir)}`], { encoding: "utf8", env: gitEnv() }).stdout.trim();
     // The files read for a carried verdict that changed since its record's commit, committed or not. A
     // file with no snapshot in that commit, untracked, ignored or absent, cannot be compared, so it counts
@@ -1483,7 +1471,7 @@ if (flag("--review") > 0) {
       const changed = runChanged(run.commit);
       return changed ? `${changed.join(", ")} changed outside the records since its commit ${run.commit}` : null;
     };
-    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly, unlisted: (id) => (id === CAUSE_CHECK ? ": it is listed after stagnation while the round's brief, which carries Cause:, is kept; record the verdicts before round.mjs record removes it (D-184)" : "") });
+    const res = recordVerdicts({ text: read(table), listed, runs, base: fullOf(base), stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly, unlisted: (id) => (id === CAUSE_CHECK ? ": it is listed after stagnation while the round's brief, which carries Cause:, is kept; record the verdicts before round.mjs record removes it (D-184)" : "") });
     if (res.problems.length) {
       fail(`the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`, 1);
     }

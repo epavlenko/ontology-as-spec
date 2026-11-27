@@ -251,6 +251,25 @@ export function comparedWith({ cfg, top, reviewed, head }) {
 // rounds, the task records and the verdicts the configuration names (D-167).
 export const recordDirs = (cfg, top) =>
   [cfg.reviewRounds?.dir, cfg.taskRecords?.dir, cfg.manualRuns?.dir].filter(Boolean).map((d) => `${relative(top, d).split("\\").join("/")}/`);
+// The commit that ended the work at ref, which the record of done, the brief, the writer of verdicts and the
+// guard all name (derived.change-verdict, D-186): ref, or, while ref is a commit of records alone over one
+// parent, the commit under it that changed something else; the full commit, or null outside Git.
+// ont: derived.change-verdict
+export function workCommit(cfg, ref = "HEAD") {
+  const g = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() });
+  const top = g("rev-parse", "--show-toplevel").stdout?.trim();
+  let c = top && g("rev-parse", "--verify", "--quiet", `${ref}^{commit}`).stdout?.trim();
+  if (!c) return null;
+  const dirs = recordDirs(cfg, top);
+  for (;;) {
+    const parents = g("rev-list", "--parents", "-n", "1", c).stdout.trim().split(" ").slice(1);
+    if (parents.length !== 1) break;
+    const paths = g("diff", "--no-renames", "--name-only", parents[0], c).stdout.split("\n").filter(Boolean);
+    if (paths.some((p) => !isRecordPath(p, dirs))) break;
+    c = parents[0];
+  }
+  return c;
+}
 // Whether a path is a record of the process: a Markdown file under one of those directories, never README.md.
 export const isRecordPath = (p, dirs) => dirs.some((d) => p.startsWith(d)) && p.endsWith(".md") && !p.endsWith("/README.md");
 const blobId = (top, commit, path) => out(git(top, "rev-parse", "--verify", "--quiet", `${commit}:${path}`))?.trim() ?? null;
@@ -563,7 +582,9 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
   // decided a finding with no decision.
   const fails = new Set();
   const hold = (id, stamp, commit, ofIssue = false) => {
-    const v = changeVerdict({ top, runs, id, stamp, commit, dirs, resolve });
+    // The issue is held only by verdicts given on its own diff, whose Base: is the narrow round's commit.
+    const of = ofIssue ? runs.filter((r) => r.origin === "run" || (r.base && resolve(r.base) === resolve(range.from))) : runs;
+    const v = changeVerdict({ top, runs: of, id, stamp, commit, dirs, resolve });
     if (v.current?.verdict === "fail") fails.add(commit);
     const p = verdictWhy(id, v, ctxOf(commit, stamp));
     if (!p) return;

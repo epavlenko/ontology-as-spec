@@ -479,6 +479,8 @@ test("[check.agent-rules.reviewed-before-merge] that a change was reviewed is co
 // ── After a narrow round with findings (item 3) ──────────────────────────────────────────────────────
 
 const narrowFile = (p) => readdirSync(join(p.dir, "reviews/rounds")).find((f) => /-t-result-narrow-1\.md$/.test(f));
+// The commit the narrow round reviewed, the last of its line Commits:, which the one issue starts from.
+const narrowCommit = (p) => readFileSync(join(p.dir, "reviews/rounds", narrowFile(p)), "utf8").match(/^Commits: (?:\S+\.\.)?(\S+)$/m)[1];
 // The path to the narrow round with a finding of the usual path, by the writers: the work, done and its
 // verdicts; round C with a finding and the condition confirmed; its fix, done and the verdicts of the fix;
 // the narrow round with the finding "a slip". Then the fixes of the narrow round, committed.
@@ -496,7 +498,7 @@ function narrowed() {
     p.commit("the verdicts of the fix");
     const narrow = resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: holds\nAcceptance: clean", "a slip · usual path: the work\n");
     const fix = work(p, "export const slipFixed = 1;\n");
-    narrowedOnce = { p, st, narrow: p.git("rev-parse", `${narrow}^`), fix };
+    narrowedOnce = { p, st, narrow: narrowCommit(p), fix };
   }
   return { ...narrowedOnce, p: copy(narrowedOnce.p) };
 }
@@ -697,7 +699,7 @@ const ENDINGS = {
     doneWithVerdicts(p, st);
     const narrow = resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: holds\nAcceptance: clean", "a slip · usual path: the work\n");
     work(p, "export const slip = 1;\n");
-    issue(p, st, p.git("rev-parse", `${narrow}^`));
+    issue(p, st, narrowCommit(p));
     recordDone(p, st);
     p.commit("done ends the range");
   },
@@ -898,7 +900,7 @@ test("[check.merge-gate.round-verdicts-held] a new result passes with its own ve
   assert.ok(runs(p).some((t) => /^Check: check\.review-round\.filed-right$/m.test(t) && /^Verdict: fail$/m.test(t)));
   // The range of fixes decides both classes with a test, the issue and done end it: the merge passes.
   work(p, "export const slipFixed = 1;\n");
-  issue(p, st, p.git("rev-parse", `${narrow}^`), { tests: "a slip · app/fix.test.mjs · the fix of the slip\na slip of filing · app/fix.test.mjs · the fix of the gap\n" });
+  issue(p, st, narrowCommit(p), { tests: "a slip · app/fix.test.mjs · the fix of the slip\na slip of filing · app/fix.test.mjs · the fix of the gap\n" });
   recordDone(p, st);
   p.commit("done ends the range");
   const ended = p.gate();
@@ -936,11 +938,11 @@ test("[check.merge-gate.round-verdicts-held] a failed analysis of the cause in t
     assert.match(readFileSync(join(p.dir, "reviews/rounds", narrowFile(p)), "utf8"), /^Cause: [0-9a-f]{64}$/m);
     // No round follows the narrow round after C: the one issue gives the verdict on the analysis.
     work(p, "export const slipFixed = 1;\n");
-    const listed = p.tool("ont-check.mjs", ["--review", p.git("rev-parse", `${narrow}^`)]);
+    const listed = p.tool("ont-check.mjs", ["--review", narrowCommit(p)]);
     assert.match(listed.out, new RegExp(`^CAUSE t: .*${CAUSE} is listed`, "m"), listed.out);
     const fixedText = "The fix of a gap did not hold because the test read the copy, not the file; one reader now.\n";
     const hash = sha256(corrected ? fixedText : analysis);
-    issue(p, st, p.git("rev-parse", `${narrow}^`), { given: { [CAUSE]: ["pass", `the analysis ${hash} names the cause and the change follows from it`] } });
+    issue(p, st, narrowCommit(p), { given: { [CAUSE]: ["pass", `the analysis ${hash} names the cause and the change follows from it`] } });
     recordDone(p, st);
     p.commit("done ends the range");
     const g = p.gate();
@@ -974,5 +976,43 @@ test("[check.review-round.round-verdicts-required] a failed verdict of the analy
     const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
     assert.notEqual(b.code, 0, b.out);
     assert.match(b.out, /failed in this step and no later pass decided it/);
+  }
+});
+
+// ── Findings of round 1 of the review of the result ──────────────────────────────────────────────────
+
+test("[check.merge-gate.verdicts-usual-path] records of gate changes after the work, then done, then the verdicts: done, the writer of verdicts and the guard name one commit, the one that ended the work", () => {
+  const { p, st } = approved();
+  p.put("tools/ont-check/extra.mjs", "// ont: ent.thing\nexport const extra = 1;\n");
+  const w = work(p);
+  const gc = p.tool("gate-record.mjs", ["change", "t", "--statement", st.file, "--clause", "1", "--paths", "tools/ont-check/extra.mjs", "--base", "main"]);
+  assert.equal(gc.code, 0, gc.out);
+  p.commit("the record of the gate change");
+  recordDone(p, st);
+  p.commit("done");
+  const v = p.verdicts("main");
+  assert.equal(v.code, 0, v.out);
+  p.commit("the verdicts");
+  const done = readFileSync(join(p.dir, "reviews/tasks", readdirSync(join(p.dir, "reviews/tasks")).filter((f) => /-t-done/.test(f)).sort().at(-1)), "utf8");
+  assert.match(done, new RegExp(`^Commit: ${w}$`, "m"));
+  assert.ok(runs(p).every((t) => t.includes(`Commit: ${w.slice(0, 7)}`)));
+  resultRound(p, st);
+  const g = p.gate();
+  assert.deepEqual(g.codes, [], g.out);
+});
+
+test("[check.merge-gate.issue-missing] the one issue is held only by verdicts given on its own diff: records on the commit of the issue given on another diff, from main, are ISSUE_MISSING; on the diff from the narrow round's commit they hold it", () => {
+  for (const own of [false, true]) {
+    const { p, st, narrow, fix } = narrowed();
+    const v = p.verdicts(own ? narrow : "main");
+    assert.equal(v.code, 0, v.out);
+    assert.ok(runs(p).some((t) => t.includes(`Base: ${own ? narrow : p.git("rev-parse", "main")}`)));
+    p.commit("verdicts on the commit of the issue");
+    const fx = p.tool("round.mjs", ["fixes", "t", "--round", narrowFile(p), "--issue", fix, "--from", writeFile("a slip · app/fix.test.mjs · the fix of the slip\n")]);
+    assert.equal(fx.code, 0, fx.out);
+    recordDone(p, st);
+    p.commit("done");
+    const g = p.gate();
+    assert.deepEqual([...new Set(g.codes)], own ? [] : ["ISSUE_MISSING"], g.out);
   }
 });

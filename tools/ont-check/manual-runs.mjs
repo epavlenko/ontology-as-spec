@@ -109,7 +109,7 @@ export function parseRuns(dir, known, opts = {}) {
     const text = read(f);
     const pairs = text
       .split("\n")
-      .map((l) => l.match(/^(Seal|Check|Time|Commit|Stamp|Verdict|By|Performer|Evidence|Class|Carried|Origin):\s*(.*?)\s*$/))
+      .map((l) => l.match(/^(Seal|Check|Time|Commit|Base|Stamp|Verdict|By|Performer|Evidence|Class|Carried|Origin):\s*(.*?)\s*$/))
       .filter(Boolean)
       .map((m) => [m[1].toLowerCase(), m[2].replace(/^`|`$/g, "")]);
     const fields = Object.fromEntries(pairs);
@@ -175,7 +175,9 @@ export const currentRun = (runs, id, stamp, held = () => false, fresh = () => tr
 // the record keeps on Class:, separated by " · "; a not-run and a not-applicable give their reason in the
 // evidence; and a carry the table passes writes a record of its own on the commit of the review, with the
 // carried record's verdict and class and the file it carries on Carried:, so that a verdict of an earlier
-// result reaches that commit only by a carry checked here (D-186).
+// result reaches that commit only by a carry checked here; and each record names on Base: the base of the
+// diff it was given on, so that the one issue after the narrow round is held only by verdicts given on its
+// own diff, from the narrow round's commit (D-186).
 // ont: action.record-verdicts, field.manual-run.class, field.manual-run.carried
 export const CLASS_SEP = " · ";
 export const classesOf = (evidence) => {
@@ -192,7 +194,7 @@ const cell = (x) => (x ?? "").replace(/\\\|/g, "|").replace(/^`|`$/g, "");
 // carried as a verdict of the reviewer only when its stamp is the check's, its commit is committed, and no
 // file outside the directories of records changed between it and the head of the review, nor differs in
 // the working copy; the files read are not asked for, since the rule is stricter than they are.
-export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], runFresh = () => "the run cannot be compared", source = "the table", latinOnly = false, unlisted = () => "" }) {
+export function recordVerdicts({ text, listed, runs, base = null, stamp, commit, now, changedSince = () => [], runFresh = () => "the run cannot be compared", source = "the table", latinOnly = false, unlisted = () => "" }) {
   // The reviewer is named on the By: line itself; a value on the next line is no value (D-151).
   const by = text.match(/^By:[ \t]*(\S.*?)[ \t]*$/m)?.[1];
   const lines = text.split("\n");
@@ -255,7 +257,7 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
     return {
       file: `${compact(time)}-${r.check}-${tail}.md`,
       // Written with its seal and Origin: review (D-167, D-171).
-      text: sealed([`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${verdict}`, `By: ${by}`, ...(verdict === "pass" || verdict === "fail" ? [`Performer: ${performer || "agent"}`] : []), ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), ...(cls.length ? [`Class: ${cls.join(CLASS_SEP)}`] : []), ...(of ? [`Carried: ${of.file}`] : []), "Origin: review", ""].join("\n")),
+      text: sealed([`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, ...(base ? [`Base: ${base}`] : []), `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${verdict}`, `By: ${by}`, ...(verdict === "pass" || verdict === "fail" ? [`Performer: ${performer || "agent"}`] : []), ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), ...(cls.length ? [`Class: ${cls.join(CLASS_SEP)}`] : []), ...(of ? [`Carried: ${of.file}`] : []), "Origin: review", ""].join("\n")),
     };
   });
   return { problems, records, carried: rows.filter((r) => r.verdict === "carried").length };

@@ -203,6 +203,7 @@
     "field.gate-proof.time",
     "field.implementation-row.files",
     "field.implementation-row.note",
+    "field.manual-run.base",
     "field.manual-run.by",
     "field.manual-run.carried",
     "field.manual-run.class",

@@ -17,6 +17,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pendingBriefs } from "./briefs.mjs";
 import { loadConfig } from "./lib.mjs";
+import { workCommit } from "./merge-gate.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
 import { TASK_NAME } from "./review-rounds.mjs";
 import { sealed, timeAfter } from "./seal.mjs";
@@ -88,7 +89,9 @@ if (argv.includes("--evidence")) {
 }
 const git = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() });
 const top = git("rev-parse", "--show-toplevel").stdout.trim();
-const commit = git("rev-parse", "--verify", `${value("--commit") ?? "HEAD"}^{commit}`).stdout.trim();
+// The commit of done: --commit, or the commit that ended the work at HEAD, under any commits of records
+// alone, the one the writer of verdicts and the guard name too (derived.change-verdict, D-186).
+const commit = value("--commit") ? git("rev-parse", "--verify", `${value("--commit")}^{commit}`).stdout.trim() : workCommit(cfg) ?? "";
 if (!commit) refuse(`no commit ${value("--commit") ?? "HEAD"}`);
 // The range of fixes ends at the commit done is recorded on, by the one function that gives it: a record of
 // done after the narrow round is of a commit after the one that round reviewed.
