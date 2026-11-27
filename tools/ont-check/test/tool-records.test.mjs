@@ -16,7 +16,7 @@ import { guard, localRecordNotes } from "../merge-gate.mjs";
 import { nextRound, parseRounds, stepPayoff } from "../review-rounds.mjs";
 import { sealState, sealed } from "../seal.mjs";
 import { logSpend, overspendOf, roundSpend, snapshotSpend } from "../spend.mjs";
-import { applyFixes, approvedHash, goalLineOf, readStatement, readTaskInputs, sha256, snapshotOverspendProblems, spendOf, taskNext, taskState, versionInForce, versionLimits } from "../tasks.mjs";
+import { applyFixes, approvedHash, goalLineOf, parseTaskRecords, readStatement, readTaskInputs, sha256, snapshotOverspendProblems, spendOf, taskNext, taskState, versionInForce, versionLimits } from "../tasks.mjs";
 
 const TOP = fileURLToPath(new URL("../../../", import.meta.url));
 const TOOLS = join(TOP, "tools/ont-check");
@@ -1704,10 +1704,6 @@ test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests
   const tab = read("20261101T104000Z-t-fixes.md", ["Tests:", "-\ta bug · tests/a.test.mjs · holds the bug"]);
   assert.deepEqual(tab.malformed, []);
   assert.equal(tab.records.fixes[0].tests[0].test, "holds the bug");
-  // A line Tests: in the notes after the head is text, as the reader of records has always read it.
-  const notes = read("20261101T104000Z-t-fixes.md", ["Tests:", "- a bug · tests/a.test.mjs · holds the bug", "", "## Notes", "", "Tests: used a local fixture"]);
-  assert.deepEqual(notes.malformed, []);
-  assert.equal(notes.records.fixes[0].tests.length, 1);
   // A commit in capitals is a commit of seven to forty hexadecimal characters too.
   assert.deepEqual(read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7).toUpperCase()}`, "Issue-findings:", "- a stale line"]).malformed, []);
   const mixed = read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7)}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug"]);
@@ -1716,18 +1712,24 @@ test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests
   for (const [lines, why] of [
     [["Issue: not-a-commit"], /issue not-a-commit is not a commit/],
     [[], /no line under Tests:/],
-    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs"], /is not "class · file · name"/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs"], /under Tests: is not "- class · file · name"/],
     [[`Issue: ${c1}`, "Tests:", "- a bug · ../outside.mjs · holds the bug"], /is not a path of the repository/],
     // A line under Tests: that is no bullet, alone or after a valid one, is refused beside a valid issue.
-    [[`Issue: ${c1}`, "Tests:", "a bug tests/a.test.mjs holds the bug"], /under Tests: is not "- class · file · name"/],
-    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "not a line of a test"], /under Tests: is not "- class · file · name"/],
+    [[`Issue: ${c1}`, "Tests:", "a bug tests/a.test.mjs holds the bug"], /is not a line of a record of fixes/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "not a line of a test"], /is not a line of a record of fixes/],
     // Every value of Tests: is read by one grammar: a second header, a line after a blank, a value inline.
     [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "Tests:", "- a bug · tests/a.test.mjs"], /Tests: given more than once/],
-    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "", "not a line of a test"], /under Tests: is not "- class · file · name"/],
-    [[`Issue: ${c1}`, "Tests: a bug · tests/a.test.mjs"], /Tests: holds "a bug · tests\/a\.test\.mjs" on its own line/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "", "not a line of a test"], /is not a line of a record of fixes/],
+    [[`Issue: ${c1}`, "Tests: a bug · tests/a.test.mjs"], /is not a line of a record of fixes/],
+    // The forms of rounds 1 to 3, each refused by the closed grammar, Issue: or not: a line of the form of a
+    // field inside the block, one of the form of a heading, and Issue: or Tests: in a section of notes.
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "Note: a field inside the block"], /is not a line of a record of fixes/],
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug", "# a heading"], /is not a line of a record of fixes/],
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug", "## Notes", "Issue: abcdef1"], /is not a line of a record of fixes/],
+    [[`Issue: ${c1}`, "Issue-findings:", "- a stale line", "## Notes", "Tests: used a local fixture"], /is not a line of a record of fixes/],
     // A line of a test is exactly class · file · name: a fourth field is refused, Issue: or not.
-    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug · extra"], /has more fields than class · file · name/],
-    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug · extra"], /has more fields than class · file · name/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug · extra"], /under Tests: is not "- class · file · name"/],
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug · extra"], /under Tests: is not "- class · file · name"/],
     // A second Issue: that is no commit is refused, whatever the first.
     [[`Issue: ${c1}`, "Issue: not-a-commit", "Tests:", "- a bug · tests/a.test.mjs · holds the bug"], /Issue: given more than once/],
   ]) {
@@ -1743,4 +1745,13 @@ test("[check.fixes-record.issue-read] the definition of a record of fixes, in th
   assert.match(row, /the tests that hold them, or the one issue of verdicts after the narrow round \(`field\.fixes-record\.issue`\) with or without tests, never neither/);
   const schema = readFileSync(join(TOP, "contracts/approach.schema.json"), "utf8");
   assert.match(schema, /the tests that hold them, or the one issue of verdicts after the narrow round \(field\.fixes-record\.issue\) with or without tests, never neither/);
+});
+
+test("[check.fixes-record.issue-read] every record of fixes of the repository, those of main and those of this task, reads by the closed grammar", () => {
+  const dir = join(TOP, "reviews/tasks");
+  const files = readdirSync(dir).filter((f) => /-fixes(-\d+)?\.md$/.test(f));
+  assert.ok(files.length >= 7, files.join(", "));
+  const { fixes, malformed } = parseTaskRecords(dir, { latinOnly: true });
+  assert.deepEqual(malformed.filter((m) => /-fixes(-\d+)?\.md:/.test(m)), []);
+  assert.equal(fixes.length, files.length);
 });
