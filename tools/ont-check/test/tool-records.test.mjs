@@ -1730,6 +1730,10 @@ test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests
     // A line of a test is exactly class · file · name: a fourth field is refused, Issue: or not.
     [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug · extra"], /under Tests: is not "- class · file · name"/],
     [["Tests:", "- a bug · tests/a.test.mjs · holds the bug · extra"], /under Tests: is not "- class · file · name"/],
+    // The blocks of the one issue only with Issue:, and a filing only a limitation or for later.
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug", "Issue-findings:", "- a stale line"], /Issue-findings: is given without Issue:/],
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug", "Filed:", "- a slip · later · issues/0001-a-slip.md"], /Filed: is given without Issue:/],
+    [[`Issue: ${c1}`, "Filed:", "- a slip · fixed · issues/0001-a-slip.md"], /is fixed, not limitation or later/],
     // A second Issue: that is no commit is refused, whatever the first.
     [[`Issue: ${c1}`, "Issue: not-a-commit", "Tests:", "- a bug · tests/a.test.mjs · holds the bug"], /Issue: given more than once/],
   ]) {
@@ -1743,8 +1747,10 @@ test("[check.fixes-record.issue-read] the definition of a record of fixes, in th
   const row = readFileSync(join(TOP, "ontology.md"), "utf8").split("\n").find((l) => /^\|[^|]*\|\s*`ent\.fixes-record`\s*\|/.test(l));
   assert.ok(row, "the row of ent.fixes-record");
   assert.match(row, /the tests that hold them, or the one issue of verdicts after the narrow round \(`field\.fixes-record\.issue`\) with or without tests, never neither/);
+  assert.match(row, /`Tests:` is required unless a valid `Issue:` is given, `Issue-findings:` and `Filed:` are given only with `Issue:`/);
   const schema = readFileSync(join(TOP, "contracts/approach.schema.json"), "utf8");
   assert.match(schema, /the tests that hold them, or the one issue of verdicts after the narrow round \(field\.fixes-record\.issue\) with or without tests, never neither/);
+  assert.match(schema, /Tests: is required unless a valid Issue: is given/);
 });
 
 test("[check.fixes-record.issue-read] every record of fixes of the repository, those of main and those of this task, reads by the closed grammar", () => {

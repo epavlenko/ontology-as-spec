@@ -1142,7 +1142,7 @@
     },
     "fixes-record": {
       "title": "Fixes record",
-      "description": "The record of the fixes of the findings of one round, in one of two forms, the tests that hold them, or the one issue of verdicts after the narrow round (field.fixes-record.issue) with or without tests, never neither, in the closed grammar its writers emit: an optional line Seal:, the fields Record:, Task:, Round:, Time: and Issue:, each once, then the blocks Tests:, Issue-findings: and Filed:, each once with its lines - …, and no other line, no heading and no notes: Record: fixes, one file <time>-<task>-fixes.md in the directory the configuration names under taskRecords, with its seal.",
+      "description": "The record of the fixes of the findings of one round, in one of two forms, the tests that hold them, or the one issue of verdicts after the narrow round (field.fixes-record.issue) with or without tests, never neither, in the closed grammar its writers emit: an optional line Seal:, the fields Record:, Task:, Round:, Time: and Issue:, each once, then the blocks Tests:, Issue-findings: and Filed:, each once with its lines - …, and no other line, no heading and no notes; Tests: is required unless a valid Issue: is given, Issue-findings: and Filed: are given only with Issue:, and a line of Filed: is limitation or later: Record: fixes, one file <time>-<task>-fixes.md in the directory the configuration names under taskRecords, with its seal.",
       "x-ont": "ent.fixes-record",
       "type": "object",
       "properties": {
