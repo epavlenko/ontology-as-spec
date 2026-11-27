@@ -245,6 +245,8 @@ function main(argv) {
       for (const l of filedFile ? readFileSync(filedFile, "utf8").split("\n").map((x) => x.replace(/^-\s*/, "").trim()).filter(Boolean) : []) {
         const [cls, fix, file] = l.split(" · ").map((x) => x.trim());
         if (!cls || !["limitation", "later"].includes(fix) || !file) wrong.push(`${JSON.stringify(l)} is not "class · limitation or later · file"`);
+        // The destinations of a filing, as for a round (rule.findings-filed).
+        else if (fix === "limitation" ? file !== LIMITATIONS_FILE : !file.startsWith(LATER_DIR)) wrong.push(`${cls} is filed as ${fix} in ${file}, which is not ${fix === "limitation" ? LIMITATIONS_FILE : `a file under ${LATER_DIR}`}`);
         else if (!existsSync(join(top, file)) || !readFileSync(join(top, file), "utf8").includes(cls)) wrong.push(`${file} is not a file of the repository that holds the class ${JSON.stringify(cls)}`);
         filed.push(`- ${cls} · ${fix} · ${file}`);
       }

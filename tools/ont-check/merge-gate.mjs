@@ -220,7 +220,7 @@ function recordsAt({ cfg, top, head, tmp }) {
   const records = tasksDir && existsSync(tasksDir) ? parseTaskRecords(tasksDir, { latinOnly: cfg.records.latinOnly }) : { gateChanges: [], approvals: [], publications: [], done: [], malformed: [] };
   // Every record a task's next action reads, as --task reads them, by the one function, at the head (D-185).
   const inputs = () => readTaskInputs(cfg, { roundsDir: roundsDir && existsSync(roundsDir) ? roundsDir : join(tmp, "absent"), tasksDir: tasksDir && existsSync(tasksDir) ? tasksDir : join(tmp, "absent"), root: tmp, top });
-  return { rounds, records, inputs, recordsPath: cfg.taskRecords ? rel(cfg.taskRecords.dir) : null };
+  return { rounds, records, inputs, root: tmp, recordsPath: cfg.taskRecords ? rel(cfg.taskRecords.dir) : null };
 }
 
 // What records-only compares the head with (rule.fixes-held-by-tests, D-165): after the narrow round whose
@@ -528,10 +528,19 @@ const runFresh = (top, from, to, dirs, resolve) => {
 // What a fail's class is decided by (rule.verdicts-hold-merge): filed by a round of the task's result,
 // limitation or later; or named with a test in a record of fixes of the range, which counts only when the
 // record of done that ended the range shows the test passed. null when nothing decides it.
-function classDecision(cls, { rounds, fixes, passed }) {
+// A filing of a record of fixes counts only as a filing of a round does (rule.findings-filed): a limitation in
+// docs/limitations.md, one for later in a file under issues/, and that file, at the head, holds the class
+// word for word; root is the head's files the guard copied from Git's objects.
+const filedHolds = (x, cls, root) => {
+  const dest = x.fix === "limitation" ? x.file === LIMITATIONS_FILE : x.fix === "later" && String(x.file ?? "").startsWith(LATER_DIR);
+  if (!dest || !root || x.file.split("/").includes("..")) return false;
+  const path = join(root, x.file);
+  return existsSync(path) && readFileSync(path, "utf8").includes(cls);
+};
+function classDecision(cls, { rounds, fixes, passed, root = null }) {
   const found = (r) => [...r.findings, ...(r.acceptance?.findings ?? [])];
   if (rounds.some((r) => found(r).some((x) => x.cls === cls && x.filed))) return "filed";
-  if (fixes.some((f) => (f.filed ?? []).some((x) => x.cls === cls))) return "filed";
+  if (fixes.some((f) => (f.filed ?? []).some((x) => x.cls === cls && filedHolds(x, cls, root)))) return "filed";
   const tests = fixes.flatMap((f) => f.tests).filter((t) => t.cls === cls);
   if (!tests.length) return null;
   return tests.some((t) => passed.has(`${t.file} · ${t.test}`)) ? "tested" : "untested";
@@ -576,7 +585,7 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
   const range = next.result?.fixes?.done ? next.result.fixes : null;
   const fixes = range ? (inputs.records.fixes ?? []).filter((f) => f.task === task && f.round === range.narrow.file) : [];
   const passed = new Set(range ? (range.done.fixTests ?? []).filter((t) => t.result === "passed").map((t) => `${t.file} · ${t.test}`) : []);
-  const ctxOf = (commit, stamp) => ({ commit, stamp, rounds: results, fixes, passed });
+  const ctxOf = (commit, stamp) => ({ commit, stamp, rounds: results, fixes, passed, root: at.root });
   const problems = [];
   // A check held on a commit; on the issue, a missing record is an incomplete issue and a class not
   // decided a finding with no decision.
@@ -593,6 +602,7 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
     problems.push(p);
   };
   hold.failsOn = (c) => fails.has(c);
+  hold.root = at.root;
   problems.push(...roundVerdictProblems({ inputs, task, runs, ctx: ctxOf(end, null) }));
   const from = mergeBase(top, b, end);
   if (!from) return [{ code: "VERDICT_MISSING", why: `the checked commit ${end.slice(0, 12)} and the base have no common commit` }];
@@ -679,7 +689,7 @@ function issueProblems({ cfg, top, b, list, range, fixes, end, tmp, hold, resolv
   // of the narrow round; the classes of the issue's fails are decided where its records are held.
   const fromIssue = (named.issueFindings ?? []).map((cls) => ({ cls, of: `the issue at ${issue.slice(0, 12)}` }));
   const fromRound = [...range.narrow.findings, ...(range.narrow.acceptance?.findings ?? [])].filter((x) => x.ofChange && x.fixable).map((x) => ({ cls: x.cls, of: range.narrow.file }));
-  const ctx = { rounds: [], fixes, passed: new Set((range.done.fixTests ?? []).filter((t) => t.result === "passed").map((t) => `${t.file} · ${t.test}`)) };
+  const ctx = { rounds: [], fixes, root: hold.root, passed: new Set((range.done.fixTests ?? []).filter((t) => t.result === "passed").map((t) => `${t.file} · ${t.test}`)) };
   for (const f of [...fromIssue, ...fromRound]) {
     const d = classDecision(f.cls, ctx);
     if (d !== "filed" && d !== "tested") problems.push({ code: "FIX_UNTESTED", why: `"${f.cls}" of ${f.of}: ${d === "untested" ? "the record of done that ended the range does not show its test passed" : "no record of fixes decides it with a test or a filing"}` });

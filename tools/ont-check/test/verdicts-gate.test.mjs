@@ -1016,3 +1016,34 @@ test("[check.merge-gate.issue-missing] the one issue is held only by verdicts gi
     assert.deepEqual([...new Set(g.codes)], own ? [] : ["ISSUE_MISSING"], g.out);
   }
 });
+
+test("[check.merge-gate.fix-untested] a filing of a finding of the narrow round in the record of fixes counts only in a valid destination that holds the class at the head: a filing in an unrelated file is refused by the writer, and one whose file is removed before done does not decide the finding", () => {
+  // An unrelated file that holds the class: the writer refuses it.
+  {
+    const { p, narrow } = narrowed();
+    p.put("docs/page.md", "# A page\n\na slip\n");
+    const at = p.commit("a page that names the class");
+    const v = p.verdicts(narrow);
+    assert.equal(v.code, 0, v.out);
+    p.commit("the issue");
+    const fx = p.tool("round.mjs", ["fixes", "t", "--round", narrowFile(p), "--issue", at, "--filed", writeFile("a slip · later · docs/page.md\n")]);
+    assert.notEqual(fx.code, 0, fx.out);
+    assert.match(fx.out, /not a file under issues\//);
+  }
+  // A ticket that holds the class decides it; the same ticket removed before done does not.
+  for (const removed of [false, true]) {
+    const { p, st, narrow } = narrowed();
+    p.put("issues/0003-a-slip.md", "# A slip\n\na slip\n");
+    const at = p.commit("the slip filed");
+    issue(p, st, narrow, { tests: "", filed: "a slip · later · issues/0003-a-slip.md\n", at });
+    if (removed) {
+      p.put("issues/0003-a-slip.md", "# A ticket\n\nNothing here now.\n");
+      p.commit("the ticket emptied");
+    }
+    recordDone(p, st);
+    p.commit("done");
+    const g = p.gate();
+    if (!removed) assert.deepEqual(g.codes, [], g.out);
+    else assert.ok(g.codes.includes("FIX_UNTESTED") && /"a slip"/.test(g.out), g.out);
+  }
+});
