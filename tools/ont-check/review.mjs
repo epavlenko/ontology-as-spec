@@ -81,8 +81,9 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids,
     ...new Set([...lines(git(top, "diff", "--name-only", base, "--")), ...lines(git(top, "ls-files", "--others", "--exclude-standard"))]),
   ]
     .map((f) => resolve(top, f))
-    // The verdict records are the review's own result, not part of the change it reviews (D-82).
-    .filter((f) => !(cfg.manualRuns && inDir(f, cfg.manualRuns.dir)) && !(cfg.reviewRounds && inDir(f, cfg.reviewRounds.dir)));
+    // The verdict records are the review's own result, not part of the change it reviews (D-82); so are the
+    // records of the task, of done, fixes and gate changes, which no reviewer reads as the change (D-186).
+    .filter((f) => !(cfg.manualRuns && inDir(f, cfg.manualRuns.dir)) && !(cfg.reviewRounds && inDir(f, cfg.reviewRounds.dir)) && !(cfg.taskRecords && inDir(f, cfg.taskRecords.dir)));
   const before = (f) => git(top, "show", `${base}:${relative(top, f).split(sep).join("/")}`) ?? "";
   const now = (f) => (existsSync(f) ? readFileSync(f, "utf8") : "");
   const diffLines = (f) =>

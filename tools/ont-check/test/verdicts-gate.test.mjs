@@ -97,7 +97,7 @@ function helpers(dir) {
 const ENGLISH = writeFile("yes");
 // The base: main with the keys of the merge by the state of the task and, by default, of verdicts, seals,
 // the goal g and the owner's permission to publish it; the task's branch from it.
-function base({ verdicts = true } = {}) {
+function base({ verdicts = true, suite = false } = {}) {
   const dir = temp("ont-base-");
   cpSync(join(TOP, "templates"), dir, { recursive: true });
   cpSync(TOOLS, join(dir, "tools/ont-check"), { recursive: true, filter: (src) => !src.includes(join("tools", "ont-check", "test")) });
@@ -112,6 +112,9 @@ function base({ verdicts = true } = {}) {
     spend: { fromLogs: false },
     goals: { g: ["t"] },
     statements: { todoHeadings: ["What to do"] },
+    // Where asked, the tests under app/ are a suite, so that a change of them lists the checks of tests.
+    // and the tickets are under issues/ alone, so that a file at the root is one nothing describes.
+    ...(suite ? { testSuites: [{ name: "unit", dir: "app", match: "\\.test\\.mjs$", cover: [] }], tickets: { dir: "issues", match: "^\\d{4}-.*\\.md$" } } : {}),
   });
   p.put("ont.config.json", JSON.stringify(cfg, null, 2));
   p.put(".github/merge-gate.json", JSON.stringify(RULES, null, 2));
@@ -484,10 +487,11 @@ const narrowCommit = (p) => readFileSync(join(p.dir, "reviews/rounds", narrowFil
 // The path to the narrow round with a finding of the usual path, by the writers: the work, done and its
 // verdicts; round C with a finding and the condition confirmed; its fix, done and the verdicts of the fix;
 // the narrow round with the finding "a slip". Then the fixes of the narrow round, committed.
-let narrowedOnce = null;
-function narrowed() {
-  if (!narrowedOnce) {
-    const { p, st } = approved();
+let narrowedOnce = {};
+function narrowed(opts = {}) {
+  const key = JSON.stringify(opts);
+  if (!narrowedOnce[key]) {
+    const { p, st } = approved(opts);
     reviewed(p, st);
     resultRound(p, st, "By: m (p)\n\n| a gap | important | change |\n\nCondition: holds\nAcceptance: clean", "a gap · usual path: the work\n");
     work(p, "export const gapFixed = 1;\n");
@@ -498,9 +502,9 @@ function narrowed() {
     p.commit("the verdicts of the fix");
     const narrow = resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: holds\nAcceptance: clean", "a slip · usual path: the work\n");
     const fix = work(p, "export const slipFixed = 1;\n");
-    narrowedOnce = { p, st, narrow: narrowCommit(p), fix };
+    narrowedOnce[key] = { p, st, narrow: narrowCommit(p), fix };
   }
-  return { ...narrowedOnce, p: copy(narrowedOnce.p) };
+  return { ...narrowedOnce[key], p: copy(narrowedOnce[key].p) };
 }
 // The one issue of verdicts on the diff of the fixes, its record of fixes, and done.
 function issue(p, st, narrow, { given = {}, findings = "", tests = "a slip · app/fix.test.mjs · the fix of the slip\n", filed = "", at = null } = {}) {
@@ -1045,5 +1049,45 @@ test("[check.merge-gate.fix-untested] a filing of a finding of the narrow round 
     const g = p.gate();
     if (!removed) assert.deepEqual(g.codes, [], g.out);
     else assert.ok(g.codes.includes("FIX_UNTESTED") && /"a slip"/.test(g.out), g.out);
+  }
+});
+
+test("[check.merge-gate.issue-usual-path] an empty list of the issue, without a finding and with one, and a final diff that lists the checks of a judge only by a change of a test and a later file the configuration does not know: each passes, the range holding what the final list adds", () => {
+  // The fix in a file that lists no check: the issue's list is empty.
+  for (const finding of [false, true]) {
+    const { p, st, narrow } = narrowed();
+    // The fixture's fix of the code taken back, so that the diff from the narrow round holds the page alone.
+    p.git("checkout", narrow, "--", "app/work.mjs");
+    p.put("docs/page.md", `${readFileSync(join(p.dir, "docs/page.md"), "utf8")}A line no check reads.\n`);
+    const at = p.commit("a fix no check reads");
+    assert.deepEqual(p.list(narrow), []);
+    const v = p.verdicts(narrow);
+    assert.equal(v.code, 0, v.out);
+    issue(p, st, narrow, { at, ...(finding ? { findings: "| a stale line | important | change |\n", tests: "a slip · app/fix.test.mjs · the fix of the slip\na stale line · app/fix.test.mjs · the fix of the gap\n" } : {}) });
+    recordDone(p, st);
+    p.commit("done");
+    const g = p.gate();
+    assert.deepEqual(g.codes, [], `${finding ? "with" : "without"} a finding: ${g.out}`);
+  }
+  // A change of a test in one commit and a later file nothing describes in another: the final diff lists
+  // the checks of a judge, which neither the issue's diff nor the narrow round's lists.
+  {
+    const { p, st, narrow } = narrowed({ suite: true });
+    p.git("checkout", narrow, "--", "app/work.mjs");
+    p.add("app/fix.test.mjs", "// a change of a test\n");
+    const at = p.commit("a fix of a test");
+    const JUDGE = "check.check.judge-sees-the-check";
+    assert.ok(!p.list(narrow).some((c) => c.id === JUDGE), JSON.stringify(p.list(narrow)));
+    // The issue finds a setting missing; its fix, the later file, is held by a test of the range.
+    issue(p, st, narrow, { at, findings: "| a setting missing | important | change |\n", tests: "a slip · app/fix.test.mjs · the fix of the slip\na setting missing · app/fix.test.mjs · the fix of the gap\n" });
+    p.put("config/settings.json", '{ "a": 1 }\n');
+    p.commit("a file the configuration does not know");
+    assert.ok(p.list().some((c) => c.id === JUDGE), JSON.stringify(p.list()));
+    // The later file alone lists no check of a judge either: only the final diff does.
+    assert.ok(!p.list(at).some((c) => c.id === JUDGE), JSON.stringify(p.list(at)));
+    recordDone(p, st);
+    p.commit("done");
+    const g = p.gate();
+    assert.deepEqual(g.codes, [], g.out);
   }
 });
