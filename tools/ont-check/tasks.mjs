@@ -516,6 +516,10 @@ export function fixesOf(text, name) {
       !tests.length && issue === null && "no line under Tests:",
       issue !== null && !/^[0-9a-fA-F]{7,40}$/.test(issue) && `issue ${issue || "(none)"} is not a commit of seven to forty hexadecimal characters`,
       ...tests.filter((t) => !repoPath(t.file)).map((t) => `${t.file} is not a path of the repository`),
+      // The blocks of the one issue come only with Issue:, as their writer emits them, and a filing is a
+      // limitation or for later (D-186).
+      ...["Issue-findings", "Filed"].filter((b) => b in blocks && issue === null).map((b) => `${b}: is given without Issue:`),
+      ...(blocks.Filed ?? []).filter(([, fix]) => !["limitation", "later"].includes(fix)).map(([cls, fix]) => `the filed line of ${cls} is ${fix}, not limitation or later`),
       ...filed.filter((f) => !["limitation", "later"].includes(f.fix) || !repoPath(f.file)).map((f) => `the filed line "${[f.cls, f.fix, f.file].join(" · ")}" is not "class · limitation or later · file"`),
     ].filter(Boolean),
   );
