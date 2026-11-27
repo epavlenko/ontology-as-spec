@@ -564,6 +564,11 @@
           "x-ont": "field.review-round.cause",
           "type": "string"
         },
+        "roundChecks": {
+          "description": "The line Round-checks: of a record of a round, once, the IDs of the checks of the record of a round its brief named, apart by , : the reader of rounds reads it, before the writer that writes it is merged, and gives it with the other fields of the round, deciding nothing by it; its meaning is set by the task that writes it, enforcement-verdicts-tests (D-186).",
+          "x-ont": "field.review-round.round-checks",
+          "type": "string"
+        },
         "runs": {
           "description": "The records of the verdicts the round gave, by file name.",
           "x-ont": "edge.review-round.runs",
@@ -1148,14 +1153,18 @@
           "x-ont-ref": "ent.review-round"
         },
         "tests": {
-          "description": "Under Tests:, one line for each class of a fixable finding of that round, word for word, with the file and the name of its test, - class · file · name; the reader of rounds takes the test of a finding from it when the round's record gives none, so that derived.next-round sees the fix held, and the record of the round is never changed.",
+          "description": "Under Tests:, one line for each class of a fixable finding of that round, word for word, with the file and the name of its test, - class · file · name; the reader of rounds takes the test of a finding from it when the round's record gives none, so that derived.next-round sees the fix held, and the record of the round is never changed. It may be left out only where the record names a valid Issue: (field.fixes-record.issue): a record of fixes holds valid tests, a valid issue or both, never neither, and a valid issue excuses no line under Tests: that is not - class · file · name with a path of the repository (D-186).",
           "x-ont": "field.fixes-record.tests",
+          "type": "string"
+        },
+        "issue": {
+          "description": "The line Issue: of a record of fixes, a commit of seven to forty hexadecimal characters: the one issue of verdicts after the narrow round. The reader of records of fixes reads it before the writer that writes it is merged, and a record with a valid issue may give no line under Tests:; its meaning is set by the task that writes it, enforcement-verdicts-tests (D-186).",
+          "x-ont": "field.fixes-record.issue",
           "type": "string"
         }
       },
       "required": [
         "round",
-        "tests",
         "round"
       ]
     },

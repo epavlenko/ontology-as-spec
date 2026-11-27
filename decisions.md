@@ -1917,6 +1917,15 @@ The approach applied to itself: decisions about how the approach is described an
 
 ## Tentative
 
+### D-186 · The readers of main read the two forms of records the writer of task enforcement-verdicts-tests writes, before it is merged
+
+- Date: 2026-11-27 · Status: tentative
+- Why tentative: the owner's question 1140 of the registry is open; its option a is this task: a task that brings the reader to main first, so that the records task enforcement-verdicts-tests writes, the rounds with `Round-checks:` and the records of fixes with `Issue:` and no tests, are read by the guard of main, whose code decides the merge; the approved statement of task enforcement-records-reader, version 3.
+- Course: adds to D-152, D-167 and D-183. The reader of rounds reads the field `Round-checks:` (`field.review-round.round-checks`), once, and gives it with the other fields of the round, deciding nothing by it; every other rule of the grammar of a record of a round stays. The reader of records of fixes reads `Issue:` (`field.fixes-record.issue`), a commit of seven to forty hexadecimal characters, and `field.fixes-record.tests` becomes optional: a record of fixes holds valid tests, a valid issue or both, never neither, and a valid issue excuses no line under `Tests:` that is not `class · file · name` with a path of the repository. The readers read the forms of records of the next writer before it is merged; the meaning of the fields is set by the task that writes them, enforcement-verdicts-tests. The checks of seals and of approvals do not change.
+- Why: the guard of a pull request is main's code, and its readers refused the rounds and the records of fixes task enforcement-verdicts-tests writes, so that its approval rounds could not be read and every gate path of it was refused.
+- Rejected (the executor's choice): writing those records without the new fields (an accepted record is never changed, and the rule of that task needs them); merging task enforcement-verdicts-tests past the guard (the owner's gate, not taken).
+- Concepts: `field.review-round.round-checks`, `field.fixes-record.issue`, `field.fixes-record.tests`
+
 ## Open questions
 
 ## History
