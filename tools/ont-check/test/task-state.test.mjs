@@ -246,7 +246,7 @@ test("[check.merge-gate.task-state-usual-path] a task's pull request after a nar
   assert.ok(readdirSync(join(p.dir, "reviews/rounds")).some((f) => /-t-result-narrow-1\.md$/.test(f)));
   // The fixes of the narrow round with their tests, then the record of done that ends the range.
   p.put("docs/page.md", `${readFileSync(join(p.dir, "docs/page.md"), "utf8")}The fix of the slip.\n`);
-  p.put("app/fix.test.mjs", 'test("the fix of the gap", () => {});\ntest("the fix of the slip", () => {});\n');
+  p.put("app/fix.test.mjs", 'import { test } from "node:test";\ntest("the fix of the gap", () => {});\ntest("the fix of the slip", () => {});\n');
   p.commit("the fixes of the narrow round");
   const round = readdirSync(join(p.dir, "reviews/rounds")).find((f) => /-t-result-narrow-1\.md$/.test(f));
   const fx = p.tool("round.mjs", ["fixes", "t", "--round", round, "--from", writeFile("a slip · app/fix.test.mjs · the fix of the slip\n")]);

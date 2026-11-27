@@ -1,0 +1,24 @@
+Seal: v1 6d1426e69d1aad21f4110f6477e07d854af81fe9c117c29be5fc6d26b1c2100c
+Record: spend-snapshot
+Task: enforcement-verdicts-tests
+Unit: enforcement
+Round: 20261126T195048Z-enforcement-verdicts-tests-statement-13.md
+Time: 2026-11-26T19:50:48Z
+Unit-start: 2026-11-22T20:03:29Z
+Unit-new: 38991138
+Unit-cached: 1393802510
+Unit-out: 5203769
+Task-new: 5438029
+Task-cached: 63411200
+Task-out: 345447
+Round-new: 115457
+Round-cached: 1785174
+Round-out: 9451
+Unit-limit-new: 28000000
+Unit-limit-out: 5600000
+Unit-reserve: 1.5
+Unit-statement-hash: 58e872dc1984e44cd22f61bf0fd93f2bdfeac8fd4278d1e779dafcc940ae4eb4
+Task-limit-new: 12600000
+Task-limit-out: 1300000
+Task-reserve: 1.5
+Task-statement-hash: daac3ccc8b434445fe9f1fe4cc3c893fb083b283005f840a30aa3b078ae855cc

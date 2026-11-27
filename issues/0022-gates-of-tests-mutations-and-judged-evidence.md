@@ -1,0 +1,41 @@
+# #22 Gates of tests, mutations and judged evidence, moved to the next goal
+
+Moved out of task enforcement-verdicts-tests by the owner's answer to question 1095, option "a" (26.11): that task keeps the gate of verdicts (verdicts hold the merge, one issue after the narrow round, the end of a step, the verdicts of the record of a round, and the audit rows of those mechanisms) and the command `test:judged`; the rest goes to a new goal with the tasks of release, settings and the process page. The requirements below are those of version 9 of that task's statement, which this ticket carries so that none is lost.
+
+- **Gate of tests by the report of a run.** An `auto` check, a class of a suite, a trace and a test named in a record of fixes count as tested only when a test with the label ran and passed in the report of a covered suite; the report names the suites it covers, and the judged suite is left out by name and not read as empty; a file of a covered suite with no test in the report is an empty suite; a class that a suite of the base's configuration covers must stay covered; the codes `TEST_UNPROVEN`, `SUITE_EMPTY` and `SUITE_MISSING` appear in the output of the required `ont-check`, also when a test of `test:ci` failed. Its live probe: an attacking pull request with no task.
+- **Change of the writer of probe records** (owner's answer to question 1091, option "a", 25.11): a refusal counts when the named check is red with its own gate's codes only and every other red required check carries only codes of gates whose refusal is proved on main. It goes with the probes of the gates of the report and of mutations.
+- **Gate of mutations.** `--mutate` of the example in the required `ont-check` fails with `MUTANT_SURVIVED` on a surviving change of a form beyond the baseline: a list keyed by the form's concept and the change, without a line number, read from the pull request's base; on a base without the list, the pull request's own list, which holds every survivor; the initial baseline is the 23 survivors on main. Its live probe: an attacking pull request with no task.
+- **End-to-end suite in the templates.** The templates carry an `end-to-end` suite (classes `action` and `view`) and pass the full check while nothing is implemented; once a project from the templates implements an action or a view, its CI is red without a passing tagged end-to-end test in a report, whatever the report setting of the template workflow (`REPORT_MISSING` when unset); `templates/README.md` says so.
+- **Producer of judged evidence.** A sealed record of a judged run for each judged check of the suite, from the full report of a passing run on the reviewed commit, fresh as D-171; the writer refuses with no report of that commit, with a check missing, skipped or failed, or with a working tree that differs outside the records. Its consumer is the release task.
+- **Run debt.** A derived concept to add to the ontology, read from the history of the records on main: a check of run is in debt when its latest record at its stamp, carries aside, is `not-run`; the debt survives unrelated merges, a run or a reasoned `not-applicable` clears it, a carry does not. Its consumer is the release task.
+- **Table of the audit rows and its selection test.** A table in the repository of every audit row outside the gate of verdicts, each with the verbatim gap of its row in the audit itself, a fixture for every ordinary trigger its gap names, `--review` of the root naming the row's check on that edit, and for a row whose step is not an edit of a diff its mechanism, its test and a mark of what it proves; the ID set equals the expected one; a row whose check the selection misses is fixed in the selection, never marked for that. The record of done names the table and the result of its test.
+- **Audit rows outside the gate of verdicts** (105 of the 116 rows the allocation gives task enforcement-verdicts-tests):
+- B1: `inv.ids-permanent`, `inv.no-restated-definition`, `rule.behavior-in-ontology`, `rule.concept-with-its-entity`, `rule.definition-says-what`, `rule.link-is-real`, `rule.ontology-changes-first`, `rule.ontology-is-source`, `rule.other-thing-new-id`, `rule.types-not-instances`.
+- B2: `inv.superseded-whole`, `action.answer-tentative`, `inv.decision-has-reason`, `inv.rejected-recorded`, `inv.supersession-named`, `rule.cite-decisions`, `rule.deferral-returns`, `rule.number-by-role`, `rule.one-choice`, `rule.product-decisions-only`, `rule.source-precedence`, `rule.unconfirmed-tentative`, `rule.unknown-author-not-owner`.
+- B3: `rule.anchor-every-section`, `rule.readers-words`, `rule.reread-then-stamp`, `rule.profile-requires-checkable`, `rule.agent-rule-source`, `rule.agent-rules-point-at-files`, `rule.agent-rules-short`, `rule.departure-by-entry`, `rule.strongest-step`.
+- B4: `inv.implementation-true`, `rule.code-names-concepts`, `rule.partial-noted`, `rule.table-with-code`, `rule.check-in-product-terms`, `rule.check-not-redundant`, `rule.chosen-value-checked`, `inv.test-does-what-check-says`, `rule.validator-test-breaks`, `rule.ticket-without-behavior`.
+- B5: `rule.tree-structure-only`, `rule.unreachable-reported`, `rule.manual-evidence-kept`, `rule.acceptance-against-approved`.
+- B6: `rule.second-vocabulary`, `rule.divergence-contradicts`, `rule.divergence-becomes-work`, `rule.limits-in-ontology`, `rule.map-by-screen`, `rule.mockup-data-fictional`, `rule.judge-sees-the-check`, `rule.view-state-judged`, `rule.code-compared-with-oracle`, `rule.oracle-not-the-product`.
+- C: `inv.label-is-true`, `rule.mockup-shows-target`, `rule.one-mockup`, `action.derive-blind`, `rule.guide-runs-check`.
+- D: `inv.auto-check-tested`, `inv.suite-implements-checks`, `inv.suite-not-empty`, `inv.suite-covers-classes`, `inv.trace-run-on-code`, `rule.trace-runs-on-code`.
+- E: `derived.surviving-mutation`, `inv.no-empty-test`, `rule.test-fails-on-mutant`.
+- F1: `rule.verdict-kept`, `rule.screens-kept`.
+- F2: `inv.judged-check-tested`.
+- G: `rule.round-recorded`.
+- H: `inv.check-ids-unique`, `inv.check-in-its-section`, `inv.section-keys-match`, `inv.form-names-defined`, `inv.form-per-row`, `inv.forms-end`, `inv.test-names-known-checks`, `inv.test-only-implemented`, `inv.suite-names-unique`, `inv.required-concepts-checked`, `inv.no-manual-tested`.
+- I: `inv.check-well-formed`, `inv.writes-in-type`, `rule.form-follows-rows`, `inv.trace-per-check`, `inv.code-compared`.
+- J: `action.critique-change`, `rule.commit-finished-work`, `rule.findings-mislead`, `rule.start-from-ids`, `rule.question-as-tentative`, `rule.run-settles-question`, `rule.value-checked-against-source`.
+- K: `rule.coordinator-cuts`, `rule.cut-when-started`, `rule.slice-one-change`, `rule.take-ready`, `rule.ticket-closed-on-done`, `inv.axis-values-covered`.
+- L: `action.walk-blind`, `inv.traces-pass`.
+- **Findings of the review of the statement tied to this work:** round 9, "Audit checks absent from the selected list": the root `--review` lists `check.check.judge-sees-the-check` when `tools/ont-check/judge.mjs` changes, so `rule.judge-sees-the-check` needs its fixture; round 9, "Judged screen evidence can be missing": a judged view run passes with no snapshot written, an arm of the gap of `rule.screens-kept`; rounds 3 to 8, the triggers of audit rows, the profile anchors, the baseline of mutations on its installing pull request, the templates, the report diagnostic and the malformed catalogue row (the records of those rounds of task enforcement-verdicts-tests).
+- **Rare cases moved from issue #20** (`issues/0020-rare-cases-of-the-verdict-gate.md`): "Required end-to-end suite can disappear", "Template end-to-end work deferred", "Release run debt loses merged deferrals" and both entries of "Malformed catalogue row has no valid mark".
+
+## Slice
+
+IDs: `inv.auto-check-tested`, `inv.suite-not-empty`, `inv.suite-covers-classes`, `derived.surviving-mutation`, `rule.test-fails-on-mutant`, `inv.judged-check-tested`.
+
+Checks: `check.check.untested`, `check.test-suite.empty`, `check.test-suite.uncovered-concept`, `check.formal-form.mutation-survives`, `check.formal-form.empty-test`, `check.check.judged-untested`.
+
+## Depends on
+
+Task enforcement-verdicts-tests.

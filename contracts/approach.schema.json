@@ -409,6 +409,21 @@
             "run"
           ]
         },
+        "class": {
+          "description": "On a fail, the classes of problem of its findings, separated by  · , as the reviewer names them, each in square brackets at the start of the evidence of the table's row; --record refuses a fail without one, and a not-run or a not-applicable without its reason in the evidence (D-187).",
+          "x-ont": "field.manual-run.class",
+          "type": "string"
+        },
+        "carried": {
+          "description": "The record a carried verdict carries: --record writes a record of its own for each carry it checked, on the checked commit, with the carried record's verdict and class, so that a verdict of an earlier result reaches the checked commit only by a carry the writer checked (D-187).",
+          "x-ont": "field.manual-run.carried",
+          "type": "string"
+        },
+        "base": {
+          "description": "The commit the diff of the review starts from, the base given to --review, which --record writes on each record: the one issue of verdicts after the narrow round is held only by records whose base is the narrow round's commit, verdicts given on its own diff (rule.one-issue-after-narrow, D-187).",
+          "x-ont": "field.manual-run.base",
+          "type": "string"
+        },
         "check": {
           "description": "The check the verdict is on, from the project's catalogue or the approach's.",
           "x-ont": "edge.manual-run.check",
@@ -798,6 +813,11 @@
           "x-ont": "field.task-result.evidence",
           "type": "string"
         },
+        "fixTests": {
+          "description": "The block Fix-tests: of a record of done that ends a range of fixes: each test a record of fixes of the range names, run by done.mjs on the commit of done alone, apart from the commands of done, with passed; a test not found, skipped, marked todo or failed writes no record. The guard counts a decision by a test only by this block of the record of done that ended the range (D-187).",
+          "x-ont": "field.task-result.fix-tests",
+          "type": "string"
+        },
         "time": {
           "description": "When the commands had run, in UTC to the second.",
           "x-ont": "field.task-result.time",
@@ -908,6 +928,11 @@
         "taskState": {
           "description": "The key mergeGate.taskState of the configuration: where the configuration at the base of a pull request sets it, the guard holds the merge by the state of the task (rule.merge-by-task-state), reading the composition of the goals, goals, from that base too; the pull request that brings the key is not held by it, and the next one is (D-185).",
           "x-ont": "field.merge-gate.task-state",
+          "type": "boolean"
+        },
+        "verdicts": {
+          "description": "The key mergeGate.verdicts of the configuration: where the configuration at the base of a pull request sets it, the guard holds the merge of a change of a task by its verdicts (rule.verdicts-hold-merge); the pull request that brings the key is not held by it, and the next one is (D-187).",
+          "x-ont": "field.merge-gate.verdicts",
           "type": "boolean"
         },
         "driftWorkflow": {
@@ -1158,7 +1183,7 @@
           "type": "string"
         },
         "issue": {
-          "description": "The line Issue: of a record of fixes, a commit of seven to forty hexadecimal characters: the one issue of verdicts after the narrow round. The reader of records of fixes reads it before the writer that writes it is merged, and a record with a valid issue may give no line under Tests:; its meaning is set by the task that writes it, enforcement-verdicts-tests (D-186).",
+          "description": "The line Issue: of a record of fixes, a commit of seven to forty hexadecimal characters, once: the commit of the one issue of verdicts after the narrow round (rule.one-issue-after-narrow), with, under Issue-findings:, the classes of the rows of the table of findings the reviewer of the issue gave, copied by round.mjs fixes --issue <commit> --findings <reply>, and under Filed: the rare ones filed, each with its file. A record with a valid issue may give no line under Tests: (D-186, D-187).",
           "x-ont": "field.fixes-record.issue",
           "type": "string"
         }
@@ -1253,6 +1278,11 @@
           "x-ont": "field.test-suite.cover",
           "type": "string"
         },
+        "judgedCommand": {
+          "description": "npm run --silent test:judged: runs the judged suite of the example with the judge JUDGE names, and fails when JUDGE is not set, when JUDGE_VERDICTS, or for the judged checks of views JUDGE_SCREENS, is not set or is inside the repository, and when a test is skipped or does not pass. CI does not run it and npm test no longer runs the judged suite; the executor runs it on changes that touch what it judges and before a release (answer 1042 b, D-187).",
+          "x-ont": "field.test-suite.judged-command",
+          "type": "string"
+        },
         "checks": {
           "description": "Checks the suite must implement, such as a key scenario end to end or the checks a judge decides.",
           "x-ont": "edge.test-suite.checks",
@@ -1265,7 +1295,8 @@
       },
       "required": [
         "name",
-        "cover"
+        "cover",
+        "judgedCommand"
       ]
     },
     "ticket": {

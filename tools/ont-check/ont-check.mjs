@@ -54,9 +54,9 @@ import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./do
 import { CAUSE_CHECK, renderReview, reviewChange } from "./review.mjs";
 import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
+import { acceptanceProblems, failedCause, fixesRange, gitEnv, heldByFixes, openWindow, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { goalLineProblem } from "./spend.mjs";
-import { compareRules, githubRepo, localRecordNotes, recordDirs } from "./merge-gate.mjs";
+import { compareRules, githubRepo, localRecordNotes, recordDirs, workCommit } from "./merge-gate.mjs";
 import { briefsDir, pendingBriefs } from "./briefs.mjs";
 import { sealed } from "./seal.mjs";
 import { PERFORMERS, outsideRecord as outsideRecordText } from "./manual-runs.mjs";
@@ -1377,9 +1377,35 @@ if (flag("--review") > 0) {
   if (!base || base.startsWith("--")) {
     fail("--review needs a base: a branch, a tag or a commit", 2);
   }
+  // --json: the list of the change alone, each check with its stamp, on one line, for the guard of the
+  // base (derived.change-list, D-187); the guard runs it in a working tree of its own, whose Git directory
+  // keeps no brief. The run ends here, before anything of the project is imported.
+  // ont: derived.change-list
+  const asJson = flag("--json") > 0;
   const r = reviewChange({ cfg, base, checks, approachChecks: approach?.checks, implRows, ids, guides: runGuides });
   if (r.error) {
     fail(r.error, 2);
+  }
+  // After the last narrow round, a failed verdict of the analysis of the cause in the open window of a
+  // task's result, which no later pass decided, is given again by the one issue of verdicts, on the
+  // corrected analysis whose hash its evidence names (rule.round-verdicts, D-187).
+  // ont: rule.round-verdicts
+  if (!asJson && cfg.mergeGate?.verdicts && cfg.manualRuns && cfg.reviewRounds && cfg.taskRecords && ![...r.project, ...r.approach].some((c) => c.id === CAUSE_CHECK)) {
+    const { rounds, records } = readTaskInputs(cfg);
+    const { runs } = parseRuns(cfg.manualRuns.dir, { has: () => true }, { latinOnly: cfg.records.latinOnly });
+    const pending = [...new Set(rounds.map((x) => x.task))].filter((task) => failedCause(runs, openWindow({ rounds, done: records.done, approvals: records.approvals, task, step: "result-review" }).rounds));
+    if (pending.length) {
+      const own = checks.find((c) => c.id === CAUSE_CHECK && untested(c.proof));
+      const theirs = (approach?.checks ?? []).find((c) => c.id === CAUSE_CHECK);
+      if (own) r.project.push(own);
+      else if (theirs) r.approach.push(theirs);
+      console.log(`CAUSE ${pending.join(", ")}: a verdict of the analysis of the cause failed in the open window and no later pass decided it: ${CAUSE_CHECK} is listed, for a verdict on the corrected analysis whose hash its evidence names (rule.round-verdicts)`);
+    }
+  }
+  if (asJson) {
+    const list = [...r.project, ...r.approach].map((c) => ({ id: c.id, stamp: stampFor(c), proof: c.proof }));
+    console.log(`REVIEW_JSON ${JSON.stringify({ base, checks: list })}`);
+    process.exit(0);
   }
   // Where the guide of each check of run is (D-155): a project's own, in its run guides; one of the
   // approach, at the commit its copy came from, which the copy information names, or in the approach's
@@ -1421,7 +1447,10 @@ if (flag("--review") > 0) {
     const listed = new Map([...r.project, ...r.approach].map((c) => [c.id, c]));
     const known = new Set([...checkById.keys(), ...(approach?.checks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
     const { runs } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
-    const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--short", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout.trim();
+    // The commit of the review is the last commit outside the records of the process: HEAD, or, when HEAD
+    // is a commit of records alone over the work, the commit under it that changed something else (D-187).
+    // ont: derived.change-verdict
+    const top = (workCommit(cfg) ?? "").slice(0, 7);
     const dirty = spawnSync("git", ["-C", cfg.base, "status", "--porcelain", "--", ".", `:!${relative(cfg.base, cfg.manualRuns.dir)}`], { encoding: "utf8", env: gitEnv() }).stdout.trim();
     // The files read for a carried verdict that changed since its record's commit, committed or not. A
     // file with no snapshot in that commit, untracked, ignored or absent, cannot be compared, so it counts
@@ -1442,14 +1471,16 @@ if (flag("--review") > 0) {
       const changed = runChanged(run.commit);
       return changed ? `${changed.join(", ")} changed outside the records since its commit ${run.commit}` : null;
     };
-    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly, unlisted: (id) => (id === CAUSE_CHECK ? ": it is listed after stagnation while the round's brief, which carries Cause:, is kept; record the verdicts before round.mjs record removes it (D-184)" : "") });
+    // Each record names the base of the diff it was given on, Base: (D-187).
+    // ont: field.manual-run.base
+    const res = recordVerdicts({ text: read(table), listed, runs, base: fullOf(base), stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly, unlisted: (id) => (id === CAUSE_CHECK ? ": it is listed after stagnation while the round's brief, which carries Cause:, is kept; record the verdicts before round.mjs record removes it (D-184)" : "") });
     if (res.problems.length) {
       fail(`the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`, 1);
     }
     // The first verdicts of a project make their directory.
     mkdirSync(cfg.manualRuns.dir, { recursive: true });
     for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text);
-    console.log(`RECORDED ${res.records.length} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
+    console.log(`RECORDED ${res.records.length - res.carried} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
   }
 }
 // --run-start <check> and --run-record <check>: a run of a check of run outside a review, in two steps

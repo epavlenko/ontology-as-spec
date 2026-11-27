@@ -230,8 +230,8 @@ export function parseRounds(dir, opts = {}) {
       // The gate paths of the version the round read, apart by ", " (field.review-round.gate-paths, D-185).
       gatePaths: fields["gate-paths"] === undefined ? null : [...new Set(fields["gate-paths"].split(/[\s,]+/).filter(Boolean))],
       cause: fields.cause ?? null,
-      // The checks of the record of a round its brief named, read before their writer is merged, and given
-      // with the other fields; nothing here decides by them (field.review-round.round-checks, D-186).
+      // The checks of the record of a round its brief asked verdicts of (rule.round-verdicts, D-187), read as
+      // the reader of main reads them, a list apart by ", " (field.review-round.round-checks).
       // ont: field.review-round.round-checks
       roundChecks: fields["round-checks"] ? fields["round-checks"].split(",").map((x) => x.trim()).filter(Boolean) : [],
     });
@@ -356,7 +356,9 @@ export const BRANCHES = ["open gate", "no round", "condition confirmed", "no acc
 // answered: the files of the rounds whose gate the owner's answer closed, which hold no gate, the last round
 // either (D-185).
 // numbered: every round of the step, over which a next round takes the next free number of its kind.
-export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], answered = new Set(), fixes = null, gatesFrom = null, numbered = stepRounds } = {}) {
+// windowFrom: the time of the end of the step before the last round, by tasks.mjs stepEnds (derived.step-end,
+// D-187), from which the rounds are compared; without it, the last round that ended the step.
+export function nextRound(stepRounds, { refused = () => null, held = () => true, since = null, gateSince = since, gate = [], answered = new Set(), fixes = null, gatesFrom = null, numbered = stepRounds, windowFrom } = {}) {
   const every = byTime(stepRounds);
   const nextOf = (narrow) => Math.max(0, ...numbered.filter((r) => r.narrow === narrow).map((r) => r.number)) + 1;
   const [nextFull, nextNarrow] = [nextOf(false), nextOf(true)];
@@ -368,7 +370,7 @@ export function nextRound(stepRounds, { refused = () => null, held = () => true,
   const why = clean && last.step === "result-review" && last.acceptance ? refused(last) : null;
   // Only the rounds after the last end of the step are compared, a round that ended it or the owner's
   // approval; the first round with findings after it is not stagnation.
-  const window = last ? all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1) : [];
+  const window = !last ? [] : windowFrom !== undefined ? all.filter((r) => windowFrom === null || r.time > windowFrom) : all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1);
   // The last round ends the step by the one end of a step (D-153): held for the latest record of done.
   const ends = last && endsStep(last, (r) => !refused(r));
   const cond = last && last.step === "result-review" && !ends ? conditionIn(window) : null;

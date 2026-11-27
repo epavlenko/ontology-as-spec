@@ -414,7 +414,7 @@ const runs = [
 const now = new Date("2026-11-20T12:00:00Z");
 const table = (rows, by = "By: a model of a provider") => [by, "", "| Check | Verdict | Evidence |", "| --- | --- | --- |", ...rows].join("\n");
 
-test("[check.manual-run.record-verdicts] one record for each new verdict, none for a carried one", () => {
+test("[check.manual-run.record-verdicts] one record for each new verdict, and one for each carry, Carried:, with the carried verdict (D-187)", () => {
   const r = recordVerdicts({
     text: table(["| check.a | pass | notes outside |", "| check.b | carried | 20261120T090000Z-check.b-abcd.md · app/library.mjs |"]),
     listed,
@@ -426,8 +426,10 @@ test("[check.manual-run.record-verdicts] one record for each new verdict, none f
     runs: runs.map((x) => (x.check === "check.b" ? { ...x, commit: "abc" } : x)),
   });
   assert.deepEqual(r.problems, []);
-  assert.equal(r.records.length, 1);
+  assert.equal(r.records.length, 2);
   assert.equal(r.carried, 1);
+  assert.match(r.records[1].text, /^Carried: 20261120T090000Z-check\.b-abcd\.md$/m);
+  assert.match(r.records[1].text, /^Commit: abc123$/m);
   assert.match(r.records[0].file, /^20261120T120000Z-check\.a-[a-z]{4}\.md$/);
   // The record is sealed and says it is the reviewer's (D-167, D-171).
   assert.equal(

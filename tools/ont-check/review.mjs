@@ -8,7 +8,7 @@
 // project's where its catalogue has it and else the approach's, since the skill asks for its verdict (D-184).
 // ont: derived.review-checks
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readlinkSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 import { pendingBriefs } from "./briefs.mjs";
 import { parseAnchors } from "./docs.mjs";
@@ -42,6 +42,13 @@ const git = (cwd, ...args) => {
   return r.status === 0 ? r.stdout : null;
 };
 const lines = (s) => (s ?? "").split("\n").filter(Boolean);
+const isLink = (f) => {
+  try {
+    return lstatSync(f).isSymbolicLink();
+  } catch {
+    return false;
+  }
+};
 const inDir = (f, d) => f === d || f.startsWith(d + sep);
 
 // What a section explaining a concept relies on, as in the stamps of doc sections (D-23): its term,
@@ -81,10 +88,12 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids,
     ...new Set([...lines(git(top, "diff", "--name-only", base, "--")), ...lines(git(top, "ls-files", "--others", "--exclude-standard"))]),
   ]
     .map((f) => resolve(top, f))
-    // The verdict records are the review's own result, not part of the change it reviews (D-82).
-    .filter((f) => !(cfg.manualRuns && inDir(f, cfg.manualRuns.dir)) && !(cfg.reviewRounds && inDir(f, cfg.reviewRounds.dir)));
+    // The verdict records are the review's own result, not part of the change it reviews (D-82); so are the
+    // records of the task, of done, fixes and gate changes, which no reviewer reads as the change (D-187).
+    .filter((f) => !(cfg.manualRuns && inDir(f, cfg.manualRuns.dir)) && !(cfg.reviewRounds && inDir(f, cfg.reviewRounds.dir)) && !(cfg.taskRecords && inDir(f, cfg.taskRecords.dir)));
   const before = (f) => git(top, "show", `${base}:${relative(top, f).split(sep).join("/")}`) ?? "";
-  const now = (f) => (existsSync(f) ? readFileSync(f, "utf8") : "");
+  // A link of the tree is read as Git keeps it, its target's name, never followed out of the tree (D-187).
+  const now = (f) => (!existsSync(f) && !isLink(f) ? "" : isLink(f) ? readlinkSync(f) : readFileSync(f, "utf8"));
   const diffLines = (f) =>
     lines(git(top, "diff", base, "--", relative(top, f)))
       .filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---) /.test(l))
@@ -208,6 +217,15 @@ export function reviewChange({ cfg, base, checks, approachChecks, implRows, ids,
   if (cause.length && !project.some((c) => c.id === CAUSE_CHECK) && !approach.some((c) => c.id === CAUSE_CHECK)) {
     const own = checks.find((c) => c.id === CAUSE_CHECK && untested(c.proof));
     const theirs = (approachChecks ?? []).find((c) => c.id === CAUSE_CHECK);
+    if (own) project.push(own);
+    else if (theirs) approach.push(theirs);
+  }
+  // A round whose brief names the checks of the record of a round lists them, whatever the change touches
+  // (rule.round-verdicts, D-187).
+  for (const id of [...new Set(briefs.flatMap((b) => String(b.brief?.["Round-checks"] ?? "").split(/[\s,]+/).filter(Boolean)))]) {
+    if (project.some((c) => c.id === id) || approach.some((c) => c.id === id)) continue;
+    const own = checks.find((c) => c.id === id && untested(c.proof));
+    const theirs = (approachChecks ?? []).find((c) => c.id === id);
     if (own) project.push(own);
     else if (theirs) approach.push(theirs);
   }

@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, relative } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
 import { pendingBriefs } from "./briefs.mjs";
@@ -201,7 +201,42 @@ export function readTaskInputs(cfg, at = null) {
   const kept = (x) => !late.some((l) => l.record === x);
   const malformed = [...unreadable, ...late.map((l) => l.text)];
   const resolved = resolveRecords(top, { done: parsed.done.filter(kept), rounds: withTests.filter(kept), approvals: parsed.approvals });
-  return { rounds: resolved.rounds, malformed, top, resolved, records: { ...parsed, done: resolved.done, malformed: [...parsed.malformed, ...resolved.malformed] } };
+  // A record of done made since the start of the gate of verdicts is read by the rule of the new result
+  // (derived.step-end, D-187); one made before it is read as before.
+  const from = verdictsStart(top, cfg);
+  const done = resolved.done.map((d) => ({ ...d, sinceVerdicts: from !== null && d.time >= from }));
+  return { rounds: resolved.rounds, malformed, top, resolved, records: { ...parsed, done, malformed: [...parsed.malformed, ...resolved.malformed] } };
+}
+
+// The start of the gate of verdicts (D-187), as the start of seals (D-181): the time of the oldest commit
+// of the first-parent history of HEAD, among those that change the configuration, from which on every one
+// sets mergeGate.verdicts; null where HEAD's configuration does not set it, or outside Git. The rules of
+// D-187 over records that were made before, the new result among them, read those records as before.
+// ont: derived.step-end, field.merge-gate.verdicts
+export function verdictsStart(top, cfg) {
+  if (!top || !cfg?.file) return null;
+  const path = relative(top, cfg.file).split("\\").join("/");
+  if (path.startsWith("..")) return null;
+  const git = (...a) => spawnSync("git", ["-C", top, ...a], { encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 26 });
+  const keyAt = (c) => {
+    const r = git("show", `${c}:${path}`);
+    if (r.status !== 0) return false;
+    try {
+      return JSON.parse(r.stdout)?.mergeGate?.verdicts === true;
+    } catch {
+      return false;
+    }
+  };
+  if (!keyAt("HEAD")) return null;
+  const log = git("log", "--first-parent", "--format=%H %cI", "HEAD", "--", path);
+  if (log.status !== 0) return null;
+  let start = null;
+  for (const line of log.stdout.split("\n").filter(Boolean)) {
+    const [c, time] = line.split(" ");
+    if (!keyAt(c)) break;
+    start = new Date(time).toISOString().replace(/\.\d{3}Z$/, "Z");
+  }
+  return start;
 }
 
 // The late records of every task (D-152): a round of the review of the result, with its verdict of
@@ -289,9 +324,17 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
       // What the statement asks the record to name besides the commands, under Evidence: (D-166).
       const evidenceAt = blockAt(text, "Evidence");
       const evidence = (evidenceAt ?? []).map((b) => b.line.replace(/^-\s*/, "").trim());
+      // The tests of the records of fixes of the range, each run alone by done.mjs, "- file · name · passed"
+      // (field.task-result.fix-tests, D-187).
+      // ont: field.task-result.fix-tests
+      const fixTests = (blockLines(text, "Fix-tests") ?? []).map((l) => {
+        const parts = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
+        return { file: parts[0], test: parts.slice(1, -1).join(" · "), result: parts.at(-1) };
+      });
       const lim = recordLimits(field);
       const wrong = [
         ...lim.wrong,
+        ...fixTests.filter((t) => !t.file || !t.test || t.result !== "passed").map((t) => `the test of a fix "${[t.file, t.test].filter(Boolean).join(" · ")}" is not "file · name · passed"`),
         !task && "no task",
         task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
         !/^[0-9a-f]{40}$/.test(commit ?? "") && `commit ${commit ?? "(none)"} is not a full commit`,
@@ -310,7 +353,7 @@ export function parseTaskRecords(dir, { latinOnly = false } = {}) {
         // budget, held to the configuration's goals (goalLineOf, D-179); a record made before the line names none.
         const goal = field("Goal");
         if (goal !== null && !TASK_NAME.test(goal)) malformed.push(`${name}: goal ${goal} is not lower-case letters, digits and hyphens`);
-        else done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence, goal });
+        else done.push({ file: name, task, commit, statementHash: hash, time, checks, budget, evidence, goal, fixTests });
       }
     } else if (kind === "approval" && field("Kind") === "publish") {
       // The owner's permission to publish the work of a goal or of a task (D-185): no version, a scope.
@@ -440,6 +483,14 @@ export function fixesOf(text, name) {
     const [cls, file, test] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
     return { cls, file, test };
   });
+  // The one issue of verdicts after the narrow round, the classes of its table of findings, and the rare
+  // findings filed, "- class · limitation|later · file" (field.fixes-record.issue, D-187).
+  // ont: field.fixes-record.issue
+  const issueFindings = (blockLines(text, "Issue-findings") ?? []).map((l) => l.replace(/^-\s*/, "").trim()).filter(Boolean);
+  const filed = (blockLines(text, "Filed") ?? []).map((l) => {
+    const [cls, fix, file] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
+    return { cls, fix, file };
+  });
   const wrong = [
     !task && "no task",
     task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
@@ -451,10 +502,11 @@ export function fixesOf(text, name) {
     ...strays.map((l) => `the line "${l.trim()}" under Tests: is not "- class · file · name"`),
     issues > 1 && "Issue: given more than once",
     issue !== null && !/^[0-9a-fA-F]{7,40}$/.test(issue) && `issue ${issue || "(none)"} is not a commit of seven to forty hexadecimal characters`,
+    ...filed.filter((f) => !f.cls || !["limitation", "later"].includes(f.fix) || !f.file || !repoPath(f.file)).map((f) => `the filed line "${[f.cls, f.fix, f.file].filter(Boolean).join(" · ")}" is not "class · limitation or later · file"`),
     ...tests.filter((t) => !t.cls || !t.file || !t.test).map((t) => `the line "${[t.cls, t.file, t.test].filter(Boolean).join(" · ")}" is not "class · file · name"`),
     ...tests.filter((t) => t.file && !repoPath(t.file)).map((t) => `${t.file} is not a path of the repository`),
   ].filter(Boolean);
-  return { wrong, record: { file: name, task, round, time, tests, issue } };
+  return { wrong, record: { file: name, task, round, time, tests, issue, issueFindings, filed } };
 }
 
 // The rounds with the tests the records of fixes give (D-168): a finding fixable with no test of its own
@@ -717,7 +769,9 @@ export function fixesRange({ rounds, done = [], approvals = [], task, head = nul
   const { all, held, view } = resultWindow({ rounds, done, approvals, task });
   const last = all.at(-1);
   if (!last) return null;
-  const window = all.slice(all.findLastIndex((r) => r !== last && endsStep(r, held)) + 1);
+  // The window of the last round: the rounds after the end of the step before it (derived.step-end).
+  const before = stepEnds({ all, done: view.done, held }).filter((e) => e.time < last.time).at(-1);
+  const window = all.filter((r) => !before || r.time > before.time);
   const at = window.findIndex((r) => r.condition);
   if (at < 0 || at === window.length - 1) return null;
   if (endsStep(last, (r) => !endingWhy(r, { rounds, done, approvals, statement }))) return null;
@@ -727,6 +781,91 @@ export function fixesRange({ rounds, done = [], approvals = [], task, head = nul
   const ends = from ? (view.done.find((d) => d.time > last.time && !d.commit.startsWith(from) && ran(d)) ?? null) : null;
   return { task, c: window[at], narrow: last, from, acceptance: !last.acceptance ? "missing" : why ? "refused" : "held", why, done: ends, end: ends ? ends.commit : head };
 }
+// The ends of the step of the review of a task's result, in their order (derived.step-end, D-187): the one
+// function --task, done.mjs, the guard, the brief, the window of stagnation and the windows of the verdicts
+// of the record of a round read, through stepNext, fixesRange and roundWindow. From the start of the
+// window, or the end before, the step ends at the first of: a round that ended it, held by the records as
+// they were when it was given (endsStep); or, after a round C with Condition: holds and the narrow round
+// right after it that did not end it, the first record of done after that narrow round on another commit,
+// every check of it passed, which ends the range of fixes. The step's end is the last of them.
+// ont: derived.step-end
+export function stepEnds({ all, done = [], held = () => true }) {
+  const ends = [];
+  let from = null;
+  for (;;) {
+    const win = all.filter((r) => from === null || r.time > from);
+    if (!win.length) break;
+    const i = win.findIndex((r) => endsStep(r, held));
+    const c = win.findIndex((r) => r.condition);
+    let end = i >= 0 ? { kind: "round", time: win[i].time, commit: reviewedCommit(win[i]), file: win[i].file, round: win[i] } : null;
+    if (c >= 0 && c + 1 < win.length && (i < 0 || i > c + 1)) {
+      const n = win[c + 1];
+      const f = reviewedCommit(n);
+      const d = f ? done.filter((x) => x.time > n.time && !x.commit.startsWith(f) && x.checks.every((k) => k.result === "pass")).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file))[0] : null;
+      if (d && (!end || d.time < end.time)) end = { kind: "done", time: d.time, commit: d.commit, file: d.file, done: d, narrow: n };
+    }
+    if (!end) break;
+    ends.push(end);
+    from = end.time;
+  }
+  return ends;
+}
+// Whether a commit a record names is the commit of an end, either given in full or abbreviated.
+const sameCommit = (a, b) => Boolean(a && b) && (a.startsWith(b) || b.startsWith(a));
+// The end of the step of a task's result and the window that is open after it, or that the last end closed
+// (derived.step-end, rule.round-verdicts): the rounds after the end before the last one, up to that last end.
+export function roundWindow({ rounds, done = [], approvals = [], task }) {
+  const { all, held, view } = resultWindow({ rounds, done, approvals, task });
+  const ends = stepEnds({ all, done: view.done, held });
+  return { all, ends, end: ends.at(-1) ?? null, view };
+}
+
+// The checks of the record of a round (rule.round-verdicts, D-187), whose verdicts the reviewer of the next
+// round gives on the rounds before it in the open window of the step.
+export const ROUND_CHECKS = ["check.review-round.filed-right", "check.review-round.whole-class"];
+export const CAUSE_ROUND_CHECK = "check.review-round.redesign-after-stagnation";
+// The open window of a step of a task (rule.round-verdicts): its rounds after the end of the step, by
+// stepEnds for the result, by the last clean round for the statement, and after the owner's last approval;
+// from is the time it opens at, or null.
+export function openWindow({ rounds, done = [], approvals = [], task, step }) {
+  if (step === "result-review") {
+    const w = roundWindow({ rounds, done, approvals, task });
+    const from = w.end?.time ?? null;
+    return { rounds: w.all.filter((r) => from === null || r.time > from), from };
+  }
+  const since = ownerApprovals(approvals, task).map((a) => a.time).sort().at(-1) ?? null;
+  const of = ofTask(rounds, task, "statement-review").filter((r) => since === null || r.time > since);
+  const end = of.filter((r) => endsStep(r)).at(-1);
+  const from = [since, end?.time].filter(Boolean).sort().at(-1) ?? null;
+  return { rounds: of.filter((r) => from === null || r.time > from), from };
+}
+// A round with a finding of the change, filed or not, which the next round's verdicts of the record of a
+// round look back at.
+export const hasFindings = (r) => [...r.findings, ...(r.acceptance?.findings ?? [])].some((x) => x.ofChange);
+// The latest verdict of the analysis of the cause given for a round of the window, by time, when it is a
+// fail no later one decided: the next rounds of the step, or the one issue after the last narrow round, give
+// it again on the corrected analysis. A verdict counts only when a round of the window asked for it on its
+// line Round-checks: and it was given between that round's brief and its record, so that a verdict of
+// another task, or one given before the rule, when no round named the checks of the record of a round, is
+// read as before and asks nothing (rule.round-verdicts, D-187).
+export function failedCause(runs, windowRounds = []) {
+  const asked = windowRounds.filter((r) => r.briefTime && (r.roundChecks ?? []).includes(CAUSE_ROUND_CHECK));
+  const spanOf = (x) => asked.find((r) => x.time >= r.briefTime && x.time <= r.time);
+  const of = runs
+    .filter((x) => x.check === CAUSE_ROUND_CHECK && (x.verdict === "pass" || x.verdict === "fail") && spanOf(x))
+    .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
+  // A later pass decides the fail only when its round was briefed with another analysis, the corrected one:
+  // a pass on the same analysis is no evidence of a fix.
+  let failed = null;
+  for (const x of of) {
+    const cause = spanOf(x).cause ?? null;
+    if (x.verdict === "fail") failed = { run: x, cause };
+    else if (failed && cause && cause !== failed.cause) failed = null;
+  }
+  // With the hash of the analysis the failed verdict was given on, which the next brief may not give again.
+  return failed ? { ...failed.run, analysis: failed.cause } : null;
+}
+
 // Whether a record of done ran exactly the statement's commands of done, in their order (D-123).
 const sameCommands = (d, statement) => {
   const ran = d.checks.map((c) => c.command);
@@ -919,7 +1058,14 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   // The range of fixes after the narrow round, by the one function that reads it (D-164), its end before
   // done head, the working copy's HEAD, as for every other reader of it.
   const fixes = step === "result-review" ? fixesRange({ rounds, done, approvals, task, statement, head }) : null;
-  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, answered, fixes, gatesFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
+  // The ends of the step (derived.step-end, D-187): the window of the last round starts after the end before
+  // it, and a record of done of the window made after the last end on another commit is a new result,
+  // whose next action is one narrow round on it.
+  const seen = step === "result-review" ? byTime(of).filter((r) => since === null || r.time > since) : [];
+  const ends = step === "result-review" ? stepEnds({ all: seen, done: view.done, held }) : [];
+  const lastRound = seen.at(-1);
+  const windowFrom = step !== "result-review" ? undefined : lastRound ? (ends.filter((e) => e.time < lastRound.time).at(-1)?.time ?? null) : null;
+  const go = () => nextRound(of, { numbered: all, since, gateSince: ownerSince, held, gate: gates.notFixable, answered, fixes, gatesFrom, windowFrom, refused: (r) => endingWhy(r, { rounds, done, approvals, statement }) });
   if (gates.notFixable.length) return go();
   if (step === "statement-review") {
     const last = approvalEvents(rounds, task, approvals).at(-1);
@@ -933,6 +1079,12 @@ export function stepNext({ rounds, done = [], approvals = [], task, step, statem
   // the version the round read: no statement is given to it, so --task, with a file of a later version,
   // and --rounds, with none, find the same end of the step (D-152). Only the last round, which would end
   // the task now, is held to the file --task is given (D-123).
+  const end = ends.at(-1);
+  const fresh = end && !seen.some((r) => r.time > end.time) ? view.done.filter((d) => d.sinceVerdicts && d.time > end.time && !sameCommit(d.commit, end.commit)).sort((a, b) => a.time.localeCompare(b.time)).at(-1) : null;
+  if (fresh && !gates.notFixable.length) {
+    const number = Math.max(0, ...all.filter((r) => r.narrow).map((r) => r.number)) + 1;
+    return { next: "narrow", number, branch: "next round", newResult: fresh, say: `the record of done ${fresh.file}, of commit ${fresh.commit.slice(0, 7)}, is a new result after the end of the step at ${end.file}: narrow round ${number}, one round on it, whose clean verdict ends the step (derived.step-end)` };
+  }
   return go();
 }
 

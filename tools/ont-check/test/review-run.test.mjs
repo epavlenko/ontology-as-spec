@@ -269,7 +269,7 @@ test("[check.manual-run.performer] --review --record makes the directory of verd
       refused(`| ${one} | pass | | person |`, `${one}: performer person without the evidence that names the person`);
       const r = record([
         `| ${one} | pass | the log, kept outside |`,
-        `| ${two} | fail | the run of a librarian, Ann \\| her notes, kept outside | person |`,
+        `| ${two} | fail | [a refusal not explained] the run of a librarian, Ann \\| her notes, kept outside | person |`,
         `| ${three} | not run | no product to run |`,
         `| ${four} | not applicable | no screen |`,
         ...others,
@@ -280,7 +280,7 @@ test("[check.manual-run.performer] --review --record makes the directory of verd
       assert.equal(files.length, ids.length);
       const text = (id) => readFileSync(join(dir, "verify/runs", files.find((f) => f.includes(`-${id}-`))), "utf8");
       assert.match(text(one), /\nVerdict: pass\n[^]*\nPerformer: agent\n/);
-      assert.match(text(two), /\nVerdict: fail\n[^]*\nPerformer: person\nEvidence: the run of a librarian, Ann \| her notes, kept outside\n/);
+      assert.match(text(two), /\nVerdict: fail\n[^]*\nPerformer: person\nEvidence: \[a refusal not explained\] the run of a librarian, Ann \| her notes, kept outside\nClass: a refusal not explained\n/);
       assert.match(text(three), /\nVerdict: not-run\n/);
       assert.match(text(four), /\nVerdict: not-applicable\n/);
       assert.doesNotMatch(text(three), /Performer:/);
@@ -288,7 +288,7 @@ test("[check.manual-run.performer] --review --record makes the directory of verd
       // The records written are read back whole.
       const back = parseRuns(join(dir, "verify/runs"), new Set(ids));
       assert.deepEqual(back.malformed, []);
-      assert.equal(back.runs.find((x) => x.check === two).evidence, "the run of a librarian, Ann | her notes, kept outside");
+      assert.equal(back.runs.find((x) => x.check === two).evidence, "[a refusal not explained] the run of a librarian, Ann | her notes, kept outside");
     },
     { after: (dir) => writeFileSync(join(dir, "app/format.mjs"), "// ont: derived.overdue\nexport const pad = (s) => String(s).padStart(2, '0');\n") },
   );
@@ -299,8 +299,8 @@ test("[check.manual-run.performer] --review --record makes the directory of verd
   // Carried: a record --record wrote with Performer: person, and an earlier one without the line.
   const two = new Map(ids.slice(0, 2).map((id) => [id, c(id)]));
   const runs = [
-    { file: "r1.md", check: "check.a.one", stamp: "abcd1234", commit: "abc1234", performer: "person" },
-    { file: "r2.md", check: "check.a.two", stamp: "abcd1234", commit: "abc1234" },
+    { file: "r1.md", check: "check.a.one", stamp: "abcd1234", commit: "abc1234", performer: "person", verdict: "pass" },
+    { file: "r2.md", check: "check.a.two", stamp: "abcd1234", commit: "abc1234", verdict: "pass" },
   ];
   const carried = recordVerdicts({
     text: table(["| check.a.one | carried | r1.md · docs/a.md |", "| check.a.two | carried | r2.md · docs/a.md |"]),
@@ -313,7 +313,10 @@ test("[check.manual-run.performer] --review --record makes the directory of verd
   });
   assert.deepEqual(carried.problems, []);
   assert.equal(carried.carried, 2);
-  assert.equal(carried.records.length, 0);
+  // Each carry is a record of its own on the commit of the review, with the carried performer (D-187).
+  assert.equal(carried.records.length, 2);
+  assert.match(carried.records[0].text, /\nVerdict: pass\n[^]*\nPerformer: person\n[^]*\nCarried: r1\.md\n/);
+  assert.match(carried.records[1].text, /\nPerformer: agent\n[^]*\nCarried: r2\.md\n/);
   // A record whose performer is none of the four, one with a performer on a not-run, and one with
   // person and no evidence cannot be read; one without the line is read.
   const dir = mkdtempSync(join(tmpdir(), "ont-performer-"));

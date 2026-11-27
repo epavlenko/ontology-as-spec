@@ -109,7 +109,7 @@ export function parseRuns(dir, known, opts = {}) {
     const text = read(f);
     const pairs = text
       .split("\n")
-      .map((l) => l.match(/^(Seal|Check|Time|Commit|Stamp|Verdict|By|Performer|Evidence|Origin):\s*(.*?)\s*$/))
+      .map((l) => l.match(/^(Seal|Check|Time|Commit|Base|Stamp|Verdict|By|Performer|Evidence|Class|Carried|Origin):\s*(.*?)\s*$/))
       .filter(Boolean)
       .map((m) => [m[1].toLowerCase(), m[2].replace(/^`|`$/g, "")]);
     const fields = Object.fromEntries(pairs);
@@ -171,8 +171,22 @@ export const currentRun = (runs, id, stamp, held = () => false, fresh = () => tr
 // none of which may have changed since the record's commit (D-95); a `By:` line names the reviewer. A record is written for each new verdict and none for a carried one. The table is refused
 // whole when a check is not listed, is given twice, a listed check has neither, a carried record is
 // not of its check or not at its stamp now, or the check of errors in code is carried.
-// ont: action.record-verdicts
-const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
+// A fail names the classes of its findings, each in square brackets at the start of its evidence, which
+// the record keeps on Class:, separated by " · "; a not-run and a not-applicable give their reason in the
+// evidence; and a carry the table passes writes a record of its own on the commit of the review, with the
+// carried record's verdict and class and the file it carries on Carried:, so that a verdict of an earlier
+// result reaches that commit only by a carry checked here; and each record names on Base: the base of the
+// diff it was given on, so that the one issue after the narrow round is held only by verdicts given on its
+// own diff, from the narrow round's commit (D-187).
+// ont: action.record-verdicts, field.manual-run.class, field.manual-run.carried, field.manual-run.base
+export const CLASS_SEP = " · ";
+export const classesOf = (evidence) => {
+  const out = [];
+  let rest = String(evidence ?? "");
+  for (let m; (m = rest.match(/^\s*\[([^\]]+)\]/)); rest = rest.slice(m[0].length)) if (m[1].trim()) out.push(m[1].trim());
+  return out;
+};
+export const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
 // A cell of a row: anything but a pipe, an escaped one included; read without its escapes and backticks.
 const CELL = String.raw`(?:\\.|[^|\\])*?`;
 const cell = (x) => (x ?? "").replace(/\\\|/g, "|").replace(/^`|`$/g, "");
@@ -180,7 +194,7 @@ const cell = (x) => (x ?? "").replace(/\\\|/g, "|").replace(/^`|`$/g, "");
 // carried as a verdict of the reviewer only when its stamp is the check's, its commit is committed, and no
 // file outside the directories of records changed between it and the head of the review, nor differs in
 // the working copy; the files read are not asked for, since the rule is stricter than they are.
-export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], runFresh = () => "the run cannot be compared", source = "the table", latinOnly = false, unlisted = () => "" }) {
+export function recordVerdicts({ text, listed, runs, base = null, stamp, commit, now, changedSince = () => [], runFresh = () => "the run cannot be compared", source = "the table", latinOnly = false, unlisted = () => "" }) {
   // The reviewer is named on the By: line itself; a value on the next line is no value (D-151).
   const by = text.match(/^By:[ \t]*(\S.*?)[ \t]*$/m)?.[1];
   const lines = text.split("\n");
@@ -227,19 +241,24 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
         if (changed.length) problems.push(`${r.check}: carries ${file}, and ${changed.join(", ")} changed since its commit ${run.commit}`);
       }
     } else if (!VERDICTS.includes(r.verdict)) problems.push(`${r.check}: verdict ${r.verdict} is not one of ${[...VERDICTS, "carried"].join(", ")}`);
+    else if (r.verdict === "fail" && !classesOf(r.evidence).length) problems.push(`${r.check}: a fail names no class of its findings: begin its evidence with each class in square brackets, such as [missing test]`);
+    else if ((r.verdict === "not-run" || r.verdict === "not-applicable") && !r.evidence.trim()) problems.push(`${r.check}: a ${r.verdict} without its reason in the evidence`);
   }
   for (const id of listed.keys()) if (!seen.has(id)) problems.push(`${id}: listed, with neither a new verdict nor a carried one`);
   if (problems.length) return { problems, records: [], carried: 0 };
   const time = now.toISOString().replace(/\.\d{3}Z$/, "Z");
-  const records = rows
-    .filter((r) => r.verdict !== "carried")
-    .map((r) => {
-      const tail = createHash("sha256").update(`${r.check}|${time}|${by}`).digest("hex").replace(/[^a-z]/g, "").slice(0, 4).padEnd(4, "x");
-      return {
-        file: `${compact(time)}-${r.check}-${tail}.md`,
-        // Written with its seal and Origin: review (D-167, D-171).
-        text: sealed([`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${r.verdict}`, `By: ${by}`, ...(r.verdict === "pass" || r.verdict === "fail" ? [`Performer: ${r.performer || "agent"}`] : []), ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), "Origin: review", ""].join("\n")),
-      };
-    });
-  return { problems, records, carried: rows.length - records.length };
+  const records = rows.map((r) => {
+    const tail = createHash("sha256").update(`${r.check}|${time}|${by}`).digest("hex").replace(/[^a-z]/g, "").slice(0, 4).padEnd(4, "x");
+    // A carry: the verdict, the performer and the class of the record it carries (D-187).
+    const of = r.verdict === "carried" ? runs.find((x) => x.file === r.evidence.split("·")[0].trim()) : null;
+    const verdict = of ? of.verdict : r.verdict;
+    const performer = of ? of.performer : r.performer;
+    const cls = of ? (of.class ? of.class.split(CLASS_SEP) : []) : verdict === "fail" ? classesOf(r.evidence) : [];
+    return {
+      file: `${compact(time)}-${r.check}-${tail}.md`,
+      // Written with its seal and Origin: review (D-167, D-171).
+      text: sealed([`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, ...(base ? [`Base: ${base}`] : []), `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${verdict}`, `By: ${by}`, ...(verdict === "pass" || verdict === "fail" ? [`Performer: ${performer || "agent"}`] : []), ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), ...(cls.length ? [`Class: ${cls.join(CLASS_SEP)}`] : []), ...(of ? [`Carried: ${of.file}`] : []), "Origin: review", ""].join("\n")),
+    };
+  });
+  return { problems, records, carried: rows.filter((r) => r.verdict === "carried").length };
 }

@@ -8,9 +8,10 @@
 // first line holds both words, is not a verdict: judge() fails rather than guess.
 // ont: rule.judge-sees-the-check, rule.verdict-kept
 import { spawnSync } from "node:child_process";
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { extname, join } from "node:path";
-import { parseChecks, read } from "./lib.mjs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { gitEnv, parseChecks, read } from "./lib.mjs";
 
 export const judgePrompt = (check, output) =>
   [
@@ -105,4 +106,74 @@ export function judge({
   const word = verdictOf(verdict);
   if (!word) throw new Error(`the judge did not answer with PASS or FAIL first: ${verdict.split("\n")[0]}`);
   return { pass: word === "PASS", verdict };
+}
+
+// The judged command (field.test-suite.judged-command, answer 1042 b, D-187): `npm run --silent
+// test:judged` runs the judged suite with the judge JUDGE names, and fails when JUDGE is not set, when
+// JUDGE_VERDICTS, or for a suite with judged checks of views JUDGE_SCREENS, is not set or is inside the
+// repository, when a test is skipped or marked todo, and when one does not pass. CI does not run it, and
+// npm test no longer runs the judged suite: the executor runs it on changes that touch what it judges and
+// before a release.
+//   node tools/ont-check/judge.mjs --suite example/judged
+// ont: field.test-suite.judged-command
+export function judgedRunProblems({ env = process.env, root, files, screens }) {
+  // Inside the repository by the real paths, symbolic links followed, of the path's deepest existing
+  // directory and of the root, and by whole parts of the path, so that "..evidence" is a name in it.
+  const real = (p) => {
+    let at = resolve(root, p);
+    const rest = [];
+    while (!existsSync(at) && dirname(at) !== at) {
+      rest.unshift(basename(at));
+      at = dirname(at);
+    }
+    return join(realpathSync(at), ...rest);
+  };
+  const inside = (p) => {
+    const rel = relative(realpathSync(resolve(root)), real(p));
+    return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+  };
+  const wrong = [];
+  if (!env.JUDGE) wrong.push("JUDGE is not set: set it to the command of the judge, which reads a prompt on stdin");
+  for (const [k, need] of [["JUDGE_VERDICTS", true], ["JUDGE_SCREENS", screens]]) {
+    if (!need) continue;
+    if (!env[k]) wrong.push(`${k} is not set: set it to a directory outside the repository`);
+    else if (inside(env[k])) wrong.push(`${k} is ${env[k]}, inside the repository: the verdicts and screens are kept outside it`);
+  }
+  if (!files.length) wrong.push("the judged suite has no file");
+  return wrong;
+}
+// The tests a TAP report of node --test failed, skipped or left todo, and how many passed.
+export function judgedReport(tap) {
+  const lines = tap.split("\n").map((l) => l.trim()).filter((l) => /^(not )?ok \d+ - /.test(l));
+  return {
+    failed: lines.filter((l) => l.startsWith("not ok")),
+    skipped: lines.filter((l) => /#\s*(SKIP|TODO)\b/i.test(l)),
+    passed: lines.filter((l) => l.startsWith("ok") && !/#\s*(SKIP|TODO)\b/i.test(l)).length,
+  };
+}
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const at = process.argv.indexOf("--suite");
+  const dir = at > 0 ? process.argv[at + 1] : null;
+  if (!dir || !existsSync(dir)) {
+    console.log(`ERROR · give the judged suite with --suite DIR: ${dir ?? "(none)"} is no directory`);
+    process.exit(2);
+  }
+  const root = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", env: gitEnv() }).stdout?.trim() || process.cwd();
+  const files = readdirSync(dir).filter((f) => f.endsWith(".judged.mjs")).sort().map((f) => join(dir, f));
+  const screens = files.some((f) => /\bJUDGE_SCREENS\b/.test(read(f)));
+  const wrong = judgedRunProblems({ root, files, screens });
+  if (wrong.length) {
+    console.log(`ERROR · the judged tests do not run (${wrong.length}):\n${wrong.map((w) => `  ${w}`).join("\n")}`);
+    process.exit(1);
+  }
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  const r = spawnSync(process.execPath, ["--test", "--test-reporter=tap", ...files], { encoding: "utf8", env, maxBuffer: 1 << 26 });
+  const rep = judgedReport(r.stdout ?? "");
+  const problems = [...rep.failed.map((l) => `failed: ${l}`), ...rep.skipped.map((l) => `skipped or todo: ${l}`), ...(r.status !== 0 && !rep.failed.length ? [`node --test ended with ${r.status}: ${(r.stderr ?? "").trim().split("\n").slice(-3).join(" / ")}`] : []), ...(!rep.passed ? ["no judged test passed"] : [])];
+  if (problems.length) {
+    console.log(`ERROR · the judged tests (${problems.length}):\n${problems.map((p) => `  ${p}`).join("\n")}`);
+    process.exit(1);
+  }
+  console.log(`JUDGED ${rep.passed} passed in ${files.length} files, none skipped`);
 }

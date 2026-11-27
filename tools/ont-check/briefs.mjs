@@ -12,9 +12,10 @@ import { gitEnv } from "./lib.mjs";
 // round.mjs record takes from the brief (D-172), and the statement's limits and reserve, each a number or
 // none, which it takes with it (D-174); Gate-paths: only for a round of the review of a statement that has
 // them, which record carries into the round (D-185); Done: only for a round of the review of the result;
-// Cause: only for a round briefed after stagnation, the SHA-256 of the analysis of the cause (D-183).
+// Cause: only for a round briefed after stagnation, the SHA-256 of the analysis of the cause (D-183);
+// Round-checks: the checks of the record of a round whose verdicts the round needs (rule.round-verdicts, D-187).
 export const BRIEF_BUDGET = ["Budget-new-input", "Budget-output", "Budget-reserve"];
-export const BRIEF_FIELDS = ["Task", "Step", "Narrow", "Number", "Statement-hash", "Goal", ...BRIEF_BUDGET, "Gate-paths", "Commits", "Done", "Cause", "Brief-time"];
+export const BRIEF_FIELDS = ["Task", "Step", "Narrow", "Number", "Statement-hash", "Goal", ...BRIEF_BUDGET, "Gate-paths", "Commits", "Done", "Cause", "Round-checks", "Brief-time"];
 
 // The directory of the briefs: ont-briefs/ under git rev-parse --git-dir, or null outside Git.
 export function briefsDir(base) {
