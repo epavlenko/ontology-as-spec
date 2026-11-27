@@ -836,10 +836,19 @@ export const hasFindings = (r) => [...r.findings, ...(r.acceptance?.findings ?? 
 // read as before and asks nothing (rule.round-verdicts, D-186).
 export function failedCause(runs, windowRounds = []) {
   const asked = windowRounds.filter((r) => r.briefTime && (r.roundChecks ?? []).includes(CAUSE_ROUND_CHECK));
+  const spanOf = (x) => asked.find((r) => x.time >= r.briefTime && x.time <= r.time);
   const of = runs
-    .filter((x) => x.check === CAUSE_ROUND_CHECK && (x.verdict === "pass" || x.verdict === "fail") && asked.some((r) => x.time >= r.briefTime && x.time <= r.time))
+    .filter((x) => x.check === CAUSE_ROUND_CHECK && (x.verdict === "pass" || x.verdict === "fail") && spanOf(x))
     .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
-  return of.at(-1)?.verdict === "fail" ? of.at(-1) : null;
+  // A later pass decides the fail only when its round was briefed with another analysis, the corrected one:
+  // a pass on the same analysis is no evidence of a fix.
+  let failed = null;
+  for (const x of of) {
+    const cause = spanOf(x).cause ?? null;
+    if (x.verdict === "fail") failed = { run: x, cause };
+    else if (failed && cause && cause !== failed.cause) failed = null;
+  }
+  return failed?.run ?? null;
 }
 
 // Whether a record of done ran exactly the statement's commands of done, in their order (D-123).

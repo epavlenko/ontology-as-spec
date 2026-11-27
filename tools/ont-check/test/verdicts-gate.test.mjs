@@ -1091,3 +1091,46 @@ test("[check.merge-gate.issue-usual-path] an empty list of the issue, without a 
     assert.deepEqual(g.codes, [], g.out);
   }
 });
+
+test("[check.merge-gate.round-verdicts-held] a pass on the same analysis does not decide a failed one: the next brief still asks the corrected analysis; and at the merge a pass outside the rounds counts only from the one issue, on its own diff", () => {
+  // The brief: a fail on analysis A, then a round briefed with A again whose pass is given; its findings
+  // are nits alone, so no stagnation asks --cause, and the failed analysis still does.
+  {
+    const { p, st } = approved();
+    reviewed(p, st);
+    withFinding(p, st);
+    withFinding(p, st);
+    const a = writeFile("The cause is the test.\n");
+    resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: not yet\nAcceptance: clean", "a slip · usual path: the work\n", { extra: ["--cause", a], given: { [CAUSE]: ["fail", "[a cause not named] the analysis names no cause"] } });
+    work(p, "export const second = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    resultRound(p, st, "By: m (p)\n\n| a typo | nit | change |\n\nCondition: not yet\nAcceptance: clean", "a typo · usual path: the work\n", { extra: ["--cause", a] });
+    work(p, "export const third = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+    assert.notEqual(b.code, 0, b.out);
+    assert.match(b.out, /failed in this step and no later pass decided it/);
+  }
+  // The merge: after the last narrow round, a pass naming a corrected analysis given on another diff of the
+  // commit of the issue is no pass of the issue; the issue's own verdict is a not-run: VERDICT_FAILED.
+  {
+    const { p, st } = approved();
+    reviewed(p, st);
+    withFinding(p, st);
+    resultRound(p, st, "By: m (p)\n\n| a gap | important | change |\n\nCondition: holds\nAcceptance: clean", "a gap · usual path: the work\n");
+    work(p, "export const afterC = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: holds\nAcceptance: clean", "a slip · usual path: the work\n", { extra: ["--cause", writeFile("The cause is the test.\n")], given: { [CAUSE]: ["fail", "[a cause not named] the analysis names no cause"] } });
+    work(p, "export const slipFixed = 1;\n");
+    const other = p.verdicts("main", { [CAUSE]: ["pass", `the analysis ${sha256("A corrected analysis.\n")} names the cause`] });
+    assert.equal(other.code, 0, other.out);
+    issue(p, st, narrowCommit(p), { given: { [CAUSE]: ["not run", "the reviewer of the issue was given no analysis"] } });
+    recordDone(p, st);
+    p.commit("done ends the range");
+    const g = p.gate();
+    assert.ok(g.codes.includes("VERDICT_FAILED") && /no later pass in the window was given on a corrected analysis/.test(g.out), g.out);
+  }
+});

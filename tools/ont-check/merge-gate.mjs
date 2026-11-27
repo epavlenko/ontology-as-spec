@@ -603,7 +603,10 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
   };
   hold.failsOn = (c) => fails.has(c);
   hold.root = at.root;
-  problems.push(...roundVerdictProblems({ inputs, task, runs, ctx: ctxOf(end, null) }));
+  // The one issue the latest record of fixes of the range names, for a pass of the analysis given there.
+  const named = fixes.filter((f) => f.issue).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1);
+  const ofIssue = (x) => Boolean(range && named && resolve(x.commit) && resolve(x.commit) === resolve(named.issue) && x.base && resolve(x.base) === resolve(range.from));
+  problems.push(...roundVerdictProblems({ inputs, task, runs, ctx: ctxOf(end, null), ofIssue }));
   const from = mergeBase(top, b, end);
   if (!from) return [{ code: "VERDICT_MISSING", why: `the checked commit ${end.slice(0, 12)} and the base have no common commit` }];
   const list = changeList({ cfg, top, commit: end, from, tmp: join(tmp, "lists") });
@@ -621,7 +624,7 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
 // only by a later pass of that check on a corrected analysis, of a round whose Cause: is another, or of the
 // one issue, whose record names the hash of the corrected analysis. A round with no Round-checks:, recorded
 // before the rule, is read as before.
-function roundVerdictProblems({ inputs, task, runs, ctx }) {
+function roundVerdictProblems({ inputs, task, runs, ctx, ofIssue = () => false }) {
   const w = roundWindow({ rounds: inputs.rounds, done: inputs.records.done, approvals: inputs.records.approvals, task });
   const closing = w.end;
   const before = w.ends.at(-2);
@@ -646,7 +649,8 @@ function roundVerdictProblems({ inputs, task, runs, ctx }) {
         const corrected = runs.some((x) => x.check === id && x.verdict === "pass" && x.time > v.time && x.time <= until && (() => {
           const of = spanOf(x);
           if (of) return Boolean(of.cause) && of.cause !== r.cause;
-          return [...String(x.evidence ?? "").matchAll(/\b[0-9a-f]{64}\b/g)].some((m) => m[0] !== r.cause);
+          // Outside a round, only a record of the one issue the record of fixes names, given on its own diff.
+          return ofIssue(x) && [...String(x.evidence ?? "").matchAll(/\b[0-9a-f]{64}\b/g)].some((m) => m[0] !== r.cause);
         })());
         if (!corrected) problems.push({ code: "VERDICT_FAILED", why: `${id}: ${v.file} failed the analysis of the cause of ${r.file}, and no later pass in the window was given on a corrected analysis` });
         continue;
