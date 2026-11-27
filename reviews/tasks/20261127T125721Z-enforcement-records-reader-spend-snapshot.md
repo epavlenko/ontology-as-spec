@@ -1,0 +1,24 @@
+Seal: v1 7da7a653a2c1b12c4dbdae9a929aa6ff9d98807a04c73d40773aec5b05d3d454
+Record: spend-snapshot
+Task: enforcement-records-reader
+Unit: enforcement-records-reader
+Round: 20261127T125721Z-enforcement-records-reader-result-3.md
+Time: 2026-11-27T12:57:21Z
+Unit-start: 2026-11-27T03:55:02Z
+Unit-new: 11583855
+Unit-cached: 649141898
+Unit-out: 659843
+Task-new: 11583855
+Task-cached: 649141898
+Task-out: 659843
+Round-new: 147602
+Round-cached: 3949470
+Round-out: 19969
+Unit-limit-new: 15000000
+Unit-limit-out: 1200000
+Unit-reserve: 1.5
+Unit-statement-hash: 273f8ba1f31e5ef8322613a881456892d8fba1cb4779815162c9b299fab8ece7
+Task-limit-new: 15000000
+Task-limit-out: 1200000
+Task-reserve: 1.5
+Task-statement-hash: 273f8ba1f31e5ef8322613a881456892d8fba1cb4779815162c9b299fab8ece7
