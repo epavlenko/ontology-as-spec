@@ -16,7 +16,7 @@ import { guard, localRecordNotes } from "../merge-gate.mjs";
 import { nextRound, parseRounds, stepPayoff } from "../review-rounds.mjs";
 import { sealState, sealed } from "../seal.mjs";
 import { logSpend, overspendOf, roundSpend, snapshotSpend } from "../spend.mjs";
-import { applyFixes, approvedHash, goalLineOf, readStatement, readTaskInputs, sha256, snapshotOverspendProblems, spendOf, taskNext, taskState, versionInForce, versionLimits } from "../tasks.mjs";
+import { applyFixes, approvedHash, goalLineOf, parseTaskRecords, readStatement, readTaskInputs, sha256, snapshotOverspendProblems, spendOf, taskNext, taskState, versionInForce, versionLimits } from "../tasks.mjs";
 
 const TOP = fileURLToPath(new URL("../../../", import.meta.url));
 const TOOLS = join(TOP, "tools/ont-check");
@@ -1654,4 +1654,110 @@ test("[check.process-record.usual-path] rounds, a verdict, done, the owner's app
   assert.equal(after.code, 0, after.out);
   assert.doesNotMatch(after.out, /records of the process with no valid seal/);
   assert.equal(inputsOf(p).records.gateProofs.length, 1);
+});
+
+// ── Forms of records the next writer writes (D-186) ──────────────────────────────────────────────
+
+const ROUND_CHECKS = "Round-checks: check.review-round.filed-right, check.review-round.whole-class";
+const withRoundChecks = (text) => text.replace(/\n$/, `\n${ROUND_CHECKS}\n`);
+test("[check.review-round.round-checks-read] a round of the statement with Round-checks:, as the writer of task enforcement-verdicts-tests writes it, approves its version and blocks no task; without a seal after the start of seals the guard refuses it, SEAL_MISSING", () => {
+  const p = project({ fromLogs: false });
+  const st = statement();
+  p.put("reviews/rounds/20261101T100000Z-t-statement-1.md", withRoundChecks(cleanStatementRound("t", st.hash, at(0))));
+  p.commit("a round with Round-checks:");
+  const inputs = inputsOf(p);
+  assert.deepEqual(inputs.malformed, []);
+  assert.deepEqual(inputs.rounds[0].roundChecks, ["check.review-round.filed-right", "check.review-round.whole-class"]);
+  assert.equal(approvedHash(inputs.rounds, "t", null, inputs.records.approvals), st.hash);
+  const next = p.tool("ont-check.mjs", ["--task", "t", "--statement", st.file]);
+  assert.match(next.out, /^NEXT t: the executor works under version/m, next.out);
+  const rounds = p.tool("ont-check.mjs", ["--rounds"]);
+  assert.equal(rounds.code, 0, rounds.out);
+  assert.match(rounds.out, /^NEXT t: /m, rounds.out);
+  assert.doesNotMatch(rounds.out, /records that cannot be read|BLOCKED|correct the records/, rounds.out);
+  // After the start of seals, the same round unsealed is refused by the guard, as any record; sealed it passes.
+  const r = gateRepo();
+  const base = r.bringKey(at(0));
+  const bare = r.pr(base, [(q) => q.put("reviews/rounds/x-t-statement-2.md", withRoundChecks(cleanStatementRound("t", sha256("b"), later(), 2)))]);
+  assert.deepEqual(guard({ cfg: r.config(), base: bare.base, head: bare.head }).records.map((x) => x.code), ["SEAL_MISSING"]);
+  const ok = r.pr(base, [(q) => q.put("reviews/rounds/x-t-statement-3.md", sealed(withRoundChecks(cleanStatementRound("t", sha256("c"), later(), 3))))]);
+  assert.deepEqual(guard({ cfg: r.config(), base: ok.base, head: ok.head }).records, []);
+});
+
+const fixesRecord = (lines) => ["Record: fixes", "Task: t", "Round: 20261101T103000Z-t-result-1.md", `Time: ${at(40)}`, ...lines, ""].join("\n");
+test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests, as the writer of task enforcement-verdicts-tests writes it, and one with Issue: and valid tests are read, the tests reaching their round; Issue: that is no commit, neither, and a valid issue beside a wrong line of a test are not", () => {
+  const { p, st } = approved();
+  const c1 = p.git("rev-parse", "HEAD");
+  doneRecord(p, c1, st, at(10));
+  p.put("reviews/rounds/20261101T103000Z-t-result-1.md", resultRound({ st, commit: c1, time: at(30), findings: ["- a bug · important · change · fixable"], acceptance: null }));
+  p.put("tests/a.test.mjs", "test('holds the bug', () => {});\n");
+  p.commit();
+  const read = (name, lines) => {
+    rmSync(join(p.dir, "reviews/tasks"), { recursive: true, force: true });
+    p.put(`reviews/tasks/${name}`, fixesRecord(lines));
+    return inputsOf(p);
+  };
+  const issueOnly = read("20261101T104000Z-t-fixes.md", [`Issue: ${c1}`, "Issue-findings:", "- a stale line", "Filed:", "- a slip · later · issues/0001-a-slip.md"]);
+  assert.deepEqual(issueOnly.malformed, []);
+  assert.equal(issueOnly.records.fixes[0].issue, c1);
+  // A bullet with a tab after its marker, as the reader of records has always read it, is still a test.
+  const tab = read("20261101T104000Z-t-fixes.md", ["Tests:", "-\ta bug · tests/a.test.mjs · holds the bug"]);
+  assert.deepEqual(tab.malformed, []);
+  assert.equal(tab.records.fixes[0].tests[0].test, "holds the bug");
+  // A commit in capitals is a commit of seven to forty hexadecimal characters too.
+  assert.deepEqual(read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7).toUpperCase()}`, "Issue-findings:", "- a stale line"]).malformed, []);
+  const mixed = read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7)}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug"]);
+  assert.deepEqual(mixed.malformed, []);
+  assert.equal(mixed.rounds.find((x) => x.file === "20261101T103000Z-t-result-1.md").findings[0].test, "tests/a.test.mjs · holds the bug");
+  for (const [lines, why] of [
+    [["Issue: not-a-commit"], /issue not-a-commit is not a commit/],
+    [[], /no line under Tests:/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs"], /under Tests: is not "- class · file · name"/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · ../outside.mjs · holds the bug"], /is not a path of the repository/],
+    // A line under Tests: that is no bullet, alone or after a valid one, is refused beside a valid issue.
+    [[`Issue: ${c1}`, "Tests:", "a bug tests/a.test.mjs holds the bug"], /is not a line of a record of fixes/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "not a line of a test"], /is not a line of a record of fixes/],
+    // Every value of Tests: is read by one grammar: a second header, a line after a blank, a value inline.
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "Tests:", "- a bug · tests/a.test.mjs"], /Tests: given more than once/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "", "not a line of a test"], /is not a line of a record of fixes/],
+    [[`Issue: ${c1}`, "Tests: a bug · tests/a.test.mjs"], /is not a line of a record of fixes/],
+    // The forms of rounds 1 to 3, each refused by the closed grammar, Issue: or not: a line of the form of a
+    // field inside the block, one of the form of a heading, and Issue: or Tests: in a section of notes.
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "Note: a field inside the block"], /is not a line of a record of fixes/],
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug", "# a heading"], /is not a line of a record of fixes/],
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug", "## Notes", "Issue: abcdef1"], /is not a line of a record of fixes/],
+    [[`Issue: ${c1}`, "Issue-findings:", "- a stale line", "## Notes", "Tests: used a local fixture"], /is not a line of a record of fixes/],
+    // A line of a test is exactly class · file · name: a fourth field is refused, Issue: or not.
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug · extra"], /under Tests: is not "- class · file · name"/],
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug · extra"], /under Tests: is not "- class · file · name"/],
+    // The blocks of the one issue only with Issue:, and a filing only a limitation or for later.
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug", "Issue-findings:", "- a stale line"], /Issue-findings: is given without Issue:/],
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug", "Filed:", "- a slip · later · issues/0001-a-slip.md"], /Filed: is given without Issue:/],
+    [[`Issue: ${c1}`, "Filed:", "- a slip · fixed · issues/0001-a-slip.md"], /is fixed, not limitation or later/],
+    // A second Issue: that is no commit is refused, whatever the first.
+    [[`Issue: ${c1}`, "Issue: not-a-commit", "Tests:", "- a bug · tests/a.test.mjs · holds the bug"], /Issue: given more than once/],
+  ]) {
+    const r = read("20261101T104000Z-t-fixes.md", lines);
+    assert.match(r.records.malformed.join("\n"), why, lines.join(" / "));
+    assert.equal(r.records.fixes.length, 0);
+  }
+});
+
+test("[check.fixes-record.issue-read] the definition of a record of fixes, in the ontology and in the generated contract, names both forms: its tests, and the one issue with or without tests", () => {
+  const row = readFileSync(join(TOP, "ontology.md"), "utf8").split("\n").find((l) => /^\|[^|]*\|\s*`ent\.fixes-record`\s*\|/.test(l));
+  assert.ok(row, "the row of ent.fixes-record");
+  assert.match(row, /the tests that hold them, or the one issue of verdicts after the narrow round \(`field\.fixes-record\.issue`\) with or without tests, never neither/);
+  assert.match(row, /`Tests:` is required unless a valid `Issue:` is given, `Issue-findings:` and `Filed:` are given only with `Issue:`/);
+  const schema = readFileSync(join(TOP, "contracts/approach.schema.json"), "utf8");
+  assert.match(schema, /the tests that hold them, or the one issue of verdicts after the narrow round \(field\.fixes-record\.issue\) with or without tests, never neither/);
+  assert.match(schema, /Tests: is required unless a valid Issue: is given/);
+});
+
+test("[check.fixes-record.issue-read] every record of fixes of the repository, those of main and those of this task, reads by the closed grammar", () => {
+  const dir = join(TOP, "reviews/tasks");
+  const files = readdirSync(dir).filter((f) => /-fixes(-\d+)?\.md$/.test(f));
+  assert.ok(files.length >= 7, files.join(", "));
+  const { fixes, malformed } = parseTaskRecords(dir, { latinOnly: true });
+  assert.deepEqual(malformed.filter((m) => /-fixes(-\d+)?\.md:/.test(m)), []);
+  assert.equal(fixes.length, files.length);
 });

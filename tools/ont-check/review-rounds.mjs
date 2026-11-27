@@ -12,7 +12,7 @@ export const STEPS = ["statement-review", "result-review"];
 // Seal:, Brief-time:, Done:, Spend-record: and Cause: are written by round.mjs record (D-167, D-183, D-169):
 // Cause: is the SHA-256 of the analysis of the cause a round briefed after stagnation was given (D-182);
 // Gate-paths:, the statement's gate paths on a round of its review, from the brief (D-185).
-const FIELDS = ["Seal", "Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "Done", "By", "Contribution", "Statement-hash", "Gate-paths", "Brief-time", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Spend-record", "Overspend", "Condition", "Cause"];
+const FIELDS = ["Seal", "Task", "Step", "Narrow", "Number", "Ceiling", "Start", "Time", "Commits", "Done", "By", "Contribution", "Statement-hash", "Gate-paths", "Brief-time", "Tokens-new", "Tokens-cached", "Tokens-out", "Checks-listed", "Checks-given", "Checks-carried", "Runs", "Spend-record", "Overspend", "Condition", "Cause", "Round-checks"];
 const COUNTS = ["number", "ceiling", "tokens-new", "tokens-cached", "tokens-out", "checks-listed", "checks-given", "checks-carried"];
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 // A time is real when it reads back as itself: 2026-99-99T99:99:99Z has the shape and is no time.
@@ -197,6 +197,9 @@ export function parseRounds(dir, opts = {}) {
       ...acceptAt.flatMap((x, i) => x.wrong.map((w) => `acceptance finding ${i + 1}, line ${x.n}: ${w}`)),
       // An item of the approved statement that is not met is not put off (rule.findings-filed).
       ...acceptAt.filter((x) => x.filed).map((x) => `acceptance finding ${acceptAt.indexOf(x) + 1}, line ${x.n}: ${x.filed} in a verdict of acceptance, where an item of the approved statement not met is not put off`),
+      // Round-checks: a list of IDs of checks apart by ", ", never empty, with no empty item, each an ID the
+      // catalogue reads, by the pattern of parseChecks in lib.mjs (D-186).
+      ...rec.pairs.filter(([k]) => k === "round-checks").map(([, v]) => !/^check\.[a-z0-9-]+(?:\.[a-z0-9-]+)*(?:, check\.[a-z0-9-]+(?:\.[a-z0-9-]+)*)*$/.test(v) && `Round-checks: ${v || "(none)"} is not a list of IDs of checks apart by ", "`),
       ...outsideRecord(text, 1, opts),
     ].filter(Boolean);
     const name = basename(f);
@@ -228,6 +231,10 @@ export function parseRounds(dir, opts = {}) {
       // The gate paths of the version the round read, apart by ", " (field.review-round.gate-paths, D-185).
       gatePaths: fields["gate-paths"] === undefined ? null : [...new Set(fields["gate-paths"].split(/[\s,]+/).filter(Boolean))],
       cause: fields.cause ?? null,
+      // The checks of the record of a round its brief named, read before their writer is merged, and given
+      // with the other fields; nothing here decides by them (field.review-round.round-checks, D-186).
+      // ont: field.review-round.round-checks
+      roundChecks: fields["round-checks"] ? fields["round-checks"].split(",").map((x) => x.trim()).filter(Boolean) : [],
     });
   }
   const seen = new Map();

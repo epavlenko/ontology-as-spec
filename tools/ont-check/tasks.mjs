@@ -418,28 +418,64 @@ export function snapshotOf(text, name) {
   };
 }
 
-// A record of the tests of the fixes of a round (D-168): Record: fixes, the round's file on Round:, and
-// under Tests: one line for each class of a finding of that round, word for word, with the test that
-// holds its fix, "- class · file · name". The record of the round is not changed: the reader of rounds
-// takes the test of a finding from here when the round's record gives none (applyFixes).
-// ont: ent.fixes-record, field.fixes-record.round, field.fixes-record.tests, edge.fixes-record.round
+// A record of fixes has a closed grammar, the one its writers emit (rule.records-by-tool, D-186): an
+// optional first line Seal:, then lines of fields of a known set, each at most once, Record:, Task:, Round:,
+// Time: and Issue:, then blocks of a known set, each at most once, its name alone on a line and one line
+// "- …" or more under it, a space or a tab after the marker: Tests:, "- class · file · name", and those the
+// writer of task enforcement-verdicts-tests adds, Issue-findings:, "- class", and Filed:, "- class ·
+// limitation or later · file"; blank lines only at its end. Any other line, a heading, a section of notes,
+// an unknown field, a block given twice, a value on a block's own line, a line of another form, is refused,
+// Issue: or not; a record holds valid tests, a valid issue or both, never neither.
+// ont: ent.fixes-record, field.fixes-record.round, field.fixes-record.tests, field.fixes-record.issue, edge.fixes-record.round
+const FIXES_FIELDS = ["Record", "Task", "Round", "Time", "Issue"];
+const FIXES_BLOCKS = { Tests: 3, "Issue-findings": 1, Filed: 3 };
 export function fixesOf(text, name) {
-  const [task, round, time] = ["Task", "Round", "Time"].map((k) => lineOf(text, k));
-  const tests = (blockLines(text, "Tests") ?? []).map((l) => {
-    const [cls, file, test] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
-    return { cls, file, test };
-  });
-  const wrong = [
-    !task && "no task",
-    task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
-    !round && "no round: the file of the round whose findings it tests",
-    round && !/^[^/\\]+\.md$/.test(round) && `round ${round} is not the file name of a record of a round`,
-    !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
-    !tests.length && "no line under Tests:",
-    ...tests.filter((t) => !t.cls || !t.file || !t.test).map((t) => `the line "${[t.cls, t.file, t.test].filter(Boolean).join(" · ")}" is not "class · file · name"`),
-    ...tests.filter((t) => t.file && !repoPath(t.file)).map((t) => `${t.file} is not a path of the repository`),
-  ].filter(Boolean);
-  return { wrong, record: { file: name, task, round, time, tests } };
+  const lines = text.replace(/\n+$/, "").split("\n");
+  const wrong = [];
+  const fields = {};
+  const blocks = {};
+  let i = /^Seal:/.test(lines[0] ?? "") ? 1 : 0;
+  for (; i < lines.length; i++) {
+    const m = lines[i].match(/^([A-Za-z][A-Za-z-]*):[ \t]*(.*?)\s*$/);
+    if (!m || !FIXES_FIELDS.includes(m[1])) break;
+    if (m[1] in fields) wrong.push(`line ${i + 1}: ${m[1]}: given more than once`);
+    else fields[m[1]] = m[2];
+  }
+  let open = null;
+  for (; i < lines.length; i++) {
+    const l = lines[i];
+    const head = l.match(/^([A-Za-z][A-Za-z-]*):(.*)$/);
+    if (head && head[1] in FIXES_BLOCKS && !head[2].trim()) {
+      if (head[1] in blocks) wrong.push(`line ${i + 1}: ${head[1]}: given more than once`);
+      open = head[1];
+      blocks[open] = blocks[open] ?? [];
+    } else if (open && /^-[ \t]/.test(l)) {
+      const parts = l.replace(/^-[ \t]+/, "").split(" · ").map((x) => x.trim());
+      if (parts.length !== FIXES_BLOCKS[open] || parts.some((x) => !x)) wrong.push(`line ${i + 1}: "${l.trim()}" under ${open}: is not ${open === "Tests" ? '"- class · file · name"' : open === "Filed" ? '"- class · limitation or later · file"' : '"- class"'}`);
+      else blocks[open].push(parts);
+    } else wrong.push(`line ${i + 1}: "${l.trim()}" is not a line of a record of fixes: a field of ${FIXES_FIELDS.join(", ")}, a block ${Object.keys(FIXES_BLOCKS).join(", ")} or a line "- …" under one`);
+  }
+  for (const [b, entries] of Object.entries(blocks)) if (!entries.length) wrong.push(`${b}: has no line under it`);
+  const { Task: task = null, Round: round = null, Time: time = null, Issue: issue = null } = fields;
+  const tests = (blocks.Tests ?? []).map(([cls, file, test]) => ({ cls, file, test }));
+  wrong.push(
+    ...[
+      fields.Record !== "fixes" && `Record: ${fields.Record ?? "(none)"} is not fixes`,
+      !task && "no task",
+      task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
+      !round && "no round: the file of the round whose findings it tests",
+      round && !/^[^/\\]+\.md$/.test(round) && `round ${round} is not the file name of a record of a round`,
+      !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
+      !tests.length && issue === null && "no line under Tests:",
+      issue !== null && !/^[0-9a-fA-F]{7,40}$/.test(issue) && `issue ${issue || "(none)"} is not a commit of seven to forty hexadecimal characters`,
+      ...tests.filter((t) => !repoPath(t.file)).map((t) => `${t.file} is not a path of the repository`),
+      // The blocks of the one issue come only with Issue:, as their writer emits them, and a filing is a
+      // limitation or for later (D-186).
+      ...["Issue-findings", "Filed"].filter((b) => b in blocks && issue === null).map((b) => `${b}: is given without Issue:`),
+      ...(blocks.Filed ?? []).filter(([, fix]) => !["limitation", "later"].includes(fix)).map(([cls, fix]) => `the filed line of ${cls} is ${fix}, not limitation or later`),
+    ].filter(Boolean),
+  );
+  return { wrong, record: { file: name, task, round, time, tests, issue } };
 }
 
 // The rounds with the tests the records of fixes give (D-168): a finding fixable with no test of its own
