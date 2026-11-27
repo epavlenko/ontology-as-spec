@@ -1051,6 +1051,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | ID | Implemented in | Note |
 | -- | -------------- | ---- |
 | `ent.fixes-record`, `field.fixes-record.round`, `field.fixes-record.tests`, `edge.fixes-record.round` | `tools/ont-check/tasks.mjs`, `tools/ont-check/round.mjs` | |
+| `field.fixes-record.issue` | `tools/ont-check/tasks.mjs` | the reader reads it; its writer is the one of task enforcement-verdicts-tests |
 | `action.record-fixes` | `tools/ont-check/round.mjs` | |
 
 ### Spend snapshot

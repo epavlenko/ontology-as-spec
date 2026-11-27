@@ -1681,3 +1681,34 @@ test("[check.review-round.round-checks-read] a round of the statement with Round
   const ok = r.pr(base, [(q) => q.put("reviews/rounds/x-t-statement-3.md", sealed(withRoundChecks(cleanStatementRound("t", sha256("c"), later(), 3))))]);
   assert.deepEqual(guard({ cfg: r.config(), base: ok.base, head: ok.head }).records, []);
 });
+
+const fixesRecord = (lines) => ["Record: fixes", "Task: t", "Round: 20261101T103000Z-t-result-1.md", `Time: ${at(40)}`, ...lines, ""].join("\n");
+test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests, as the writer of task enforcement-verdicts-tests writes it, and one with Issue: and valid tests are read, the tests reaching their round; Issue: that is no commit, neither, and a valid issue beside a wrong line of a test are not", () => {
+  const { p, st } = approved();
+  const c1 = p.git("rev-parse", "HEAD");
+  doneRecord(p, c1, st, at(10));
+  p.put("reviews/rounds/20261101T103000Z-t-result-1.md", resultRound({ st, commit: c1, time: at(30), findings: ["- a bug · important · change · fixable"], acceptance: null }));
+  p.put("tests/a.test.mjs", "test('holds the bug', () => {});\n");
+  p.commit();
+  const read = (name, lines) => {
+    rmSync(join(p.dir, "reviews/tasks"), { recursive: true, force: true });
+    p.put(`reviews/tasks/${name}`, fixesRecord(lines));
+    return inputsOf(p);
+  };
+  const issueOnly = read("20261101T104000Z-t-fixes.md", [`Issue: ${c1}`, "Issue-findings:", "- a stale line", "Filed:", "- a slip · later · issues/0001-a-slip.md"]);
+  assert.deepEqual(issueOnly.malformed, []);
+  assert.equal(issueOnly.records.fixes[0].issue, c1);
+  const mixed = read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7)}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug"]);
+  assert.deepEqual(mixed.malformed, []);
+  assert.equal(mixed.rounds.find((x) => x.file === "20261101T103000Z-t-result-1.md").findings[0].test, "tests/a.test.mjs · holds the bug");
+  for (const [lines, why] of [
+    [["Issue: not-a-commit"], /issue not-a-commit is not a commit/],
+    [[], /no line under Tests:/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs"], /is not "class · file · name"/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · ../outside.mjs · holds the bug"], /is not a path of the repository/],
+  ]) {
+    const r = read("20261101T104000Z-t-fixes.md", lines);
+    assert.match(r.records.malformed.join("\n"), why, lines.join(" / "));
+    assert.equal(r.records.fixes.length, 0);
+  }
+});

@@ -424,7 +424,11 @@ export function snapshotOf(text, name) {
 // takes the test of a finding from here when the round's record gives none (applyFixes).
 // ont: ent.fixes-record, field.fixes-record.round, field.fixes-record.tests, edge.fixes-record.round
 export function fixesOf(text, name) {
-  const [task, round, time] = ["Task", "Round", "Time"].map((k) => lineOf(text, k));
+  // Issue:, the commit of the one issue of verdicts after the narrow round, read before the writer of task
+  // enforcement-verdicts-tests is merged: a record holds valid tests, a valid issue or both, never neither, and
+  // a valid issue excuses no line under Tests: that is wrong (field.fixes-record.issue, D-186).
+  // ont: field.fixes-record.issue
+  const [task, round, time, issue] = ["Task", "Round", "Time", "Issue"].map((k) => lineOf(text, k));
   const tests = (blockLines(text, "Tests") ?? []).map((l) => {
     const [cls, file, test] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
     return { cls, file, test };
@@ -435,11 +439,12 @@ export function fixesOf(text, name) {
     !round && "no round: the file of the round whose findings it tests",
     round && !/^[^/\\]+\.md$/.test(round) && `round ${round} is not the file name of a record of a round`,
     !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
-    !tests.length && "no line under Tests:",
+    !tests.length && issue === null && "no line under Tests:",
+    issue !== null && !/^[0-9a-f]{7,40}$/.test(issue) && `issue ${issue || "(none)"} is not a commit`,
     ...tests.filter((t) => !t.cls || !t.file || !t.test).map((t) => `the line "${[t.cls, t.file, t.test].filter(Boolean).join(" · ")}" is not "class · file · name"`),
     ...tests.filter((t) => t.file && !repoPath(t.file)).map((t) => `${t.file} is not a path of the repository`),
   ].filter(Boolean);
-  return { wrong, record: { file: name, task, round, time, tests } };
+  return { wrong, record: { file: name, task, round, time, tests, issue } };
 }
 
 // The rounds with the tests the records of fixes give (D-168): a finding fixable with no test of its own
