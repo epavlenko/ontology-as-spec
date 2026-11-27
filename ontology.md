@@ -1031,7 +1031,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `derived.pr-task`, `rule.merge-by-task-state`, `rule.records-only-pr`, `inv.gate-path-in-approval` | `tools/ont-check/merge-gate.mjs` | |
 | `inv.rules-match-file` | `tools/ont-check/merge-gate.mjs`, `.github/workflows/ont-gate-guard.yml`, `.github/workflows/ont-rules-drift.yml`, `tools/ont-check/ont-check.mjs` | the fields a read-only token does not read are compared by `--task` and the daily workflow, as `docs/limitations.md` says |
 | `action.compare-rules` | `tools/ont-check/merge-gate.mjs`, `tools/ont-check/ont-check.mjs` | |
-| `field.merge-gate.verdicts`, `derived.change-list`, `derived.change-verdict`, `rule.verdicts-hold-merge`, `rule.one-issue-after-narrow` | `tools/ont-check/merge-gate.mjs`, `tools/ont-check/ont-check.mjs`, `tools/ont-check/lib.mjs` | the guard of the base computes the list in a working tree of its own and reads the records at the head |
+| `field.merge-gate.verdicts`, `derived.change-list`, `derived.change-verdict`, `rule.verdicts-hold-merge`, `rule.one-issue-after-narrow` | `tools/ont-check/merge-gate.mjs`, `tools/ont-check/ont-check.mjs`, `tools/ont-check/confine.mjs`, `tools/ont-check/lib.mjs` | the guard of the base computes the list in a working tree of its own, every read of the checker through the boundary of `confine.mjs`, and reads the records at the head |
 
 ### Gate change
 

@@ -859,28 +859,36 @@ export function openWindow({ rounds, done = [], approvals = [], task, step }) {
 // A round with a finding of the change, filed or not, which the next round's verdicts of the record of a
 // round look back at.
 export const hasFindings = (r) => [...r.findings, ...(r.acceptance?.findings ?? [])].some((x) => x.ofChange);
-// The latest verdict of the analysis of the cause given for a round of the window, by time, when it is a
-// fail no later one decided: the next rounds of the step, or the one issue after the last narrow round, give
-// it again on the corrected analysis. A verdict counts only when a round of the window asked for it on its
-// line Round-checks: and it was given between that round's brief and its record, so that a verdict of
-// another task, or one given before the rule, when no round named the checks of the record of a round, is
-// read as before and asks nothing (rule.round-verdicts, D-187).
-export function failedCause(runs, windowRounds = []) {
-  const asked = windowRounds.filter((r) => r.briefTime && (r.roundChecks ?? []).includes(CAUSE_ROUND_CHECK));
-  const spanOf = (x) => asked.find((r) => x.time >= r.briefTime && x.time <= r.time);
+// The failed analyses of the cause a window leaves pending, by the one derivation both the writer of the next
+// brief and the guard read (rule.round-verdicts, D-187, D-188, D-189). A fail counts when it is the latest
+// verdict of the check given for its round, between that round's brief and its record, the round asking for
+// it on Round-checks:, so that a verdict of another task, or one given before the rule, is read as before and
+// asks nothing. The latest verdict of the check after the fail decides it, of any kind, given for a round of
+// the window or, outside a round, of the one issue (ofIssue), up to until: only a pass on a corrected
+// analysis decides it, of a round whose Cause: is another than the failed round's, or of the issue, whose
+// evidence names the hash of another analysis; a later fail, a not-run or a not-applicable leaves it failed.
+// Each pending fail with its round, the latest verdict after it, and the hash of the analysis it failed.
+export function causeFailures(runs, windowRounds = [], { ofIssue = () => false, until = "9999" } = {}) {
+  const spanOf = (x) => windowRounds.find((r) => r.briefTime && x.time >= r.briefTime && x.time <= r.time);
   const of = runs
-    .filter((x) => x.check === CAUSE_ROUND_CHECK && (x.verdict === "pass" || x.verdict === "fail") && spanOf(x))
+    .filter((x) => x.check === CAUSE_ROUND_CHECK && x.time <= until && (spanOf(x) || ofIssue(x)))
     .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
-  // A later pass decides the fail only when its round was briefed with another analysis, the corrected one:
-  // a pass on the same analysis is no evidence of a fix.
-  let failed = null;
-  for (const x of of) {
-    const cause = spanOf(x).cause ?? null;
-    if (x.verdict === "fail") failed = { run: x, cause };
-    else if (failed && cause && cause !== failed.cause) failed = null;
+  const pending = [];
+  for (const r of windowRounds.filter((r) => r.briefTime && (r.roundChecks ?? []).includes(CAUSE_ROUND_CHECK))) {
+    const v = of.filter((x) => spanOf(x) === r).at(-1);
+    if (v?.verdict !== "fail") continue;
+    const last = of.filter((x) => x.time > v.time).at(-1) ?? null;
+    const at = last && spanOf(last);
+    const corrected = last?.verdict === "pass" && (at ? Boolean(at.cause) && at.cause !== r.cause : [...String(last.evidence ?? "").matchAll(/\b[0-9a-f]{64}\b/g)].some((m) => m[0] !== r.cause));
+    if (!corrected) pending.push({ run: v, round: r, last, analysis: r.cause ?? null });
   }
-  // With the hash of the analysis the failed verdict was given on, which the next brief may not give again.
-  return failed ? { ...failed.run, analysis: failed.cause } : null;
+  return pending;
+}
+// The latest pending fail of the analysis of the cause in the window, by causeFailures, with the hash of the
+// analysis it failed, which the next brief may not give again; null when none is pending.
+export function failedCause(runs, windowRounds = [], opts = {}) {
+  const f = causeFailures(runs, windowRounds, opts).sort((a, b) => a.run.time.localeCompare(b.run.time) || a.run.file.localeCompare(b.run.file)).at(-1);
+  return f ? { ...f.run, analysis: f.analysis } : null;
 }
 
 // Whether a record of done ran exactly the statement's commands of done, in their order (D-123).

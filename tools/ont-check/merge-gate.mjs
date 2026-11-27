@@ -44,15 +44,16 @@
 // ont: rule.ci-from-main, inv.gate-change-approved, rule.merge-what-was-checked, rule.main-through-gate, rule.gate-switched-on, rule.fixes-held-by-tests
 // ont: field.merge-gate.task-state, edge.publish-permission.guard, rule.merge-by-task-state, rule.records-only-pr, derived.pr-task, inv.gate-path-in-approval, inv.rules-match-file, action.compare-rules
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { OUTSIDE_EXIT, OUTSIDE_LINE, outsideOf } from "./confine.mjs";
 import { gitEnv, loadConfig } from "./lib.mjs";
 import { CLASS_SEP, CODE_CHECK, parseRuns } from "./manual-runs.mjs";
 import { LATER_DIR, LIMITATIONS_FILE, parseRounds } from "./review-rounds.mjs";
 import { recordTime, sealState, sealsStart } from "./seal.mjs";
-import { CAUSE_ROUND_CHECK, approvalEvents, approvalInForce, approvedHash, fixesRange, parseTaskRecords, readTaskInputs, reviewedCommit, roundWindow, taskNext } from "./tasks.mjs";
+import { CAUSE_ROUND_CHECK, approvalEvents, causeFailures, approvalInForce, approvedHash, fixesRange, parseTaskRecords, readTaskInputs, reviewedCommit, roundWindow, taskNext } from "./tasks.mjs";
 
 // The directory of the records of the process: commits that change only files under it change no gate.
 export const RECORDS_DIR = "reviews/";
@@ -497,12 +498,16 @@ export function changeList({ cfg, top, commit, from, tmp }) {
   must(top, "-c", "core.hooksPath=/dev/null", "worktree", "add", "--quiet", "--detach", wt, commit);
   try {
     const cfgRel = relative(top, cfg.file).split("\\").join("/");
-    // The checker of the base reads only the files of the checked tree (D-187, D-188): the configuration's
-    // own path, before it is read, every path it names, and every link of the tree, the ones under a directory
-    // the configuration names among them, resolve inside it by their real paths, or the list is not computed.
+    // The checker of the base reads only the files of the checked tree (D-187, D-188, D-189). Early, before
+    // it runs: the configuration's own path, before it is read, every path it names, and every link of the
+    // tree resolve inside it by their real paths. The hold is the read itself: the checker runs with
+    // --confine, so that each file it reads, whatever named it, passes the boundary of confine.mjs, and a
+    // read outside ends the run with no list.
     const outside = pathsOutside(join(wt, cfgRel), wt);
     if (outside.length) throw new GitError(`the configuration at ${commit.slice(0, 12)} names paths outside its tree, by itself, by a path it names or by a link of the tree, which the guard does not read: ${outside.join(", ")}`);
-    const r = spawnSync(process.execPath, [join(TOOL_DIR, "ont-check.mjs"), "--config", join(wt, cfgRel), "--review", from, "--json"], { cwd: wt, encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 28 });
+    const r = spawnSync(process.execPath, [join(TOOL_DIR, "ont-check.mjs"), "--config", join(wt, cfgRel), "--review", from, "--json", "--confine", wt], { cwd: wt, encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 28 });
+    const refused = `${r.stderr ?? ""}`.split("\n").find((l) => l.startsWith(`${OUTSIDE_LINE} `));
+    if (refused || r.status === OUTSIDE_EXIT) throw new GitError(`the checker at ${commit.slice(0, 12)} would read a path outside its tree, which the guard refuses, and gives no list: ${refused ? refused.slice(OUTSIDE_LINE.length + 1) : "(no path named)"}`);
     const line = (r.stdout ?? "").split("\n").find((l) => l.startsWith("REVIEW_JSON "));
     if (!line) throw new GitError(`the list of the change at ${commit.slice(0, 12)} from ${from.slice(0, 12)} cannot be computed: ${`${r.stdout ?? ""}${r.stderr ?? ""}`.trim().split("\n").slice(-3).join(" / ")}`);
     const list = JSON.parse(line.slice("REVIEW_JSON ".length)).checks;
@@ -521,34 +526,15 @@ export function changeList({ cfg, top, commit, from, tmp }) {
 // by "..", by an absolute path or by a link. A configuration that cannot be loaded is one whose paths cannot
 // be told, and is named whole. The links are found by lstat, without following any.
 export function pathsOutside(cfgFile, root) {
-  const base = realpathSync(root);
-  const realOf = (p) => {
-    let at = p;
-    const rest = [];
-    while (!existsSync(at) && dirname(at) !== at) {
-      rest.unshift(at.slice(dirname(at).length + 1));
-      at = dirname(at);
-    }
-    return join(realpathSync(at), ...rest);
-  };
-  const out = (real) => {
-    const rel = relative(base, real);
-    return rel === ".." || rel.startsWith(`..${"/"}`) || rel.startsWith("..\\") || isAbsoluteRel(rel);
-  };
-  const leaves = (p) => out(realOf(p));
+  // The test of the boundary the checker's reads pass, the same function (D-189).
+  const leaves = (p) => Boolean(outsideOf(root)(p));
   const found = new Set();
   const walk = (dir) => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       if (dir === root && e.name === ".git") continue;
       const p = join(dir, e.name);
       if (e.isSymbolicLink()) {
-        let real;
-        try {
-          real = realpathSync(p);
-        } catch {
-          real = realOf(resolve(dirname(p), readlinkSync(p)));
-        }
-        if (out(real)) found.add(`${relative(root, p)} (a link)`);
+        if (leaves(p)) found.add(`${relative(root, p)} (a link)`);
       } else if (e.isDirectory()) walk(p);
     }
   };
@@ -570,7 +556,6 @@ export function pathsOutside(cfgFile, root) {
   named(loaded);
   return [...found].sort();
 }
-const isAbsoluteRel = (rel) => rel.startsWith("/");
 
 // The verdict of the change of a check (derived.change-verdict): its latest record, of any verdict, on the
 // commit at the stamp, or a record of a run outside a review at the stamp on a commit from which nothing
@@ -598,6 +583,7 @@ const filedHolds = (x, cls, root) => {
   const dest = x.fix === "limitation" ? x.file === LIMITATIONS_FILE : x.fix === "later" && String(x.file ?? "").startsWith(LATER_DIR);
   if (!dest || !root || x.file.split("/").includes("..")) return false;
   const path = join(root, x.file);
+  if (outsideOf(root)(path)) return false;
   return existsSync(path) && readFileSync(path, "utf8").includes(cls);
 };
 function classDecision(cls, { rounds, fixes, passed, root = null }) {
@@ -703,7 +689,7 @@ function roundVerdictProblems({ w, runs, ctx, ofIssue = () => false }) {
   const win = w.all.filter((r) => (!before || r.time > before.time) && (!closing || r.time <= closing.time));
   const until = closing?.time ?? "9999";
   const problems = [];
-  const spanOf = (x) => win.find((r) => r.briefTime && x.time >= r.briefTime && x.time <= r.time);
+  const causes = causeFailures(runs, win, { ofIssue, until });
   for (const r of win) {
     for (const id of r.roundChecks ?? []) {
       const given = runs.filter((x) => x.check === id && r.briefTime && x.time >= r.briefTime && x.time <= r.time).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
@@ -718,15 +704,9 @@ function roundVerdictProblems({ w, runs, ctx, ofIssue = () => false }) {
         continue;
       }
       if (id === CAUSE_ROUND_CHECK) {
-        // The latest verdict of the check after the fail decides it, of a round of the window or, outside a
-        // round, of the one issue the record of fixes names, given on its own diff (D-188).
-        const last = runs
-          .filter((x) => x.check === id && x.time > v.time && x.time <= until && (spanOf(x) || ofIssue(x)))
-          .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file))
-          .at(-1);
-        const of = last && spanOf(last);
-        const corrected = last?.verdict === "pass" && (of ? Boolean(of.cause) && of.cause !== r.cause : [...String(last.evidence ?? "").matchAll(/\b[0-9a-f]{64}\b/g)].some((m) => m[0] !== r.cause));
-        if (!corrected) problems.push({ code: "VERDICT_FAILED", why: `${id}: ${v.file} failed the analysis of the cause of ${r.file}, and no later pass in the window was given on a corrected analysis${last ? `: the latest verdict of the check after it, ${last.file}, is ${last.verdict === "pass" ? "a pass on no corrected analysis" : `a ${last.verdict}`}` : ""}` });
+        // Decided by the one derivation the writer of the brief reads too, causeFailures (D-189).
+        const f = causes.find((x) => x.round === r);
+        if (f) problems.push({ code: "VERDICT_FAILED", why: `${id}: ${f.run.file} failed the analysis of the cause of ${r.file}, and no later pass in the window was given on a corrected analysis${f.last ? `: the latest verdict of the check after it, ${f.last.file}, is ${f.last.verdict === "pass" ? "a pass on no corrected analysis" : `a ${f.last.verdict}`}` : ""}` });
         continue;
       }
       const p = verdictWhy(id, { current: v, elsewhere: [] }, ctx);

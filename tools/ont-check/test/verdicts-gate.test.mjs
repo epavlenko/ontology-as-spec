@@ -5,9 +5,9 @@
 // ont: field.merge-gate.verdicts, rule.verdicts-hold-merge, derived.change-list, derived.change-verdict, rule.one-issue-after-narrow, field.fixes-record.issue, field.task-result.fix-tests, field.manual-run.class, field.manual-run.carried
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "../lib.mjs";
@@ -1321,4 +1321,109 @@ test("[check.merge-gate.round-verdicts-held] after the last narrow round the lat
   const g = p.gate();
   assert.deepEqual([...new Set(g.codes)], ["VERDICT_FAILED"], g.out);
   assert.match(g.out, /the latest verdict of the check after it, .* is a fail/);
+});
+
+// ── Findings of narrow round 1 of the review of the result ───────────────────────────────────────────
+
+test("[check.merge-gate.verdicts-run-nothing] the checker the guard runs reads no file out of the checked tree, whatever names it: a row of the implementation table that names one by a relative path or by a link is refused at the read itself, and gives no list; the usual tree reads as before", () => {
+  const p = base();
+  const cfg = loadConfig(join(p.dir, "ont.config.json"));
+  // A row of the implementation table that names a file: the configuration names no path out of the tree.
+  const withRow = (q, file) => q.put("ontology.md", readFileSync(join(q.dir, "ontology.md"), "utf8").replace("| --- | -------------- | ---- |\n", `| --- | -------------- | ---- |\n| \`ent.thing\` | \`${file}\` | |\n`));
+  const tryList = (edit) => {
+    const q = copy(p);
+    const tmp = temp("ont-list-");
+    // The file out of the tree, beside the guard's working tree of the list, which "../" from it reaches.
+    writeFileSync(join(tmp, "secret.mjs"), "// ont: ent.thing\nexport const secret = 1;\n");
+    edit(q, tmp);
+    const commit = q.commit("a row of the implementation table");
+    try {
+      return { list: changeList({ cfg: { ...cfg, file: join(q.dir, "ont.config.json") }, top: q.dir, commit, from: q.git("rev-parse", "main"), tmp }) };
+    } catch (e) {
+      return { error: e.message };
+    }
+  };
+  // By a relative path: no scan of the configuration sees it, the read refuses it.
+  const up = tryList((q) => withRow(q, "../secret.mjs"));
+  assert.match(up.error ?? "", /would read a path outside its tree, which the guard refuses, and gives no list: .*secret\.mjs/, JSON.stringify(up));
+  // The usual tree, a row naming a file of the tree: its list, as before.
+  const inside = tryList((q) => withRow(q, "app/work.mjs"));
+  assert.ok(Array.isArray(inside.list) && inside.list.length, JSON.stringify(inside));
+  // The hold is the read, not the scan before it: the checker run with --confine alone, as the guard runs it,
+  // refuses a row that names a file out of the tree by a relative path and by a link, naming its real path.
+  const outside = join(temp("ont-outside-"), "secret.mjs");
+  writeFileSync(outside, "// ont: ent.thing\nexport const secret = 1;\n");
+  const confined = (edit) => {
+    const q = copy(p);
+    edit(q);
+    q.commit("a row of the implementation table");
+    const r = spawnSync(process.execPath, [join(q.dir, "tools/ont-check/ont-check.mjs"), "--config", join(q.dir, "ont.config.json"), "--review", "main", "--json", "--confine", q.dir], { cwd: q.dir, encoding: "utf8", env: GIT_ENV });
+    return { code: r.status, out: `${r.stdout}${r.stderr}` };
+  };
+  for (const r of [
+    confined((q) => withRow(q, relative(q.dir, outside))),
+    confined((q) => {
+      symlinkSync(outside, join(q.dir, "app/linked.mjs"));
+      withRow(q, "app/linked.mjs");
+    }),
+  ]) {
+    assert.equal(r.code, 3, r.out);
+    assert.match(r.out, new RegExp(`^READ_OUTSIDE ${realpathSync(outside).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m"), r.out);
+    assert.doesNotMatch(r.out, /^REVIEW_JSON /m);
+  }
+  const usual = confined((q) => withRow(q, "app/work.mjs"));
+  assert.equal(usual.code, 0, usual.out);
+  assert.match(usual.out, /^REVIEW_JSON /m);
+  // --confine is the guard's alone: without --review and --json it is refused.
+  const alone = spawnSync(process.execPath, [join(p.dir, "tools/ont-check/ont-check.mjs"), "--config", join(p.dir, "ont.config.json"), "--confine", p.dir], { cwd: p.dir, encoding: "utf8", env: GIT_ENV });
+  assert.equal(alone.status, 2, alone.stderr);
+});
+
+test("[check.merge-gate.round-verdicts-held] the writer of the brief and the guard derive a failed analysis of the cause by one function: after a fail, a pass on the corrected analysis and a not-run, both hold the failure; after a fail and a pass on the corrected analysis, both clear it", () => {
+  const { p, st } = approved();
+  reviewed(p, st);
+  withFinding(p, st);
+  withFinding(p, st);
+  // The round after stagnation fails the analysis of the cause.
+  resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: not yet\nAcceptance: clean", "a slip · usual path: the work\n", { extra: ["--cause", writeFile("The cause is the test.\n")], given: { [CAUSE]: ["fail", "[a cause not named] the analysis names no cause"] } });
+  work(p, "export const slipFixed = 1;\n");
+  recordDone(p, st);
+  p.commit("done");
+  const corrected = writeFile("The fix of a slip did not hold because the test read the copy, not the file; one reader now.\n");
+  const pass = { [CAUSE]: ["pass", `the analysis ${sha256(readFileSync(corrected))} names the cause`] };
+  const third = () => writeFile(`A third analysis of the cause, ${Math.random()}.\n`);
+  const notRun = { [CAUSE]: ["not run", "the reviewer was given no time for the analysis"] };
+  const held = /failed in this step and no later pass decided it: give the corrected analysis with --cause/;
+  const brief = (q) => q.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+  const guarded = (q) => /failed the analysis of the cause of .*no later pass in the window was given on a corrected analysis/.test(q.gate().out);
+  // Fail, pass: the guard, after the pass in the closing round, clears it ...
+  {
+    const q = copy(p);
+    resultRound(q, st, undefined, null, { extra: ["--cause", corrected], given: pass });
+    const g = q.gate();
+    assert.ok(!guarded(q), g.out);
+    assert.deepEqual(g.codes, [], g.out);
+  }
+  // ... and so does the writer of the next brief, after the pass in a round with a finding.
+  const q = copy(p);
+  resultRound(q, st, "By: m (p)\n\n| a nick | important | change |\n\nCondition: not yet\nAcceptance: clean", "a nick · usual path: the work\n", { extra: ["--cause", corrected], given: pass });
+  work(q, "export const nickFixed = 1;\n");
+  recordDone(q, st);
+  q.commit("done");
+  assert.doesNotMatch(brief(q).out, held);
+  // Fail, pass, not run: the guard, with the not-run in the closing round, holds it ...
+  {
+    const r = copy(q);
+    resultRound(r, st, undefined, null, { extra: ["--cause", third()], given: notRun });
+    assert.ok(guarded(r), r.gate().out);
+    assert.ok(r.gate().codes.includes("VERDICT_FAILED"));
+  }
+  // ... and so does the writer of the next brief, with the not-run in a round with a finding.
+  resultRound(q, st, "By: m (p)\n\n| a dent | important | change |\n\nCondition: not yet\nAcceptance: clean", "a dent · usual path: the work\n", { extra: ["--cause", third()], given: notRun });
+  work(q, "export const dentFixed = 1;\n");
+  recordDone(q, st);
+  q.commit("done");
+  const b = brief(q);
+  assert.notEqual(b.code, 0, b.out);
+  assert.match(b.out, held);
 });
