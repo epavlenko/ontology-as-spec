@@ -197,8 +197,9 @@ export function parseRounds(dir, opts = {}) {
       ...acceptAt.flatMap((x, i) => x.wrong.map((w) => `acceptance finding ${i + 1}, line ${x.n}: ${w}`)),
       // An item of the approved statement that is not met is not put off (rule.findings-filed).
       ...acceptAt.filter((x) => x.filed).map((x) => `acceptance finding ${acceptAt.indexOf(x) + 1}, line ${x.n}: ${x.filed} in a verdict of acceptance, where an item of the approved statement not met is not put off`),
-      // Round-checks: a list of IDs of checks apart by ", ", never empty, with no empty item (D-186).
-      ...rec.pairs.filter(([k]) => k === "round-checks").map(([, v]) => !/^check\.[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:, check\.[a-z0-9-]+(?:\.[a-z0-9-]+)+)*$/.test(v) && `Round-checks: ${v || "(none)"} is not a list of IDs of checks apart by ", "`),
+      // Round-checks: a list of IDs of checks apart by ", ", never empty, with no empty item, each an ID the
+      // catalogue reads, by the pattern of parseChecks in lib.mjs (D-186).
+      ...rec.pairs.filter(([k]) => k === "round-checks").map(([, v]) => !/^check\.[a-z0-9-]+(?:\.[a-z0-9-]+)*(?:, check\.[a-z0-9-]+(?:\.[a-z0-9-]+)*)*$/.test(v) && `Round-checks: ${v || "(none)"} is not a list of IDs of checks apart by ", "`),
       ...outsideRecord(text, 1, opts),
     ].filter(Boolean);
     const name = basename(f);

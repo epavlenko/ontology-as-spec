@@ -1702,6 +1702,10 @@ test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests
   const issueOnly = read("20261101T104000Z-t-fixes.md", [`Issue: ${c1}`, "Issue-findings:", "- a stale line", "Filed:", "- a slip · later · issues/0001-a-slip.md"]);
   assert.deepEqual(issueOnly.malformed, []);
   assert.equal(issueOnly.records.fixes[0].issue, c1);
+  // A bullet with a tab after its marker, as the reader of records has always read it, is still a test.
+  const tab = read("20261101T104000Z-t-fixes.md", ["Tests:", "-\ta bug · tests/a.test.mjs · holds the bug"]);
+  assert.deepEqual(tab.malformed, []);
+  assert.equal(tab.records.fixes[0].tests[0].test, "holds the bug");
   // A commit in capitals is a commit of seven to forty hexadecimal characters too.
   assert.deepEqual(read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7).toUpperCase()}`, "Issue-findings:", "- a stale line"]).malformed, []);
   const mixed = read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7)}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug"]);
@@ -1715,6 +1719,10 @@ test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests
     // A line under Tests: that is no bullet, alone or after a valid one, is refused beside a valid issue.
     [[`Issue: ${c1}`, "Tests:", "a bug tests/a.test.mjs holds the bug"], /under Tests: is not "- class · file · name"/],
     [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "not a line of a test"], /under Tests: is not "- class · file · name"/],
+    // Every value of Tests: is read by one grammar: a second header, a line after a blank, a value inline.
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "Tests:", "- a bug · tests/a.test.mjs"], /Tests: given more than once/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "", "not a line of a test"], /under Tests: is not "- class · file · name"/],
+    [[`Issue: ${c1}`, "Tests: a bug · tests/a.test.mjs"], /Tests: holds "a bug · tests\/a\.test\.mjs" on its own line/],
     // A second Issue: that is no commit is refused, whatever the first.
     [[`Issue: ${c1}`, "Issue: not-a-commit", "Tests:", "- a bug · tests/a.test.mjs · holds the bug"], /Issue: given more than once/],
   ]) {

@@ -638,6 +638,16 @@ test("[check.review-round.round-checks-read] a record of a round with Round-chec
   const line = "Round-checks: check.review-round.filed-right, check.review-round.whole-class, check.review-round.redesign-after-stagnation";
   const ok = readRecord(head([line]));
   assert.deepEqual(ok.errors, []);
+  // Any ID the catalogue reads, one part after check. among them (lib.mjs parseChecks).
+  const one = mkdtempSync(join(tmpdir(), "rounds-round-checks-one-"));
+  try {
+    writeFileSync(join(one, "20261127T011629Z-t-statement-2.md"), head(["Round-checks: check.example, check.review-round.filed-right"]));
+    const r = parseRounds(one);
+    assert.deepEqual(r.malformed, []);
+    assert.deepEqual(r.rounds[0].roundChecks, ["check.example", "check.review-round.filed-right"]);
+  } finally {
+    rmSync(one, { recursive: true, force: true });
+  }
   for (const bad of [[line, line], [line, "Round-verdicts: check.review-round.filed-right"]]) assert.ok(readRecord(head(bad)).errors.length, bad.join(" / "));
   // An empty list, prose, and an empty item are no list of IDs of checks: the record cannot be read.
   const dirBad = mkdtempSync(join(tmpdir(), "rounds-round-checks-bad-"));
