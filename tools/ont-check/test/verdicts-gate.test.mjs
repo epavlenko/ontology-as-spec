@@ -266,9 +266,9 @@ test("[check.merge-gate.verdicts-switch] a base without mergeGate.verdicts holds
 
 // A record of a verdict written by hand with a seal, as a forger could (answer 1036 a): the gate holds
 // what it reads, not who wrote it.
-function forge(p, { check, commit, stamp, verdict, evidence = "", cls = "", carried = "", time = new Date(Date.now() + 1000) }) {
+function forge(p, { check, commit, stamp, verdict, evidence = "", cls = "", carried = "", origin = "review", time = new Date(Date.now() + 1000) }) {
   const t = time.toISOString().replace(/\.\d{3}Z$/, "Z");
-  const text = sealed([`Check: ${check}`, `Time: ${t}`, `Commit: ${commit}`, `Stamp: ${stamp}`, `Verdict: ${verdict}`, "By: reviewer (other)", ...(verdict === "pass" || verdict === "fail" ? ["Performer: agent"] : []), ...(evidence ? [`Evidence: ${evidence}`] : []), ...(cls ? [`Class: ${cls}`] : []), ...(carried ? [`Carried: ${carried}`] : []), "Origin: review", ""].join("\n"));
+  const text = sealed([`Check: ${check}`, `Time: ${t}`, `Commit: ${commit}`, `Stamp: ${stamp}`, `Verdict: ${verdict}`, "By: reviewer (other)", ...(verdict === "pass" || verdict === "fail" ? ["Performer: agent"] : []), ...(evidence ? [`Evidence: ${evidence}`] : []), ...(cls ? [`Class: ${cls}`] : []), ...(carried ? [`Carried: ${carried}`] : []), `Origin: ${origin}`, ""].join("\n"));
   p.put(`reviews/runs/${t.replace(/[-:]/g, "")}-${check}-abcd.md`, text);
 }
 // A pass forged on a commit for every check of the list but those given.
@@ -1182,5 +1182,29 @@ test("[check.merge-gate.verdict-failed] a class filed by an earlier round waives
     resultRound(p, st, rest, filedAtEnd ? "a slip of code · later: issues/0004-a-slip-of-code.md\n" : null, { given: { [CODE]: ["fail", "[a slip of code] app/work.mjs:4 names a value twice"] } });
     const g = p.gate();
     assert.deepEqual([...new Set(g.codes)], filedAtEnd ? [] : ["VERDICT_FAILED"], g.out);
+  }
+});
+
+test("[check.merge-gate.issue-missing] records of runs outside a review on the commit of the issue name no base and hold no issue; and the writer of fixes takes the class of a fail of the issue only from a record given on the issue's own diff", () => {
+  // Runs outside a review, Origin: run, for every check of the issue's list on its commit: ISSUE_MISSING.
+  {
+    const { p, st, narrow, fix } = narrowed();
+    p.list(narrow).forEach((c, i) => forge(p, { check: c.id, commit: fix, stamp: c.stamp, verdict: "pass", evidence: "a run", origin: "run", time: new Date(Date.now() + 1000 + i * 1000) }));
+    p.commit("runs outside a review");
+    const fx = p.tool("round.mjs", ["fixes", "t", "--round", narrowFile(p), "--issue", fix, "--from", writeFile("a slip · app/fix.test.mjs · the fix of the slip\n")]);
+    assert.equal(fx.code, 0, fx.out);
+    recordDone(p, st);
+    p.commit("done");
+    assert.ok(p.gate().codes.includes("ISSUE_MISSING"));
+  }
+  // A fail given on another diff of the commit of the issue: its class is no class of the issue.
+  {
+    const { p, fix } = narrowed();
+    const v = p.verdicts("main", { [OTHER]: ["fail", "[a gap of another diff] app/work.mjs:2"] });
+    assert.equal(v.code, 0, v.out);
+    p.commit("a fail on another diff");
+    const fx = p.tool("round.mjs", ["fixes", "t", "--round", narrowFile(p), "--issue", fix, "--from", writeFile("a gap of another diff · app/fix.test.mjs · the fix of the gap\n")]);
+    assert.notEqual(fx.code, 0, fx.out);
+    assert.match(fx.out, /a gap of another diff is not the class of a fixable finding/);
   }
 });

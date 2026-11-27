@@ -238,7 +238,8 @@ function main(argv) {
       // The classes of the fails the records of the issue give.
       if (cfg.manualRuns && existsSync(cfg.manualRuns.dir))
         for (const r of parseRuns(cfg.manualRuns.dir, { has: () => true }).runs)
-          if (r.verdict === "fail" && r.class && run("rev-parse", "--verify", "--quiet", `${r.commit}^{commit}`).stdout?.trim() === issue) r.class.split(CLASS_SEP).forEach((c) => classes.add(c.trim()));
+          // A fail of the issue: on its commit and given on its own diff, from the narrow round's commit.
+          if (r.verdict === "fail" && r.class && r.base && run("rev-parse", "--verify", "--quiet", `${r.base}^{commit}`).stdout?.trim() === run("rev-parse", "--verify", "--quiet", `${reviewedCommit(round)}^{commit}`).stdout?.trim() && run("rev-parse", "--verify", "--quiet", `${r.commit}^{commit}`).stdout?.trim() === issue) r.class.split(CLASS_SEP).forEach((c) => classes.add(c.trim()));
       issueFindings.forEach((c) => classes.add(c));
       const filedFile = value("--filed");
       if (filedFile && !existsSync(filedFile)) return refuse(`--filed ${filedFile} is not a file`);

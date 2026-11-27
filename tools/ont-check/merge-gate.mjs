@@ -635,8 +635,9 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
   // decided a finding with no decision.
   const fails = new Set();
   const hold = (id, stamp, commit, ofIssue = false) => {
-    // The issue is held only by verdicts given on its own diff, whose Base: is the narrow round's commit.
-    const of = ofIssue ? runs.filter((r) => r.origin === "run" || (r.base && resolve(r.base) === resolve(range.from))) : runs;
+    // The issue is held only by verdicts given on its own diff, whose Base: is the narrow round's commit; a
+    // record of a run outside a review names no base, and holds no issue.
+    const of = ofIssue ? runs.filter((r) => r.base && resolve(r.base) === resolve(range.from)) : runs;
     const v = changeVerdict({ top, runs: of, id, stamp, commit, dirs, resolve });
     if (v.current?.verdict === "fail") fails.add(commit);
     const p = verdictWhy(id, v, ctxOf(commit, stamp));
