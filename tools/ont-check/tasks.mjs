@@ -430,16 +430,24 @@ export function fixesOf(text, name) {
   // ont: field.fixes-record.issue
   const [task, round, time, issue] = ["Task", "Round", "Time", "Issue"].map((k) => lineOf(text, k));
   const issues = text.split("\n").filter((l) => /^Issue:/.test(l)).length;
-  // Every line after Tests: up to a blank line, a field or a heading is a line "- ...": a line that is not
-  // stops no block silently, so that a valid issue excuses no wrong line of a test.
-  const at = text.split("\n").findIndex((l) => /^Tests:\s*$/.test(l));
-  const after = at < 0 ? [] : text.split("\n").slice(at + 1);
-  const end = after.findIndex((l) => !l.trim() || /^[A-Za-z][A-Za-z-]*:/.test(l) || /^#/.test(l));
-  const strays = (end < 0 ? after : after.slice(0, end)).filter((l) => !/^- /.test(l));
-  const tests = (blockLines(text, "Tests") ?? []).map((l) => {
+  // One definition of a line of a test, the one the reader of records has always read: a bullet, "-" and
+  // white space, then "class · file · name". Every line of every value of Tests:, a header given twice, a
+  // value on the header's own line, a line after a blank, up to the next field or heading, is read by it,
+  // and a line that is not a valid one is refused, Issue: or not (D-186).
+  const all = text.split("\n");
+  const headers = all.map((l, i) => [l, i]).filter(([l]) => /^Tests:/.test(l));
+  const inline = headers.filter(([l]) => l.replace(/^Tests:/, "").trim()).map(([l]) => l.replace(/^Tests:/, "").trim());
+  const under = headers.flatMap(([, i]) => {
+    const rest = all.slice(i + 1);
+    const end = rest.findIndex((l) => /^[A-Za-z][A-Za-z-]*:/.test(l) || /^#/.test(l));
+    return (end < 0 ? rest : rest.slice(0, end)).filter((l) => l.trim());
+  });
+  const strays = under.filter((l) => !/^-\s/.test(l));
+  const tests = under.filter((l) => /^-\s/.test(l)).map((l) => {
     const [cls, file, test] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
     return { cls, file, test };
   });
+  const at = headers.length ? headers[0][1] : -1;
   const wrong = [
     !task && "no task",
     task && !TASK_NAME.test(task) && `task ${task} is not lower-case letters, digits and hyphens`,
@@ -449,6 +457,8 @@ export function fixesOf(text, name) {
     !tests.length && issue === null && "no line under Tests:",
     at >= 0 && !tests.length && "Tests: has no line under it",
     ...strays.map((l) => `the line "${l.trim()}" under Tests: is not "- class · file · name"`),
+    headers.length > 1 && "Tests: given more than once",
+    ...inline.map((v) => `Tests: holds "${v}" on its own line: its tests are the lines "- class · file · name" under it`),
     issues > 1 && "Issue: given more than once",
     issue !== null && !/^[0-9a-fA-F]{7,40}$/.test(issue) && `issue ${issue || "(none)"} is not a commit of seven to forty hexadecimal characters`,
     ...tests.filter((t) => !t.cls || !t.file || !t.test).map((t) => `the line "${[t.cls, t.file, t.test].filter(Boolean).join(" · ")}" is not "class · file · name"`),
