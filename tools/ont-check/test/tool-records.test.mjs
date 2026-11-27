@@ -1706,6 +1706,10 @@ test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests
   const tab = read("20261101T104000Z-t-fixes.md", ["Tests:", "-\ta bug · tests/a.test.mjs · holds the bug"]);
   assert.deepEqual(tab.malformed, []);
   assert.equal(tab.records.fixes[0].tests[0].test, "holds the bug");
+  // A line Tests: in the notes after the head is text, as the reader of records has always read it.
+  const notes = read("20261101T104000Z-t-fixes.md", ["Tests:", "- a bug · tests/a.test.mjs · holds the bug", "", "## Notes", "", "Tests: used a local fixture"]);
+  assert.deepEqual(notes.malformed, []);
+  assert.equal(notes.records.fixes[0].tests.length, 1);
   // A commit in capitals is a commit of seven to forty hexadecimal characters too.
   assert.deepEqual(read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7).toUpperCase()}`, "Issue-findings:", "- a stale line"]).malformed, []);
   const mixed = read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7)}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug"]);
@@ -1723,6 +1727,9 @@ test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests
     [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "Tests:", "- a bug · tests/a.test.mjs"], /Tests: given more than once/],
     [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "", "not a line of a test"], /under Tests: is not "- class · file · name"/],
     [[`Issue: ${c1}`, "Tests: a bug · tests/a.test.mjs"], /Tests: holds "a bug · tests\/a\.test\.mjs" on its own line/],
+    // A line of a test is exactly class · file · name: a fourth field is refused, Issue: or not.
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug · extra"], /has more fields than class · file · name/],
+    [["Tests:", "- a bug · tests/a.test.mjs · holds the bug · extra"], /has more fields than class · file · name/],
     // A second Issue: that is no commit is refused, whatever the first.
     [[`Issue: ${c1}`, "Issue: not-a-commit", "Tests:", "- a bug · tests/a.test.mjs · holds the bug"], /Issue: given more than once/],
   ]) {
@@ -1730,4 +1737,12 @@ test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests
     assert.match(r.records.malformed.join("\n"), why, lines.join(" / "));
     assert.equal(r.records.fixes.length, 0);
   }
+});
+
+test("[check.fixes-record.issue-read] the definition of a record of fixes, in the ontology and in the generated contract, names both forms: its tests, and the one issue with or without tests", () => {
+  const row = readFileSync(join(TOP, "ontology.md"), "utf8").split("\n").find((l) => /^\|[^|]*\|\s*`ent\.fixes-record`\s*\|/.test(l));
+  assert.ok(row, "the row of ent.fixes-record");
+  assert.match(row, /the tests that hold them, or the one issue of verdicts after the narrow round \(`field\.fixes-record\.issue`\) with or without tests, never neither/);
+  const schema = readFileSync(join(TOP, "contracts/approach.schema.json"), "utf8");
+  assert.match(schema, /the tests that hold them, or the one issue of verdicts after the narrow round \(field\.fixes-record\.issue\) with or without tests, never neither/);
 });

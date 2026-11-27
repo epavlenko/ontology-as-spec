@@ -478,7 +478,10 @@ export function fixesOf(text, name) {
   // value on the header's own line, a line after a blank, up to the next field or heading, is read by it,
   // and a line that is not a valid one is refused, Issue: or not (D-186).
   const all = text.split("\n");
-  const headers = all.map((l, i) => [l, i]).filter(([l]) => /^Tests:/.test(l));
+  // The head of the record, up to its first heading "## ", as the reader of records reads it: a line Tests:
+  // in a section of notes after it is text, never a value (D-186).
+  const headEnd = all.findIndex((l) => /^## /.test(l));
+  const headers = all.map((l, i) => [l, i]).filter(([l, i]) => /^Tests:/.test(l) && (headEnd < 0 || i < headEnd));
   const inline = headers.filter(([l]) => l.replace(/^Tests:/, "").trim()).map(([l]) => l.replace(/^Tests:/, "").trim());
   const under = headers.flatMap(([, i]) => {
     const rest = all.slice(i + 1);
@@ -487,8 +490,10 @@ export function fixesOf(text, name) {
   });
   const strays = under.filter((l) => !/^-\s/.test(l));
   const tests = under.filter((l) => /^-\s/.test(l)).map((l) => {
-    const [cls, file, test] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
-    return { cls, file, test };
+    const parts = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
+    const [cls, file, test] = parts;
+    // Exactly three fields: a fourth is no part of the name, and the line is refused.
+    return { cls, file, test, extra: parts.length > 3 };
   });
   const at = headers.length ? headers[0][1] : -1;
   // The one issue of verdicts after the narrow round, the classes of its table of findings, and the rare
@@ -513,10 +518,11 @@ export function fixesOf(text, name) {
     issues > 1 && "Issue: given more than once",
     issue !== null && !/^[0-9a-fA-F]{7,40}$/.test(issue) && `issue ${issue || "(none)"} is not a commit of seven to forty hexadecimal characters`,
     ...filed.filter((f) => !f.cls || !["limitation", "later"].includes(f.fix) || !f.file || !repoPath(f.file)).map((f) => `the filed line "${[f.cls, f.fix, f.file].filter(Boolean).join(" · ")}" is not "class · limitation or later · file"`),
+    ...tests.filter((t) => t.extra).map((t) => `the line "${[t.cls, t.file, t.test].join(" · ")} · …" under Tests: has more fields than class · file · name`),
     ...tests.filter((t) => !t.cls || !t.file || !t.test).map((t) => `the line "${[t.cls, t.file, t.test].filter(Boolean).join(" · ")}" is not "class · file · name"`),
     ...tests.filter((t) => t.file && !repoPath(t.file)).map((t) => `${t.file} is not a path of the repository`),
   ].filter(Boolean);
-  return { wrong, record: { file: name, task, round, time, tests, issue, issueFindings, filed } };
+  return { wrong, record: { file: name, task, round, time, tests: tests.map(({ cls, file, test }) => ({ cls, file, test })), issue, issueFindings, filed } };
 }
 
 // The rounds with the tests the records of fixes give (D-168): a finding fixable with no test of its own
