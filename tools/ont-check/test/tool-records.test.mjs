@@ -1672,6 +1672,8 @@ test("[check.review-round.round-checks-read] a round of the statement with Round
   const next = p.tool("ont-check.mjs", ["--task", "t", "--statement", st.file]);
   assert.match(next.out, /^NEXT t: the executor works under version/m, next.out);
   const rounds = p.tool("ont-check.mjs", ["--rounds"]);
+  assert.equal(rounds.code, 0, rounds.out);
+  assert.match(rounds.out, /^NEXT t: /m, rounds.out);
   assert.doesNotMatch(rounds.out, /records that cannot be read|BLOCKED|correct the records/, rounds.out);
   // After the start of seals, the same round unsealed is refused by the guard, as any record; sealed it passes.
   const r = gateRepo();
@@ -1698,6 +1700,8 @@ test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests
   const issueOnly = read("20261101T104000Z-t-fixes.md", [`Issue: ${c1}`, "Issue-findings:", "- a stale line", "Filed:", "- a slip · later · issues/0001-a-slip.md"]);
   assert.deepEqual(issueOnly.malformed, []);
   assert.equal(issueOnly.records.fixes[0].issue, c1);
+  // A commit in capitals is a commit of seven to forty hexadecimal characters too.
+  assert.deepEqual(read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7).toUpperCase()}`, "Issue-findings:", "- a stale line"]).malformed, []);
   const mixed = read("20261101T104000Z-t-fixes.md", [`Issue: ${c1.slice(0, 7)}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug"]);
   assert.deepEqual(mixed.malformed, []);
   assert.equal(mixed.rounds.find((x) => x.file === "20261101T103000Z-t-result-1.md").findings[0].test, "tests/a.test.mjs · holds the bug");
@@ -1706,6 +1710,11 @@ test("[check.fixes-record.issue-read] a record of fixes with Issue: and no tests
     [[], /no line under Tests:/],
     [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs"], /is not "class · file · name"/],
     [[`Issue: ${c1}`, "Tests:", "- a bug · ../outside.mjs · holds the bug"], /is not a path of the repository/],
+    // A line under Tests: that is no bullet, alone or after a valid one, is refused beside a valid issue.
+    [[`Issue: ${c1}`, "Tests:", "a bug tests/a.test.mjs holds the bug"], /under Tests: is not "- class · file · name"/],
+    [[`Issue: ${c1}`, "Tests:", "- a bug · tests/a.test.mjs · holds the bug", "not a line of a test"], /under Tests: is not "- class · file · name"/],
+    // A second Issue: that is no commit is refused, whatever the first.
+    [[`Issue: ${c1}`, "Issue: not-a-commit", "Tests:", "- a bug · tests/a.test.mjs · holds the bug"], /Issue: given more than once/],
   ]) {
     const r = read("20261101T104000Z-t-fixes.md", lines);
     assert.match(r.records.malformed.join("\n"), why, lines.join(" / "));

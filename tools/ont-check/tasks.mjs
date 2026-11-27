@@ -429,6 +429,13 @@ export function fixesOf(text, name) {
   // a valid issue excuses no line under Tests: that is wrong (field.fixes-record.issue, D-186).
   // ont: field.fixes-record.issue
   const [task, round, time, issue] = ["Task", "Round", "Time", "Issue"].map((k) => lineOf(text, k));
+  const issues = text.split("\n").filter((l) => /^Issue:/.test(l)).length;
+  // Every line after Tests: up to a blank line, a field or a heading is a line "- ...": a line that is not
+  // stops no block silently, so that a valid issue excuses no wrong line of a test.
+  const at = text.split("\n").findIndex((l) => /^Tests:\s*$/.test(l));
+  const after = at < 0 ? [] : text.split("\n").slice(at + 1);
+  const end = after.findIndex((l) => !l.trim() || /^[A-Za-z][A-Za-z-]*:/.test(l) || /^#/.test(l));
+  const strays = (end < 0 ? after : after.slice(0, end)).filter((l) => !/^- /.test(l));
   const tests = (blockLines(text, "Tests") ?? []).map((l) => {
     const [cls, file, test] = l.replace(/^-\s*/, "").split(" · ").map((x) => x.trim());
     return { cls, file, test };
@@ -440,7 +447,10 @@ export function fixesOf(text, name) {
     round && !/^[^/\\]+\.md$/.test(round) && `round ${round} is not the file name of a record of a round`,
     !realTime(time) && `time ${time ?? "(none)"} is not a UTC time to the second`,
     !tests.length && issue === null && "no line under Tests:",
-    issue !== null && !/^[0-9a-f]{7,40}$/.test(issue) && `issue ${issue || "(none)"} is not a commit`,
+    at >= 0 && !tests.length && "Tests: has no line under it",
+    ...strays.map((l) => `the line "${l.trim()}" under Tests: is not "- class · file · name"`),
+    issues > 1 && "Issue: given more than once",
+    issue !== null && !/^[0-9a-fA-F]{7,40}$/.test(issue) && `issue ${issue || "(none)"} is not a commit of seven to forty hexadecimal characters`,
     ...tests.filter((t) => !t.cls || !t.file || !t.test).map((t) => `the line "${[t.cls, t.file, t.test].filter(Boolean).join(" · ")}" is not "class · file · name"`),
     ...tests.filter((t) => t.file && !repoPath(t.file)).map((t) => `${t.file} is not a path of the repository`),
   ].filter(Boolean);

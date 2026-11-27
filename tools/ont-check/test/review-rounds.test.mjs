@@ -637,6 +637,17 @@ test("[check.review-round.round-checks-read] a record of a round with Round-chec
   const ok = readRecord(head([line]));
   assert.deepEqual(ok.errors, []);
   for (const bad of [[line, line], [line, "Round-verdicts: check.review-round.filed-right"]]) assert.ok(readRecord(head(bad)).errors.length, bad.join(" / "));
+  // An empty list, prose, and an empty item are no list of IDs of checks: the record cannot be read.
+  const dirBad = mkdtempSync(join(tmpdir(), "rounds-round-checks-bad-"));
+  try {
+    ["Round-checks:", "Round-checks: not a check ID", "Round-checks: check.review-round.filed-right,, check.review-round.whole-class"].forEach((l, i) => writeFileSync(join(dirBad, `20261127T01163${i}Z-t-statement-${i + 4}.md`), head([l]).replace("Number: 2", `Number: ${i + 4}`)));
+    const bad = parseRounds(dirBad);
+    assert.deepEqual(bad.rounds, []);
+    assert.equal(bad.malformed.length, 3);
+    assert.ok(bad.malformed.every((m) => /is not a list of IDs of checks/.test(m)), bad.malformed.join("\n"));
+  } finally {
+    rmSync(dirBad, { recursive: true, force: true });
+  }
   const dir = mkdtempSync(join(tmpdir(), "rounds-round-checks-"));
   try {
     writeFileSync(join(dir, "20261127T011629Z-t-statement-2.md"), head([line]));
