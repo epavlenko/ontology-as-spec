@@ -967,6 +967,7 @@ Where each concept is realised. Tool files enforce or generate; pages of `docs/`
 | `field.task-statement.sources`, `field.task-statement.todo`, `field.task-statement.not-todo` | `docs/parts/agent-rules.md` | for people and the reviewer; the tool reads none of them |
 | `edge.review-round.statement`, `field.review-round.start`, `field.review-round.contribution`, `field.review-round.acceptance`, `field.review-round.condition`, `field.review-round.overspend` | `tools/ont-check/review-rounds.mjs` | |
 | `field.review-round.brief-time`, `field.review-round.done`, `field.review-round.spend-record`, `field.review-round.cause`, `field.review-round.gate-paths` | `tools/ont-check/review-rounds.mjs`, `tools/ont-check/round.mjs` | |
+| `field.review-round.round-checks` | `tools/ont-check/review-rounds.mjs` | the reader reads it; its writer is the one of task enforcement-verdicts-tests |
 
 ### Task result
 

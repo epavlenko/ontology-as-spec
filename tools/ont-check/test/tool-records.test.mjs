@@ -1655,3 +1655,29 @@ test("[check.process-record.usual-path] rounds, a verdict, done, the owner's app
   assert.doesNotMatch(after.out, /records of the process with no valid seal/);
   assert.equal(inputsOf(p).records.gateProofs.length, 1);
 });
+
+// ── Forms of records the next writer writes (D-186) ──────────────────────────────────────────────
+
+const ROUND_CHECKS = "Round-checks: check.review-round.filed-right, check.review-round.whole-class";
+const withRoundChecks = (text) => text.replace(/\n$/, `\n${ROUND_CHECKS}\n`);
+test("[check.review-round.round-checks-read] a round of the statement with Round-checks:, as the writer of task enforcement-verdicts-tests writes it, approves its version and blocks no task; without a seal after the start of seals the guard refuses it, SEAL_MISSING", () => {
+  const p = project({ fromLogs: false });
+  const st = statement();
+  p.put("reviews/rounds/20261101T100000Z-t-statement-1.md", withRoundChecks(cleanStatementRound("t", st.hash, at(0))));
+  p.commit("a round with Round-checks:");
+  const inputs = inputsOf(p);
+  assert.deepEqual(inputs.malformed, []);
+  assert.deepEqual(inputs.rounds[0].roundChecks, ["check.review-round.filed-right", "check.review-round.whole-class"]);
+  assert.equal(approvedHash(inputs.rounds, "t", null, inputs.records.approvals), st.hash);
+  const next = p.tool("ont-check.mjs", ["--task", "t", "--statement", st.file]);
+  assert.match(next.out, /^NEXT t: the executor works under version/m, next.out);
+  const rounds = p.tool("ont-check.mjs", ["--rounds"]);
+  assert.doesNotMatch(rounds.out, /records that cannot be read|BLOCKED|correct the records/, rounds.out);
+  // After the start of seals, the same round unsealed is refused by the guard, as any record; sealed it passes.
+  const r = gateRepo();
+  const base = r.bringKey(at(0));
+  const bare = r.pr(base, [(q) => q.put("reviews/rounds/x-t-statement-2.md", withRoundChecks(cleanStatementRound("t", sha256("b"), later(), 2)))]);
+  assert.deepEqual(guard({ cfg: r.config(), base: bare.base, head: bare.head }).records.map((x) => x.code), ["SEAL_MISSING"]);
+  const ok = r.pr(base, [(q) => q.put("reviews/rounds/x-t-statement-3.md", sealed(withRoundChecks(cleanStatementRound("t", sha256("c"), later(), 3))))]);
+  assert.deepEqual(guard({ cfg: r.config(), base: ok.base, head: ok.head }).records, []);
+});

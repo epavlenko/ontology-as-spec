@@ -628,3 +628,24 @@ test("[check.review-round.triage-documented] the change-review skill asks the re
   assert.match(skill, /`usual` or `rare`/);
   assert.match(skill, /advice/);
 });
+
+// The line Round-checks: of a record of a round, as the writer of task enforcement-verdicts-tests writes it,
+// read before that writer is merged (field.review-round.round-checks, D-186).
+test("[check.review-round.round-checks-read] a record of a round with Round-checks: once is read and gives its checks; twice, or beside an unknown field, it cannot be read", () => {
+  const head = (extra) => ["Task: t", "Step: statement-review", "Narrow: false", "Number: 2", "Time: 2026-11-27T01:16:29Z", "Commits: abc1234", "By: a model (a provider)", `Statement-hash: ${"a".repeat(64)}`, "Brief-time: 2026-11-27T01:10:00Z", ...extra, ""].join("\n");
+  const line = "Round-checks: check.review-round.filed-right, check.review-round.whole-class, check.review-round.redesign-after-stagnation";
+  const ok = readRecord(head([line]));
+  assert.deepEqual(ok.errors, []);
+  for (const bad of [[line, line], [line, "Round-verdicts: check.review-round.filed-right"]]) assert.ok(readRecord(head(bad)).errors.length, bad.join(" / "));
+  const dir = mkdtempSync(join(tmpdir(), "rounds-round-checks-"));
+  try {
+    writeFileSync(join(dir, "20261127T011629Z-t-statement-2.md"), head([line]));
+    writeFileSync(join(dir, "20261127T011630Z-t-statement-3.md"), head([line, line]).replace("Number: 2", "Number: 3"));
+    const { rounds, malformed } = parseRounds(dir);
+    assert.deepEqual(rounds.map((r) => r.roundChecks), [["check.review-round.filed-right", "check.review-round.whole-class", "check.review-round.redesign-after-stagnation"]]);
+    assert.equal(malformed.length, 1);
+    assert.match(malformed[0], /20261127T011630Z-t-statement-3\.md/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
