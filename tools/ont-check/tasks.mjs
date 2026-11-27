@@ -860,7 +860,7 @@ export function openWindow({ rounds, done = [], approvals = [], task, step }) {
 // round look back at.
 export const hasFindings = (r) => [...r.findings, ...(r.acceptance?.findings ?? [])].some((x) => x.ofChange);
 // The failed analyses of the cause a window leaves pending, by the one derivation both the writer of the next
-// brief and the guard read (rule.round-verdicts, D-187, D-188, D-189). A fail counts when it is the latest
+// brief and the guard read (rule.round-verdicts, D-187, D-188, D-190). A fail counts when it is the latest
 // verdict of the check given for its round, between that round's brief and its record, the round asking for
 // it on Round-checks:, so that a verdict of another task, or one given before the rule, is read as before and
 // asks nothing. The latest verdict of the check after the fail decides it, of any kind, given for a round of

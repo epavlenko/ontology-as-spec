@@ -12,10 +12,11 @@
 //   and the later entries that name it.
 // --run also runs every trace of the catalogue on the oracle (D-93) and prints each check's result.
 // --confine <root>, with --review <base> --json alone, is the guard's run of the list of the change: every read
-//   of a file passes the boundary of confine.mjs, and one outside root ends the run with READ_OUTSIDE (D-189).
+//   of a file passes the boundary of lib.mjs, and one outside root ends the run with READ_OUTSIDE (D-190).
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
-// First: given --confine <root>, every read of the run goes through the boundary of the checked tree (D-189).
-import "./confine.mjs";
+// First: lib.mjs, which, given --confine <root>, sets the boundary of the checked tree for every read of the run
+// as it is evaluated, before any other module of the checker (D-190).
+import "./lib.mjs";
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
@@ -76,7 +77,7 @@ import { checkForms, checkTraces, readForms, readTraces, runTrace } from "./orac
 const groupBy = (xs, key) =>
   xs.reduce((m, x) => m.set(key(x), [...(m.get(key(x)) ?? []), x]), new Map());
 
-// --confine <root> is the guard's: only with --review and --json, for the list of the change (D-189).
+// --confine <root> is the guard's: only with --review and --json, for the list of the change (D-190).
 const confined = process.argv.includes("--confine");
 if (confined && !(process.argv.includes("--review") && process.argv.includes("--json"))) {
   console.error("--confine is the guard's run of the list of the change: give it with --review <base> --json");
@@ -1392,7 +1393,7 @@ if (flag("--review") > 0) {
   // keeps no brief. The run ends here, before anything of the project is imported.
   // ont: derived.change-list
   const asJson = flag("--json") > 0;
-  // In the guard's run the tree's Git directory is the guard's, which keeps no brief, and is not read (D-189).
+  // In the guard's run the tree's Git directory is the guard's, which keeps no brief, and is not read (D-190).
   const r = reviewChange({ cfg, base, checks, approachChecks: approach?.checks, implRows, ids, guides: runGuides, ...(confined ? { briefs: [] } : {}) });
   if (r.error) {
     fail(r.error, 2);

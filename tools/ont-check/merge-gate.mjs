@@ -48,8 +48,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { OUTSIDE_EXIT, OUTSIDE_LINE, outsideOf } from "./confine.mjs";
-import { gitEnv, loadConfig } from "./lib.mjs";
+import { OUTSIDE_EXIT, OUTSIDE_LINE, gitEnv, loadConfig, outsideOf } from "./lib.mjs";
 import { CLASS_SEP, CODE_CHECK, parseRuns } from "./manual-runs.mjs";
 import { LATER_DIR, LIMITATIONS_FILE, parseRounds } from "./review-rounds.mjs";
 import { recordTime, sealState, sealsStart } from "./seal.mjs";
@@ -498,10 +497,10 @@ export function changeList({ cfg, top, commit, from, tmp }) {
   must(top, "-c", "core.hooksPath=/dev/null", "worktree", "add", "--quiet", "--detach", wt, commit);
   try {
     const cfgRel = relative(top, cfg.file).split("\\").join("/");
-    // The checker of the base reads only the files of the checked tree (D-187, D-188, D-189). Early, before
+    // The checker of the base reads only the files of the checked tree (D-187, D-188, D-190). Early, before
     // it runs: the configuration's own path, before it is read, every path it names, and every link of the
     // tree resolve inside it by their real paths. The hold is the read itself: the checker runs with
-    // --confine, so that each file it reads, whatever named it, passes the boundary of confine.mjs, and a
+    // --confine, so that each file it reads, whatever named it, passes the boundary of lib.mjs, and a
     // read outside ends the run with no list.
     const outside = pathsOutside(join(wt, cfgRel), wt);
     if (outside.length) throw new GitError(`the configuration at ${commit.slice(0, 12)} names paths outside its tree, by itself, by a path it names or by a link of the tree, which the guard does not read: ${outside.join(", ")}`);
@@ -526,7 +525,7 @@ export function changeList({ cfg, top, commit, from, tmp }) {
 // by "..", by an absolute path or by a link. A configuration that cannot be loaded is one whose paths cannot
 // be told, and is named whole. The links are found by lstat, without following any.
 export function pathsOutside(cfgFile, root) {
-  // The test of the boundary the checker's reads pass, the same function (D-189).
+  // The test of the boundary the checker's reads pass, the same function (D-190).
   const leaves = (p) => Boolean(outsideOf(root)(p));
   const found = new Set();
   const walk = (dir) => {
@@ -704,7 +703,7 @@ function roundVerdictProblems({ w, runs, ctx, ofIssue = () => false }) {
         continue;
       }
       if (id === CAUSE_ROUND_CHECK) {
-        // Decided by the one derivation the writer of the brief reads too, causeFailures (D-189).
+        // Decided by the one derivation the writer of the brief reads too, causeFailures (D-190).
         const f = causes.find((x) => x.round === r);
         if (f) problems.push({ code: "VERDICT_FAILED", why: `${id}: ${f.run.file} failed the analysis of the cause of ${r.file}, and no later pass in the window was given on a corrected analysis${f.last ? `: the latest verdict of the check after it, ${f.last.file}, is ${f.last.verdict === "pass" ? "a pass on no corrected analysis" : `a ${f.last.verdict}`}` : ""}` });
         continue;
