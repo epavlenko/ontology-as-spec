@@ -12,6 +12,9 @@ Findings of the review of the statement of task enforcement-verdicts-tests, each
 - class "Malformed catalogue row has no valid mark" (statement round 8): a new row of `checks.md` whose ID has its opening backtick and lacks the closing one is still skipped without an error by the check version 8 of the statement specifies; it needs that one typo, which the reviewer of the result reads in the diff.
 - class "Failed cause verdict has no recovery after the last narrow round" (statement round 13): after the condition is confirmed, the one narrow round fails the analysis of the cause, and the reviewer of the one issue then fails the corrected analysis too; the merge stays refused with `VERDICT_FAILED` and the process gives no further issue or round to clear it. It needs two failed analyses in a row inside the closing tail of one step, and the gate fails closed: nothing merges without a passing verdict. Version 13 of the statement covers the first failure; clearing the second needs a change of the process, left for later.
 
+- class "Guard review reads beyond the checked tree" (result round 1): the base checker the guard runs with the pull request's configuration resolves configuration paths without confining them to that checkout, so a configuration that names a path outside it is read; the guard runs in CI with no secrets, and a pull request that sets such a path is a change of the configuration, a gate path, which an approved item must name.
+- class "Findings filed in earlier rounds can waive a current fail" (result round 1): a class filed in an earlier result round of the same task clears a new fail of the same class at the merge, even when the round that closes the current step did not file it; it needs the same class to fail again after it was filed, in one task.
+
 ## Slice
 
 IDs: `inv.suite-covers-classes`.
