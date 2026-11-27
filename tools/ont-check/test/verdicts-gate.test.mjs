@@ -1166,3 +1166,21 @@ test("[check.merge-gate.verdicts-run-nothing] the list of the change is computed
   const inside = tryList((c, q) => q.put("notes.md", "# notes\n"));
   assert.ok(Array.isArray(inside.list), JSON.stringify(inside));
 });
+
+test("[check.merge-gate.verdict-failed] a class filed by an earlier round waives no later fail of the same class: only the round that ended the step, or the records of fixes of its range, decide it", () => {
+  for (const filedAtEnd of [false, true]) {
+    const { p, st } = approved();
+    p.put("issues/0004-a-slip-of-code.md", "# A slip\n\na slip of code\n");
+    reviewed(p, st);
+    // Round 1 files the class for later, with a gap of the usual path beside it.
+    resultRound(p, st, "By: m (p)\n\n| a slip of code | nit | change |\n| a gap | important | change |\n\nCondition: not yet\nAcceptance: clean", "a slip of code · later: issues/0004-a-slip-of-code.md\na gap · usual path: the work\n");
+    work(p, "export const gapFixed = 1;\n");
+    recordDone(p, st);
+    p.commit("done");
+    // A later fail of the check of errors in code with the same class; the closing round files it, or not.
+    const rest = filedAtEnd ? "By: m (p)\n\n| a slip of code | nit | change |\n\nCondition: not yet\nAcceptance: clean" : "By: m (p)\n\nCondition: not yet\nAcceptance: clean";
+    resultRound(p, st, rest, filedAtEnd ? "a slip of code · later: issues/0004-a-slip-of-code.md\n" : null, { given: { [CODE]: ["fail", "[a slip of code] app/work.mjs:4 names a value twice"] } });
+    const g = p.gate();
+    assert.deepEqual([...new Set(g.codes)], filedAtEnd ? [] : ["VERDICT_FAILED"], g.out);
+  }
+});

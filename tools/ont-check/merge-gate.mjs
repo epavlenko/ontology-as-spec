@@ -626,7 +626,10 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
   const range = next.result?.fixes?.done ? next.result.fixes : null;
   const fixes = range ? (inputs.records.fixes ?? []).filter((f) => f.task === task && f.round === range.narrow.file) : [];
   const passed = new Set(range ? (range.done.fixTests ?? []).filter((t) => t.result === "passed").map((t) => `${t.file} · ${t.test}`) : []);
-  const ctxOf = (commit, stamp) => ({ commit, stamp, rounds: results, fixes, passed, root: at.root });
+  // A class is filed only by the round that ended the step, the last of the window, or decided in the
+  // records of fixes of its range; a filing of an earlier round waives no later fail (D-186).
+  const ending = [...results].sort((a, b) => a.time.localeCompare(b.time)).at(-1);
+  const ctxOf = (commit, stamp) => ({ commit, stamp, rounds: ending ? [ending] : [], fixes, passed, root: at.root });
   const problems = [];
   // A check held on a commit; on the issue, a missing record is an incomplete issue and a class not
   // decided a finding with no decision.
