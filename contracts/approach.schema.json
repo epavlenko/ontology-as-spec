@@ -415,7 +415,7 @@
           "type": "string"
         },
         "carried": {
-          "description": "The record a carried verdict carries: --record writes a record of its own for each carry it checked, on the checked commit, with the carried record's verdict and class, so that a verdict of an earlier result reaches the checked commit only by a carry the writer checked (D-187).",
+          "description": "The record a carried verdict carries: --record writes a record of its own for each carry it checked, on the checked commit, with the carried record's verdict and class, so that a verdict of an earlier result reaches the checked commit only by a carry the writer checked (D-187). A carried not-run or not-applicable has the reason of the record it carries, followed through carries, never the carry's own evidence, which is its citation: the writer refuses the carry of one that gives none of its own. The check of errors in code and the check of the analysis of the cause are never carried; the writer refuses their carry, and a record of either with Carried: is no verdict of it to any reader (D-192).",
           "x-ont": "field.manual-run.carried",
           "type": "string"
         },
