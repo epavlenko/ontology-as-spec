@@ -170,7 +170,8 @@ export const currentRun = (runs, id, stamp, held = () => false, fresh = () => tr
 // verdict gives the file of the record it carries and, after " · ", the files the reviewer read for it,
 // none of which may have changed since the record's commit (D-95); a `By:` line names the reviewer. A record is written for each new verdict and none for a carried one. The table is refused
 // whole when a check is not listed, is given twice, a listed check has neither, a carried record is
-// not of its check or not at its stamp now, or the check of errors in code is carried.
+// not of its check or not at its stamp now, carries a not-run or a not-applicable with no reason of its own,
+// or the check of errors in code or of the analysis of the cause is carried.
 // A fail names the classes of its findings, each in square brackets at the start of its evidence, which
 // the record keeps on Class:, separated by " · "; a not-run and a not-applicable give their reason in the
 // evidence; and a carry the table passes writes a record of its own on the commit of the review, with the
@@ -187,6 +188,24 @@ export const classesOf = (evidence) => {
   return out;
 };
 export const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
+// The check of the analysis of the cause reads the analysis the round's Cause: names, a file outside the
+// repository that neither a stamp nor the files of the tree cover; like the check of errors in code it is
+// never carried, and its verdict is given in the round whose Cause: it decides (rule.round-verdicts, D-192).
+export const CAUSE_CHECK = "check.review-round.redesign-after-stagnation";
+export const NEVER_CARRIED = new Map([
+  [CODE_CHECK, "the check of errors in code reads every new diff and is never carried"],
+  [CAUSE_CHECK, "the check of the analysis of the cause reads the analysis its round's Cause: names, which no stamp and no file of the tree covers, and is never carried"],
+]);
+// The reason a record of a not-run or a not-applicable gives of its own: the evidence of a record given
+// directly; for a carry, the reason of the record it carries, followed through carries, since a carry's own
+// evidence is the citation of what it carries and of the files read, never a reason (D-192). Empty when none.
+export function reasonOf(run, runs, depth = 0) {
+  if (!run) return "";
+  if (!run.carried) return String(run.evidence ?? "").trim();
+  if (depth > 40) return "";
+  return reasonOf(runs.find((x) => x.file === run.carried), runs, depth + 1);
+}
+const abstains = (v) => v === "not-run" || v === "not-applicable";
 // A cell of a row: anything but a pipe, an escaped one included; read without its escapes and backticks.
 const CELL = String.raw`(?:\\.|[^|\\])*?`;
 const cell = (x) => (x ?? "").replace(/\\\|/g, "|").replace(/^`|`$/g, "");
@@ -222,12 +241,15 @@ export function recordVerdicts({ text, listed, runs, base = null, stamp, commit,
     else if (r.performer && r.verdict !== "pass" && r.verdict !== "fail") problems.push(`${r.check}: a performer is given on a pass or a fail only, not on ${r.verdict}`);
     else if (r.performer === "person" && !r.evidence) problems.push(`${r.check}: performer person without the evidence that names the person`);
     if (r.verdict === "carried") {
-      if (r.check === CODE_CHECK) problems.push(`${r.check}: the check of errors in code reads every new diff and is never carried`);
       const [file, read = ""] = r.evidence.split("·").map((x) => x.trim());
       const files = read.split(",").map((x) => x.trim()).filter(Boolean);
       const run = runs.find((x) => x.file === file);
-      if (!run) problems.push(`${r.check}: carries ${file || "(no record)"}, which is no record of a run`);
+      if (NEVER_CARRIED.has(r.check)) problems.push(`${r.check}: ${NEVER_CARRIED.get(r.check)}`);
+      else if (!run) problems.push(`${r.check}: carries ${file || "(no record)"}, which is no record of a run`);
       else if (run.check !== r.check) problems.push(`${r.check}: carries ${file}, a record of ${run.check}`);
+      // A carried abstention keeps the reason of the record it carries; one with none of its own is given
+      // again, with its reason (D-192).
+      else if (abstains(run.verdict) && !reasonOf(run, runs)) problems.push(`${r.check}: carries ${file}, a ${run.verdict} without its reason of its own, which a carry cannot give: give the verdict again with its reason`);
       else if (run.stamp !== stamp(c)) problems.push(`${r.check}: carries ${file}, given at stamp ${run.stamp}, and the check's stamp is now ${stamp(c)}`);
       else if (run.origin === "run") {
         const why = runFresh(run);
@@ -242,7 +264,7 @@ export function recordVerdicts({ text, listed, runs, base = null, stamp, commit,
       }
     } else if (!VERDICTS.includes(r.verdict)) problems.push(`${r.check}: verdict ${r.verdict} is not one of ${[...VERDICTS, "carried"].join(", ")}`);
     else if (r.verdict === "fail" && !classesOf(r.evidence).length) problems.push(`${r.check}: a fail names no class of its findings: begin its evidence with each class in square brackets, such as [missing test]`);
-    else if ((r.verdict === "not-run" || r.verdict === "not-applicable") && !r.evidence.trim()) problems.push(`${r.check}: a ${r.verdict} without its reason in the evidence`);
+    else if (abstains(r.verdict) && !r.evidence.trim()) problems.push(`${r.check}: a ${r.verdict} without its reason in the evidence`);
   }
   for (const id of listed.keys()) if (!seen.has(id)) problems.push(`${id}: listed, with neither a new verdict nor a carried one`);
   if (problems.length) return { problems, records: [], carried: 0 };

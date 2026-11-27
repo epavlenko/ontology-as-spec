@@ -49,7 +49,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { OUTSIDE_EXIT, OUTSIDE_LINE, gitEnv, loadConfig, outsideOf } from "./lib.mjs";
-import { CLASS_SEP, CODE_CHECK, parseRuns } from "./manual-runs.mjs";
+import { CLASS_SEP, CODE_CHECK, NEVER_CARRIED, parseRuns, reasonOf } from "./manual-runs.mjs";
 import { LATER_DIR, LIMITATIONS_FILE, parseRounds } from "./review-rounds.mjs";
 import { recordTime, sealState, sealsStart } from "./seal.mjs";
 import { CAUSE_ROUND_CHECK, approvalEvents, causeFailures, approvalInForce, approvedHash, fixesRange, parseTaskRecords, readTaskInputs, reviewedCommit, roundWindow, taskNext } from "./tasks.mjs";
@@ -560,8 +560,9 @@ export function pathsOutside(cfgFile, root) {
 // commit at the stamp, or a record of a run outside a review at the stamp on a commit from which nothing
 // outside the records changed up to it; the records the pull request gave the check on another commit, for
 // the code of a verdict not of the change.
+// A carry of a check that is never carried, which the writer refuses, is no verdict of it (D-192).
 function changeVerdict({ top, runs, id, stamp, commit, dirs, resolve }) {
-  const own = runs.filter((r) => r.check === id);
+  const own = runs.filter((r) => r.check === id && !(r.carried && NEVER_CARRIED.has(id)));
   const on = own.filter((r) => r.stamp === stamp && (r.origin !== "run" ? resolve(r.commit) === commit : runFresh(top, r.commit, commit, dirs, resolve)));
   const current = on.sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1) ?? null;
   return { current, elsewhere: own.filter((r) => r.origin !== "run" && resolve(r.commit) !== commit) };
@@ -602,7 +603,8 @@ function verdictWhy(id, v, ctx) {
   }
   const r = v.current;
   if (r.verdict === "pass") return null;
-  if (r.verdict === "not-run" || r.verdict === "not-applicable") return r.evidence?.trim() ? null : { code: "VERDICT_UNREASONED", why: `${id}: ${r.file} is a ${r.verdict} without its reason` };
+  // A carry's citation is no reason: the reason is the carried record's own (D-192).
+  if (r.verdict === "not-run" || r.verdict === "not-applicable") return reasonOf(r, ctx.runs ?? []) ? null : { code: "VERDICT_UNREASONED", why: `${id}: ${r.file} is a ${r.verdict} without its reason${r.carried ? `, carried from ${r.carried}, which gives none of its own` : ""}` };
   if (r.carried) return { code: "VERDICT_FAILED", why: `${id}: ${r.file} carries the fail ${r.carried}, and a carried fail needs a new pass` };
   const classes = r.class ? r.class.split(CLASS_SEP).map((x) => x.trim()).filter(Boolean) : [];
   if (!classes.length) return { code: "VERDICT_FAILED", why: `${id}: ${r.file} is a fail without a class of its findings` };
@@ -639,7 +641,7 @@ function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
   // fixes (D-187, D-188).
   const w = roundWindow({ rounds: inputs.rounds, done: inputs.records.done, approvals: inputs.records.approvals, task });
   const closing = w.end?.kind === "round" ? w.end.round : (w.end?.narrow ?? null);
-  const ctxOf = (commit, stamp, ofIssue = false) => ({ commit, stamp, rounds: closing && !ofIssue ? [closing] : [], fixes, passed, root: at.root });
+  const ctxOf = (commit, stamp, ofIssue = false) => ({ commit, stamp, rounds: closing && !ofIssue ? [closing] : [], fixes, passed, root: at.root, runs });
   const problems = [];
   // A check held on a commit; on the issue, a missing record is an incomplete issue and a class not
   // decided a finding with no decision.
@@ -691,7 +693,7 @@ function roundVerdictProblems({ w, runs, ctx, ofIssue = () => false }) {
   const causes = causeFailures(runs, win, { ofIssue, until });
   for (const r of win) {
     for (const id of r.roundChecks ?? []) {
-      const given = runs.filter((x) => x.check === id && r.briefTime && x.time >= r.briefTime && x.time <= r.time).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
+      const given = runs.filter((x) => x.check === id && !(x.carried && NEVER_CARRIED.has(id)) && r.briefTime && x.time >= r.briefTime && x.time <= r.time).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
       const v = given.at(-1);
       if (!v) {
         problems.push({ code: "VERDICT_MISSING", why: `${id}: no verdict of the record of a round for ${r.file}, given after its brief` });
@@ -699,7 +701,7 @@ function roundVerdictProblems({ w, runs, ctx, ofIssue = () => false }) {
       }
       if (v.verdict === "pass") continue;
       if (v.verdict === "not-run" || v.verdict === "not-applicable") {
-        if (!v.evidence?.trim()) problems.push({ code: "VERDICT_UNREASONED", why: `${id}: ${v.file}, for ${r.file}, is a ${v.verdict} without its reason` });
+        if (!reasonOf(v, runs)) problems.push({ code: "VERDICT_UNREASONED", why: `${id}: ${v.file}, for ${r.file}, is a ${v.verdict} without its reason${v.carried ? `, carried from ${v.carried}, which gives none of its own` : ""}` });
         continue;
       }
       if (id === CAUSE_ROUND_CHECK) {

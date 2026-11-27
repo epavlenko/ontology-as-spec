@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
 import { commitResolves, gitEnv, listFiles, read, unresolvedCommits } from "./lib.mjs";
-import { outsideRecord } from "./manual-runs.mjs";
+import { CAUSE_CHECK, outsideRecord } from "./manual-runs.mjs";
 import { pendingBriefs } from "./briefs.mjs";
 import { logSpend, overspendOf, snapshotSpend, spendLines, spendMarks } from "./spend.mjs";
 import { BUDGET_QUESTION, SHA256, TASK_NAME, blockAt, blockLines, blockedSay, byTime, endsStep, gateSay, isClean, isLegacy, nextRound, notFixableIn, parseContribution, parseRounds, realTime } from "./review-rounds.mjs";
@@ -840,7 +840,7 @@ export function roundWindow({ rounds, done = [], approvals = [], task }) {
 // The checks of the record of a round (rule.round-verdicts, D-187), whose verdicts the reviewer of the next
 // round gives on the rounds before it in the open window of the step.
 export const ROUND_CHECKS = ["check.review-round.filed-right", "check.review-round.whole-class"];
-export const CAUSE_ROUND_CHECK = "check.review-round.redesign-after-stagnation";
+export const CAUSE_ROUND_CHECK = CAUSE_CHECK;
 // The open window of a step of a task (rule.round-verdicts): its rounds after the end of the step, by
 // stepEnds for the result, by the last clean round for the statement, and after the owner's last approval;
 // from is the time it opens at, or null.
@@ -867,11 +867,13 @@ export const hasFindings = (r) => [...r.findings, ...(r.acceptance?.findings ?? 
 // the window or, outside a round, of the one issue (ofIssue), up to until: only a pass on a corrected
 // analysis decides it, of a round whose Cause: is another than the failed round's, or of the issue, whose
 // evidence names the hash of another analysis; a later fail, a not-run or a not-applicable leaves it failed.
+// Only a verdict given is read, never a carry, which the writer refuses for this check: a carried pass was
+// given on another analysis than the Cause: of the round it would reach, so it decides nothing (D-191, D-192).
 // Each pending fail with its round, the latest verdict after it, and the hash of the analysis it failed.
 export function causeFailures(runs, windowRounds = [], { ofIssue = () => false, until = "9999" } = {}) {
   const spanOf = (x) => windowRounds.find((r) => r.briefTime && x.time >= r.briefTime && x.time <= r.time);
   const of = runs
-    .filter((x) => x.check === CAUSE_ROUND_CHECK && x.time <= until && (spanOf(x) || ofIssue(x)))
+    .filter((x) => x.check === CAUSE_ROUND_CHECK && !x.carried && x.time <= until && (spanOf(x) || ofIssue(x)))
     .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
   const pending = [];
   for (const r of windowRounds.filter((r) => r.briefTime && (r.roundChecks ?? []).includes(CAUSE_ROUND_CHECK))) {

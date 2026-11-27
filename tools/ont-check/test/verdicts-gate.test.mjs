@@ -1379,6 +1379,36 @@ test("[check.merge-gate.verdicts-run-nothing] the checker the guard runs reads n
   assert.equal(alone.status, 2, alone.stderr);
 });
 
+test("[check.merge-gate.verdicts-run-nothing] the boundary makes no exception by path: a row of the implementation table that names a data file of the checker itself, out of the checked tree, is refused with READ_OUTSIDE like any other; the usual run, by a checker out of the tree as the guard's is, still reads its own data", () => {
+  const p = base();
+  // The checker out of the checked tree, as the guard runs the base's, with all four of its own data files.
+  const tool = join(temp("ont-tool-"), "ont-check");
+  cpSync(join(p.dir, "tools/ont-check"), tool, { recursive: true });
+  writeFileSync(join(tool, "copy.json"), JSON.stringify({ commit: "0".repeat(40) }));
+  writeFileSync(join(tool, "upstream.json"), JSON.stringify({ commit: "0".repeat(40), files: {} }));
+  const withRow = (q, file) => q.put("ontology.md", readFileSync(join(q.dir, "ontology.md"), "utf8").replace("| --- | -------------- | ---- |\n", `| --- | -------------- | ---- |\n| \`ent.thing\` | \`${file}\` | |\n`));
+  const confined = (file) => {
+    const q = copy(p);
+    withRow(q, file(q));
+    q.commit("a row of the implementation table");
+    const r = spawnSync(process.execPath, [join(tool, "ont-check.mjs"), "--config", join(q.dir, "ont.config.json"), "--review", "main", "--json", "--confine", q.dir], { cwd: q.dir, encoding: "utf8", env: GIT_ENV });
+    return { code: r.status, out: `${r.stdout}${r.stderr}` };
+  };
+  for (const own of ["approach.json", "copy.json", "upstream.json", "html-entities.json"]) {
+    const r = confined((q) => relative(q.dir, join(tool, own)));
+    assert.equal(r.code, 3, `${own}: ${r.out}`);
+    assert.match(r.out, new RegExp(`^READ_OUTSIDE ${realpathSync(join(tool, own)).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m"), r.out);
+    assert.doesNotMatch(r.out, /^REVIEW_JSON /m);
+  }
+  // The usual run reads its own data, the approach's checks among them, which its list names.
+  const usual = confined(() => "app/work.mjs");
+  assert.equal(usual.code, 0, usual.out);
+  const line = usual.out.split("\n").find((l) => l.startsWith("REVIEW_JSON "));
+  assert.ok(line, usual.out);
+  const approachChecks = JSON.parse(readFileSync(join(tool, "approach.json"), "utf8")).checks.map((c) => c.id);
+  assert.ok(JSON.parse(line.slice("REVIEW_JSON ".length)).checks.some((c) => approachChecks.includes(c.id ?? c.check ?? c)), line);
+});
+
 test("[check.merge-gate.round-verdicts-held] the writer of the brief and the guard derive a failed analysis of the cause by one function: after a fail, a pass on the corrected analysis and a not-run, both hold the failure; after a fail and a pass on the corrected analysis, both clear it", () => {
   const { p, st } = approved();
   reviewed(p, st);
@@ -1426,4 +1456,135 @@ test("[check.merge-gate.round-verdicts-held] the writer of the brief and the gua
   const b = brief(q);
   assert.notEqual(b.code, 0, b.out);
   assert.match(b.out, held);
+});
+
+// ── Findings of result round 4 of the review of the result ───────────────────────────────────────────
+
+// The fields of the latest record of a check, as the tool wrote it.
+const latestOf = (p, check) => {
+  const f = readdirSync(join(p.dir, "reviews/runs")).filter((x) => x.includes(`-${check}-`)).sort().at(-1);
+  const t = readFileSync(join(p.dir, "reviews/runs", f), "utf8");
+  return { file: f, commit: t.match(/^Commit: (\S+)$/m)[1], stamp: t.match(/^Stamp: (\S+)$/m)[1] };
+};
+const tick = () => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
+
+test("[check.merge-gate.round-verdicts-held] the check of the analysis of the cause is never carried: the writer refuses its carry, and a carried pass made by hand, naming the corrected analysis, clears the failure neither for the writer of the brief nor for the guard", () => {
+  const { p, st } = approved();
+  reviewed(p, st);
+  withFinding(p, st);
+  withFinding(p, st);
+  resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: not yet\nAcceptance: clean", "a slip · usual path: the work\n", { extra: ["--cause", writeFile("The cause is the test.\n")], given: { [CAUSE]: ["fail", "[a cause not named] the analysis names no cause"] } });
+  const failed = latestOf(p, CAUSE);
+  work(p, "export const slipFixed = 1;\n");
+  recordDone(p, st);
+  p.commit("done");
+  const corrected = writeFile("The fix of a slip did not hold because the test read the copy, not the file; one reader now.\n");
+  const hash = sha256(readFileSync(corrected));
+  // The writer refuses a carry of the check, with the corrected analysis's brief kept, and writes no record.
+  {
+    const q = copy(p);
+    const b = q.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file, "--cause", corrected]);
+    assert.equal(b.code, 0, b.out);
+    const before = runs(q).length;
+    const r = q.verdicts("main", { [CAUSE]: ["carried", `${failed.file} · docs/page.md`] });
+    assert.notEqual(r.code, 0, r.out);
+    assert.match(r.out, /check\.review-round\.redesign-after-stagnation: the check of the analysis of the cause .* is never carried/);
+    assert.equal(runs(q).length, before);
+  }
+  // A round on the corrected analysis whose reviewer gave a not-run with its reason, then a carried pass made
+  // by hand after it, naming the hash of the corrected analysis.
+  const withForgedCarry = (q, rest, triage = null) => {
+    const b = q.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file, "--cause", corrected]);
+    assert.equal(b.code, 0, b.out);
+    const v = q.verdicts("main", { [CAUSE]: ["not run", "the reviewer was given no time for the analysis"] });
+    assert.equal(v.code, 0, v.out);
+    const given = latestOf(q, CAUSE);
+    tick();
+    forge(q, { check: CAUSE, commit: given.commit, stamp: given.stamp, verdict: "pass", evidence: `${failed.file} · the analysis ${hash}`, carried: failed.file, time: new Date() });
+    tick();
+    const r = q.tool("round.mjs", ["record", "t", "--from", reply(briefLines(b.out), rest), ...(triage ? ["--triage", writeFile(triage)] : [])]);
+    assert.equal(r.code, 0, r.out);
+    return q.commit("a round of the result");
+  };
+  // The guard, the forged carry in the closing round: the failure holds.
+  {
+    const q = copy(p);
+    withForgedCarry(q, "By: m (p)\n\nCondition: holds\nAcceptance: clean");
+    const g = q.gate();
+    assert.ok(g.codes.includes("VERDICT_FAILED"), g.out);
+    assert.match(g.out, /failed the analysis of the cause of .*no later pass in the window was given on a corrected analysis: the latest verdict of the check after it, \S+, is a not-run/);
+  }
+  // The writer of the next brief, the forged carry in a round with a finding: the failure holds.
+  {
+    const q = copy(p);
+    withForgedCarry(q, "By: m (p)\n\n| a dent | important | change |\n\nCondition: not yet\nAcceptance: clean", "a dent · usual path: the work\n");
+    work(q, "export const dentFixed = 1;\n");
+    recordDone(q, st);
+    q.commit("done");
+    const b = q.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+    assert.notEqual(b.code, 0, b.out);
+    assert.match(b.out, /failed in this step and no later pass decided it: give the corrected analysis with --cause/);
+  }
+  // A round whose only verdict of the check is a carry made by hand is refused for want of it.
+  {
+    const q = copy(p);
+    const b = q.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file, "--cause", corrected]);
+    assert.equal(b.code, 0, b.out);
+    const v = q.verdicts("main", {}, { omit: [CAUSE] });
+    assert.notEqual(v.code, 0, v.out);
+    for (const id of [FILED, WHOLE]) forge(q, { check: id, commit: failed.commit, stamp: "x", verdict: "pass", evidence: "read", time: new Date() });
+    forge(q, { check: CAUSE, commit: failed.commit, stamp: failed.stamp, verdict: "pass", evidence: `the analysis ${hash}`, carried: failed.file, time: new Date() });
+    tick();
+    const r = q.tool("round.mjs", ["record", "t", "--from", reply(briefLines(b.out), "By: m (p)\n\nCondition: holds\nAcceptance: clean")]);
+    assert.notEqual(r.code, 0, r.out);
+    assert.match(r.out, /needs the verdicts of the record of a round.*check\.review-round\.redesign-after-stagnation/);
+  }
+});
+
+test("[check.merge-gate.verdict-unreasoned] a carry of a not-run or a not-applicable keeps its reason only from the record it carries: the writer refuses the carry of a legacy one with no reason, and the guard holds a carried one with VERDICT_UNREASONED; a carry of one with its reason passes", () => {
+  const { p, st } = approved();
+  const w = work(p);
+  recordDone(p, st);
+  p.commit("done");
+  forgeAll(p, w, [OTHER]);
+  const stamp = p.list().find((c) => c.id === OTHER).stamp;
+  // A legacy not-run, written before the writer asked for a reason, has none.
+  forge(p, { check: OTHER, commit: w.slice(0, 7), stamp, verdict: "not-run", time: new Date(Date.now() + 60000) });
+  p.commit("the verdicts, one a not-run with no reason");
+  const legacy = latestOf(p, OTHER).file;
+  for (const verdict of ["not-run", "not-applicable"]) {
+    const q = copy(p);
+    forge(q, { check: OTHER, commit: w.slice(0, 7), stamp, verdict, time: new Date(Date.now() + 61000) });
+    q.commit("a legacy abstention with no reason");
+    const old = latestOf(q, OTHER).file;
+    const before = runs(q).length;
+    const r = q.verdicts("main", { [OTHER]: ["carried", `${old} · app/work.mjs`] });
+    assert.notEqual(r.code, 0, r.out);
+    assert.match(r.out, new RegExp(`carries ${old.replace(/[.]/g, "\\.")}, a ${verdict} without its reason of its own`));
+    assert.equal(runs(q).length, before);
+  }
+  // A carry made by hand of the legacy not-run, whose own evidence is the citation alone: the guard holds it.
+  {
+    const q = copy(p);
+    forge(q, { check: OTHER, commit: w.slice(0, 7), stamp, verdict: "not-run", evidence: `${legacy} · app/work.mjs`, carried: legacy, time: new Date(Date.now() + 120000) });
+    q.commit("a carried not-run");
+    resultRound(q, st);
+    const g = q.gate();
+    assert.deepEqual([...new Set(g.codes)], ["VERDICT_UNREASONED"], g.out);
+    assert.match(g.out, new RegExp(`carried from ${legacy.replace(/[.]/g, "\\.")}, which gives none of its own`));
+  }
+  // The usual path: a carry of a not-run with its reason is written, and the guard reads the reason it carries.
+  {
+    const q = copy(p);
+    forge(q, { check: OTHER, commit: w.slice(0, 7), stamp, verdict: "not-run", evidence: "it needs the running product, which this change has not", time: new Date(Date.now() + 120000) });
+    q.commit("a not-run with its reason");
+    const old = latestOf(q, OTHER).file;
+    tick();
+    const r = q.verdicts("main", { [OTHER]: ["carried", `${old} · app/work.mjs`] });
+    assert.equal(r.code, 0, r.out);
+    q.commit("the carry");
+    resultRound(q, st);
+    const g = q.gate();
+    assert.deepEqual(g.codes, [], g.out);
+  }
 });

@@ -31,7 +31,7 @@ import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { briefText, pendingBriefs, readBrief, removeBrief, writeBrief } from "./briefs.mjs";
 import { gitEnv, loadConfig } from "./lib.mjs";
-import { CLASS_SEP, outsideRecord, parseRuns } from "./manual-runs.mjs";
+import { CLASS_SEP, NEVER_CARRIED, outsideRecord, parseRuns } from "./manual-runs.mjs";
 import { CAUSE, LATER_DIR, LIMITATIONS_FILE, TASK_NAME, isClean } from "./review-rounds.mjs";
 import { timeAfter, writeSealed } from "./seal.mjs";
 import { overspendOf, roundSpend, snapshotLines } from "./spend.mjs";
@@ -342,7 +342,8 @@ function main(argv) {
   const asked = String(brief["Round-checks"] ?? "").split(/[\s,]+/).filter(Boolean);
   if (asked.length) {
     const given = cfg.manualRuns && existsSync(cfg.manualRuns.dir) ? parseRuns(cfg.manualRuns.dir, { has: () => true }).runs : [];
-    const missing = asked.filter((id) => !given.some((r) => r.check === id && r.time >= brief["Brief-time"]));
+    // A carry of a check never carried, which the writer refuses, is no verdict given for the round (D-192).
+    const missing = asked.filter((id) => !given.some((r) => r.check === id && !(r.carried && NEVER_CARRIED.has(id)) && r.time >= brief["Brief-time"]));
     if (missing.length) return refuse(`the round needs the verdicts of the record of a round, given for it after its brief at ${brief["Brief-time"]}: ${missing.join(", ")}; the reviewer gives them in the table of verdicts, recorded with ont-check --review --record (rule.round-verdicts)`);
   }
   if (reply.wrong.length) return refuse(reply.wrong.join("; "));

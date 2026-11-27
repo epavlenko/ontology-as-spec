@@ -8,6 +8,20 @@ import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const read = (path) => readFileSync(path, "utf8");
+// The checker's own data files beside this module, read by their own names alone through the functions of
+// node:fs as they were before the boundary of the reads is set (derived.change-list, D-191): the boundary
+// makes no exception for any path, and no reader of a project's file can reach these through it.
+const UNCONFINED = { readFileSync: fs.readFileSync, existsSync: fs.existsSync };
+export const OWN_DATA = ["approach.json", "copy.json", "upstream.json", "html-entities.json"];
+export const ownDataFile = (name) => {
+  if (!OWN_DATA.includes(name)) throw new Error(`${name} is no data file of the checker`);
+  return fileURLToPath(new URL(`./${name}`, import.meta.url));
+};
+// The text of one of the checker's own data files, or null when it was not copied with the tool.
+export const readOwnData = (name) => {
+  const file = ownDataFile(name);
+  return UNCONFINED.existsSync(file) ? UNCONFINED.readFileSync(file, "utf8") : null;
+};
 // The variables Git reads as local to one repository, which it sets for a hook and which would point a
 // git command in another clone, worktree or directory at the hook's repository, its index, its objects
 // or its configuration: the list `git rev-parse --local-env-vars` gives
@@ -88,12 +102,15 @@ export const untested = (proof) => proof === "review" || proof === "run" || proo
 // commit of the approach the copy came from; the public repository of the approach is linked at it.
 // ont: field.tool-copy.copy-info
 export const APPROACH_REPO = "https://github.com/epavlenko/ontology-as-spec";
-export const COPY_INFO_FILE = fileURLToPath(new URL("./copy.json", import.meta.url));
-export const loadCopyInfo = () => (existsSync(COPY_INFO_FILE) ? JSON.parse(readFileSync(COPY_INFO_FILE, "utf8")) : null);
+export const COPY_INFO_FILE = ownDataFile("copy.json");
+export const loadCopyInfo = () => {
+  const text = readOwnData("copy.json");
+  return text === null ? null : JSON.parse(text);
+};
 // The approach's own concept IDs travel with the tool, in approach.json next to this file, so that a
 // project's check resolves the rules of the approach that its agent instructions and process entries
 // name. Null when the file was not copied.
-export const APPROACH_FILE = fileURLToPath(new URL("./approach.json", import.meta.url));
+export const APPROACH_FILE = ownDataFile("approach.json");
 // The checks of review and of run of the approach, with their proof (D-155); an approach.json written
 // before them, whose manualChecks have no proof, reads them as manual.
 // ont: concept.approach-ids
@@ -106,7 +123,10 @@ export const readApproach = (text) => {
     checks: checks ?? manualChecks.map((c) => ({ ...c, proof: OLD_PROOF })),
   };
 };
-export const loadApproach = () => (existsSync(APPROACH_FILE) ? readApproach(readFileSync(APPROACH_FILE, "utf8")) : null);
+export const loadApproach = () => {
+  const text = readOwnData("approach.json");
+  return text === null ? null : readApproach(text);
+};
 // The checks of review and of run of the approach travel with it too, so that --review in a project can
 // hand them to a reviewer for the kinds of artifact a change touches (D-155); each check of run carries
 // the path and the anchor of its guide's section and the hash of its text (D-156), from guides.
@@ -699,7 +719,7 @@ const TAG = /<\/?[A-Za-z][^\s/>]*(?:[^>"']|"[^"]*"|'[^']*')*>/g;
 let ENTITIES = null;
 const entities = () => {
   if (ENTITIES) return ENTITIES;
-  const { names, legacy } = JSON.parse(readFileSync(fileURLToPath(new URL("./html-entities.json", import.meta.url)), "utf8"));
+  const { names, legacy } = JSON.parse(readOwnData("html-entities.json"));
   const bare = Object.keys(legacy).sort((x, y) => y.length - x.length);
   ENTITIES = { names, legacy, pattern: new RegExp(String.raw`&(?:#(\d+);?|#[xX]([0-9a-fA-F]+);?|([A-Za-z][A-Za-z0-9]*);|(${bare.join("|")}))`, "g") };
   return ENTITIES;
@@ -873,18 +893,16 @@ export const renderGlossary = (ONT, sourceName) =>
 window.ONT = ${JSON.stringify(ONT, null, 1)};
 `;
 
-// ── The boundary of the reads of the checker the guard runs (derived.change-list, D-188, D-190) ─────────
+// ── The boundary of the reads of the checker the guard runs (derived.change-list, D-188, D-190, D-191) ─────
 // Given --confine <root> to ont-check.mjs, which imports this module first: every read of a file in the run,
 // of any reader of the checker and whatever named the path, the configuration, a listing of a directory, a
 // row of the implementation table, a ticket or a link, goes through one function, readBoundary, which takes
-// the real path and ends the run on one outside the checked tree, naming it, before anything is read. The
-// checker's own files beside this module, the approach's IDs, the copy information, the pin and the table
-// of HTML entities, are the only others it reads. A read is refused by ending the process, so that no
-// reader that catches an error goes on without the file.
+// the real path and ends the run on one outside the checked tree, naming it, before anything is read. It
+// makes no exception by path: the checker's own data files beside this module are read by readOwnData, by
+// their names alone and not through the boundary, so a path of the tree that names one of them is refused
+// like any other outside it. A read is refused by ending the process, so that no reader that catches an
+// error goes on without the file.
 // ont: derived.change-list
-const TOOL_HERE = dirname(fileURLToPath(import.meta.url));
-// The files of the checker itself it reads by their own constants, never by a path of the tree.
-export const OWN_FILES = ["approach.json", "copy.json", "upstream.json", "html-entities.json"].map((f) => join(TOOL_HERE, f));
 // The code exit of a run that tried to read outside its tree, and the line that names the path.
 export const OUTSIDE_EXIT = 3;
 export const OUTSIDE_LINE = "READ_OUTSIDE";
@@ -928,7 +946,7 @@ export function readBoundary(p) {
   const path = pathOf(p);
   if (path === null) return;
   const real = boundary.outside(path);
-  if (!real || boundary.own.has(real)) return;
+  if (!real) return;
   orig.writeSync(2, `${OUTSIDE_LINE} ${real}${real !== resolve(path) ? ` (named as ${path})` : ""}: the checker reads only the files of its tree, ${boundary.root}\n`);
   process.exit(OUTSIDE_EXIT);
 }
@@ -940,7 +958,7 @@ const PROMISE_READERS = ["access", "lstat", "open", "opendir", "readdir", "readF
 
 // Sets the boundary at root for the rest of the run.
 export function confineReads(root) {
-  boundary = { root: realPath(root), outside: outsideOf(root), own: new Set(OWN_FILES.map((f) => realPath(f))) };
+  boundary = { root: realPath(root), outside: outsideOf(root) };
   const wrap = (f) => {
     const g = function (p, ...rest) {
       readBoundary(p);

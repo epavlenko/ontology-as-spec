@@ -49,6 +49,7 @@ import {
   isFile,
   guideSections,
   loadCopyInfo,
+  readOwnData,
   APPROACH_REPO,
   OLD_PROOF,
   PROOFS,
@@ -69,7 +70,6 @@ const outsideRecordOf = (text) => outsideRecordText(text, 1, { latinOnly: true }
 import { createHash } from "node:crypto";
 import { readFileSync, rmSync } from "node:fs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
-import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
 import { pathToFileURL } from "node:url";
 import { checkForms, checkTraces, readForms, readTraces, runTrace } from "./oracle.mjs";
@@ -1677,8 +1677,17 @@ if (cfg.protocolReleases) {
 // ont: inv.ci-workflow-present, field.merge-gate.ci-workflow
 if (!cfg.ci?.workflow) console.log("info · no CI workflow is named (ci.workflow): the check runs only where someone runs it; the templates give one");
 else if (!existsSync(cfg.ci.workflow) || !statSync(cfg.ci.workflow).isFile()) fail(`the CI workflow ${relative(process.cwd(), cfg.ci.workflow)} that ci.workflow names is not a file`);
-const copyPin = [cfg.releases?.pin, join(dirname(fileURLToPath(import.meta.url)), "upstream.json")].find((f) => f && existsSync(f));
-const pin = copyPin ? (() => { try { return JSON.parse(read(copyPin)); } catch { return null; } })() : null;
+// The copy's own upstream.json is the checker's own data, read by readOwnData; a pin the configuration names
+// is a file of the tree, read through the boundary (D-191).
+// A pin that cannot be read or parsed, a directory among them, is no pin, as before.
+const pin = (() => {
+  try {
+    const text = cfg.releases?.pin && existsSync(cfg.releases.pin) ? read(cfg.releases.pin) : readOwnData("upstream.json");
+    return text === null ? null : JSON.parse(text);
+  } catch {
+    return null;
+  }
+})();
 if (pin?.commit) {
   const clone = gitOut("config", "--local", "ont.approachClone");
   const usedText = [...cfg.agentInstructions, cfg.decisions?.file, cfg.ontology].filter((f) => f && existsSync(f)).map(read).join("\n");
