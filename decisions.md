@@ -1985,12 +1985,22 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected (the executor's choice): binding a carry of the check of the cause to the hash on the round's `Cause:` (the verdict is of the analysis, and a new analysis needs a new reading); taking the citation of a carry as a reason when the carried record is reasoned (one reader of the reason, through carries, serves the writer and the guard alike).
 - Concepts: `field.manual-run.carried`, `rule.verdicts-hold-merge`, `rule.round-verdicts`
 
+### D-193 · A verdict of the check of the analysis of the cause decides a failed analysis only when its round was briefed with an analysis
+
+- Date: 2026-11-27 · Status: accepted
+- Source: the approved statement of task enforcement-verdicts-tests, version 21 (ddc3ba4db42c), item 5: a fail of the analysis of the cause is decided only by a later pass on the corrected analysis (translated); the finding of round 5 of the review of its result, "Closing round reopens a corrected cause failure", the reviewer's (gpt-6.2-sol, OpenAI Codex), not the owner's words.
+- Decision: adds to D-188 and D-191. In the one derivation of a failed analysis of the cause, `causeFailures` of `tasks.mjs`, a verdict of `check.review-round.redesign-after-stagnation` is of a round only when that round's record carries `Cause:`, the hash of the analysis its brief gave; a verdict of the check in a round with no `Cause:`, which the list of a change may name by its diff alone, read no analysis and neither clears nor reopens a failed one. The verdicts of the one issue are read as before. The writer of the next brief, `--review` and the guard read it so, by the one function (`rule.round-verdicts`).
+- Why: the derivation took any verdict of the check in the span of any round of the window, so that after a fail and a pass on the corrected analysis a reasoned not-applicable in a closing round with no analysis became the latest verdict and the guard held the merge, `VERDICT_FAILED`.
+- Rejected (the executor's choice): never listing the check by the diff (it is a check of review of the rules of rounds, which a change of them touches; its verdict there is a verdict of the change, not of an analysis); taking a not-applicable as neutral in any round (a not-applicable in a round with an analysis is a verdict on it, which leaves it failed).
+- Concepts: `rule.round-verdicts`
+
 ## Tentative
 
 ## Open questions
 
 ## History
 
+- 2026-11-27: D-193, which adds to D-188 and D-191, accepted under the approved statement of task enforcement-verdicts-tests, version 21, item 5, after round 5 of the review of its result.
 - 2026-11-27: D-191, which supersedes D-190 and adds to D-188, and D-192, which adds to D-187, accepted under the approved statement of task enforcement-verdicts-tests, version 21, items 2 and 5, after round 4 of the review of its result.
 - 2026-11-27: D-190, which supersedes D-189 and adds to D-188, accepted under the approved statement of task enforcement-verdicts-tests, version 21, items 2 and 5: the boundary moves into `lib.mjs`, on the approved gate paths.
 - 2026-11-27: D-189, which adds to D-188, accepted under the approved statement of task enforcement-verdicts-tests, version 21, items 2 and 5, after narrow round 1 of the review of its result.
