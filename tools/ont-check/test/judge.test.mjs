@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -157,4 +157,21 @@ test("[check.test-suite.judged-command] a report with a skipped or a todo test i
   assert.equal(r.skipped.length, 2);
   assert.equal(r.passed, 1);
   assert.deepEqual(judgedRunProblems({ env: {}, root: "/r", files: [], screens: true }).length, 4);
+});
+
+test("[check.test-suite.judged-command] a directory of verdicts or screens is outside the repository by its real path: \"..evidence\" in the repository and a link outside that leads back into it are refused; a real directory outside passes", () => {
+  const root = mkdtempSync(join(tmpdir(), "ont-judged-root-"));
+  const out = mkdtempSync(join(tmpdir(), "ont-judged-out-"));
+  try {
+    mkdirSync(join(root, "kept"));
+    symlinkSync(join(root, "kept"), join(out, "back"));
+    const problems = (v) => judgedRunProblems({ env: { JUDGE: "j", JUDGE_VERDICTS: v }, root, files: ["a.judged.mjs"], screens: false });
+    assert.match(problems("..evidence").join("\n"), /JUDGE_VERDICTS is \.\.evidence, inside the repository/);
+    assert.match(problems(join(out, "back")).join("\n"), /inside the repository/);
+    assert.match(problems(join(out, "back", "new")).join("\n"), /inside the repository/);
+    assert.deepEqual(problems(join(out, "verdicts")), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(out, { recursive: true, force: true });
+  }
 });

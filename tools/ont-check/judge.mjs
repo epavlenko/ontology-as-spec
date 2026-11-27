@@ -8,8 +8,8 @@
 // first line holds both words, is not a verdict: judge() fails rather than guess.
 // ont: rule.judge-sees-the-check, rule.verdict-kept
 import { spawnSync } from "node:child_process";
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
-import { extname, isAbsolute, join, relative, resolve } from "node:path";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gitEnv, parseChecks, read } from "./lib.mjs";
 
@@ -117,9 +117,20 @@ export function judge({
 //   node tools/ont-check/judge.mjs --suite example/judged
 // ont: field.test-suite.judged-command
 export function judgedRunProblems({ env = process.env, root, files, screens }) {
+  // Inside the repository by the real paths, symbolic links followed, of the path's deepest existing
+  // directory and of the root, and by whole parts of the path, so that "..evidence" is a name in it.
+  const real = (p) => {
+    let at = resolve(root, p);
+    const rest = [];
+    while (!existsSync(at) && dirname(at) !== at) {
+      rest.unshift(basename(at));
+      at = dirname(at);
+    }
+    return join(realpathSync(at), ...rest);
+  };
   const inside = (p) => {
-    const rel = relative(resolve(root), resolve(root, p));
-    return !rel.startsWith("..") && !isAbsolute(rel);
+    const rel = relative(realpathSync(resolve(root)), real(p));
+    return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
   };
   const wrong = [];
   if (!env.JUDGE) wrong.push("JUDGE is not set: set it to the command of the judge, which reads a prompt on stdin");
