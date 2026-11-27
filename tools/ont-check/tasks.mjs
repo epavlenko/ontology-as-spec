@@ -869,9 +869,12 @@ export const hasFindings = (r) => [...r.findings, ...(r.acceptance?.findings ?? 
 // evidence names the hash of another analysis; a later fail, a not-run or a not-applicable leaves it failed.
 // Only a verdict given is read, never a carry, which the writer refuses for this check: a carried pass was
 // given on another analysis than the Cause: of the round it would reach, so it decides nothing (D-191, D-192).
+// A verdict is of a round only when that round's brief named an analysis, on Cause:: a verdict of the check in
+// a round with no Cause:, listed by its diff alone, read no analysis, and neither clears nor reopens a failed
+// one (D-193).
 // Each pending fail with its round, the latest verdict after it, and the hash of the analysis it failed.
 export function causeFailures(runs, windowRounds = [], { ofIssue = () => false, until = "9999" } = {}) {
-  const spanOf = (x) => windowRounds.find((r) => r.briefTime && x.time >= r.briefTime && x.time <= r.time);
+  const spanOf = (x) => windowRounds.find((r) => r.cause && r.briefTime && x.time >= r.briefTime && x.time <= r.time);
   const of = runs
     .filter((x) => x.check === CAUSE_ROUND_CHECK && !x.carried && x.time <= until && (spanOf(x) || ofIssue(x)))
     .sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));

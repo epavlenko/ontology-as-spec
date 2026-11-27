@@ -1588,3 +1588,61 @@ test("[check.merge-gate.verdict-unreasoned] a carry of a not-run or a not-applic
     assert.deepEqual(g.codes, [], g.out);
   }
 });
+
+// ── Findings of result round 5 of the review of the result ───────────────────────────────────────────
+
+test("[check.merge-gate.round-verdicts-held] a verdict of the check of the analysis of the cause in a round whose brief names no analysis decides nothing: after a fail and a pass on the corrected analysis, a reasoned not-applicable of it in a later round with no Cause: reopens the failure neither for the writer of the brief nor for the guard, and the merge passes", () => {
+  const { p, st } = approved();
+  reviewed(p, st);
+  withFinding(p, st);
+  withFinding(p, st);
+  resultRound(p, st, "By: m (p)\n\n| a slip | important | change |\n\nCondition: not yet\nAcceptance: clean", "a slip · usual path: the work\n", { extra: ["--cause", writeFile("The cause is the test.\n")], given: { [CAUSE]: ["fail", "[a cause not named] the analysis names no cause"] } });
+  work(p, "export const slipFixed = 1;\n");
+  recordDone(p, st);
+  p.commit("done");
+  // The pass on the corrected analysis, in a round with a nit alone, after which no analysis is asked.
+  const corrected = writeFile("The fix of a slip did not hold because the test read the copy, not the file; one reader now.\n");
+  resultRound(p, st, "By: m (p)\n\n| a nick | nit | change |\n\nCondition: not yet\nAcceptance: clean", "a nick · usual path: the work\n", { extra: ["--cause", corrected], given: { [CAUSE]: ["pass", `the analysis ${sha256(readFileSync(corrected))} names the cause`] } });
+  work(p, "export const nickFixed = 1;\n");
+  recordDone(p, st);
+  p.commit("done");
+  const held = /failed in this step and no later pass decided it: give the corrected analysis with --cause/;
+  // A round briefed with no Cause:, whose reviewer, the check being listed by the diff alone, gives it a
+  // reasoned not-applicable, as the list of a change that touches the rules of rounds would.
+  const noCause = (q, rest, triage = null) => {
+    const b = q.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+    assert.equal(b.code, 0, b.out);
+    assert.doesNotMatch(b.out, /^Cause: /m);
+    assert.doesNotMatch(b.out, held);
+    const v = q.verdicts("main");
+    assert.equal(v.code, 0, v.out);
+    const given = latestOf(q, FILED);
+    tick();
+    forge(q, { check: CAUSE, commit: given.commit, stamp: "x", verdict: "not-applicable", evidence: "this round was briefed with no analysis of the cause", time: new Date() });
+    tick();
+    const r = q.tool("round.mjs", ["record", "t", "--from", reply(briefLines(b.out), rest), ...(triage ? ["--triage", writeFile(triage)] : [])]);
+    assert.equal(r.code, 0, r.out);
+    return q.commit("a round of the result with no Cause:");
+  };
+  // The guard: the closing round with no Cause: and the not-applicable; the failure stays cleared, the merge passes.
+  {
+    const q = copy(p);
+    noCause(q, "By: m (p)\n\nCondition: holds\nAcceptance: clean");
+    const g = q.gate();
+    assert.doesNotMatch(g.out, /failed the analysis of the cause/, g.out);
+    assert.deepEqual(g.codes, [], g.out);
+    assert.match(g.out, /^GATE_OK$/m);
+  }
+  // The writer of the next brief: the not-applicable in a round with a nit and no Cause:; the next brief asks
+  // no corrected analysis.
+  {
+    const q = copy(p);
+    noCause(q, "By: m (p)\n\n| a dent | nit | change |\n\nCondition: not yet\nAcceptance: clean", "a dent · usual path: the work\n");
+    work(q, "export const dentFixed = 1;\n");
+    recordDone(q, st);
+    q.commit("done");
+    const b = q.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file]);
+    assert.equal(b.code, 0, b.out);
+    assert.doesNotMatch(b.out, held);
+  }
+});
