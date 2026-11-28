@@ -26,3 +26,5 @@ Checks: `check.test-suite.uncovered-concept`.
 ## Depends on
 
 Task enforcement-verdicts-tests.
+
+This line is the change of the live probe of the gate of verdicts after the merge of task enforcement-verdicts-tests; its pull request is to be closed unmerged once the refusal is recorded.
