@@ -14,6 +14,8 @@ Findings of the review of the statement of task enforcement-verdicts-tests, each
 
 - class "Guard review reads beyond the checked tree" (result round 1): filed here by mistake and returned to the work by result round 2: the case breaks item 2 of the approved statement, which the result must meet.
 - class "Findings filed in earlier rounds can waive a current fail" (result round 1): filed here by mistake and returned to the work by result round 2: the case breaks item 2 of the approved statement, which the result must meet.
+- class "Partial verdict table on collision" (result narrow round 3): two writers of verdicts on one clone at once can both pass the check that no name of the table is taken before either writes, and the second then stops on `EEXIST` after some of its rows are written (`tools/ont-check/ont-check.mjs`, `--record`); one writer at a time is the usual work, and the records it leaves are each sealed and of the review.
+- class "Timestamp scan skips nested records" (result narrow round 3): the scan that picks the time after every record kept reads only the files directly in each directory of records, while the readers read the directories whole; a record kept in a nested directory, which no writer of the tool makes, is not counted (`tools/ont-check/manual-runs.mjs`).
 
 ## Slice
 
