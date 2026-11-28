@@ -35,6 +35,8 @@
     "concept.product-layer",
     "derived.approval",
     "derived.budget-report",
+    "derived.change-list",
+    "derived.change-verdict",
     "derived.current-run",
     "derived.deferral-in-force",
     "derived.gap",
@@ -53,6 +55,7 @@
     "derived.running-now",
     "derived.slice-done",
     "derived.statement-state",
+    "derived.step-end",
     "derived.step-payoff",
     "derived.surviving-mutation",
     "derived.target",
@@ -200,7 +203,10 @@
     "field.gate-proof.time",
     "field.implementation-row.files",
     "field.implementation-row.note",
+    "field.manual-run.base",
     "field.manual-run.by",
+    "field.manual-run.carried",
+    "field.manual-run.class",
     "field.manual-run.commit",
     "field.manual-run.evidence",
     "field.manual-run.origin",
@@ -216,6 +222,7 @@
     "field.merge-gate.guard",
     "field.merge-gate.rule-file",
     "field.merge-gate.task-state",
+    "field.merge-gate.verdicts",
     "field.ontology-tree.built-from",
     "field.ontology-tree.place",
     "field.other-word.word",
@@ -278,6 +285,7 @@
     "field.task-result.checks",
     "field.task-result.commit",
     "field.task-result.evidence",
+    "field.task-result.fix-tests",
     "field.task-result.task",
     "field.task-result.time",
     "field.task-spend.contribution",
@@ -295,6 +303,7 @@
     "field.task-statement.sources",
     "field.task-statement.todo",
     "field.test-suite.cover",
+    "field.test-suite.judged-command",
     "field.test-suite.name",
     "field.ticket.out-of-scope",
     "field.ticket.pre-authorized",
@@ -447,6 +456,7 @@
     "rule.no-default-budget",
     "rule.number-by-role",
     "rule.one-choice",
+    "rule.one-issue-after-narrow",
     "rule.one-mockup",
     "rule.ontology-changes-first",
     "rule.ontology-is-source",
@@ -464,6 +474,7 @@
     "rule.reread-then-stamp",
     "rule.reviewed-before-merge",
     "rule.round-recorded",
+    "rule.round-verdicts",
     "rule.rounds-converge",
     "rule.run-recorded",
     "rule.run-settles-question",
@@ -491,6 +502,7 @@
     "rule.validator-test-breaks",
     "rule.value-checked-against-source",
     "rule.verdict-kept",
+    "rule.verdicts-hold-merge",
     "rule.view-state-judged",
     "rule.whole-class",
     "rule.work-under-approval"
@@ -1044,17 +1056,6 @@
       "proof": "review"
     },
     {
-      "id": "check.review-round.ready-after-clean",
-      "section": "Review round",
-      "concepts": [
-        "rule.ready-after-clean-round"
-      ],
-      "given": "a change about to be merged",
-      "when": "a reviewer reads its rounds",
-      "then": "its last round of the review of the result is clean, or, after the narrow round that follows a confirmed condition, the record of done that ends the range of fixes follows it (`rule.fixes-held-by-tests`), and the merge is one the owner's policy allows",
-      "proof": "review"
-    },
-    {
       "id": "check.review-round.redesign-after-stagnation",
       "section": "Review round",
       "concepts": [
@@ -1278,17 +1279,6 @@
       "given": "an agent was corrected for a mistake it could make again",
       "when": "a reviewer reads the change that holds the correction",
       "then": "it is held by the structure of the code, a check, a test or a lint where one of them can hold it; a rule in the agent instructions only where none can, and the rule says so",
-      "proof": "review"
-    },
-    {
-      "id": "check.agent-rules.reviewed-before-merge",
-      "section": "Agent rules",
-      "concepts": [
-        "rule.reviewed-before-merge"
-      ],
-      "given": "a change about to be merged",
-      "when": "a reviewer looks for its review",
-      "then": "an agent of another provider that did not write it gave each check `--review` listed a verdict, and a check it could not run is `not run` with the reason, not `not applicable`; no check that failed and no finding of the change remains, and each verdict was given at the check's stamp now, on files no later commit changed, with the check of code errors given on the last diff; in the range of fixes after the narrow round that follows a confirmed condition, what `rule.fixes-held-by-tests` says instead: the one issue of verdicts on the diff of the fixes, given at the stamps then, its fails and findings of the usual path fixed with tests and its rare ones filed",
       "proof": "review"
     },
     {

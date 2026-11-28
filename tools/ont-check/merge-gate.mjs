@@ -44,14 +44,15 @@
 // ont: rule.ci-from-main, inv.gate-change-approved, rule.merge-what-was-checked, rule.main-through-gate, rule.gate-switched-on, rule.fixes-held-by-tests
 // ont: field.merge-gate.task-state, edge.publish-permission.guard, rule.merge-by-task-state, rule.records-only-pr, derived.pr-task, inv.gate-path-in-approval, inv.rules-match-file, action.compare-rules
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
-import { gitEnv, loadConfig } from "./lib.mjs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { OUTSIDE_EXIT, OUTSIDE_LINE, gitEnv, loadConfig, outsideOf } from "./lib.mjs";
+import { CLASS_SEP, CODE_CHECK, NEVER_CARRIED, parseRuns, reasonOf } from "./manual-runs.mjs";
 import { LATER_DIR, LIMITATIONS_FILE, parseRounds } from "./review-rounds.mjs";
 import { recordTime, sealState, sealsStart } from "./seal.mjs";
-import { approvalEvents, approvalInForce, approvedHash, fixesRange, parseTaskRecords, readTaskInputs, reviewedCommit, taskNext } from "./tasks.mjs";
+import { CAUSE_ROUND_CHECK, approvalEvents, causeFailures, approvalInForce, approvedHash, fixesRange, parseTaskRecords, readTaskInputs, reviewedCommit, roundWindow, taskNext } from "./tasks.mjs";
 
 // The directory of the records of the process: commits that change only files under it change no gate.
 export const RECORDS_DIR = "reviews/";
@@ -68,7 +69,7 @@ export const RECORDS_DIR = "reviews/";
 // the rules of main on GitHub with the rule file: a difference, and a field the token's reading did not give.
 export const TASK_CODES = ["TASK_UNNAMED", "TASK_NOT_DONE", "TASK_HEAD_UNREVIEWED", "WORK_BEFORE_APPROVAL", "MERGE_UNPERMITTED", "GATE_PATH_OUTSIDE_APPROVAL"];
 export const RULES_CODES = ["RULES_DRIFT", "RULES_UNREAD"];
-export const GUARD_CODES = ["GATE_PATH_UNAPPROVED", "SEAL_MISSING", "SEAL_WRONG", "RECORD_CHANGED", "RECORD_REMOVED", ...TASK_CODES, ...RULES_CODES];
+export const GUARD_CODES = ["GATE_PATH_UNAPPROVED", "SEAL_MISSING", "SEAL_WRONG", "RECORD_CHANGED", "RECORD_REMOVED", ...TASK_CODES, "VERDICT_MISSING", "VERDICT_FAILED", "VERDICT_UNREASONED", "VERDICT_NOT_OF_CHANGE", "ISSUE_MISSING", "FIX_UNTESTED", ...RULES_CODES];
 
 // Whether a path of the repository is a gate path: a pattern ending in "/" names everything under it,
 // and "*" any name within one part of a path; any other pattern names that path alone.
@@ -219,7 +220,7 @@ function recordsAt({ cfg, top, head, tmp }) {
   const records = tasksDir && existsSync(tasksDir) ? parseTaskRecords(tasksDir, { latinOnly: cfg.records.latinOnly }) : { gateChanges: [], approvals: [], publications: [], done: [], malformed: [] };
   // Every record a task's next action reads, as --task reads them, by the one function, at the head (D-185).
   const inputs = () => readTaskInputs(cfg, { roundsDir: roundsDir && existsSync(roundsDir) ? roundsDir : join(tmp, "absent"), tasksDir: tasksDir && existsSync(tasksDir) ? tasksDir : join(tmp, "absent"), root: tmp, top });
-  return { rounds, records, inputs, recordsPath: cfg.taskRecords ? rel(cfg.taskRecords.dir) : null };
+  return { rounds, records, inputs, root: tmp, recordsPath: cfg.taskRecords ? rel(cfg.taskRecords.dir) : null };
 }
 
 // What records-only compares the head with (rule.fixes-held-by-tests, D-165): after the narrow round whose
@@ -250,6 +251,25 @@ export function comparedWith({ cfg, top, reviewed, head }) {
 // rounds, the task records and the verdicts the configuration names (D-167).
 export const recordDirs = (cfg, top) =>
   [cfg.reviewRounds?.dir, cfg.taskRecords?.dir, cfg.manualRuns?.dir].filter(Boolean).map((d) => `${relative(top, d).split("\\").join("/")}/`);
+// The commit that ended the work at ref, which the record of done, the brief, the writer of verdicts and the
+// guard all name (derived.change-verdict, D-187): ref, or, while ref is a commit of records alone over one
+// parent, the commit under it that changed something else; the full commit, or null outside Git.
+// ont: derived.change-verdict
+export function workCommit(cfg, ref = "HEAD") {
+  const g = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() });
+  const top = g("rev-parse", "--show-toplevel").stdout?.trim();
+  let c = top && g("rev-parse", "--verify", "--quiet", `${ref}^{commit}`).stdout?.trim();
+  if (!c) return null;
+  const dirs = recordDirs(cfg, top);
+  for (;;) {
+    const parents = g("rev-list", "--parents", "-n", "1", c).stdout.trim().split(" ").slice(1);
+    if (parents.length !== 1) break;
+    const paths = g("diff", "--no-renames", "--name-only", parents[0], c).stdout.split("\n").filter(Boolean);
+    if (paths.some((p) => !isRecordPath(p, dirs))) break;
+    c = parents[0];
+  }
+  return c;
+}
 // Whether a path is a record of the process: a Markdown file under one of those directories, never README.md.
 export const isRecordPath = (p, dirs) => dirs.some((d) => p.startsWith(d)) && p.endsWith(".md") && !p.endsWith("/README.md");
 const blobId = (top, commit, path) => out(git(top, "rev-parse", "--verify", "--quiet", `${commit}:${path}`))?.trim() ?? null;
@@ -384,7 +404,7 @@ export function prTask({ done = [], gateChanges = [] }) {
 // What the merge by the state of the task refuses in the pull request from b to h, with merge base mb, each
 // with its code (rule.merge-by-task-state, rule.records-only-pr, D-185), where the configuration at the base,
 // baseCfg, sets mergeGate.taskState: changed is its paths, at the records at the head, read by recordsAt.
-function taskStateProblems({ cfg, top, b, h, mb, changed, at, baseCfg, tmp }) {
+function taskStateProblems({ cfg, top, b, h, mb, changed, at, baseCfg, tmp, out = {} }) {
   const dirs = recordDirs(cfg, top);
   const taskPaths = changed.filter((p) => !isRecordPath(p, dirs));
   const recordsPath = at.recordsPath;
@@ -424,6 +444,8 @@ function taskStateProblems({ cfg, top, b, h, mb, changed, at, baseCfg, tmp }) {
       const p = pastByRecords(top, { commit: c, head: h, base: mb });
       if (p.conflicts.length) problems.push({ code: "TASK_HEAD_UNREVIEWED", why: `the commit that ended ${task}, ${c.slice(0, 12)}, and main conflict outside ${RECORDS_DIR}: ${p.conflicts.join(", ")}` });
       else if (p.differ.length) problems.push({ code: "TASK_HEAD_UNREVIEWED", why: `outside ${RECORDS_DIR} the head is not ${c.slice(0, 12)}, the commit that ended ${task}, merged with main: ${p.differ.join(", ")}` });
+      // The checked commit, for the gate of verdicts (D-187).
+      else Object.assign(out, { task, next, end: c });
     }
   }
   // No commit of the work before the task's first approval, by the committer's time. The files a filed
@@ -452,6 +474,293 @@ function taskStateProblems({ cfg, top, b, h, mb, changed, at, baseCfg, tmp }) {
   return problems;
 }
 
+// ── The gate of verdicts (rule.verdicts-hold-merge, D-187) ─────────────────────────────────────────────
+// The codes of the gate of verdicts, where the configuration at the base sets mergeGate.verdicts: a check of
+// the list of the change with no verdict of the change; one whose verdict is a fail not decided, without a
+// class or carried; a not-run or a not-applicable without its reason; the check of errors in code given on
+// another commit than the checked one; after a narrow round with findings, no issue of verdicts or an
+// incomplete one; and a finding with no decision, or whose test the record of done does not show passed.
+// ont: field.merge-gate.verdicts, rule.verdicts-hold-merge, derived.change-list, derived.change-verdict, rule.one-issue-after-narrow, rule.round-verdicts
+export const VERDICT_CODES = ["VERDICT_MISSING", "VERDICT_FAILED", "VERDICT_UNREASONED", "VERDICT_NOT_OF_CHANGE", "ISSUE_MISSING", "FIX_UNTESTED"];
+const TOOL_DIR = dirname(fileURLToPath(import.meta.url));
+
+// The list of the change (derived.change-list): the checks `--review <from>` of the configuration gives at
+// commit, each with its stamp there, computed by this code, the base's, in a working tree of its own made
+// from Git's objects outside the clone's working tree, with no hook run and no brief kept; the check reads
+// the files there as data and ends before it would import anything of the project. A failure is an error.
+export function changeList({ cfg, top, commit, from, tmp }) {
+  const key = `${commit}|${from}`;
+  const memo = (changeList.memo ??= new Map());
+  if (memo.has(key)) return memo.get(key);
+  const wt = join(tmp, `list-${memo.size}`);
+  mkdirSync(tmp, { recursive: true });
+  must(top, "-c", "core.hooksPath=/dev/null", "worktree", "add", "--quiet", "--detach", wt, commit);
+  try {
+    const cfgRel = relative(top, cfg.file).split("\\").join("/");
+    // The checker of the base reads only the files of the checked tree (D-187, D-188, D-190). Early, before
+    // it runs: the configuration's own path, before it is read, every path it names, and every link of the
+    // tree resolve inside it by their real paths. The hold is the read itself: the checker runs with
+    // --confine, so that each file it reads, whatever named it, passes the boundary of lib.mjs, and a
+    // read outside ends the run with no list.
+    const outside = pathsOutside(join(wt, cfgRel), wt);
+    if (outside.length) throw new GitError(`the configuration at ${commit.slice(0, 12)} names paths outside its tree, by itself, by a path it names or by a link of the tree, which the guard does not read: ${outside.join(", ")}`);
+    const r = spawnSync(process.execPath, [join(TOOL_DIR, "ont-check.mjs"), "--config", join(wt, cfgRel), "--review", from, "--json", "--confine", wt], { cwd: wt, encoding: "utf8", env: gitEnv(), maxBuffer: 1 << 28 });
+    const refused = `${r.stderr ?? ""}`.split("\n").find((l) => l.startsWith(`${OUTSIDE_LINE} `));
+    if (refused || r.status === OUTSIDE_EXIT) throw new GitError(`the checker at ${commit.slice(0, 12)} would read a path outside its tree, which the guard refuses, and gives no list: ${refused ? refused.slice(OUTSIDE_LINE.length + 1) : "(no path named)"}`);
+    const line = (r.stdout ?? "").split("\n").find((l) => l.startsWith("REVIEW_JSON "));
+    if (!line) throw new GitError(`the list of the change at ${commit.slice(0, 12)} from ${from.slice(0, 12)} cannot be computed: ${`${r.stdout ?? ""}${r.stderr ?? ""}`.trim().split("\n").slice(-3).join(" / ")}`);
+    const list = JSON.parse(line.slice("REVIEW_JSON ".length)).checks;
+    memo.set(key, list);
+    return list;
+  } finally {
+    git(top, "worktree", "remove", "--force", wt);
+    git(top, "worktree", "prune");
+  }
+}
+
+// What of a tree at root would take the checker out of it, each named once (D-188): every link in the tree
+// whose real path, or for a link that resolves to nothing its target, is outside root, at any depth, so that
+// no file a directory of the configuration holds is read from outside; the configuration's file, checked
+// before it is read; and, once it is inside, each path the configuration names, as the loader resolves it,
+// by "..", by an absolute path or by a link. A configuration that cannot be loaded is one whose paths cannot
+// be told, and is named whole. The links are found by lstat, without following any.
+export function pathsOutside(cfgFile, root) {
+  // The test of the boundary the checker's reads pass, the same function (D-190).
+  const leaves = (p) => Boolean(outsideOf(root)(p));
+  const found = new Set();
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (dir === root && e.name === ".git") continue;
+      const p = join(dir, e.name);
+      if (e.isSymbolicLink()) {
+        if (leaves(p)) found.add(`${relative(root, p)} (a link)`);
+      } else if (e.isDirectory()) walk(p);
+    }
+  };
+  walk(root);
+  if (leaves(cfgFile)) found.add(cfgFile);
+  if (found.size) return [...found].sort();
+  let loaded;
+  try {
+    loaded = loadConfig(cfgFile);
+  } catch (e) {
+    return [`${relative(root, cfgFile)} (${String(e.message ?? e).split("\n")[0]})`];
+  }
+  const named = (v) => {
+    if (typeof v === "string") {
+      if (v.startsWith("/") && leaves(v)) found.add(v);
+    } else if (Array.isArray(v)) v.forEach(named);
+    else if (v && typeof v === "object" && !(v instanceof RegExp)) Object.values(v).forEach(named);
+  };
+  named(loaded);
+  return [...found].sort();
+}
+
+// The verdict of the change of a check (derived.change-verdict): its latest record, of any verdict, on the
+// commit at the stamp, or a record of a run outside a review at the stamp on a commit from which nothing
+// outside the records changed up to it; the records the pull request gave the check on another commit, for
+// the code of a verdict not of the change.
+// A carry of a check that is never carried, which the writer refuses, is no verdict of it (D-192).
+function changeVerdict({ top, runs, id, stamp, commit, dirs, resolve }) {
+  const own = runs.filter((r) => r.check === id && !(r.carried && NEVER_CARRIED.has(id)));
+  const on = own.filter((r) => r.stamp === stamp && (r.origin !== "run" ? resolve(r.commit) === commit : runFresh(top, r.commit, commit, dirs, resolve)));
+  const current = on.sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1) ?? null;
+  return { current, elsewhere: own.filter((r) => r.origin !== "run" && resolve(r.commit) !== commit) };
+}
+const runFresh = (top, from, to, dirs, resolve) => {
+  const c = resolve(from);
+  if (!c || !isAncestor(top, c, to)) return false;
+  return !changedBetween(top, c, to).some((p) => !isRecordPath(p, dirs));
+};
+
+// What a fail's class is decided by (rule.verdicts-hold-merge): filed by a round of the task's result,
+// limitation or later; or named with a test in a record of fixes of the range, which counts only when the
+// record of done that ended the range shows the test passed. null when nothing decides it.
+// A filing of a record of fixes counts only as a filing of a round does (rule.findings-filed): a limitation in
+// docs/limitations.md, one for later in a file under issues/, and that file, at the head, holds the class
+// word for word; root is the head's files the guard copied from Git's objects.
+const filedHolds = (x, cls, root) => {
+  const dest = x.fix === "limitation" ? x.file === LIMITATIONS_FILE : x.fix === "later" && String(x.file ?? "").startsWith(LATER_DIR);
+  if (!dest || !root || x.file.split("/").includes("..")) return false;
+  const path = join(root, x.file);
+  if (outsideOf(root)(path)) return false;
+  return existsSync(path) && readFileSync(path, "utf8").includes(cls);
+};
+function classDecision(cls, { rounds, fixes, passed, root = null }) {
+  const found = (r) => [...r.findings, ...(r.acceptance?.findings ?? [])];
+  if (rounds.some((r) => found(r).some((x) => x.cls === cls && x.filed))) return "filed";
+  if (fixes.some((f) => (f.filed ?? []).some((x) => x.cls === cls && filedHolds(x, cls, root)))) return "filed";
+  const tests = fixes.flatMap((f) => f.tests).filter((t) => t.cls === cls);
+  if (!tests.length) return null;
+  return tests.some((t) => passed.has(`${t.file} · ${t.test}`)) ? "tested" : "untested";
+}
+
+// Whether a verdict of the change holds, with its code when it does not.
+function verdictWhy(id, v, ctx) {
+  if (!v.current) {
+    if (id === CODE_CHECK && v.elsewhere.length) return { code: "VERDICT_NOT_OF_CHANGE", why: `${id}: its records of the pull request, ${v.elsewhere.map((r) => `${r.file} on ${r.commit}`).join(", ")}, are not on the checked commit ${ctx.commit.slice(0, 12)}` };
+    return { code: "VERDICT_MISSING", why: `${id}: no record of a verdict on the checked commit ${ctx.commit.slice(0, 12)} at its stamp ${ctx.stamp}` };
+  }
+  const r = v.current;
+  if (r.verdict === "pass") return null;
+  // A carry's citation is no reason: the reason is the carried record's own (D-192).
+  if (r.verdict === "not-run" || r.verdict === "not-applicable") return reasonOf(r, ctx.runs ?? []) ? null : { code: "VERDICT_UNREASONED", why: `${id}: ${r.file} is a ${r.verdict} without its reason${r.carried ? `, carried from ${r.carried}, which gives none of its own` : ""}` };
+  if (r.carried) return { code: "VERDICT_FAILED", why: `${id}: ${r.file} carries the fail ${r.carried}, and a carried fail needs a new pass` };
+  const classes = r.class ? r.class.split(CLASS_SEP).map((x) => x.trim()).filter(Boolean) : [];
+  if (!classes.length) return { code: "VERDICT_FAILED", why: `${id}: ${r.file} is a fail without a class of its findings` };
+  const open = classes.map((c) => [c, classDecision(c, ctx)]).filter(([, d]) => d !== "filed" && d !== "tested");
+  if (!open.length) return null;
+  const untested = open.filter(([, d]) => d === "untested");
+  if (untested.length === open.length) return { code: "FIX_UNTESTED", why: `${id}: ${r.file} fails with ${untested.map(([c]) => `"${c}"`).join(", ")}, whose test the record of done that ended the range does not show passed` };
+  return { code: "VERDICT_FAILED", why: `${id}: ${r.file} fails with ${open.map(([c]) => `"${c}"`).join(", ")}, which no round filed and no record of fixes holds with a test` };
+}
+
+// What the gate of verdicts refuses in a change of a task whose next action at the head is the merge
+// (rule.verdicts-hold-merge, rule.one-issue-after-narrow, rule.round-verdicts, D-187): each check of the list
+// of the change without a verdict of the change that holds, with its code.
+function verdictProblems({ cfg, top, b, h, at, task, next, end, tmp }) {
+  if (!cfg.manualRuns) return [{ code: "VERDICT_MISSING", why: `the configuration ${cfg.file} names no directory of verdicts` }];
+  const dirs = recordDirs(cfg, top);
+  const rel = relative(top, cfg.manualRuns.dir).split("\\").join("/");
+  const memo = new Map();
+  const resolve = (c) => {
+    const k = String(c ?? "");
+    if (!memo.has(k)) memo.set(k, /^[0-9a-f]{7,40}$/.test(k) ? full(top, k) : null);
+    return memo.get(k);
+  };
+  const inputs = at.inputs();
+  const runsDir = filesAt(top, h, rel, join(tmp, "runs"));
+  const { runs } = existsSync(runsDir) ? parseRuns(runsDir, { has: () => true }, { latinOnly: cfg.records.latinOnly }) : { runs: [] };
+  const range = next.result?.fixes?.done ? next.result.fixes : null;
+  const fixes = range ? (inputs.records.fixes ?? []).filter((f) => f.task === task && f.round === range.narrow.file) : [];
+  const passed = new Set(range ? (range.done.fixTests ?? []).filter((t) => t.result === "passed").map((t) => `${t.file} · ${t.test}`) : []);
+  // A class is filed only by the round that ended the step, by the one function of the end of a step, or,
+  // when the record of done of a range ended it, by the narrow round of that range, the last of the window,
+  // for the verdicts of the result it checked; or decided in the records of fixes of its range. A filing of
+  // an earlier round waives no later fail, and a fail of the one issue is decided only in the records of
+  // fixes (D-187, D-188).
+  const w = roundWindow({ rounds: inputs.rounds, done: inputs.records.done, approvals: inputs.records.approvals, task });
+  const closing = w.end?.kind === "round" ? w.end.round : (w.end?.narrow ?? null);
+  const ctxOf = (commit, stamp, ofIssue = false) => ({ commit, stamp, rounds: closing && !ofIssue ? [closing] : [], fixes, passed, root: at.root, runs });
+  const problems = [];
+  // A check held on a commit; on the issue, a missing record is an incomplete issue and a class not
+  // decided a finding with no decision.
+  const fails = new Set();
+  const hold = (id, stamp, commit, ofIssue = false) => {
+    // The issue is held only by verdicts given on its own diff, whose Base: is the narrow round's commit; a
+    // record of a run outside a review names no base, and holds no issue.
+    const of = ofIssue ? runs.filter((r) => r.base && resolve(r.base) === resolve(range.from)) : runs;
+    const v = changeVerdict({ top, runs: of, id, stamp, commit, dirs, resolve });
+    if (v.current?.verdict === "fail") fails.add(commit);
+    const p = verdictWhy(id, v, ctxOf(commit, stamp, ofIssue));
+    if (!p) return;
+    if (ofIssue && p.code === "VERDICT_MISSING") p.code = "ISSUE_MISSING";
+    if (ofIssue && p.code === "VERDICT_FAILED" && v.current?.class && !v.current.carried) p.code = "FIX_UNTESTED";
+    problems.push(p);
+  };
+  hold.failsOn = (c) => fails.has(c);
+  hold.root = at.root;
+  // The one issue the latest record of fixes of the range names, for a pass of the analysis given there.
+  const named = fixes.filter((f) => f.issue).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1);
+  const ofIssue = (x) => Boolean(range && named && resolve(x.commit) && resolve(x.commit) === resolve(named.issue) && x.base && resolve(x.base) === resolve(range.from));
+  problems.push(...roundVerdictProblems({ w, runs, ctx: ctxOf(end, null), ofIssue }));
+  const from = mergeBase(top, b, end);
+  if (!from) return [{ code: "VERDICT_MISSING", why: `the checked commit ${end.slice(0, 12)} and the base have no common commit` }];
+  const list = changeList({ cfg, top, commit: end, from, tmp: join(tmp, "lists") });
+  if (!range) {
+    for (const x of list) hold(x.id, x.stamp, end);
+    return problems;
+  }
+  return problems.concat(issueProblems({ cfg, top, b, list, range, fixes, end, tmp, hold, resolve }));
+}
+
+// The verdicts of the record of a round in the window of the step the merged result ended (rule.round-verdicts,
+// D-187): from the end of the step before it up to the round, or the record of done, that ended it. Each round
+// of it whose brief named the checks of the record of a round has a verdict of each, given after its brief and
+// before it; a fail holds the merge unless its classes are decided as a fail of the change is, by the round
+// that ended the step or the records of fixes (ctx), never by a filing of an earlier round of the window; and
+// a fail of the analysis of the cause only when the latest verdict of that check after it in the window, of
+// a round or of the one issue, is a pass on a corrected analysis, of a round whose Cause: is another, or of
+// the one issue, whose record names the hash of the corrected analysis: a later fail, a not-run, or an issue
+// without that check leaves it failed. A round with no Round-checks:, recorded before the rule, is read as
+// before.
+function roundVerdictProblems({ w, runs, ctx, ofIssue = () => false }) {
+  const closing = w.end;
+  const before = w.ends.at(-2);
+  const win = w.all.filter((r) => (!before || r.time > before.time) && (!closing || r.time <= closing.time));
+  const until = closing?.time ?? "9999";
+  const problems = [];
+  const causes = causeFailures(runs, win, { ofIssue, until });
+  for (const r of win) {
+    for (const id of r.roundChecks ?? []) {
+      const given = runs.filter((x) => x.check === id && !(x.carried && NEVER_CARRIED.has(id)) && r.briefTime && x.time >= r.briefTime && x.time <= r.time).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file));
+      const v = given.at(-1);
+      if (!v) {
+        problems.push({ code: "VERDICT_MISSING", why: `${id}: no verdict of the record of a round for ${r.file}, given after its brief` });
+        continue;
+      }
+      if (v.verdict === "pass") continue;
+      if (v.verdict === "not-run" || v.verdict === "not-applicable") {
+        if (!reasonOf(v, runs)) problems.push({ code: "VERDICT_UNREASONED", why: `${id}: ${v.file}, for ${r.file}, is a ${v.verdict} without its reason${v.carried ? `, carried from ${v.carried}, which gives none of its own` : ""}` });
+        continue;
+      }
+      if (id === CAUSE_ROUND_CHECK) {
+        // Decided by the one derivation the writer of the brief reads too, causeFailures (D-190).
+        const f = causes.find((x) => x.round === r);
+        if (f) problems.push({ code: "VERDICT_FAILED", why: `${id}: ${f.run.file} failed the analysis of the cause of ${r.file}, and no later pass in the window was given on a corrected analysis${f.last ? `: the latest verdict of the check after it, ${f.last.file}, is ${f.last.verdict === "pass" ? "a pass on no corrected analysis" : `a ${f.last.verdict}`}` : ""}` });
+        continue;
+      }
+      const p = verdictWhy(id, { current: v, elsewhere: [] }, ctx);
+      if (p) problems.push({ ...p, why: `${p.why} (a verdict of the record of a round, for ${r.file})` });
+    }
+  }
+  return problems;
+}
+
+// After a narrow round with findings (rule.one-issue-after-narrow, D-187): the one issue of verdicts, named
+// by the latest record of fixes of the narrow round that names one, at a commit of the range; each check of
+// its list, on its own diff from the narrow round's commit, has its record on that commit; each check of the
+// final list is held by the issue when it lists it, else by the record of the result the narrow round
+// checked, else by the range with no verdict; each finding of the issue and of the usual path of the narrow
+// round is decided by a test the record of done shows passed, or filed; an issue with no findings is
+// followed by done on its own commit.
+function issueProblems({ cfg, top, b, list, range, fixes, end, tmp, hold, resolve }) {
+  const narrow = resolve(range.from);
+  if (!narrow) return [{ code: "ISSUE_MISSING", why: `the commit of the narrow round ${range.narrow.file}, ${range.from}, is not a commit of this clone` }];
+  const named = fixes.filter((f) => f.issue).sort((a, b) => a.time.localeCompare(b.time) || a.file.localeCompare(b.file)).at(-1);
+  if (!named) return [{ code: "ISSUE_MISSING", why: `no record of fixes of ${range.narrow.file} names the one issue of verdicts: round.mjs fixes --issue <commit>` }];
+  const issue = resolve(named.issue);
+  if (!issue || issue === narrow || !isAncestor(top, narrow, issue) || !isAncestor(top, issue, end))
+    return [{ code: "ISSUE_MISSING", why: `the issue ${named.issue} that ${named.file} names is not a commit of the range of fixes after ${range.narrow.file}` }];
+  const problems = [];
+  const issueList = changeList({ cfg, top, commit: issue, from: narrow, tmp: join(tmp, "lists") });
+  for (const x of issueList) hold(x.id, x.stamp, issue, true);
+  const inIssue = new Set(issueList.map((x) => x.id));
+  const nb = mergeBase(top, b, narrow);
+  const narrowList = nb ? new Map(changeList({ cfg, top, commit: narrow, from: nb, tmp: join(tmp, "lists") }).map((x) => [x.id, x])) : new Map();
+  // (a) the issue's; (b) the narrow round's result's; (c) the range's, with no verdict.
+  for (const x of list) {
+    if (inIssue.has(x.id)) continue;
+    const n = narrowList.get(x.id);
+    if (n) hold(x.id, n.stamp, narrow);
+  }
+  // The findings to decide: the rows of the issue's table of findings and the findings of the usual path
+  // of the narrow round; the classes of the issue's fails are decided where its records are held.
+  const fromIssue = (named.issueFindings ?? []).map((cls) => ({ cls, of: `the issue at ${issue.slice(0, 12)}` }));
+  const fromRound = [...range.narrow.findings, ...(range.narrow.acceptance?.findings ?? [])].filter((x) => x.ofChange && x.fixable).map((x) => ({ cls: x.cls, of: range.narrow.file }));
+  const ctx = { rounds: [], fixes, root: hold.root, passed: new Set((range.done.fixTests ?? []).filter((t) => t.result === "passed").map((t) => `${t.file} · ${t.test}`)) };
+  for (const f of [...fromIssue, ...fromRound]) {
+    const d = classDecision(f.cls, ctx);
+    if (d !== "filed" && d !== "tested") problems.push({ code: "FIX_UNTESTED", why: `"${f.cls}" of ${f.of}: ${d === "untested" ? "the record of done that ended the range does not show its test passed" : "no record of fixes decides it with a test or a filing"}` });
+  }
+  // An issue that found nothing: done on its own commit.
+  const doneAt = resolve(range.done.commit);
+  const sameOutsideRecords = doneAt && (doneAt === issue || (isAncestor(top, issue, doneAt) && !changedBetween(top, issue, doneAt).some((p) => !isRecordPath(p, recordDirs(cfg, top)))));
+  if (!fromIssue.length && !hold.failsOn(issue) && !sameOutsideRecords)
+    problems.push({ code: "ISSUE_MISSING", why: `the issue at ${issue.slice(0, 12)} found nothing, and the record of done ${range.done.file} is on another commit, ${range.done.commit}` });
+  return problems;
+}
+
 // The guard: what the pull request from base to head changes among the gate paths, and which of those
 // changes no record of a gate change approves, with the reason. A Git command that fails is an error.
 export function guard({ cfg, base, head }) {
@@ -472,8 +781,13 @@ export function guard({ cfg, base, head }) {
     const baseCfg = configAt(top, b, relative(top, cfg.file).split("\\").join("/"));
     const taskState = baseCfg?.mergeGate?.taskState === true;
     const at = taskState || gated.length ? recordsAt({ cfg, top, head: h, tmp: join(tmp, "head") }) : null;
-    const task = taskState ? taskStateProblems({ cfg, top, b, h, mb, changed, at, baseCfg, tmp }) : [];
-    if (!gated.length) return { changed, gated, approved: [], refused: [], outside: [], notes: [], records, task, taskState };
+    const ended = {};
+    const task = taskState ? taskStateProblems({ cfg, top, b, h, mb, changed, at, baseCfg, tmp, out: ended }) : [];
+    // The gate of verdicts, where the configuration at the base sets its key beside mergeGate.taskState,
+    // on a change of a task whose next action at the head is the merge (rule.verdicts-hold-merge, D-187).
+    const verdicts = taskState && baseCfg?.mergeGate?.verdicts === true;
+    if (verdicts && ended.end) task.push(...verdictProblems({ cfg, top, b, h, at, task: ended.task, next: ended.next, end: ended.end, tmp: join(tmp, "verdicts") }));
+    if (!gated.length) return { changed, gated, approved: [], refused: [], outside: [], notes: [], records, task, taskState, verdicts };
     const { rounds, records: atHead, recordsPath } = at;
     // The commits of the pull request by their parents, so that the commit right after a named one is found.
     const children = new Map();
@@ -514,7 +828,7 @@ export function guard({ cfg, base, head }) {
             outsideApproval.push({ path: p, why: `${e?.gatePaths?.length ? `not within the gate paths ${e.gatePaths.join(", ")}` : "no gate paths"} of the approval in force of ${g.task}${e ? `, ${e.file}` : ""}` });
         }
     }
-    return { changed, gated, approved, refused, outside: outsideApproval, notes, records, task, taskState };
+    return { changed, gated, approved, refused, outside: outsideApproval, notes, records, task, taskState, verdicts };
   } catch (e) {
     if (e instanceof GitError) return { errors: [e.message] };
     throw e;

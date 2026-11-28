@@ -11,7 +11,12 @@
 // --decisions also prints every entry of the decision log: in force, tentative or superseded by what,
 //   and the later entries that name it.
 // --run also runs every trace of the catalogue on the oracle (D-93) and prints each check's result.
+// --confine <root>, with --review <base> --json alone, is the guard's run of the list of the change: every read
+//   of a file passes the boundary of lib.mjs, and one outside root ends the run with READ_OUTSIDE (D-190).
 // Exit code 1 on any error. Prints ONT_OK when everything is consistent.
+// First: lib.mjs, which, given --confine <root>, sets the boundary of the checked tree for every read of the run
+// as it is evaluated, before any other module of the checker (D-190).
+import "./lib.mjs";
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
@@ -44,6 +49,7 @@ import {
   isFile,
   guideSections,
   loadCopyInfo,
+  readOwnData,
   APPROACH_REPO,
   OLD_PROOF,
   PROOFS,
@@ -52,19 +58,18 @@ import {
 import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
 import { CAUSE_CHECK, renderReview, reviewChange } from "./review.mjs";
-import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
+import { currentRun, latestRecordTime, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { renderRounds } from "./review-rounds.mjs";
-import { acceptanceProblems, fixesRange, gitEnv, heldByFixes, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
+import { acceptanceProblems, failedCause, fixesRange, gitEnv, heldByFixes, openWindow, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { goalLineProblem } from "./spend.mjs";
-import { compareRules, githubRepo, localRecordNotes, recordDirs } from "./merge-gate.mjs";
+import { compareRules, githubRepo, localRecordNotes, recordDirs, workCommit } from "./merge-gate.mjs";
 import { briefsDir, pendingBriefs } from "./briefs.mjs";
-import { sealed } from "./seal.mjs";
+import { sealed, timeAfter } from "./seal.mjs";
 import { PERFORMERS, outsideRecord as outsideRecordText } from "./manual-runs.mjs";
 const outsideRecordOf = (text) => outsideRecordText(text, 1, { latinOnly: true });
 import { createHash } from "node:crypto";
 import { readFileSync, rmSync } from "node:fs";
 import { parseProductRecords, productReleaseProblems, protocolReleaseProblems, releaseNews, runningNow } from "./releases.mjs";
-import { fileURLToPath } from "node:url";
 import { emptyTests, mutate, registry } from "./code-traces.mjs";
 import { pathToFileURL } from "node:url";
 import { checkForms, checkTraces, readForms, readTraces, runTrace } from "./oracle.mjs";
@@ -72,6 +77,12 @@ import { checkForms, checkTraces, readForms, readTraces, runTrace } from "./orac
 const groupBy = (xs, key) =>
   xs.reduce((m, x) => m.set(key(x), [...(m.get(key(x)) ?? []), x]), new Map());
 
+// --confine <root> is the guard's: only with --review and --json, for the list of the change (D-190).
+const confined = process.argv.includes("--confine");
+if (confined && !(process.argv.includes("--review") && process.argv.includes("--json"))) {
+  console.error("--confine is the guard's run of the list of the change: give it with --review <base> --json");
+  process.exit(2);
+}
 const arg = process.argv.indexOf("--config");
 const cfg = loadConfig(arg > 0 ? process.argv[arg + 1] : "ont.config.json");
 const { classes } = cfg;
@@ -1377,9 +1388,36 @@ if (flag("--review") > 0) {
   if (!base || base.startsWith("--")) {
     fail("--review needs a base: a branch, a tag or a commit", 2);
   }
-  const r = reviewChange({ cfg, base, checks, approachChecks: approach?.checks, implRows, ids, guides: runGuides });
+  // --json: the list of the change alone, each check with its stamp, on one line, for the guard of the
+  // base (derived.change-list, D-187); the guard runs it in a working tree of its own, whose Git directory
+  // keeps no brief. The run ends here, before anything of the project is imported.
+  // ont: derived.change-list
+  const asJson = flag("--json") > 0;
+  // In the guard's run the tree's Git directory is the guard's, which keeps no brief, and is not read (D-190).
+  const r = reviewChange({ cfg, base, checks, approachChecks: approach?.checks, implRows, ids, guides: runGuides, ...(confined ? { briefs: [] } : {}) });
   if (r.error) {
     fail(r.error, 2);
+  }
+  // After the last narrow round, a failed verdict of the analysis of the cause in the open window of a
+  // task's result, which no later pass decided, is given again by the one issue of verdicts, on the
+  // corrected analysis whose hash its evidence names (rule.round-verdicts, D-187).
+  // ont: rule.round-verdicts
+  if (!asJson && cfg.mergeGate?.verdicts && cfg.manualRuns && cfg.reviewRounds && cfg.taskRecords && ![...r.project, ...r.approach].some((c) => c.id === CAUSE_CHECK)) {
+    const { rounds, records } = readTaskInputs(cfg);
+    const { runs } = parseRuns(cfg.manualRuns.dir, { has: () => true }, { latinOnly: cfg.records.latinOnly });
+    const pending = [...new Set(rounds.map((x) => x.task))].filter((task) => failedCause(runs, openWindow({ rounds, done: records.done, approvals: records.approvals, task, step: "result-review" }).rounds));
+    if (pending.length) {
+      const own = checks.find((c) => c.id === CAUSE_CHECK && untested(c.proof));
+      const theirs = (approach?.checks ?? []).find((c) => c.id === CAUSE_CHECK);
+      if (own) r.project.push(own);
+      else if (theirs) r.approach.push(theirs);
+      console.log(`CAUSE ${pending.join(", ")}: a verdict of the analysis of the cause failed in the open window and no later pass decided it: ${CAUSE_CHECK} is listed, for a verdict on the corrected analysis whose hash its evidence names (rule.round-verdicts)`);
+    }
+  }
+  if (asJson) {
+    const list = [...r.project, ...r.approach].map((c) => ({ id: c.id, stamp: stampFor(c), proof: c.proof }));
+    console.log(`REVIEW_JSON ${JSON.stringify({ base, checks: list })}`);
+    process.exit(0);
   }
   // Where the guide of each check of run is (D-155): a project's own, in its run guides; one of the
   // approach, at the commit its copy came from, which the copy information names, or in the approach's
@@ -1421,7 +1459,10 @@ if (flag("--review") > 0) {
     const listed = new Map([...r.project, ...r.approach].map((c) => [c.id, c]));
     const known = new Set([...checkById.keys(), ...(approach?.checks ?? []).map((c) => c.id), ...[...retired.keys()].filter((x) => x.startsWith("check."))]);
     const { runs } = parseRuns(cfg.manualRuns.dir, known, { latinOnly: cfg.records.latinOnly });
-    const top = spawnSync("git", ["-C", cfg.base, "rev-parse", "--short", "HEAD"], { encoding: "utf8", env: gitEnv() }).stdout.trim();
+    // The commit of the review is the last commit outside the records of the process: HEAD, or, when HEAD
+    // is a commit of records alone over the work, the commit under it that changed something else (D-187).
+    // ont: derived.change-verdict
+    const top = (workCommit(cfg) ?? "").slice(0, 7);
     const dirty = spawnSync("git", ["-C", cfg.base, "status", "--porcelain", "--", ".", `:!${relative(cfg.base, cfg.manualRuns.dir)}`], { encoding: "utf8", env: gitEnv() }).stdout.trim();
     // The files read for a carried verdict that changed since its record's commit, committed or not. A
     // file with no snapshot in that commit, untracked, ignored or absent, cannot be compared, so it counts
@@ -1442,14 +1483,20 @@ if (flag("--review") > 0) {
       const changed = runChanged(run.commit);
       return changed ? `${changed.join(", ")} changed outside the records since its commit ${run.commit}` : null;
     };
-    const res = recordVerdicts({ text: read(table), listed, runs, stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly, unlisted: (id) => (id === CAUSE_CHECK ? ": it is listed after stagnation while the round's brief, which carries Cause:, is kept; record the verdicts before round.mjs record removes it (D-184)" : "") });
+    // Each record names the base of the diff it was given on, Base: (D-187).
+    // ont: field.manual-run.base
+    const res = recordVerdicts({ text: read(table), listed, runs, base: fullOf(base), stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(timeAfter(latestRecordTime(cfg))), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly, unlisted: (id) => (id === CAUSE_CHECK ? ": it is listed after stagnation while the round's brief, which carries Cause:, is kept; record the verdicts before round.mjs record removes it (D-184)" : "") });
     if (res.problems.length) {
       fail(`the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`, 1);
     }
     // The first verdicts of a project make their directory.
     mkdirSync(cfg.manualRuns.dir, { recursive: true });
-    for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text);
-    console.log(`RECORDED ${res.records.length} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
+    // A record is never written over another (inv.records-immutable): its time follows every record kept, and a
+    // name taken all the same, by a writer run beside this one, refuses the table before any record is written.
+    const taken = res.records.filter((rec) => existsSync(join(cfg.manualRuns.dir, rec.file)));
+    if (taken.length) fail(`the table of verdicts is refused, no record written: ${taken.map((rec) => rec.file).join(", ")} already kept`, 1);
+    for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text, { flag: "wx" });
+    console.log(`RECORDED ${res.records.length - res.carried} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
   }
 }
 // --run-start <check> and --run-record <check>: a run of a check of run outside a review, in two steps
@@ -1491,7 +1538,7 @@ if (flag("--run-start") > 0 || flag("--run-record") > 0) {
       !evidence && "--evidence names no place of the evidence",
     ].filter(Boolean);
     if (wrong.length) fail(`no record of the run written: ${wrong.join("; ")}`, 1);
-    const time = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+    const time = timeAfter(latestRecordTime(cfg));
     const body = [`Check: ${id}`, `Time: ${time}`, `Commit: ${start.head}`, `Stamp: ${stampFor(c)}`, `Verdict: ${verdict}`, `By: ${by}`, `Performer: ${performer}`, `Evidence: ${evidence}`, "Origin: run", ""].join("\n");
     const outside = cfg.records.latinOnly ? outsideRecordOf(body) : [];
     if (outside.length) fail(`no record of the run written: ${outside.join("; ")}`, 1);
@@ -1634,8 +1681,17 @@ if (cfg.protocolReleases) {
 // ont: inv.ci-workflow-present, field.merge-gate.ci-workflow
 if (!cfg.ci?.workflow) console.log("info · no CI workflow is named (ci.workflow): the check runs only where someone runs it; the templates give one");
 else if (!existsSync(cfg.ci.workflow) || !statSync(cfg.ci.workflow).isFile()) fail(`the CI workflow ${relative(process.cwd(), cfg.ci.workflow)} that ci.workflow names is not a file`);
-const copyPin = [cfg.releases?.pin, join(dirname(fileURLToPath(import.meta.url)), "upstream.json")].find((f) => f && existsSync(f));
-const pin = copyPin ? (() => { try { return JSON.parse(read(copyPin)); } catch { return null; } })() : null;
+// The copy's own upstream.json is the checker's own data, read by readOwnData; a pin the configuration names
+// is a file of the tree, read through the boundary (D-191).
+// A pin that cannot be read or parsed, a directory among them, is no pin, as before.
+const pin = (() => {
+  try {
+    const text = cfg.releases?.pin && existsSync(cfg.releases.pin) ? read(cfg.releases.pin) : readOwnData("upstream.json");
+    return text === null ? null : JSON.parse(text);
+  } catch {
+    return null;
+  }
+})();
 if (pin?.commit) {
   const clone = gitOut("config", "--local", "ont.approachClone");
   const usedText = [...cfg.agentInstructions, cfg.decisions?.file, cfg.ontology].filter((f) => f && existsSync(f)).map(read).join("\n");

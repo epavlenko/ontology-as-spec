@@ -17,6 +17,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pendingBriefs } from "./briefs.mjs";
 import { loadConfig } from "./lib.mjs";
+import { workCommit } from "./merge-gate.mjs";
 import { outsideRecord } from "./manual-runs.mjs";
 import { TASK_NAME } from "./review-rounds.mjs";
 import { sealed, timeAfter } from "./seal.mjs";
@@ -88,7 +89,9 @@ if (argv.includes("--evidence")) {
 }
 const git = (...a) => spawnSync("git", ["-C", cfg.base, ...a], { encoding: "utf8", env: gitEnv() });
 const top = git("rev-parse", "--show-toplevel").stdout.trim();
-const commit = git("rev-parse", "--verify", `${value("--commit") ?? "HEAD"}^{commit}`).stdout.trim();
+// The commit of done: --commit, or the commit that ended the work at HEAD, under any commits of records
+// alone, the one the writer of verdicts and the guard name too (derived.change-verdict, D-187).
+const commit = value("--commit") ? git("rev-parse", "--verify", `${value("--commit")}^{commit}`).stdout.trim() : workCommit(cfg) ?? "";
 if (!commit) refuse(`no commit ${value("--commit") ?? "HEAD"}`);
 // The range of fixes ends at the commit done is recorded on, by the one function that gives it: a record of
 // done after the narrow round is of a commit after the one that round reviewed.
@@ -102,12 +105,37 @@ if (failed.length) {
   for (const f of failed) console.log(`FAIL ${f.command}\n${f.output.split("\n").slice(-15).join("\n")}`);
   refuse(`${failed.length} of ${run.results.length} commands of done failed on ${commit.slice(0, 7)}`);
 }
+// The tests of the fixes (field.task-result.fix-tests, D-187): where this record ends a range of fixes,
+// each test a record of fixes of the narrow round names is run alone on the commit, apart from the commands
+// of done, by its name, and must have run and passed: one not found, skipped, marked todo or failed writes
+// no record. The guard counts a decision by a test only by this block.
+// ont: field.task-result.fix-tests, rule.one-issue-after-narrow
+const fixTests = [];
+if (range?.from && !range.done) {
+  const named = (records.fixes ?? []).filter((f) => f.task === task && f.round === range.narrow.file).flatMap((f) => f.tests);
+  const seen = new Set();
+  const quote = (x) => `'${String(x).replaceAll("'", "'\\''")}'`;
+  const pattern = (x) => `^${String(x).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`;
+  const tests = named.filter((t) => !seen.has(`${t.file} · ${t.test}`) && seen.add(`${t.file} · ${t.test}`));
+  const ran = runAtCommit({ top, commit, dir: "", commands: tests.map((t) => `node --test --test-reporter=tap --test-name-pattern=${quote(pattern(t.test))} ${quote(t.file)}`) });
+  if (ran.error) refuse(ran.error);
+  const not = [];
+  tests.forEach((t, i) => {
+    const out = ran.results[i]?.output ?? "";
+    const line = out.split("\n").map((l) => l.trim()).find((l) => /^(not )?ok \d+ - /.test(l) && l.replace(/^(not )?ok \d+ - /, "").replace(/\s+#\s*(SKIP|TODO)\b.*$/i, "") === t.test);
+    if (!line) not.push(`${t.file} · ${t.test}: not found in a run of its file`);
+    else if (/^not ok/.test(line) || ran.results[i].result !== "pass") not.push(`${t.file} · ${t.test}: failed`);
+    else if (/#\s*(SKIP|TODO)\b/i.test(line)) not.push(`${t.file} · ${t.test}: ${/#\s*SKIP/i.test(line) ? "skipped" : "marked todo"}`);
+    else fixTests.push(`- ${t.file} · ${t.test} · passed`);
+  });
+  if (not.length) refuse(`the tests of the fixes of ${range.narrow.file} did not all run and pass on ${commit.slice(0, 7)}: ${not.join("; ")}`);
+}
 // After the approval in force and every round of the task, never in the same second (D-167).
 const time = timeAfter(...approvals.filter((a) => a.task === task).map((a) => a.time), ...rounds.filter((r) => r.task === task).map((r) => r.time));
 mkdirSync(cfg.taskRecords.dir, { recursive: true });
 // The statement's limits go into the record, for the check and --rounds, which read no statement (D-147),
 // and its goal, the scope of the budget they read (D-172).
-const text = [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${statement.hash}`, ...budgetLines(statement.budget), ...(statement.goal ? [`Goal: ${statement.goal}`] : []), `Time: ${time}`, `Checks:`, ...run.results.map((r) => `- ${r.command} · ${r.result}`), ...(evidence.length ? ["Evidence:", ...evidence] : []), ""].join("\n");
+const text = [`Record: done`, `Task: ${task}`, `Commit: ${commit}`, `Statement-hash: ${statement.hash}`, ...budgetLines(statement.budget), ...(statement.goal ? [`Goal: ${statement.goal}`] : []), `Time: ${time}`, `Checks:`, ...run.results.map((r) => `- ${r.command} · ${r.result}`), ...(evidence.length ? ["Evidence:", ...evidence] : []), ...(fixTests.length ? ["Fix-tests:", ...fixTests] : []), ""].join("\n");
 // A record is never written over another: two records of one second take the next free name.
 let name;
 for (let i = 1; ; i++) {

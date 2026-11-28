@@ -4,6 +4,7 @@
 // the evidence is; the evidence itself stays outside the repository (rule.manual-evidence-kept).
 // ont: ent.manual-run, rule.records-english-in-repo, edge.manual-run.check, field.manual-run.time, field.manual-run.commit, field.manual-run.stamp, field.manual-run.verdict, field.manual-run.by, field.manual-run.performer, field.manual-run.evidence, derived.current-run
 import { createHash } from "node:crypto";
+import { existsSync, readdirSync } from "node:fs";
 import { basename } from "node:path";
 import { listFiles, read } from "./lib.mjs";
 import { stampOf } from "./docs.mjs";
@@ -22,6 +23,25 @@ const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const realTime = (t) => TIME.test(t ?? "") && !Number.isNaN(Date.parse(t)) && new Date(t).toISOString().replace(".000Z", "Z") === t;
 const NAME = /^(\d{8}T\d{6}Z)-(check\.[a-z0-9.-]+)-[a-z0-9]{4}\.md$/;
 const compact = (t) => (t ?? "").replace(/[-:]/g, "");
+
+// The time of the latest record of the process kept, of a round, of a task or of a verdict, by its name, which
+// begins with its time, among those not after now: the writer of verdicts and the writer of a brief wait until
+// the second has passed it, so that no two tables of verdicts share a name and no verdict or brief ties in order
+// with a record before it (D-194). A record dated after the clock is not of this clock, and is not waited for.
+export function latestRecordTime(cfg, now = new Date()) {
+  const at = now.toISOString().replace(/\.\d{3}Z$/, "Z");
+  return (
+    [cfg.reviewRounds?.dir, cfg.taskRecords?.dir, cfg.manualRuns?.dir]
+      .filter((d) => d && existsSync(d))
+      .flatMap((d) => readdirSync(d))
+      .map((f) => f.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z-/))
+      .filter(Boolean)
+      .map((m) => `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`)
+      .filter((t) => t <= at)
+      .sort()
+      .at(-1) ?? null
+  );
+}
 
 // The stamp of a record covers the check's case, its proof and the stamps of its concepts, so that a
 // change to any makes the record no longer current, as a changed definition makes a doc section stale
@@ -109,7 +129,7 @@ export function parseRuns(dir, known, opts = {}) {
     const text = read(f);
     const pairs = text
       .split("\n")
-      .map((l) => l.match(/^(Seal|Check|Time|Commit|Stamp|Verdict|By|Performer|Evidence|Origin):\s*(.*?)\s*$/))
+      .map((l) => l.match(/^(Seal|Check|Time|Commit|Base|Stamp|Verdict|By|Performer|Evidence|Class|Carried|Origin):\s*(.*?)\s*$/))
       .filter(Boolean)
       .map((m) => [m[1].toLowerCase(), m[2].replace(/^`|`$/g, "")]);
     const fields = Object.fromEntries(pairs);
@@ -170,9 +190,42 @@ export const currentRun = (runs, id, stamp, held = () => false, fresh = () => tr
 // verdict gives the file of the record it carries and, after " · ", the files the reviewer read for it,
 // none of which may have changed since the record's commit (D-95); a `By:` line names the reviewer. A record is written for each new verdict and none for a carried one. The table is refused
 // whole when a check is not listed, is given twice, a listed check has neither, a carried record is
-// not of its check or not at its stamp now, or the check of errors in code is carried.
-// ont: action.record-verdicts
-const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
+// not of its check or not at its stamp now, carries a not-run or a not-applicable with no reason of its own,
+// or the check of errors in code or of the analysis of the cause is carried.
+// A fail names the classes of its findings, each in square brackets at the start of its evidence, which
+// the record keeps on Class:, separated by " · "; a not-run and a not-applicable give their reason in the
+// evidence; and a carry the table passes writes a record of its own on the commit of the review, with the
+// carried record's verdict and class and the file it carries on Carried:, so that a verdict of an earlier
+// result reaches that commit only by a carry checked here; and each record names on Base: the base of the
+// diff it was given on, so that the one issue after the narrow round is held only by verdicts given on its
+// own diff, from the narrow round's commit (D-187).
+// ont: action.record-verdicts, field.manual-run.class, field.manual-run.carried, field.manual-run.base
+export const CLASS_SEP = " · ";
+export const classesOf = (evidence) => {
+  const out = [];
+  let rest = String(evidence ?? "");
+  for (let m; (m = rest.match(/^\s*\[([^\]]+)\]/)); rest = rest.slice(m[0].length)) if (m[1].trim()) out.push(m[1].trim());
+  return out;
+};
+export const CODE_CHECK = "check.agent-rules.code-reviewed-for-errors";
+// The check of the analysis of the cause reads the analysis the round's Cause: names, a file outside the
+// repository that neither a stamp nor the files of the tree cover; like the check of errors in code it is
+// never carried, and its verdict is given in the round whose Cause: it decides (rule.round-verdicts, D-192).
+export const CAUSE_CHECK = "check.review-round.redesign-after-stagnation";
+export const NEVER_CARRIED = new Map([
+  [CODE_CHECK, "the check of errors in code reads every new diff and is never carried"],
+  [CAUSE_CHECK, "the check of the analysis of the cause reads the analysis its round's Cause: names, which no stamp and no file of the tree covers, and is never carried"],
+]);
+// The reason a record of a not-run or a not-applicable gives of its own: the evidence of a record given
+// directly; for a carry, the reason of the record it carries, followed through carries, since a carry's own
+// evidence is the citation of what it carries and of the files read, never a reason (D-192). Empty when none.
+export function reasonOf(run, runs, depth = 0) {
+  if (!run) return "";
+  if (!run.carried) return String(run.evidence ?? "").trim();
+  if (depth > 40) return "";
+  return reasonOf(runs.find((x) => x.file === run.carried), runs, depth + 1);
+}
+const abstains = (v) => v === "not-run" || v === "not-applicable";
 // A cell of a row: anything but a pipe, an escaped one included; read without its escapes and backticks.
 const CELL = String.raw`(?:\\.|[^|\\])*?`;
 const cell = (x) => (x ?? "").replace(/\\\|/g, "|").replace(/^`|`$/g, "");
@@ -180,7 +233,7 @@ const cell = (x) => (x ?? "").replace(/\\\|/g, "|").replace(/^`|`$/g, "");
 // carried as a verdict of the reviewer only when its stamp is the check's, its commit is committed, and no
 // file outside the directories of records changed between it and the head of the review, nor differs in
 // the working copy; the files read are not asked for, since the rule is stricter than they are.
-export function recordVerdicts({ text, listed, runs, stamp, commit, now, changedSince = () => [], runFresh = () => "the run cannot be compared", source = "the table", latinOnly = false, unlisted = () => "" }) {
+export function recordVerdicts({ text, listed, runs, base = null, stamp, commit, now, changedSince = () => [], runFresh = () => "the run cannot be compared", source = "the table", latinOnly = false, unlisted = () => "" }) {
   // The reviewer is named on the By: line itself; a value on the next line is no value (D-151).
   const by = text.match(/^By:[ \t]*(\S.*?)[ \t]*$/m)?.[1];
   const lines = text.split("\n");
@@ -208,12 +261,15 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
     else if (r.performer && r.verdict !== "pass" && r.verdict !== "fail") problems.push(`${r.check}: a performer is given on a pass or a fail only, not on ${r.verdict}`);
     else if (r.performer === "person" && !r.evidence) problems.push(`${r.check}: performer person without the evidence that names the person`);
     if (r.verdict === "carried") {
-      if (r.check === CODE_CHECK) problems.push(`${r.check}: the check of errors in code reads every new diff and is never carried`);
       const [file, read = ""] = r.evidence.split("·").map((x) => x.trim());
       const files = read.split(",").map((x) => x.trim()).filter(Boolean);
       const run = runs.find((x) => x.file === file);
-      if (!run) problems.push(`${r.check}: carries ${file || "(no record)"}, which is no record of a run`);
+      if (NEVER_CARRIED.has(r.check)) problems.push(`${r.check}: ${NEVER_CARRIED.get(r.check)}`);
+      else if (!run) problems.push(`${r.check}: carries ${file || "(no record)"}, which is no record of a run`);
       else if (run.check !== r.check) problems.push(`${r.check}: carries ${file}, a record of ${run.check}`);
+      // A carried abstention keeps the reason of the record it carries; one with none of its own is given
+      // again, with its reason (D-192).
+      else if (abstains(run.verdict) && !reasonOf(run, runs)) problems.push(`${r.check}: carries ${file}, a ${run.verdict} without its reason of its own, which a carry cannot give: give the verdict again with its reason`);
       else if (run.stamp !== stamp(c)) problems.push(`${r.check}: carries ${file}, given at stamp ${run.stamp}, and the check's stamp is now ${stamp(c)}`);
       else if (run.origin === "run") {
         const why = runFresh(run);
@@ -227,19 +283,24 @@ export function recordVerdicts({ text, listed, runs, stamp, commit, now, changed
         if (changed.length) problems.push(`${r.check}: carries ${file}, and ${changed.join(", ")} changed since its commit ${run.commit}`);
       }
     } else if (!VERDICTS.includes(r.verdict)) problems.push(`${r.check}: verdict ${r.verdict} is not one of ${[...VERDICTS, "carried"].join(", ")}`);
+    else if (r.verdict === "fail" && !classesOf(r.evidence).length) problems.push(`${r.check}: a fail names no class of its findings: begin its evidence with each class in square brackets, such as [missing test]`);
+    else if (abstains(r.verdict) && !r.evidence.trim()) problems.push(`${r.check}: a ${r.verdict} without its reason in the evidence`);
   }
   for (const id of listed.keys()) if (!seen.has(id)) problems.push(`${id}: listed, with neither a new verdict nor a carried one`);
   if (problems.length) return { problems, records: [], carried: 0 };
   const time = now.toISOString().replace(/\.\d{3}Z$/, "Z");
-  const records = rows
-    .filter((r) => r.verdict !== "carried")
-    .map((r) => {
-      const tail = createHash("sha256").update(`${r.check}|${time}|${by}`).digest("hex").replace(/[^a-z]/g, "").slice(0, 4).padEnd(4, "x");
-      return {
-        file: `${compact(time)}-${r.check}-${tail}.md`,
-        // Written with its seal and Origin: review (D-167, D-171).
-        text: sealed([`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${r.verdict}`, `By: ${by}`, ...(r.verdict === "pass" || r.verdict === "fail" ? [`Performer: ${r.performer || "agent"}`] : []), ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), "Origin: review", ""].join("\n")),
-      };
-    });
-  return { problems, records, carried: rows.length - records.length };
+  const records = rows.map((r) => {
+    const tail = createHash("sha256").update(`${r.check}|${time}|${by}`).digest("hex").replace(/[^a-z]/g, "").slice(0, 4).padEnd(4, "x");
+    // A carry: the verdict, the performer and the class of the record it carries (D-187).
+    const of = r.verdict === "carried" ? runs.find((x) => x.file === r.evidence.split("·")[0].trim()) : null;
+    const verdict = of ? of.verdict : r.verdict;
+    const performer = of ? of.performer : r.performer;
+    const cls = of ? (of.class ? of.class.split(CLASS_SEP) : []) : verdict === "fail" ? classesOf(r.evidence) : [];
+    return {
+      file: `${compact(time)}-${r.check}-${tail}.md`,
+      // Written with its seal and Origin: review (D-167, D-171).
+      text: sealed([`Check: ${r.check}`, `Time: ${time}`, `Commit: ${commit}`, ...(base ? [`Base: ${base}`] : []), `Stamp: ${stamp(listed.get(r.check))}`, `Verdict: ${verdict}`, `By: ${by}`, ...(verdict === "pass" || verdict === "fail" ? [`Performer: ${performer || "agent"}`] : []), ...(r.evidence ? [`Evidence: ${r.evidence}`] : []), ...(cls.length ? [`Class: ${cls.join(CLASS_SEP)}`] : []), ...(of ? [`Carried: ${of.file}`] : []), "Origin: review", ""].join("\n")),
+    };
+  });
+  return { problems, records, carried: rows.filter((r) => r.verdict === "carried").length };
 }

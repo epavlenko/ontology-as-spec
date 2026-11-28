@@ -116,7 +116,7 @@ test("[check.tool-copy.options-documented] a configuration with every key of the
       statements: { todoHeadings: ["What to do"] },
       reviewRounds: { dir: "rounds", gatesFrom: "2026-11-21T09:35:15Z" },
       taskRecords: { dir: "tasks" },
-      mergeGate: { paths: [".github/"], rules: ".github/merge-gate.json", codes: { t: ["SEAL_MISSING"] }, taskState: true },
+      mergeGate: { paths: [".github/"], rules: ".github/merge-gate.json", codes: { t: ["SEAL_MISSING"] }, taskState: true, verdicts: true },
       ci: { workflow: ".github/workflows/ont-check.yml" },
       protocolReleases: { file: "releases.md" },
       releases: { dir: "releases", pin: "tools/ontology-as-spec/upstream.json", tool: "tools/ontology-as-spec" },

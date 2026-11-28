@@ -1,12 +1,27 @@
 // Shared parsing for the check and the generators. One parser for all of them: if a generator and
 // the check read the ontology differently, a broken document passes unnoticed.
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import fs, { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { createHash } from "node:crypto";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const read = (path) => readFileSync(path, "utf8");
+// The checker's own data files beside this module, read by their own names alone through the functions of
+// node:fs as they were before the boundary of the reads is set (derived.change-list, D-191): the boundary
+// makes no exception for any path, and no reader of a project's file can reach these through it.
+const UNCONFINED = { readFileSync: fs.readFileSync, existsSync: fs.existsSync };
+export const OWN_DATA = ["approach.json", "copy.json", "upstream.json", "html-entities.json"];
+export const ownDataFile = (name) => {
+  if (!OWN_DATA.includes(name)) throw new Error(`${name} is no data file of the checker`);
+  return fileURLToPath(new URL(`./${name}`, import.meta.url));
+};
+// The text of one of the checker's own data files, or null when it was not copied with the tool.
+export const readOwnData = (name) => {
+  const file = ownDataFile(name);
+  return UNCONFINED.existsSync(file) ? UNCONFINED.readFileSync(file, "utf8") : null;
+};
 // The variables Git reads as local to one repository, which it sets for a hook and which would point a
 // git command in another clone, worktree or directory at the hook's repository, its index, its objects
 // or its configuration: the list `git rev-parse --local-env-vars` gives
@@ -87,12 +102,15 @@ export const untested = (proof) => proof === "review" || proof === "run" || proo
 // commit of the approach the copy came from; the public repository of the approach is linked at it.
 // ont: field.tool-copy.copy-info
 export const APPROACH_REPO = "https://github.com/epavlenko/ontology-as-spec";
-export const COPY_INFO_FILE = fileURLToPath(new URL("./copy.json", import.meta.url));
-export const loadCopyInfo = () => (existsSync(COPY_INFO_FILE) ? JSON.parse(readFileSync(COPY_INFO_FILE, "utf8")) : null);
+export const COPY_INFO_FILE = ownDataFile("copy.json");
+export const loadCopyInfo = () => {
+  const text = readOwnData("copy.json");
+  return text === null ? null : JSON.parse(text);
+};
 // The approach's own concept IDs travel with the tool, in approach.json next to this file, so that a
 // project's check resolves the rules of the approach that its agent instructions and process entries
 // name. Null when the file was not copied.
-export const APPROACH_FILE = fileURLToPath(new URL("./approach.json", import.meta.url));
+export const APPROACH_FILE = ownDataFile("approach.json");
 // The checks of review and of run of the approach, with their proof (D-155); an approach.json written
 // before them, whose manualChecks have no proof, reads them as manual.
 // ont: concept.approach-ids
@@ -105,7 +123,10 @@ export const readApproach = (text) => {
     checks: checks ?? manualChecks.map((c) => ({ ...c, proof: OLD_PROOF })),
   };
 };
-export const loadApproach = () => (existsSync(APPROACH_FILE) ? readApproach(readFileSync(APPROACH_FILE, "utf8")) : null);
+export const loadApproach = () => {
+  const text = readOwnData("approach.json");
+  return text === null ? null : readApproach(text);
+};
 // The checks of review and of run of the approach travel with it too, so that --review in a project can
 // hand them to a reviewer for the kinds of artifact a change touches (D-155); each check of run carries
 // the path and the anchor of its guide's section and the hash of its text (D-156), from guides.
@@ -172,7 +193,7 @@ export const CONFIG_KEYS = [
   "decisions.file", "decisions.entry", "decisions.ref", "decisions.accepted", "decisions.supersedes", "decisions.source",
   "decisions.returnWhen", "decisions.processLayer", "decisions.extends", "decisions.overrides",
   "code[].dir", "code[].match", "reviewPaths[].dir", "reviewPaths[].concepts",
-  "manualRuns.dir", "manualRuns.require", "verdicts.dir", "verdicts.require", "records.latinOnly", "records.sealsFrom", "spend.fromLogs", "goals", "statements.todoHeadings", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "mergeGate.paths", "mergeGate.rules", "mergeGate.codes", "mergeGate.taskState", "ci.workflow", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
+  "manualRuns.dir", "manualRuns.require", "verdicts.dir", "verdicts.require", "records.latinOnly", "records.sealsFrom", "spend.fromLogs", "goals", "statements.todoHeadings", "reviewRounds.dir", "reviewRounds.gatesFrom", "taskRecords.dir", "mergeGate.paths", "mergeGate.rules", "mergeGate.codes", "mergeGate.taskState", "mergeGate.verdicts", "ci.workflow", "budget.newInput", "budget.output", "budget.reserve", "protocolReleases.file", "releases.dir", "releases.pin", "releases.tool", "codeNames.require", "codeNames.owner", "approachIds.out",
   "contracts.out", "contracts.classes", "contracts.propertyCase", "map.file", "map.idColumn", "features.dir", "features.cover",
   "tests.dir", "tests.match", "tests.cover", "tests.checks",
   "testSuites[].name", "testSuites[].dir", "testSuites[].match", "testSuites[].cover", "testSuites[].checks",
@@ -318,7 +339,7 @@ export function loadConfig(configPath, text) {
     // (D-170). taskState: the guard holds the merge by the state of the task where the configuration at the
     // base of a pull request sets it (D-185); the guard reads it from the base, never from here.
     // ont: field.merge-gate.task-state
-    mergeGate: raw.mergeGate && { paths: [...(raw.mergeGate.paths ?? [])], rules: at(raw.mergeGate.rules), codes: Object.fromEntries(Object.entries(raw.mergeGate.codes ?? {}).map(([k, v]) => [k, [...v]])), taskState: raw.mergeGate.taskState === true },
+    mergeGate: raw.mergeGate && { paths: [...(raw.mergeGate.paths ?? [])], rules: at(raw.mergeGate.rules), codes: Object.fromEntries(Object.entries(raw.mergeGate.codes ?? {}).map(([k, v]) => [k, [...v]])), taskState: raw.mergeGate.taskState === true, verdicts: raw.mergeGate.verdicts === true },
     // The workflow file of the project's full check in CI (D-158); a configuration without it is reported.
     ci: raw.ci && { workflow: at(raw.ci.workflow) },
     // The approach's own releases (D-109): the file of their entries, in the approach's repository only.
@@ -698,7 +719,7 @@ const TAG = /<\/?[A-Za-z][^\s/>]*(?:[^>"']|"[^"]*"|'[^']*')*>/g;
 let ENTITIES = null;
 const entities = () => {
   if (ENTITIES) return ENTITIES;
-  const { names, legacy } = JSON.parse(readFileSync(fileURLToPath(new URL("./html-entities.json", import.meta.url)), "utf8"));
+  const { names, legacy } = JSON.parse(readOwnData("html-entities.json"));
   const bare = Object.keys(legacy).sort((x, y) => y.length - x.length);
   ENTITIES = { names, legacy, pattern: new RegExp(String.raw`&(?:#(\d+);?|#[xX]([0-9a-fA-F]+);?|([A-Za-z][A-Za-z0-9]*);|(${bare.join("|")}))`, "g") };
   return ENTITIES;
@@ -871,3 +892,94 @@ export const renderGlossary = (ONT, sourceName) =>
   `// Generated by tools/ont-check/gen-glossary.mjs from ${sourceName}. Do not edit by hand.
 window.ONT = ${JSON.stringify(ONT, null, 1)};
 `;
+
+// ── The boundary of the reads of the checker the guard runs (derived.change-list, D-188, D-190, D-191) ─────
+// Given --confine <root> to ont-check.mjs, which imports this module first: every read of a file in the run,
+// of any reader of the checker and whatever named the path, the configuration, a listing of a directory, a
+// row of the implementation table, a ticket or a link, goes through one function, readBoundary, which takes
+// the real path and ends the run on one outside the checked tree, naming it, before anything is read. It
+// makes no exception by path: the checker's own data files beside this module are read by readOwnData, by
+// their names alone and not through the boundary, so a path of the tree that names one of them is refused
+// like any other outside it. A read is refused by ending the process, so that no reader that catches an
+// error goes on without the file.
+// ont: derived.change-list
+// The code exit of a run that tried to read outside its tree, and the line that names the path.
+export const OUTSIDE_EXIT = 3;
+export const OUTSIDE_LINE = "READ_OUTSIDE";
+
+// The functions of node:fs as they were before the boundary, which it calls itself.
+const orig = { realpathSync: fs.realpathSync, lstatSync: fs.lstatSync, readlinkSync: fs.readlinkSync, writeSync: fs.writeSync };
+
+// The real path of p: its links resolved, a link that resolves to nothing by its target, and a path that does
+// not exist by the real path of the nearest part of it that does, with the rest joined.
+export function realPath(p, depth = 0) {
+  const abs = resolve(p);
+  try {
+    return orig.realpathSync(abs);
+  } catch {}
+  try {
+    if (depth < 40 && orig.lstatSync(abs).isSymbolicLink()) return realPath(resolve(dirname(abs), orig.readlinkSync(abs)), depth + 1);
+  } catch {}
+  const parent = dirname(abs);
+  return parent === abs ? abs : join(realPath(parent, depth), basename(abs));
+}
+
+// The test of the boundary: for a root, a function that gives the real path of a path outside it, or null for
+// one inside it.
+export function outsideOf(root) {
+  const base = realPath(root);
+  return (p) => {
+    const real = realPath(p);
+    const rel = relative(base, real);
+    return rel === ".." || rel.startsWith(`..${sep}`) || rel.startsWith(sep) || /^[A-Za-z]:/.test(rel) ? real : null;
+  };
+}
+
+// The path a function of node:fs was given: a string, a Buffer or a file URL; a descriptor is null, since it
+// was opened through the boundary.
+const pathOf = (p) => (typeof p === "string" ? p : Buffer.isBuffer(p) ? p.toString() : p instanceof URL ? fileURLToPath(p) : null);
+
+// The one function every read goes through once the boundary is set.
+let boundary = null;
+export function readBoundary(p) {
+  if (!boundary) return;
+  const path = pathOf(p);
+  if (path === null) return;
+  const real = boundary.outside(path);
+  if (!real) return;
+  orig.writeSync(2, `${OUTSIDE_LINE} ${real}${real !== resolve(path) ? ` (named as ${path})` : ""}: the checker reads only the files of its tree, ${boundary.root}\n`);
+  process.exit(OUTSIDE_EXIT);
+}
+
+// The functions of node:fs that read a file, list a directory or tell of a path, sync, with a callback and
+// with a promise, whose first argument is the path; for a copy, the source too.
+const READERS = ["access", "accessSync", "exists", "existsSync", "lstat", "lstatSync", "open", "openSync", "opendir", "opendirSync", "readdir", "readdirSync", "readFile", "readFileSync", "readlink", "readlinkSync", "realpath", "realpathSync", "stat", "statSync", "statfs", "statfsSync", "createReadStream", "watch", "watchFile", "cp", "cpSync", "copyFile", "copyFileSync", "glob", "globSync"];
+const PROMISE_READERS = ["access", "lstat", "open", "opendir", "readdir", "readFile", "readlink", "realpath", "stat", "statfs", "cp", "copyFile", "glob"];
+
+// Sets the boundary at root for the rest of the run.
+export function confineReads(root) {
+  boundary = { root: realPath(root), outside: outsideOf(root) };
+  const wrap = (f) => {
+    const g = function (p, ...rest) {
+      readBoundary(p);
+      return f.call(this, p, ...rest);
+    };
+    for (const k of Object.keys(f)) g[k] = typeof f[k] === "function" ? wrap(f[k]) : f[k];
+    return g;
+  };
+  for (const k of READERS) if (typeof fs[k] === "function") fs[k] = wrap(fs[k]);
+  for (const k of PROMISE_READERS) if (typeof fs.promises[k] === "function") fs.promises[k] = wrap(fs.promises[k]);
+  syncBuiltinESMExports();
+}
+
+// Given --confine <root> to ont-check.mjs, the boundary is set as this module is evaluated: ont-check.mjs
+// imports it first, so before any other module of the checker is.
+const confineAt = process.argv.indexOf("--confine");
+if (confineAt > 0 && basename(process.argv[1] ?? "") === "ont-check.mjs") {
+  const root = process.argv[confineAt + 1];
+  if (!root || root.startsWith("--") || !fs.existsSync(root)) {
+    orig.writeSync(2, "--confine needs the root of the checked tree, a directory\n");
+    process.exit(2);
+  }
+  confineReads(root);
+}
