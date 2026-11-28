@@ -1994,12 +1994,22 @@ The approach applied to itself: decisions about how the approach is described an
 - Rejected (the executor's choice): never listing the check by the diff (it is a check of review of the rules of rounds, which a change of them touches; its verdict there is a verdict of the change, not of an analysis); taking a not-applicable as neutral in any round (a not-applicable in a round with an analysis is a verdict on it, which leaves it failed).
 - Concepts: `rule.round-verdicts`
 
+### D-194 · The writer of verdicts and the writer of a brief take a second after every record of the process kept, and a record of verdicts is never written over
+
+- Date: 2026-11-28 · Status: accepted
+- Source: the approved statement of task enforcement-verdicts-tests, version 21 (ddc3ba4db42c), its condition of done `npm test` and items 2 to 5, whose records the writers write; four tests of `tools/ont-check/test/verdicts-gate.test.mjs` passed on the executor's machine and failed in CI, on the pull request of the task. The cause and the fix are the executor's, not the owner's words.
+- Decision: adds to D-167, whose rule that a writer waits until the second has passed the records its record must follow named the round, done and the gate change, and not the writer of verdicts nor the brief. `ont-check --review --record` and `--run-record` give their records the time `timeAfter` gives after the latest record of the process kept, of a round, of a task or of a verdict, read from the names of the files, which begin with their time; and `round.mjs brief` gives `Brief-time:` so too (`field.manual-run.time`, `field.round-brief.lines`). A record dated after the clock is not of this clock and is not waited for, so that a record written by hand with a later time does not stop a writer. `--record` writes no record over one kept (`inv.records-immutable`): a name taken all the same, by a writer run beside it, refuses the whole table before any record is written.
+- Why: the name of a record of verdicts is its second, its check and a tail hashed from the check, the second and the reviewer, so that a second table on the same checks in the same second, the issue of verdicts after the verdicts of the narrow round on a fast machine, took the names of the first and wrote over records a commit had added, `RECORD_CHANGED`. And the readers compare times to the second, inclusive at the ends of the span of a round: a verdict given after a round's record in the second of that record read as given in the round, and a pass of the analysis of the cause given so became the latest verdict of the round it followed, so that the next list no longer named the check. The tests passed where a step of the tool took long enough to cross a second, and failed where it did not.
+- Rejected (the executor's choice): times finer than the second (every record kept, its name and every reader of its time would change); a tail hashed from the whole record (two tables would still tie in order, and an identical one would still take the name); waits added to the tests alone (the tool would still write over a record on a fast machine); waiting for a record dated after the clock (a record written by hand with a later time would stop the writer until then).
+- Concepts: `field.manual-run.time`, `field.round-brief.lines`, `action.record-verdicts`, `action.record-run`, `inv.records-immutable`
+
 ## Tentative
 
 ## Open questions
 
 ## History
 
+- 2026-11-28: D-194, which adds to D-167, accepted under the approved statement of task enforcement-verdicts-tests, version 21, items 2 to 5 and its condition of done, after four of its tests failed in CI and passed on the executor's machine.
 - 2026-11-27: D-193, which adds to D-188 and D-191, accepted under the approved statement of task enforcement-verdicts-tests, version 21, item 5, after round 5 of the review of its result.
 - 2026-11-27: D-191, which supersedes D-190 and adds to D-188, and D-192, which adds to D-187, accepted under the approved statement of task enforcement-verdicts-tests, version 21, items 2 and 5, after round 4 of the review of its result.
 - 2026-11-27: D-190, which supersedes D-189 and adds to D-188, accepted under the approved statement of task enforcement-verdicts-tests, version 21, items 2 and 5: the boundary moves into `lib.mjs`, on the approved gate paths.

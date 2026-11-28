@@ -31,7 +31,7 @@ import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { briefText, pendingBriefs, readBrief, removeBrief, writeBrief } from "./briefs.mjs";
 import { gitEnv, loadConfig } from "./lib.mjs";
-import { CLASS_SEP, NEVER_CARRIED, outsideRecord, parseRuns } from "./manual-runs.mjs";
+import { CLASS_SEP, NEVER_CARRIED, latestRecordTime, outsideRecord, parseRuns } from "./manual-runs.mjs";
 import { CAUSE, LATER_DIR, LIMITATIONS_FILE, TASK_NAME, isClean } from "./review-rounds.mjs";
 import { timeAfter, writeSealed } from "./seal.mjs";
 import { overspendOf, roundSpend, snapshotLines } from "./spend.mjs";
@@ -319,7 +319,8 @@ function main(argv) {
       Done: step === "result-review" ? ok.done.file : undefined,
       Cause: cause ? sha256(cause) : undefined,
       "Round-checks": win ? [...(win.rounds.some(hasFindings) ? ROUND_CHECKS : []), ...(cause ? [CAUSE_ROUND_CHECK] : [])].join(", ") || undefined : undefined,
-      "Brief-time": now(),
+      // After every record kept, so that no verdict given before the brief reads as given for its round (D-194).
+      "Brief-time": timeAfter(latestRecordTime(cfg)),
     };
     const at = writeBrief(cfg.base, brief);
     console.log(briefText(brief));

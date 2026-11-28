@@ -4,6 +4,7 @@
 // the evidence is; the evidence itself stays outside the repository (rule.manual-evidence-kept).
 // ont: ent.manual-run, rule.records-english-in-repo, edge.manual-run.check, field.manual-run.time, field.manual-run.commit, field.manual-run.stamp, field.manual-run.verdict, field.manual-run.by, field.manual-run.performer, field.manual-run.evidence, derived.current-run
 import { createHash } from "node:crypto";
+import { existsSync, readdirSync } from "node:fs";
 import { basename } from "node:path";
 import { listFiles, read } from "./lib.mjs";
 import { stampOf } from "./docs.mjs";
@@ -22,6 +23,25 @@ const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const realTime = (t) => TIME.test(t ?? "") && !Number.isNaN(Date.parse(t)) && new Date(t).toISOString().replace(".000Z", "Z") === t;
 const NAME = /^(\d{8}T\d{6}Z)-(check\.[a-z0-9.-]+)-[a-z0-9]{4}\.md$/;
 const compact = (t) => (t ?? "").replace(/[-:]/g, "");
+
+// The time of the latest record of the process kept, of a round, of a task or of a verdict, by its name, which
+// begins with its time, among those not after now: the writer of verdicts and the writer of a brief wait until
+// the second has passed it, so that no two tables of verdicts share a name and no verdict or brief ties in order
+// with a record before it (D-194). A record dated after the clock is not of this clock, and is not waited for.
+export function latestRecordTime(cfg, now = new Date()) {
+  const at = now.toISOString().replace(/\.\d{3}Z$/, "Z");
+  return (
+    [cfg.reviewRounds?.dir, cfg.taskRecords?.dir, cfg.manualRuns?.dir]
+      .filter((d) => d && existsSync(d))
+      .flatMap((d) => readdirSync(d))
+      .map((f) => f.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z-/))
+      .filter(Boolean)
+      .map((m) => `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`)
+      .filter((t) => t <= at)
+      .sort()
+      .at(-1) ?? null
+  );
+}
 
 // The stamp of a record covers the check's case, its proof and the stamps of its concepts, so that a
 // change to any makes the record no longer current, as a changed definition makes a doc section stale

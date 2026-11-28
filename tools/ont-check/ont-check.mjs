@@ -58,13 +58,13 @@ import {
 import { REF_TYPE, buildContracts, parseShows, renderContracts } from "./contracts.mjs";
 import { parseAnchors, renderReference, stampOf, undeclaredSections } from "./docs.mjs";
 import { CAUSE_CHECK, renderReview, reviewChange } from "./review.mjs";
-import { currentRun, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
+import { currentRun, latestRecordTime, parseRuns, recordVerdicts, runStamp } from "./manual-runs.mjs";
 import { renderRounds } from "./review-rounds.mjs";
 import { acceptanceProblems, failedCause, fixesRange, gitEnv, heldByFixes, openWindow, overlaps, overspendProblems, readStatement, readTaskInputs, resolveRecords, snapshotOverspendProblems, spendOf, taskBudget, taskIds, taskNext, taskState, taskView } from "./tasks.mjs";
 import { goalLineProblem } from "./spend.mjs";
 import { compareRules, githubRepo, localRecordNotes, recordDirs, workCommit } from "./merge-gate.mjs";
 import { briefsDir, pendingBriefs } from "./briefs.mjs";
-import { sealed } from "./seal.mjs";
+import { sealed, timeAfter } from "./seal.mjs";
 import { PERFORMERS, outsideRecord as outsideRecordText } from "./manual-runs.mjs";
 const outsideRecordOf = (text) => outsideRecordText(text, 1, { latinOnly: true });
 import { createHash } from "node:crypto";
@@ -1485,13 +1485,17 @@ if (flag("--review") > 0) {
     };
     // Each record names the base of the diff it was given on, Base: (D-187).
     // ont: field.manual-run.base
-    const res = recordVerdicts({ text: read(table), listed, runs, base: fullOf(base), stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly, unlisted: (id) => (id === CAUSE_CHECK ? ": it is listed after stagnation while the round's brief, which carries Cause:, is kept; record the verdicts before round.mjs record removes it (D-184)" : "") });
+    const res = recordVerdicts({ text: read(table), listed, runs, base: fullOf(base), stamp: stampFor, commit: dirty ? `${top}+working-tree` : top, now: new Date(timeAfter(latestRecordTime(cfg))), changedSince, runFresh, source: table, latinOnly: cfg.records.latinOnly, unlisted: (id) => (id === CAUSE_CHECK ? ": it is listed after stagnation while the round's brief, which carries Cause:, is kept; record the verdicts before round.mjs record removes it (D-184)" : "") });
     if (res.problems.length) {
       fail(`the table of verdicts is refused, no record written (${res.problems.length}):\n${res.problems.map((x) => `  ${x}`).join("\n")}`, 1);
     }
     // The first verdicts of a project make their directory.
     mkdirSync(cfg.manualRuns.dir, { recursive: true });
-    for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text);
+    // A record is never written over another (inv.records-immutable): its time follows every record kept, and a
+    // name taken all the same, by a writer run beside this one, refuses the table before any record is written.
+    const taken = res.records.filter((rec) => existsSync(join(cfg.manualRuns.dir, rec.file)));
+    if (taken.length) fail(`the table of verdicts is refused, no record written: ${taken.map((rec) => rec.file).join(", ")} already kept`, 1);
+    for (const rec of res.records) writeFileSync(join(cfg.manualRuns.dir, rec.file), rec.text, { flag: "wx" });
     console.log(`RECORDED ${res.records.length - res.carried} verdicts, ${res.carried} carried, in ${relative(cfg.base, cfg.manualRuns.dir)}`);
   }
 }
@@ -1534,7 +1538,7 @@ if (flag("--run-start") > 0 || flag("--run-record") > 0) {
       !evidence && "--evidence names no place of the evidence",
     ].filter(Boolean);
     if (wrong.length) fail(`no record of the run written: ${wrong.join("; ")}`, 1);
-    const time = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+    const time = timeAfter(latestRecordTime(cfg));
     const body = [`Check: ${id}`, `Time: ${time}`, `Commit: ${start.head}`, `Stamp: ${stampFor(c)}`, `Verdict: ${verdict}`, `By: ${by}`, `Performer: ${performer}`, `Evidence: ${evidence}`, "Origin: run", ""].join("\n");
     const outside = cfg.records.latinOnly ? outsideRecordOf(body) : [];
     if (outside.length) fail(`no record of the run written: ${outside.join("; ")}`, 1);

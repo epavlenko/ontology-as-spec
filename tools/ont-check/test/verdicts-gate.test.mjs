@@ -1646,3 +1646,77 @@ test("[check.merge-gate.round-verdicts-held] a verdict of the check of the analy
     assert.doesNotMatch(b.out, held);
   }
 });
+
+// ── CI-only failure of the guard tests ───────────────────────────────────────────────────────────────
+
+// The clock of a machine fast enough that the tool takes no time: every process of the tool reads one time
+// from the file ONT_TEST_CLOCK, which moves on only by the time a writer waits, and a wait takes no time of its
+// own. Two writers run one after the other write in one second, whatever the speed of the machine.
+const CLOCK = (() => {
+  const f = join(temp("ont-clock-"), "clock.mjs");
+  writeFileSync(f, `import { readFileSync, writeFileSync } from "node:fs";
+const file = process.env.ONT_TEST_CLOCK;
+const at = () => Number(readFileSync(file, "utf8"));
+const Real = Date;
+globalThis.Date = class extends Real {
+  constructor(...a) {
+    if (a.length) super(...a);
+    else super(at());
+  }
+  static now() {
+    return at();
+  }
+};
+const wait = Atomics.wait;
+Atomics.wait = (cell, i, v, ms) => {
+  if (!Number.isFinite(ms)) return wait(cell, i, v, ms);
+  writeFileSync(file, String(at() + ms));
+  return "timed-out";
+};
+`);
+  return f;
+})();
+
+test("[check.manual-run.record-time-after] CI-only failure of the guard tests: two tables of verdicts, a brief and a round written in one second of the clock are given later seconds, so that no record of verdicts takes the name of one already kept or ties with a round in order", () => {
+  const { p, st } = approved();
+  // The clock stands at the start of a second after every record kept so far.
+  const clock = writeFile(String(Math.ceil((Date.now() + 2000) / 1000) * 1000));
+  const env = { NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import ${CLOCK}`.trim(), ONT_TEST_CLOCK: clock };
+  const timeOf = (f) => readFileSync(f, "utf8").match(/^Time: (\S+)$/m)[1];
+  const kept = (d) => readdirSync(join(p.dir, d)).filter((f) => f.endsWith(".md")).map((f) => join(p.dir, d, f));
+  const table = (from, given = {}) => {
+    const rows = [...new Set([...p.list(from).map((c) => c.id), ...Object.keys(given)])].map((id) => `| ${id} | ${given[id]?.[0] ?? "pass"} | ${given[id]?.[1] ?? "read the change"} |`);
+    const r = p.tool("ont-check.mjs", ["--review", from, "--record", writeFile(`By: reviewer (other)\n\n${rows.join("\n")}\n`)], env);
+    assert.equal(r.code, 0, r.out);
+  };
+  work(p);
+  const d = p.tool("done.mjs", ["t", "--statement", st.file], env);
+  assert.equal(d.code, 0, d.out);
+  p.commit("done");
+  table("main");
+  p.commit("the verdicts");
+  const first = new Map(kept("reviews/runs").map((f) => [f, readFileSync(f, "utf8")]));
+  // A second table in the same second of the clock, on other verdicts: its records are new files, and the
+  // committed ones stay as they were written.
+  table("main", { [CODE]: ["fail", "[a slip of code] app/work.mjs:2 names a value twice"] });
+  assert.equal(p.git("status", "--porcelain", "--", "reviews/runs").split("\n").filter((l) => !l.startsWith("??")).join("\n"), "", "a record of verdicts kept was written over");
+  for (const [f, text] of first) assert.equal(readFileSync(f, "utf8"), text, f);
+  const second = kept("reviews/runs").filter((f) => !first.has(f));
+  assert.equal(second.length, first.size, second.join("\n"));
+  const last = (files) => files.map(timeOf).sort().at(-1);
+  assert.ok(second.every((f) => timeOf(f) > last([...first.keys()])), second.map(timeOf).join(" "));
+  p.commit("the second verdicts");
+  // The brief and the round in that second too: the brief follows the verdicts, the round its brief, and a
+  // table after the round follows the round, so that no verdict given after it reads as given in it.
+  const b = p.tool("round.mjs", ["brief", "t", "--step", "result", "--statement", st.file], env);
+  assert.equal(b.code, 0, b.out);
+  const briefTime = b.out.match(/^Brief-time: (\S+)$/m)[1];
+  assert.ok(briefTime > last(kept("reviews/runs")), `${briefTime} ${last(kept("reviews/runs"))}`);
+  const r = p.tool("round.mjs", ["record", "t", "--from", reply(briefLines(b.out), "By: m (p)\n\nCondition: holds\nAcceptance: clean")], env);
+  assert.equal(r.code, 0, r.out);
+  p.commit("a round of the result");
+  const before = new Set(kept("reviews/runs"));
+  table("main", { [CODE]: ["pass", "read it again after the round"] });
+  const third = kept("reviews/runs").filter((f) => !before.has(f));
+  assert.ok(third.length && third.every((f) => timeOf(f) > last(kept("reviews/rounds"))), `${third.map(timeOf).join(" ")} ${last(kept("reviews/rounds"))}`);
+});
